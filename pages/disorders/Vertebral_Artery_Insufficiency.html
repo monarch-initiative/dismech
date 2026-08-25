@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Vertebral Artery Insufficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Vertebral Artery Insufficiency</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Vertebral%20Artery%20Insufficiency"
@@ -3601,7 +3803,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Vertebral artery insufficiency is a posterior-circulation vascular disorder in which vertebral or vertebrobasilar stenosis, occlusion, dissection, injury, hypoplasia, or dynamic compression compromises perfusion or generates embolic ischemia in the brainstem, cerebellar, thalamic, or occipital circulation. Clinical presentations overlap with vertebrobasilar insufficiency, symptomatic vertebrobasilar disease, posterior-circulation transient ischemic attack, and posterior-circulation ischemic stroke.
+                Vertebral artery insufficiency is a posterior-circulation vascular disorder in which vertebral or vertebrobasilar stenosis, occlusion, dissection, injury, hypoplasia with superimposed stenosis or limited collateral reserve, or extrinsic bony compression compromises perfusion or generates embolic ischemia in the brainstem, cerebellar, thalamic, or occipital circulation. Clinical presentations overlap with vertebrobasilar insufficiency, symptomatic vertebrobasilar disease, posterior-circulation transient ischemic attack, and posterior-circulation ischemic stroke.
             </p>
 
         </header>
@@ -3699,6 +3901,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3707,7 +3911,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3728,7 +3932,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3809,17 +4013,19 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">11</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-vertebrobasilar-stenosis-or-occlusion" data-dismech-node="Atherosclerotic vertebrobasilar stenosis or occlusion" data-dismech-type="pathophysiology">
-                <div class="item-name">Atherosclerotic vertebrobasilar stenosis or occlusion</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-vertebral-artery-stenosis" data-dismech-node="Atherosclerotic vertebral artery stenosis" data-dismech-type="pathophysiology">
+                <div class="item-name">Atherosclerotic vertebral artery stenosis</div>
 
-                <div class="item-desc">Atherosclerotic narrowing or occlusion of extracranial or intracranial vertebral and basilar arteries is a major substrate for symptomatic vertebrobasilar disease. Severe stenosis or tandem vertebral-basilar disease can reduce immediate downstream flow and set up later hypoperfusion or thromboembolic ischemia.</div>
+                <div class="item-desc">Atherosclerotic narrowing of extracranial or intracranial vertebral arteries is a major substrate for symptomatic vertebrobasilar disease. Percentage stenosis alone does not predict vertebral flow loss; severe bilateral or tandem disease, a small residual lumen, contralateral occlusion or hypoplasia, and limited collateral reserve can create hemodynamic compromise.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         endothelial cell
@@ -3827,11 +4033,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3852,10 +4063,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3885,31 +4099,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vertebral artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001535">UBERON:0001535</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001535</a>
 
 
 
-                    </span>
-
-                    <span class="tag tag-location">
-                        basilar artery
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001633" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001633">UBERON:0001633</a>
-
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3921,7 +4129,7 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Posterior circulation hypoperfusion</span>
 
-	                            <span class="crosslink-desc">Severe vertebrobasilar stenosis or occlusion can reduce distal posterior-circulation flow.</span>
+	                            <span class="crosslink-desc">Severe vertebral stenosis can contribute to distal hypoperfusion when residual lumen and compensatory inflow or collateral capacity are inadequate.</span>
 
 
 	                        </div>
@@ -3929,7 +4137,7 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Vertebrobasilar thromboembolism</span>
 
-	                            <span class="crosslink-desc">Atherosclerotic plaque and low-flow states can contribute to local thrombus formation and distal embolic events.</span>
+	                            <span class="crosslink-desc">Atherosclerotic stenosis can produce a low-flow state that promotes local thrombus formation.</span>
 
 
 	                        </div>
@@ -3951,6 +4159,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21050408" target="_blank">PMID:21050408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3961,7 +4170,7 @@
                 <div class="evidence-snippet">"Over one-third of ischaemic strokes occur in the posterior circulation, and a leading cause is atherosclerotic vertebrobasilar disease."</div>
 
 
-                <div class="evidence-explanation">This identifies atherosclerotic vertebrobasilar disease as a leading posterior-circulation ischemic stroke cause.</div>
+                <div class="evidence-explanation">This identifies atherosclerotic disease encompassing vertebral lesions as a leading posterior-circulation ischemic stroke cause.</div>
 
 
 
@@ -3972,6 +4181,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3983,7 +4193,307 @@
                 <div class="evidence-snippet">"Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled."</div>
 
 
-                <div class="evidence-explanation">The VERiTAS cohort directly operationalized symptomatic vertebrobasilar disease as recent TIA or stroke with at least 50% vertebral or basilar atherosclerotic stenosis or occlusion.</div>
+                <div class="evidence-explanation">The VERiTAS cohort explicitly included symptomatic atherosclerotic vertebral stenosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The correlation between flow and the residual diameter at the site of stenosis was more robust and evident both in the BA (rho=0.65, p&lt;0.01 for BA) and VA (rho=0.62, p&lt;0.01) (Figure 1)."</div>
+
+
+                <div class="evidence-explanation">Residual vertebral lumen, rather than percentage stenosis alone, is associated with local vertebral flow; this only partially supports the broader disease node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-vertebral-artery-occlusion" data-dismech-node="Atherosclerotic vertebral artery occlusion" data-dismech-type="pathophysiology">
+                <div class="item-name">Atherosclerotic vertebral artery occlusion</div>
+
+                <div class="item-desc">Atherosclerotic vertebral artery occlusion is modeled separately from stenosis so interventions supported only for stenotic lesions do not export to chronic total occlusion. Occlusion can cause posterior-circulation ischemia, while its hemodynamic impact depends on the opposite vertebral artery and collateral circulation.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        vertebral artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001535</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation ischemia</span>
+
+	                            <span class="crosslink-desc">Vertebral artery occlusion can cause medullary or cerebellar ischemia and transient ischemic attacks.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled."</div>
+
+
+                <div class="evidence-explanation">The adjudicated atherosclerotic cohort included symptomatic vertebral artery occlusion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Occlusion of the extracranial V.A. causes ischemia in the medulla and/or cerebellum and usually manifests as brief TIAs."</div>
+
+
+                <div class="evidence-explanation">Establishes the posterior-circulation ischemic consequence of extracranial vertebral occlusion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-basilar-artery-stenosis-or-occlusion" data-dismech-node="Atherosclerotic basilar artery stenosis or occlusion" data-dismech-type="pathophysiology">
+                <div class="item-name">Atherosclerotic basilar artery stenosis or occlusion</div>
+
+                <div class="item-desc">Atherosclerotic narrowing or occlusion of the basilar artery is a distinct vertebrobasilar lesion that can reduce basilar and distal posterior-circulation flow. It is modeled separately so vertebral-artery interventions are not generalized to basilar disease.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000115</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000192</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        basilar artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001633" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001633</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:0001633 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation hypoperfusion</span>
+
+	                            <span class="crosslink-desc">Severe basilar artery stenosis or occlusion can reduce distal posterior-circulation flow.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled."</div>
+
+
+                <div class="evidence-explanation">The VERiTAS cohort explicitly included symptomatic atherosclerotic basilar stenosis or occlusion.</div>
 
 
 
@@ -3995,6 +4505,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4002,10 +4513,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"A relative threshold effect was evident, with flows dropping most significantly with ≥80% stenosis/occlusion (P&lt;0.05)."</div>
+                <div class="evidence-snippet">"For the BA, the largest and most statistically significant drop in vessel flow was first encountered at a threshold of 80% stenosis (p=0.02)"</div>
 
 
-                <div class="evidence-explanation">This supports severe stenosis or occlusion as a flow-limiting event in vertebrobasilar disease.</div>
+                <div class="evidence-explanation">Quantifies basilar-artery flow loss at severe stenosis.</div>
 
 
 
@@ -4037,17 +4548,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brainstem
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cerebellum
@@ -4055,11 +4573,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         occipital lobe
@@ -4067,13 +4590,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002021" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002021">UBERON:0002021</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002021" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:0002021 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4107,6 +4634,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21050408" target="_blank">PMID:21050408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4128,6 +4656,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4161,17 +4690,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4192,10 +4728,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4222,16 +4761,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4252,6 +4796,7 @@
 
 
                 </div>
+
 
 
 
@@ -4288,6 +4833,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21050408" target="_blank">PMID:21050408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4311,10 +4857,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dissection-or-traumatic-vertebral-artery-injury" data-dismech-node="Dissection or traumatic vertebral artery injury" data-dismech-type="pathophysiology">
-                <div class="item-name">Dissection or traumatic vertebral artery injury</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebral-artery-dissection" data-dismech-node="Vertebral artery dissection" data-dismech-type="pathophysiology">
+                <div class="item-name">Vertebral artery dissection</div>
 
-                <div class="item-desc">Vertebral artery dissection or trauma-related vertebral artery injury can compromise the arterial lumen by mural blood entry, intimal disruption, stenosis, occlusion, or embolic complications. This mechanism is distinct from chronic atherosclerotic vertebrobasilar stenosis but can converge on the same posterior-circulation TIA and stroke phenotypes.</div>
+                <div class="item-desc">Vertebral artery dissection begins with a wall tear and mural blood entry and can compromise the lumen through stenosis, occlusion, or thrombosis. It is modeled separately from other traumatic vertebral injuries because the headache and neck-pain evidence is specific to dissection.</div>
 
 
 
@@ -4330,19 +4876,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vertebral artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001535">UBERON:0001535</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001535</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4354,7 +4906,23 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Posterior circulation ischemia</span>
 
-	                            <span class="crosslink-desc">Dissection or traumatic injury can cause posterior-circulation TIA or stroke through stenosis, occlusion, or embolization.</span>
+	                            <span class="crosslink-desc">Vertebral artery dissection can cause posterior-circulation TIA or stroke through thrombosis or stenosis-driven hypoperfusion.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Headache</span>
+
+	                            <span class="crosslink-desc">Vertebral artery dissection can directly present with headache.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neck pain</span>
+
+	                            <span class="crosslink-desc">Vertebral artery dissection can directly present with neck pain.</span>
 
 
 	                        </div>
@@ -4366,7 +4934,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -4375,6 +4943,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4392,11 +4961,84 @@
 
             </div>
 
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-traumatic-vertebral-artery-injury" data-dismech-node="Traumatic vertebral artery injury" data-dismech-type="pathophysiology">
+                <div class="item-name">Traumatic vertebral artery injury</div>
+
+                <div class="item-desc">Blunt or penetrating cervical trauma can injure the vertebral artery and is associated with posterior-circulation stroke. The available meta-analysis quantifies that outcome but does not establish a direct transition, so vascular luminal compromise and thromboembolism remain known omitted intermediates.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        vertebral artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0001535</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation ischemia</span>
+
+	                            <span class="crosslink-desc">Traumatic vertebral artery injury is associated with posterior stroke through omitted vascular-lesion and thromboembolic mechanisms.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
             <div class="evidence-item" data-dismech-evidence="PMID:37924280" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924280" target="_blank">PMID:37924280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4405,10 +5047,404 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Identify the incidence, mechanism of injury, investigations, management, and outcomes of Vertebral Artery Injury (VAI) after cervical spine trauma."</div>
+                <div class="evidence-snippet">"VAI in cervical spine trauma has an approximate posterior circulation stroke risk of 9%."</div>
 
 
-                <div class="evidence-explanation">This systematic review frames traumatic vertebral artery injury as a clinically characterized vertebral artery disease mechanism.</div>
+                <div class="evidence-explanation">This meta-analysis quantifies posterior-circulation stroke risk after traumatic vertebral artery injury.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrinsic-bony-compression-of-the-vertebral-artery" data-dismech-node="Extrinsic bony compression of the vertebral artery" data-dismech-type="pathophysiology">
+                <div class="item-name">Extrinsic bony compression of the vertebral artery</div>
+
+                <div class="item-desc">Mechanical compression of the vertebral artery by adjacent bone is a non-atherosclerotic, structural route to vertebral artery stenosis. Because the vessel traverses the cervical transverse foramina, osteophytes and other bony encroachment can narrow the lumen. The cited review establishes bony compression as one of several non-atherosclerotic stenosis etiologies; it does not characterize position-dependent or rotational compression, so no dynamic-compression claim is asserted here.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        vertebral artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001535</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation hypoperfusion</span>
+
+	                            <span class="crosslink-desc">Bony encroachment can cause vertebral stenosis, which is the known omitted intermediate through which distal posterior-circulation flow may fall.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36127977" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36127977" target="_blank">PMID:36127977</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mechanical compression of the vertebral artery by bone can also cause stenosis of the vertebral artery."</div>
+
+
+                <div class="evidence-explanation">This review establishes bony compression as a distinct, non-atherosclerotic cause of vertebral artery stenosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36127977" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36127977" target="_blank">PMID:36127977</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There are several causes of vertebral artery stenosis, including atherosclerosis, calcification, dissections, fibromuscular dysplasia, giant cell arteritis, neurofibromatosis type 1, and bony compressions."</div>
+
+
+                <div class="evidence-explanation">This enumerates bony compression alongside atherosclerosis and dissection as a recognized stenosis etiology, supporting it as a separate mechanism node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-vertebral-artery-hypoplasia" data-dismech-node="Vertebral artery hypoplasia" data-dismech-type="pathophysiology">
+                <div class="item-name">Vertebral artery hypoplasia</div>
+
+                <div class="item-desc">Congenital hypoplasia produces a smaller-caliber vertebral artery. It is not itself sufficient to cause vertebrobasilar insufficiency, but a superimposed stenosis leaves a smaller residual lumen in a hypoplastic artery than the same percentage stenosis in a dominant artery.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        vertebral artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0001535</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation hypoperfusion</span>
+
+	                            <span class="crosslink-desc">With superimposed stenosis, a hypoplastic vertebral artery has a smaller residual lumen; stenosis and residual-lumen restriction are known intermediates between the congenital caliber variant and distal flow loss.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12870261" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation."</div>
+
+
+                <div class="evidence-explanation">This documents contralateral hypoplasia plus inadequate anterior-circulation collateral flow as the anatomical context in which unilateral stenosis became symptomatic; case-level evidence only.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40951011" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40951011" target="_blank">PMID:40951011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CTA revealed severe stenosis of the left vertebral artery V4 segment, with a hypoplastic right vertebral artery."</div>
+
+
+                <div class="evidence-explanation">A second case pairing a hypoplastic contralateral vertebral artery with symptomatic stenosis, supporting reduced collateral reserve as a modifying substrate; case-level evidence only.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the same % stenosis leads to a markedly smaller residual diameter in a hypoplastic 2 mm vertebral compared to a dominant 5 mm VA"</div>
+
+
+                <div class="evidence-explanation">Directly distinguishes the smaller residual lumen produced when stenosis affects a hypoplastic rather than dominant vertebral artery.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-limited-posterior-circulation-collateral-capacity" data-dismech-node="Limited posterior-circulation collateral capacity" data-dismech-type="pathophysiology">
+                <div class="item-name">Limited posterior-circulation collateral capacity</div>
+
+                <div class="item-desc">Limited compensatory supply through contralateral vertebral and posterior-circulation collateral pathways can leave distal flow low despite similar local stenosis severity. This regional hemodynamic state is distinct from vertebral artery hypoplasia and from the local stenotic lesion.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        vertebral artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001535" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001535</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vertebral artery (UBERON:0001535). UBERON:0001535 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-location">
+                        basilar artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001633" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0001633</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basilar artery (UBERON:0001633). UBERON:0001633 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior circulation hypoperfusion</span>
+
+	                            <span class="crosslink-desc">Inadequate collateral contribution is a determinant of low regional distal flow.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12870261" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation."</div>
+
+
+                <div class="evidence-explanation">Case-level evidence documents inadequate anterior-circulation collateral flow separately from the vertebral lesions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hemodynamic assessment of the distal flow status in the posterior circulation, which incorporates the contribution of any large vessel collateral flow, is not well predicted by either the severity or location of the disease"</div>
+
+
+                <div class="evidence-explanation">Establishes collateral-integrated distal flow as a regional hemodynamic property distinct from local stenosis severity and location.</div>
 
 
 
@@ -4440,17 +5476,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brainstem
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cerebellum
@@ -4458,11 +5501,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         occipital lobe
@@ -4470,16 +5518,83 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002021" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002021">UBERON:0002021</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002021" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in occipital lobe (UBERON:0002021). UBERON:0002021 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Vertigo</span>
+
+	                            <span class="crosslink-desc">Posterior-circulation ischemia can manifest clinically as vertigo.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Transient ischemic attack</span>
+
+	                            <span class="crosslink-desc">Transient posterior-circulation ischemia manifests as vertebrobasilar TIA.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ataxia</span>
+
+	                            <span class="crosslink-desc">Cerebellar or brainstem ischemia can manifest as ataxia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Diplopia</span>
+
+	                            <span class="crosslink-desc">Posterior-circulation ischemia involving ocular motor pathways can manifest as diplopia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysarthria</span>
+
+	                            <span class="crosslink-desc">Posterior-circulation neurologic dysfunction can manifest as dysarthria.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysphagia</span>
+
+	                            <span class="crosslink-desc">Brainstem or lower cranial nerve dysfunction from posterior-circulation ischemia can manifest as dysphagia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ischemic stroke</span>
+
+	                            <span class="crosslink-desc">Persistent posterior-circulation ischemia can culminate in ischemic stroke.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4489,11 +5604,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.2174/1573403x18666220317093131" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.2174/1573403x18666220317093131" target="_blank">DOI:10.2174/1573403x18666220317093131</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4543,7 +5659,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute posterior circulation thrombolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When vertebral artery insufficiency progresses to posterior-circulation ischemic stroke, intravenous thrombolysis may be considered according to acute stroke eligibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aggressive medical secondary prevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard medical management focuses on antithrombotic therapy, statins, and intensive cerebrovascular risk-factor control. For high-risk minor posterior circulation stroke or TIA, short-term dual antiplatelet therapy may be used before transition to monotherapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\", \"statin\"]}}, {\"id\": \"Atherosclerotic vertebrobasilar stenosis or occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic narrowing or occlusion of extracranial or intracranial vertebral and basilar arteries is a major substrate for symptomatic vertebrobasilar disease. Severe stenosis or tandem vertebral-basilar disease can reduce immediate downstream flow and set up later hypoperfusion or thromboembolic ischemia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\"], \"locations\": [\"vertebral artery\", \"basilar artery\"]}}, {\"id\": \"Basilar artery mechanical thrombectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical thrombectomy is relevant when posterior-circulation ischemic stroke involves basilar artery occlusion, while evidence for other posterior occlusion sites remains less certain.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dissection or traumatic vertebral artery injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebral artery dissection or trauma-related vertebral artery injury can compromise the arterial lumen by mural blood entry, intimal disruption, stenosis, occlusion, or embolic complications. This mechanism is distinct from chronic atherosclerotic vertebrobasilar stenosis but can converge on the same posterior-circulation TIA and stroke phenotypes.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Ischemic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent posterior-circulation ischemia can cause infarction in vertebrobasilar territories and carries substantial early recurrence risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002140\"}}, {\"id\": \"Microsurgical vertebral artery revascularization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vertebral endarterectomy, artery transposition, hybrid surgery, or related microsurgical reconstruction may be considered for selected proximal vertebral artery stenosis or occlusion when endovascular treatment is unsuitable, fails, or restenosis occurs.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Posterior circulation hypoperfusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low vertebrobasilar flow can impair perfusion reserve in posterior circulation territories. Quantitative magnetic resonance angiography (QMRA) is used in VERiTAS-style assessments to distinguish low from normal distal flow and to evaluate risk beyond anatomic stenosis alone.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brainstem\", \"cerebellum\", \"occipital lobe\"]}}, {\"id\": \"Posterior circulation ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Final common ischemic injury occurs when hemodynamic compromise or thromboembolism reduces oxygen delivery to brainstem, cerebellar, thalamic, or occipital territories, causing transient ischemic attacks, ischemic stroke, or recurrent posterior-circulation symptoms.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brainstem\", \"cerebellum\", \"occipital lobe\"]}}, {\"id\": \"Transient ischemic attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reversible posterior-circulation neurologic deficits can occur when vertebrobasilar flow or embolic protection is transiently inadequate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002326\"}}, {\"id\": \"Vertebral artery angioplasty and stenting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endovascular angioplasty and stenting can restore vertebral artery patency in selected symptomatic extracranial vertebral stenosis, especially with recurrent symptoms despite medical therapy, but trial evidence has not conclusively shown superiority over medical therapy and intracranial stenting carries higher procedural risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertebrobasilar thromboembolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebrobasilar atherostenosis can produce ischemia by thromboembolism as well as by flow failure. Hypoperfusion may also reduce embolus washout and promote local thrombus formation at diseased arterial segments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}], \"edges\": [{\"source\": \"Atherosclerotic vertebrobasilar stenosis or occlusion\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe vertebrobasilar stenosis or occlusion can reduce distal posterior-circulation flow.\"}, {\"source\": \"Atherosclerotic vertebrobasilar stenosis or occlusion\", \"target\": \"Vertebrobasilar thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atherosclerotic plaque and low-flow states can contribute to local thrombus formation and distal embolic events.\"}, {\"source\": \"Posterior circulation hypoperfusion\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained or recurrent low flow can culminate in posterior-circulation TIA or infarction.\"}, {\"source\": \"Vertebrobasilar thromboembolism\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Emboli or local thrombosis can occlude posterior-circulation branches and cause transient or completed ischemia.\"}, {\"source\": \"Dissection or traumatic vertebral artery injury\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dissection or traumatic injury can cause posterior-circulation TIA or stroke through stenosis, occlusion, or embolization.\"}, {\"source\": \"Aggressive medical secondary prevention\", \"target\": \"Transient ischemic attack\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive medical secondary prevention\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vertebral artery angioplasty and stenting\", \"target\": \"Atherosclerotic vertebrobasilar stenosis or occlusion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Microsurgical vertebral artery revascularization\", \"target\": \"Atherosclerotic vertebrobasilar stenosis or occlusion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute posterior circulation thrombolysis\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Basilar artery mechanical thrombectomy\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute posterior circulation thrombolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When vertebral artery insufficiency progresses to posterior-circulation ischemic stroke, intravenous thrombolysis may be considered according to acute stroke eligibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aggressive medical secondary prevention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard medical management focuses on antithrombotic therapy, statins, and intensive cerebrovascular risk-factor control. For high-risk minor posterior circulation stroke or TIA, short-term dual antiplatelet therapy may be used before transition to monotherapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\", \"statin\"]}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar or brainstem ischemia in vertebrobasilar insufficiency can manifest as impaired coordination or imbalance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"Atherosclerotic basilar artery stenosis or occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic narrowing or occlusion of the basilar artery is a distinct vertebrobasilar lesion that can reduce basilar and distal posterior-circulation flow. It is modeled separately so vertebral-artery interventions are not generalized to basilar disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\"], \"locations\": [\"basilar artery\"]}}, {\"id\": \"Atherosclerotic vascular risk factor burden\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Symptomatic vertebrobasilar disease cohorts have a high prevalence of conventional vascular risk factors, especially hypertension and hyperlipidemia; smoking, diabetes, coronary disease, obesity, and other vascular risk factors are tracked and treated as part of risk-factor management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Atherosclerotic vertebral artery occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic vertebral artery occlusion is modeled separately from stenosis so interventions supported only for stenotic lesions do not export to chronic total occlusion. Occlusion can cause posterior-circulation ischemia, while its hemodynamic impact depends on the opposite vertebral artery and collateral circulation.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Atherosclerotic vertebral artery stenosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic narrowing of extracranial or intracranial vertebral arteries is a major substrate for symptomatic vertebrobasilar disease. Percentage stenosis alone does not predict vertebral flow loss; severe bilateral or tandem disease, a small residual lumen, contralateral occlusion or hypoplasia, and limited collateral reserve can create hemodynamic compromise.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\"], \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Basilar artery mechanical thrombectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical thrombectomy is relevant when posterior-circulation ischemic stroke involves basilar artery occlusion, while evidence for other posterior occlusion sites remains less certain.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cervical spine trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cervical spine trauma can cause vertebral artery injury, which may lead to posterior-circulation stroke and can require conservative, antithrombotic, endovascular, or surgical management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior-circulation ischemia can affect ocular motor pathways and present with double vision.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000651\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral artery stenosis with inadequate collateral flow can produce posterior-circulation neurologic deficits including impaired articulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brainstem or lower cranial nerve involvement in vertebrobasilar ischemia can present with impaired swallowing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Extrinsic bony compression of the vertebral artery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanical compression of the vertebral artery by adjacent bone is a non-atherosclerotic, structural route to vertebral artery stenosis. Because the vessel traverses the cervical transverse foramina, osteophytes and other bony encroachment can narrow the lumen. The cited review establishes bony compression as one of several non-atherosclerotic stenosis etiologies; it does not characterize position-dependent or rotational compression, so no dynamic-compression claim is asserted here.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache can occur in dissection-associated vertebral artery presentations, particularly alongside neck pain, vertigo, TIA, or stroke.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Ischemic stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent posterior-circulation ischemia can cause infarction in vertebrobasilar territories and carries substantial early recurrence risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002140\"}}, {\"id\": \"Limited posterior-circulation collateral capacity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Limited compensatory supply through contralateral vertebral and posterior-circulation collateral pathways can leave distal flow low despite similar local stenosis severity. This regional hemodynamic state is distinct from vertebral artery hypoplasia and from the local stenotic lesion.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vertebral artery\", \"basilar artery\"]}}, {\"id\": \"Microsurgical vertebral artery revascularization\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vertebral endarterectomy, artery transposition, hybrid surgery, or related microsurgical reconstruction may be considered for selected proximal vertebral artery stenosis or occlusion when endovascular treatment is unsuitable, fails, or restenosis occurs.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neck pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neck pain is a common symptom in dissection-associated vertebral artery disease and can accompany posterior-circulation ischemic events.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030833\"}}, {\"id\": \"Posterior circulation hypoperfusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low vertebrobasilar flow can impair perfusion reserve in posterior circulation territories. Quantitative magnetic resonance angiography (QMRA) is used in VERiTAS-style assessments to distinguish low from normal distal flow and to evaluate risk beyond anatomic stenosis alone.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brainstem\", \"cerebellum\", \"occipital lobe\"]}}, {\"id\": \"Posterior circulation ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Final common ischemic injury occurs when hemodynamic compromise or thromboembolism reduces oxygen delivery to brainstem, cerebellar, thalamic, or occipital territories, causing transient ischemic attacks, ischemic stroke, or recurrent posterior-circulation symptoms.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brainstem\", \"cerebellum\", \"occipital lobe\"]}}, {\"id\": \"Transient ischemic attack\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reversible posterior-circulation neurologic deficits can occur when vertebrobasilar flow or embolic protection is transiently inadequate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002326\"}}, {\"id\": \"Traumatic vertebral artery injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blunt or penetrating cervical trauma can injure the vertebral artery and is associated with posterior-circulation stroke. The available meta-analysis quantifies that outcome but does not establish a direct transition, so vascular luminal compromise and thromboembolism remain known omitted intermediates.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Vertebral artery angioplasty and stenting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Endovascular angioplasty and stenting can restore vertebral artery patency in selected symptomatic extracranial vertebral stenosis, especially with recurrent symptoms despite medical therapy, but trial evidence has not conclusively shown superiority over medical therapy and intracranial stenting carries higher procedural risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertebral artery dissection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebral artery dissection begins with a wall tear and mural blood entry and can compromise the lumen through stenosis, occlusion, or thrombosis. It is modeled separately from other traumatic vertebral injuries because the headache and neck-pain evidence is specific to dissection.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Vertebral artery hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital hypoplasia produces a smaller-caliber vertebral artery. It is not itself sufficient to cause vertebrobasilar insufficiency, but a superimposed stenosis leaves a smaller residual lumen in a hypoplastic artery than the same percentage stenosis in a dominant artery.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"vertebral artery\"]}}, {\"id\": \"Vertebrobasilar thromboembolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vertebrobasilar atherostenosis can produce ischemia by thromboembolism as well as by flow failure. Hypoperfusion may also reduce embolus washout and promote local thrombus formation at diseased arterial segments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\", \"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertigo is a common symptom of atherosclerotic vertebrobasilar insufficiency and can present as recurrent episodic vertigo when vertebral artery stenosis and limited collateral flow threaten the posterior circulation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"Atherosclerotic vertebral artery stenosis\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe vertebral stenosis can contribute to distal hypoperfusion when residual lumen and compensatory inflow or collateral capacity are inadequate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced residual vertebral artery lumen\", \"Bilateral or tandem vertebrobasilar disease\", \"Contralateral occlusion or hypoplasia\", \"Limited collateral reserve\"]}, {\"source\": \"Atherosclerotic vertebral artery stenosis\", \"target\": \"Vertebrobasilar thromboembolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atherosclerotic stenosis can produce a low-flow state that promotes local thrombus formation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Posterior-circulation low-flow state\"]}, {\"source\": \"Atherosclerotic vertebral artery occlusion\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral artery occlusion can cause medullary or cerebellar ischemia and transient ischemic attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atherosclerotic basilar artery stenosis or occlusion\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe basilar artery stenosis or occlusion can reduce distal posterior-circulation flow.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation hypoperfusion\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained or recurrent low flow can culminate in posterior-circulation TIA or infarction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vertebrobasilar thromboembolism\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Emboli or local thrombosis can occlude posterior-circulation branches and cause transient or completed ischemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vertebral artery dissection\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral artery dissection can cause posterior-circulation TIA or stroke through thrombosis or stenosis-driven hypoperfusion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dissection-associated thrombosis or thromboembolism\", \"Stenosis-associated hypoperfusion\"]}, {\"source\": \"Vertebral artery dissection\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral artery dissection can directly present with headache.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vertebral artery dissection\", \"target\": \"Neck pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral artery dissection can directly present with neck pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Traumatic vertebral artery injury\", \"target\": \"Posterior circulation ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Traumatic vertebral artery injury is associated with posterior stroke through omitted vascular-lesion and thromboembolic mechanisms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Trauma-induced vertebral artery stenosis or occlusion\", \"Thromboembolism\"]}, {\"source\": \"Extrinsic bony compression of the vertebral artery\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bony encroachment can cause vertebral stenosis, which is the known omitted intermediate through which distal posterior-circulation flow may fall.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Compression-induced vertebral artery stenosis\"]}, {\"source\": \"Vertebral artery hypoplasia\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With superimposed stenosis, a hypoplastic vertebral artery has a smaller residual lumen; stenosis and residual-lumen restriction are known intermediates between the congenital caliber variant and distal flow loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Superimposed vertebral artery stenosis\", \"Reduced residual lumen\"]}, {\"source\": \"Limited posterior-circulation collateral capacity\", \"target\": \"Posterior circulation hypoperfusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequate collateral contribution is a determinant of low regional distal flow.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior-circulation ischemia can manifest clinically as vertigo.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Transient ischemic attack\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transient posterior-circulation ischemia manifests as vertebrobasilar TIA.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar or brainstem ischemia can manifest as ataxia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior-circulation ischemia involving ocular motor pathways can manifest as diplopia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior-circulation neurologic dysfunction can manifest as dysarthria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem or lower cranial nerve dysfunction from posterior-circulation ischemia can manifest as dysphagia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Posterior circulation ischemia\", \"target\": \"Ischemic stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent posterior-circulation ischemia can culminate in ischemic stroke.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atherosclerotic vascular risk factor burden\", \"target\": \"Atherosclerotic vertebral artery stenosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Conventional vascular risk-factor burden predisposes to atherosclerotic vertebral artery disease, but this aggregate clinical evidence does not establish a uniform directness or intermediate sequence.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Atherosclerotic vascular risk factor burden\", \"target\": \"Atherosclerotic basilar artery stenosis or occlusion\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Conventional vascular risk-factor burden is associated with atherosclerotic basilar artery disease, but the mixed-cohort evidence does not establish site-specific causal directness.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Atherosclerotic vascular risk factor burden\", \"target\": \"Atherosclerotic vertebral artery occlusion\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Conventional vascular risk-factor burden can predispose to atherosclerotic vertebral occlusion, but this aggregate evidence does not establish a uniform causal sequence to occlusion.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cervical spine trauma\", \"target\": \"Traumatic vertebral artery injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Blunt or penetrating cervical trauma is the initiating exposure for traumatic vertebral artery injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aggressive medical secondary prevention\", \"target\": \"Transient ischemic attack\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive medical secondary prevention\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vertebral artery angioplasty and stenting\", \"target\": \"Atherosclerotic vertebral artery stenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Microsurgical vertebral artery revascularization\", \"target\": \"Atherosclerotic vertebral artery stenosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Microsurgical vertebral artery revascularization\", \"target\": \"Atherosclerotic vertebral artery occlusion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute posterior circulation thrombolysis\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Basilar artery mechanical thrombectomy\", \"target\": \"Ischemic stroke\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4590,14 +5706,21 @@
                         Ischemic stroke
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ischemic stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002140</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4612,11 +5735,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.2174/1573403x18666220317093131" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.2174/1573403x18666220317093131" target="_blank">DOI:10.2174/1573403x18666220317093131</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4639,6 +5763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924280" target="_blank">PMID:37924280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4680,14 +5805,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4707,6 +5839,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4748,14 +5881,21 @@
                         Vertigo
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is vertigo (HP:0002321), qualified as temporality recurrent. HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4794,6 +5934,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40148099" target="_blank">PMID:40148099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4815,6 +5956,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40951011" target="_blank">PMID:40951011</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4856,14 +5998,21 @@
                         Diplopia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4883,6 +6032,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28680502" target="_blank">PMID:28680502</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4924,14 +6074,21 @@
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4951,6 +6108,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28680502" target="_blank">PMID:28680502</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4983,14 +6141,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5010,6 +6175,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5042,14 +6208,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5069,6 +6242,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5110,14 +6284,21 @@
                         Abnormal vertebral artery morphology
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal vertebral artery morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030321">HP:0030321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal vertebral artery morphology (HP:0030321). HP:0030321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5132,23 +6313,24 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:12870261" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12870261" target="_blank">PMID:12870261</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Details of the VERiTAS study design have been previously published10. Briefly, the study is a multi-center prospective cohort study of patients with ≥ 50% extracranial or intracranial atherosclerotic VB stenosis or occlusion based upon conventional digital subtraction angiography (DSA) or..."</div>
+                <div class="evidence-snippet">"Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation."</div>
 
 
-                <div class="evidence-explanation">This supports vertebral or basilar stenosis/occlusion as the defining vascular lesion in symptomatic vertebrobasilar disease cohorts.</div>
+                <div class="evidence-explanation">Case-level angiography directly documents hypoplasia and stenosis of the vertebral arteries; basilar lesions and collateral flow are not classified as vertebral morphology here.</div>
 
 
 
@@ -5169,14 +6351,21 @@
                         Transient ischemic attack
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Transient ischemic attack
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is transient ischemic attack (HP:0002326), qualified as temporality transient. HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5215,6 +6404,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5236,6 +6426,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5268,14 +6459,21 @@
                         Neck pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neck pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030833">HP:0030833</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030833" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030833</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is neck pain (HP:0030833). HP:0030833 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5295,6 +6493,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s41983-024-00893-x" target="_blank">DOI:10.1186/s41983-024-00893-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5358,6 +6557,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5373,7 +6575,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5403,17 +6610,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         aspirin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:15365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         statin
@@ -5421,10 +6635,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_87631" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:87631">CHEBI:87631</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_87631" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:87631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses statin (CHEBI:87631). CHEBI:87631 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5438,17 +6655,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         transient ischemic attack
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ischemic stroke
@@ -5456,10 +6680,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5478,6 +6705,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21050408" target="_blank">PMID:21050408</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5500,6 +6728,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658624" target="_blank">PMID:35658624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5530,7 +6759,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">placement of a stent</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">placement of a stent<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is placement of a stent, annotated with Stenting (NCIT:C71316). NCIT:C71316 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Stenting</span>
 
 
@@ -5568,13 +6802,46 @@
 
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            MODULATES
+                            RESTORES
                         </span>
-                        <strong style="color: #5b21b6;">Atherosclerotic vertebrobasilar stenosis or occlusion</strong>
+                        <strong style="color: #5b21b6;">Atherosclerotic vertebral artery stenosis</strong>
 
                         <span style="color: #7c3aed;"> &mdash; Stenting attempts to restore arterial lumen and improve flow across stenotic vertebral artery segments.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Percutaneous transluminal angioplasty and stenting of symptomatic vertebral artery stenosis are promising options widely used in clinical practice with good technical results; however, the improved clinical outcome has been examined in various clinical trials without a sufficient sample size to..."</div>
+
+
+                <div class="evidence-explanation">Supports the intervention acting on the stenosis node with good technical result, while preserving the unresolved outcome question.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -5591,11 +6858,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.2174/1573403x18666220317093131" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.2174/1573403x18666220317093131" target="_blank">DOI:10.2174/1573403x18666220317093131</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5618,6 +6886,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40951011" target="_blank">PMID:40951011</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5648,7 +6917,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure on vascular system</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">surgical procedure on vascular system<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure on vascular system, annotated with Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vascular Surgical Procedure</span>
 
 
@@ -5686,13 +6960,115 @@
 
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            MODULATES
+                            RESTORES
                         </span>
-                        <strong style="color: #5b21b6;">Atherosclerotic vertebrobasilar stenosis or occlusion</strong>
+                        <strong style="color: #5b21b6;">Atherosclerotic vertebral artery stenosis</strong>
 
                         <span style="color: #7c3aed;"> &mdash; Microsurgical reconstruction attempts to restore vertebral artery inflow or bypass obstructive anatomy.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39673653" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39673653" target="_blank">PMID:39673653</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Postoperative imaging examinations in the 34 patients (Males: 79.4%; Mean age: 66.7 ± 9.6 years) revealed patent vertebral and supplying arteries."</div>
+
+
+                <div class="evidence-explanation">Post-operative vessel patency is the direct imaging readout that this link&#39;s restored-inflow claim asserts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37483445" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37483445" target="_blank">PMID:37483445</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microsurgical reconstruction is an alternative option that can effectively treat refractory proximal VASO disease and in-stent stenosis, with a high rate of postoperative vascular recirculation."</div>
+
+
+                <div class="evidence-explanation">Restored vascular recirculation is the mechanism by which this intervention acts on vertebral stenosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Atherosclerotic vertebral artery occlusion</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Selected microsurgical reconstructions can restore vertebral inflow or bypass proximal occlusive anatomy.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37483445" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37483445" target="_blank">PMID:37483445</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microsurgical reconstruction is an alternative option that can effectively treat refractory proximal VASO disease and in-stent stenosis, with a high rate of postoperative vascular recirculation."</div>
+
+
+                <div class="evidence-explanation">The VASO cohort includes proximal vertebral occlusive disease and reports restoration of vascular recirculation after reconstruction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -5715,6 +7091,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37483445" target="_blank">PMID:37483445</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5736,6 +7113,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39673653" target="_blank">PMID:39673653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5766,7 +7144,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5802,16 +7185,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5830,6 +7218,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658624" target="_blank">PMID:35658624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5860,7 +7249,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">thrombectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">thrombectomy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is thrombectomy (NCIT:C52003). NCIT:C52003 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Thrombectomy</span>
 
 
@@ -5897,16 +7291,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5925,6 +7324,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35658624" target="_blank">PMID:35658624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5966,7 +7366,11 @@
 
 
 
-                <div class="item-desc">Symptomatic vertebrobasilar disease cohorts are enriched for conventional vascular risk factors, especially hypertension and hyperlipidemia; smoking, diabetes, coronary disease, obesity, and other vascular risk factors are tracked and treated as part of risk-factor management.</div>
+
+
+
+
+                <div class="item-desc">Symptomatic vertebrobasilar disease cohorts have a high prevalence of conventional vascular risk factors, especially hypertension and hyperlipidemia; smoking, diabetes, coronary disease, obesity, and other vascular risk factors are tracked and treated as part of risk-factor management.</div>
 
 
 
@@ -5981,6 +7385,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6004,6 +7409,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21050408" target="_blank">PMID:21050408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6026,10 +7432,163 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic vertebral artery stenosis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Conventional vascular risk-factor burden predisposes to atherosclerotic vertebral artery disease, but this aggregate clinical evidence does not establish a uniform directness or intermediate sequence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, therapies are targeted at reducing atherosclerotic risk factors, such as hypertension, hyperlipidaemia, smoking, diabetes mellitus, and other lifestyle modifications are recommended for all patients with V.A. disease."</div>
+
+
+                <div class="evidence-explanation">Identifies modifiable atherosclerotic risk factors in vertebral artery disease but does not directly observe the omitted plaque-development sequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic basilar artery stenosis or occlusion</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Conventional vascular risk-factor burden is associated with atherosclerotic basilar artery disease, but the mixed-cohort evidence does not establish site-specific causal directness.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25977279" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25977279" target="_blank">PMID:25977279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The cohort (n=72; 44% women) had a mean age of 65.6 years; 72% presented with ischemic stroke. Hypertension (93%) and hyperlipidemia (81%) were the most prevalent vascular risk factors."</div>
+
+
+                <div class="evidence-explanation">The selected mixed vertebral/basilar cohort documents high risk-factor prevalence but has no comparator and does not isolate a basilar causal effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic vertebral artery occlusion</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Conventional vascular risk-factor burden can predispose to atherosclerotic vertebral occlusion, but this aggregate evidence does not establish a uniform causal sequence to occlusion.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35301953" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, therapies are targeted at reducing atherosclerotic risk factors, such as hypertension, hyperlipidaemia, smoking, diabetes mellitus, and other lifestyle modifications are recommended for all patients with V.A. disease."</div>
+
+
+                <div class="evidence-explanation">Identifies modifiable atherosclerotic risk factors in vertebral artery disease but does not directly observe progression from plaque to occlusion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-cervical-spine-trauma" data-dismech-node="Cervical spine trauma" data-dismech-type="environmental">
                 <div class="item-name">Cervical spine trauma</div>
+
+
+
+
 
 
 
@@ -6048,6 +7607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924280" target="_blank">PMID:37924280</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6070,6 +7630,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Traumatic vertebral artery injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Blunt or penetrating cervical trauma is the initiating exposure for traumatic vertebral artery injury.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37924280" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37924280" target="_blank">PMID:37924280</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"20-studies (n = 503) included data on trauma type; 75.5% (n = 380) suffered blunt trauma and 24.5% (n = 123) penetrating."</div>
+
+
+                <div class="evidence-explanation">The meta-analysis directly characterizes blunt and penetrating trauma among traumatic vertebral artery injury cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6094,7 +7707,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05885932">
                 <div class="item-name">
                     NCT05885932
 
@@ -6111,17 +7724,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         transient ischemic attack
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ischemic stroke
@@ -6129,10 +7749,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6150,6 +7773,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05885932" target="_blank">clinicaltrials:NCT05885932</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6174,7 +7798,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03201432">
                 <div class="item-name">
                     NCT03201432
 
@@ -6191,16 +7815,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6218,6 +7847,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03201432" target="_blank">clinicaltrials:NCT03201432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6248,6 +7878,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6264,12 +7897,12 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Vertebral Artery Insufficiency
 creation_date: &#34;2026-05-06T19:00:20Z&#34;
-updated_date: &#34;2026-05-06T19:56:26Z&#34;
 description: &gt;-
   Vertebral artery insufficiency is a posterior-circulation vascular disorder in
   which vertebral or vertebrobasilar stenosis, occlusion, dissection, injury,
-  hypoplasia, or dynamic compression compromises perfusion or generates embolic
-  ischemia in the brainstem, cerebellar, thalamic, or occipital circulation.
+  hypoplasia with superimposed stenosis or limited collateral reserve, or
+  extrinsic bony compression compromises perfusion or generates embolic ischemia
+  in the brainstem, cerebellar, thalamic, or occipital circulation.
   Clinical presentations overlap with vertebrobasilar insufficiency,
   symptomatic vertebrobasilar disease, posterior-circulation transient ischemic
   attack, and posterior-circulation ischemic stroke.
@@ -6291,8 +7924,8 @@ synonyms:
 - Vertebral artery occlusive disease
 - Posterior circulation ischemia due to vertebral artery disease
 references:
-- reference: DOI:10.2174/1573403x18666220317093131
-  title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review&#34;
+- reference: PMID:35301953
+  title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
   found_in:
   - Vertebral_Artery_Insufficiency-deep-research-falcon.md
 - reference: DOI:10.1111/j.1747-4949.2010.00528.x
@@ -6340,22 +7973,19 @@ references:
 - reference: PMID:12870261
   title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
 pathophysiology:
-- name: Atherosclerotic vertebrobasilar stenosis or occlusion
+- name: Atherosclerotic vertebral artery stenosis
   description: &gt;-
-    Atherosclerotic narrowing or occlusion of extracranial or intracranial
-    vertebral and basilar arteries is a major substrate for symptomatic
-    vertebrobasilar disease. Severe stenosis or tandem vertebral-basilar disease
-    can reduce immediate downstream flow and set up later hypoperfusion or
-    thromboembolic ischemia.
+    Atherosclerotic narrowing of extracranial or intracranial vertebral arteries
+    is a major substrate for symptomatic vertebrobasilar disease. Percentage
+    stenosis alone does not predict vertebral flow loss; severe bilateral or
+    tandem disease, a small residual lumen, contralateral occlusion or
+    hypoplasia, and limited collateral reserve can create hemodynamic compromise.
+  biological_scale: TISSUE
   locations:
   - preferred_term: vertebral artery
     term:
       id: UBERON:0001535
       label: vertebral artery
-  - preferred_term: basilar artery
-    term:
-      id: UBERON:0001633
-      label: basilar artery
   cell_types:
   - preferred_term: endothelial cell
     term:
@@ -6372,32 +8002,155 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Over one-third of ischaemic strokes occur in the posterior circulation, and a leading cause is atherosclerotic vertebrobasilar disease.
-    explanation: This identifies atherosclerotic vertebrobasilar disease as a leading posterior-circulation ischemic stroke cause.
+    explanation: This identifies atherosclerotic disease encompassing vertebral lesions as a leading posterior-circulation ischemic stroke cause.
   - reference: PMID:25977279
     reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled.
-    explanation: The VERiTAS cohort directly operationalized symptomatic vertebrobasilar disease as recent TIA or stroke with at least 50% vertebral or basilar atherosclerotic stenosis or occlusion.
+    explanation: The VERiTAS cohort explicitly included symptomatic atherosclerotic vertebral stenosis.
+  - reference: PMID:25977279
+    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The correlation between flow and the residual diameter at the site of stenosis was more robust and evident both in the BA (rho=0.65, p&lt;0.01 for BA) and VA (rho=0.62, p&lt;0.01) (Figure 1).
+    explanation: Residual vertebral lumen, rather than percentage stenosis alone, is associated with local vertebral flow; this only partially supports the broader disease node.
+  downstream:
+  - target: Posterior circulation hypoperfusion
+    description: Severe vertebral stenosis can contribute to distal hypoperfusion when residual lumen and compensatory inflow or collateral capacity are inadequate.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Reduced residual vertebral artery lumen
+    - Bilateral or tandem vertebrobasilar disease
+    - Contralateral occlusion or hypoplasia
+    - Limited collateral reserve
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Tandem disease also had a significant impact on downstream flow: 43 ml/min in multifocal disease (concomitant BA and VA) compared to 71 ml/min in the patients with only BA or only VA disease (p=0.01).
+      explanation: Supports reduced downstream flow in tandem disease but does not establish an unqualified vertebral-stenosis effect, so the link is indirect and partial.
+    - reference: PMID:28680502
+      reference_title: &#34;Pathophysiology and Diagnosis of Vertebrobasilar Insufficiency: A Review of the Literature.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The most frequent cause of the hemodynamic changes leading to VBI is atherosclerosis.
+      explanation: Names atherosclerosis as a cause of hemodynamic compromise but does not isolate vertebral percentage stenosis or the omitted compensatory factors.
+  - target: Vertebrobasilar thromboembolism
+    description: Atherosclerotic stenosis can produce a low-flow state that promotes local thrombus formation.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Posterior-circulation low-flow state
+    evidence:
+    - reference: PMID:21050408
+      reference_title: &#34;Vertebrobasilar Flow Evaluation and Risk of Transient Ischaemic Attack and Stroke study (VERiTAS): rationale and design.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Low flow may also promote local thrombus formation at the site of disease, with resultant stroke (3).
+      explanation: &gt;-
+        Establishes low flow as the known intermediate between stenotic disease and
+        local thrombosis; no direct plaque-embolism claim is made by this edge.
+- name: Atherosclerotic vertebral artery occlusion
+  description: &gt;-
+    Atherosclerotic vertebral artery occlusion is modeled separately from
+    stenosis so interventions supported only for stenotic lesions do not export
+    to chronic total occlusion. Occlusion can cause posterior-circulation
+    ischemia, while its hemodynamic impact depends on the opposite vertebral
+    artery and collateral circulation.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: vertebral artery
+    term:
+      id: UBERON:0001535
+      label: vertebral artery
+  evidence:
   - reference: PMID:25977279
     reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      A relative threshold effect was evident, with flows dropping most significantly with ≥80% stenosis/occlusion (P&lt;0.05).
-    explanation: This supports severe stenosis or occlusion as a flow-limiting event in vertebrobasilar disease.
+      Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled.
+    explanation: The adjudicated atherosclerotic cohort included symptomatic vertebral artery occlusion.
+  - reference: PMID:35301953
+    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Occlusion of the extracranial V.A. causes ischemia in the medulla and/or cerebellum and usually manifests as brief TIAs.
+    explanation: Establishes the posterior-circulation ischemic consequence of extracranial vertebral occlusion.
+  downstream:
+  - target: Posterior circulation ischemia
+    description: Vertebral artery occlusion can cause medullary or cerebellar ischemia and transient ischemic attacks.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35301953
+      reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Occlusion of the extracranial V.A. causes ischemia in the medulla and/or cerebellum and usually manifests as brief TIAs.
+      explanation: Directly supports the occlusion-to-posterior-ischemia edge.
+- name: Atherosclerotic basilar artery stenosis or occlusion
+  description: &gt;-
+    Atherosclerotic narrowing or occlusion of the basilar artery is a distinct
+    vertebrobasilar lesion that can reduce basilar and distal
+    posterior-circulation flow. It is modeled separately so vertebral-artery
+    interventions are not generalized to basilar disease.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: basilar artery
+    term:
+      id: UBERON:0001633
+      label: basilar artery
+  cell_types:
+  - preferred_term: endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000192
+      label: smooth muscle cell
+  evidence:
+  - reference: PMID:25977279
+    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled.
+    explanation: The VERiTAS cohort explicitly included symptomatic atherosclerotic basilar stenosis or occlusion.
+  - reference: PMID:25977279
+    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      For the BA, the largest and most statistically significant drop in vessel flow was first encountered at a threshold of 80% stenosis (p=0.02)
+    explanation: Quantifies basilar-artery flow loss at severe stenosis.
   downstream:
   - target: Posterior circulation hypoperfusion
-    description: Severe vertebrobasilar stenosis or occlusion can reduce distal posterior-circulation flow.
-  - target: Vertebrobasilar thromboembolism
-    description: Atherosclerotic plaque and low-flow states can contribute to local thrombus formation and distal embolic events.
+    description: Severe basilar artery stenosis or occlusion can reduce distal posterior-circulation flow.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        BA flows correlated negatively with percentage stenosis in the affected vessel and positively to the minimal diameter at the stenosis site (P&lt;0.01).
+      explanation: Directly quantifies the basilar-stenosis-to-flow relationship represented by this edge.
 - name: Posterior circulation hypoperfusion
   description: &gt;-
     Low vertebrobasilar flow can impair perfusion reserve in posterior
     circulation territories. Quantitative magnetic resonance angiography (QMRA)
     is used in VERiTAS-style assessments to distinguish low from normal distal
     flow and to evaluate risk beyond anatomic stenosis alone.
+  biological_scale: TISSUE
   locations:
   - preferred_term: brainstem
     term:
@@ -6429,11 +8182,21 @@ pathophysiology:
   downstream:
   - target: Posterior circulation ischemia
     description: Sustained or recurrent low flow can culminate in posterior-circulation TIA or infarction.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:21050408
+      reference_title: &#34;Vertebrobasilar Flow Evaluation and Risk of Transient Ischaemic Attack and Stroke study (VERiTAS): rationale and design.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Preliminary studies indicate that stroke risk in vertebrobasilar disease is strongly related to haemodynamic compromise, which can be measured noninvasively using quantitative magnetic resonance angiography.
+      explanation: Ties haemodynamic compromise to downstream stroke risk, which is the claim this edge makes.
 - name: Vertebrobasilar thromboembolism
   description: &gt;-
     Vertebrobasilar atherostenosis can produce ischemia by thromboembolism as
     well as by flow failure. Hypoperfusion may also reduce embolus washout and
     promote local thrombus formation at diseased arterial segments.
+  biological_scale: TISSUE
   biological_processes:
   - preferred_term: blood coagulation
     modifier: INCREASED
@@ -6460,13 +8223,22 @@ pathophysiology:
   downstream:
   - target: Posterior circulation ischemia
     description: Emboli or local thrombosis can occlude posterior-circulation branches and cause transient or completed ischemia.
-- name: Dissection or traumatic vertebral artery injury
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:21050408
+      reference_title: &#34;Vertebrobasilar Flow Evaluation and Risk of Transient Ischaemic Attack and Stroke study (VERiTAS): rationale and design.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Furthermore, both embolic and flow processes can synergize to increase stroke risk; a proposed mechanism is the reduced wash-out of emboli from the distal circulation in hypoperfused regions (6, 7).
+      explanation: Supports embolic processes culminating in posterior-circulation stroke, including synergy with hypoperfusion.
+- name: Vertebral artery dissection
   description: &gt;-
-    Vertebral artery dissection or trauma-related vertebral artery injury can
-    compromise the arterial lumen by mural blood entry, intimal disruption,
-    stenosis, occlusion, or embolic complications. This mechanism is distinct
-    from chronic atherosclerotic vertebrobasilar stenosis but can converge on
-    the same posterior-circulation TIA and stroke phenotypes.
+    Vertebral artery dissection begins with a wall tear and mural blood entry
+    and can compromise the lumen through stenosis, occlusion, or thrombosis.
+    It is modeled separately from other traumatic vertebral injuries because
+    the headache and neck-pain evidence is specific to dissection.
+  biological_scale: TISSUE
   locations:
   - preferred_term: vertebral artery
     term:
@@ -6480,22 +8252,232 @@ pathophysiology:
     snippet: &gt;-
       Vertebral artery dissection occurs due to a tear in the vertebral artery wall, which results in blood flow entering the blood vessel wall.
     explanation: This supports mural dissection as a vertebral artery mechanism that can lead to insufficiency or ischemia.
+  downstream:
+  - target: Posterior circulation ischemia
+    description: Vertebral artery dissection can cause posterior-circulation TIA or stroke through thrombosis or stenosis-driven hypoperfusion.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Dissection-associated thrombosis or thromboembolism
+    - Stenosis-associated hypoperfusion
+    evidence:
+    - reference: DOI:10.1186/s41983-024-00893-x
+      reference_title: &#34;Vertebral artery dissection from etiopathogenesis to management therapy: a narrative review with neuroimaging’s case illustration&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Thrombosis between the arteries is the most common cause of stroke-like symptoms in VAD, followed by hypoperfusion due to stenosis.
+      explanation: Names the two known intermediate routes by which dissection reaches the ischemia node.
+  - target: Headache
+    description: Vertebral artery dissection can directly present with headache.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: DOI:10.1186/s41983-024-00893-x
+      reference_title: &#34;Vertebral artery dissection from etiopathogenesis to management therapy: a narrative review with neuroimaging’s case illustration&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The most frequent clinical manifestations include stroke, transient ischemic attack, neck pain, headaches, and vertigo.
+      explanation: Links the dissection mechanism to its headache manifestation.
+  - target: Neck pain
+    description: Vertebral artery dissection can directly present with neck pain.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: DOI:10.1186/s41983-024-00893-x
+      reference_title: &#34;Vertebral artery dissection from etiopathogenesis to management therapy: a narrative review with neuroimaging’s case illustration&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The most frequent clinical manifestations include stroke, transient ischemic attack, neck pain, headaches, and vertigo.
+      explanation: Links the dissection mechanism to its neck-pain manifestation.
+- name: Traumatic vertebral artery injury
+  description: &gt;-
+    Blunt or penetrating cervical trauma can injure the vertebral artery and is
+    associated with posterior-circulation stroke. The available meta-analysis
+    quantifies that outcome but does not establish a direct transition, so
+    vascular luminal compromise and thromboembolism remain known omitted
+    intermediates.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: vertebral artery
+    term:
+      id: UBERON:0001535
+      label: vertebral artery
+  evidence:
   - reference: PMID:37924280
     reference_title: A Systematic Review and Meta-Analysis of Vertebral Artery Injury After Cervical Spine Trauma.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Identify the incidence, mechanism of injury, investigations, management, and outcomes of Vertebral Artery Injury (VAI) after cervical spine trauma.
-    explanation: This systematic review frames traumatic vertebral artery injury as a clinically characterized vertebral artery disease mechanism.
+      VAI in cervical spine trauma has an approximate posterior circulation stroke risk of 9%.
+    explanation: This meta-analysis quantifies posterior-circulation stroke risk after traumatic vertebral artery injury.
   downstream:
   - target: Posterior circulation ischemia
-    description: Dissection or traumatic injury can cause posterior-circulation TIA or stroke through stenosis, occlusion, or embolization.
+    description: Traumatic vertebral artery injury is associated with posterior stroke through omitted vascular-lesion and thromboembolic mechanisms.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Trauma-induced vertebral artery stenosis or occlusion
+    - Thromboembolism
+    evidence:
+    - reference: PMID:37924280
+      reference_title: A Systematic Review and Meta-Analysis of Vertebral Artery Injury After Cervical Spine Trauma.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        From the 16 studies which reported data on outcomes, 8.87% (95% CI 5.34- 12.99) of patients with VAI had a posterior stroke.
+      explanation: Quantifies the injury-stroke association but does not establish the omitted intermediate sequence, so support is partial.
+- name: Extrinsic bony compression of the vertebral artery
+  description: &gt;-
+    Mechanical compression of the vertebral artery by adjacent bone is a
+    non-atherosclerotic, structural route to vertebral artery stenosis. Because
+    the vessel traverses the cervical transverse foramina, osteophytes and other
+    bony encroachment can narrow the lumen. The cited review establishes bony
+    compression as one of several
+    non-atherosclerotic stenosis etiologies; it does not characterize
+    position-dependent or rotational compression, so no dynamic-compression
+    claim is asserted here.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: vertebral artery
+    term:
+      id: UBERON:0001535
+      label: vertebral artery
+  evidence:
+  - reference: PMID:36127977
+    reference_title: &#34;Vertebral Artery Stenosis: A Narrative Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Mechanical compression of the vertebral artery by bone can also cause stenosis of the vertebral artery.
+    explanation: This review establishes bony compression as a distinct, non-atherosclerotic cause of vertebral artery stenosis.
+  - reference: PMID:36127977
+    reference_title: &#34;Vertebral Artery Stenosis: A Narrative Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      There are several causes of vertebral artery stenosis, including atherosclerosis, calcification, dissections, fibromuscular dysplasia, giant cell arteritis, neurofibromatosis type 1, and bony compressions.
+    explanation: This enumerates bony compression alongside atherosclerosis and dissection as a recognized stenosis etiology, supporting it as a separate mechanism node.
+  downstream:
+  - target: Posterior circulation hypoperfusion
+    description: &gt;-
+      Bony encroachment can cause vertebral stenosis, which is the known omitted
+      intermediate through which distal posterior-circulation flow may fall.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Compression-induced vertebral artery stenosis
+    evidence:
+    - reference: PMID:36127977
+      reference_title: &#34;Vertebral Artery Stenosis: A Narrative Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Mechanical compression of the vertebral artery by bone can also cause stenosis of the vertebral artery.
+      explanation: &gt;-
+        Establishes compression-induced stenosis as the known intermediate; the
+        source does not itself establish a direct compression-to-flow transition.
+- name: Vertebral artery hypoplasia
+  description: &gt;-
+    Congenital hypoplasia produces a smaller-caliber vertebral artery. It is not
+    itself sufficient to cause vertebrobasilar insufficiency, but a superimposed
+    stenosis leaves a smaller residual lumen in a hypoplastic artery than the same
+    percentage stenosis in a dominant artery.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: vertebral artery
+    term:
+      id: UBERON:0001535
+      label: vertebral artery
+  evidence:
+  - reference: PMID:12870261
+    reference_title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation.
+    explanation: This documents contralateral hypoplasia plus inadequate anterior-circulation collateral flow as the anatomical context in which unilateral stenosis became symptomatic; case-level evidence only.
+  - reference: PMID:40951011
+    reference_title: &#34;Critical Vertebrobasilar Insufficiency From Left Intracranial Vertebral Artery Stenosis With Contralateral Hypoplasia Presenting as Recurring Vertigo: Urgent Stenting to Prevent the Progression of a Posterior Circulation Stroke.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      CTA revealed severe stenosis of the left vertebral artery V4 segment, with a hypoplastic right vertebral artery.
+    explanation: A second case pairing a hypoplastic contralateral vertebral artery with symptomatic stenosis, supporting reduced collateral reserve as a modifying substrate; case-level evidence only.
+  - reference: PMID:25977279
+    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the same % stenosis leads to a markedly smaller residual diameter in a hypoplastic 2 mm vertebral compared to a dominant 5 mm VA
+    explanation: Directly distinguishes the smaller residual lumen produced when stenosis affects a hypoplastic rather than dominant vertebral artery.
+  downstream:
+  - target: Posterior circulation hypoperfusion
+    description: &gt;-
+      With superimposed stenosis, a hypoplastic vertebral artery has a smaller
+      residual lumen; stenosis and residual-lumen restriction are known
+      intermediates between the congenital caliber variant and distal flow loss.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Superimposed vertebral artery stenosis
+    - Reduced residual lumen
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        the same % stenosis leads to a markedly smaller residual diameter in a hypoplastic 2 mm vertebral compared to a dominant 5 mm VA
+      explanation: &gt;-
+        Supports the residual-lumen intermediate but not hypoplasia as a sufficient
+        direct cause of distal hypoperfusion, so the edge remains partial and indirect.
+- name: Limited posterior-circulation collateral capacity
+  description: &gt;-
+    Limited compensatory supply through contralateral vertebral and
+    posterior-circulation collateral pathways can leave distal flow low despite
+    similar local stenosis severity. This regional hemodynamic state is distinct
+    from vertebral artery hypoplasia and from the local stenotic lesion.
+  biological_scale: TISSUE
+  locations:
+  - preferred_term: vertebral artery
+    term:
+      id: UBERON:0001535
+      label: vertebral artery
+  - preferred_term: basilar artery
+    term:
+      id: UBERON:0001633
+      label: basilar artery
+  evidence:
+  - reference: PMID:12870261
+    reference_title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation.
+    explanation: Case-level evidence documents inadequate anterior-circulation collateral flow separately from the vertebral lesions.
+  - reference: PMID:25977279
+    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      hemodynamic assessment of the distal flow status in the posterior circulation, which incorporates the contribution of any large vessel collateral flow, is not well predicted by either the severity or location of the disease
+    explanation: Establishes collateral-integrated distal flow as a regional hemodynamic property distinct from local stenosis severity and location.
+  downstream:
+  - target: Posterior circulation hypoperfusion
+    description: Inadequate collateral contribution is a determinant of low regional distal flow.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Conceptually, the algorithm incorporates any sources of collateral flow (e.g. via the posterior communicating arteries) by their effect on the blood flow within these distal vessels.
+      explanation: Directly states that collateral sources affect distal-vessel blood flow, the relationship represented by this edge.
 - name: Posterior circulation ischemia
   description: &gt;-
     Final common ischemic injury occurs when hemodynamic compromise or
     thromboembolism reduces oxygen delivery to brainstem, cerebellar, thalamic,
     or occipital territories, causing transient ischemic attacks, ischemic
     stroke, or recurrent posterior-circulation symptoms.
+  biological_scale: TISSUE
   locations:
   - preferred_term: brainstem
     term:
@@ -6510,34 +8492,113 @@ pathophysiology:
       id: UBERON:0002021
       label: occipital lobe
   evidence:
-  - reference: DOI:10.2174/1573403x18666220317093131
-    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review&#34;
+  - reference: PMID:35301953
+    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Patients with posterior circulation ischemia due to vertebral artery stenosis account for 20 to 25% of ischemic strokes and have an increased risk of recurrent stroke.
     explanation: This directly links vertebral artery stenosis to posterior-circulation ischemia and ischemic stroke burden.
+  downstream:
+  - target: Vertigo
+    description: Posterior-circulation ischemia can manifest clinically as vertigo.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:40148099
+      reference_title: &#34;Signs and symptoms of vertebrobasilar insufficiency secondary to atherosclerosis: a systematic review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Vertigo was the most common reported symptom, within a total of 37 different symptoms reported either in isolation or combination.
+      explanation: Links vertebrobasilar insufficiency to the curated vertigo phenotype.
+  - target: Transient ischemic attack
+    description: Transient posterior-circulation ischemia manifests as vertebrobasilar TIA.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        METHODS: Patients with recent vertebrobasilar transient ischemic attack or stroke and ≥50% atherosclerotic stenosis or occlusion in vertebral or basilar arteries (BA) were enrolled.
+      explanation: Links symptomatic vertebrobasilar ischemia to the TIA phenotype.
+  - target: Ataxia
+    description: Cerebellar or brainstem ischemia can manifest as ataxia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28680502
+      reference_title: &#34;Pathophysiology and Diagnosis of Vertebrobasilar Insufficiency: A Review of the Literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Dizziness, vertigo, headaches, vomit, diplopia, blindness, ataxia, imbalance, and weakness in both sides of the body are the most common symptoms.
+      explanation: Links vertebrobasilar insufficiency to the curated ataxia phenotype.
+  - target: Diplopia
+    description: Posterior-circulation ischemia involving ocular motor pathways can manifest as diplopia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:28680502
+      reference_title: &#34;Pathophysiology and Diagnosis of Vertebrobasilar Insufficiency: A Review of the Literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Dizziness, vertigo, headaches, vomit, diplopia, blindness, ataxia, imbalance, and weakness in both sides of the body are the most common symptoms.
+      explanation: Links vertebrobasilar insufficiency to the curated diplopia phenotype.
+  - target: Dysarthria
+    description: Posterior-circulation neurologic dysfunction can manifest as dysarthria.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:12870261
+      reference_title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        A 69-year-old man was admitted because of dysarthria and dysphagia. Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation.
+      explanation: Case-level evidence links symptomatic vertebral-artery flow compromise to dysarthria.
+  - target: Dysphagia
+    description: Brainstem or lower cranial nerve dysfunction from posterior-circulation ischemia can manifest as dysphagia.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:12870261
+      reference_title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        A 69-year-old man was admitted because of dysarthria and dysphagia. Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation.
+      explanation: Case-level evidence links symptomatic vertebral-artery flow compromise to dysphagia.
+  - target: Ischemic stroke
+    description: Persistent posterior-circulation ischemia can culminate in ischemic stroke.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35301953
+      reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Patients with posterior circulation ischemia due to vertebral artery stenosis account for 20 to 25% of ischemic strokes and have an increased risk of recurrent stroke.
+      explanation: Directly links posterior-circulation ischemia to the ischemic-stroke phenotype.
 phenotypes:
 - category: Cardiovascular
   name: Abnormal vertebral artery morphology
   diagnostic: true
   description: &gt;-
     Structural or luminal vertebral artery abnormalities, including stenosis,
-    occlusion, dissection, traumatic injury, hypoplasia, or limited collateral
-    flow, are the defining vascular abnormalities.
+    occlusion, dissection, traumatic injury, or hypoplasia, are defining vascular
+    abnormalities. Collateral flow is a separate hemodynamic state, not a
+    vertebral-artery morphology.
   phenotype_term:
     preferred_term: abnormal vertebral artery morphology
     term:
       id: HP:0030321
       label: Abnormal vertebral artery morphology
   evidence:
-  - reference: PMID:25977279
-    reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
-    supports: SUPPORT
+  - reference: PMID:12870261
+    reference_title: &#34;A case of intimal hyperplasia induced by stenting for vertebral artery origin stenosis: assessed on intravascular ultrasound.&#34;
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Details of the VERiTAS study design have been previously published10. Briefly, the study is a multi-center prospective cohort study of patients with ≥ 50% extracranial or intracranial atherosclerotic VB stenosis or occlusion based upon conventional digital subtraction angiography (DSA) or computed tomographic angiography (CTA) presenting with referable VB distribution TIA or stroke within 60 days.
-    explanation: This supports vertebral or basilar stenosis/occlusion as the defining vascular lesion in symptomatic vertebrobasilar disease cohorts.
+      Angiography revealed hypoplasia of left vertebral artery (VA) and remarkable stenosis of the proximal right VA with inadequate collateral flow from the anterior circulation.
+    explanation: Case-level angiography directly documents hypoplasia and stenosis of the vertebral arteries; basilar lesions and collateral flow are not classified as vertebral morphology here.
 - category: Neurological
   name: Vertigo
   description: &gt;-
@@ -6675,8 +8736,8 @@ phenotypes:
       id: HP:0002140
       label: Ischemic stroke
   evidence:
-  - reference: DOI:10.2174/1573403x18666220317093131
-    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review&#34;
+  - reference: PMID:35301953
+    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6728,10 +8789,48 @@ phenotypes:
 environmental:
 - name: Atherosclerotic vascular risk factor burden
   description: &gt;-
-    Symptomatic vertebrobasilar disease cohorts are enriched for conventional
-    vascular risk factors, especially hypertension and hyperlipidemia; smoking,
-    diabetes, coronary disease, obesity, and other vascular risk factors are
-    tracked and treated as part of risk-factor management.
+    Symptomatic vertebrobasilar disease cohorts have a high prevalence of
+    conventional vascular risk factors, especially hypertension and
+    hyperlipidemia; smoking, diabetes, coronary disease, obesity, and other
+    vascular risk factors are tracked and treated as part of risk-factor
+    management.
+  influences_mechanisms:
+  - target: Atherosclerotic vertebral artery stenosis
+    environmental_effect: PREDISPOSES
+    causal_link_type: UNKNOWN
+    description: Conventional vascular risk-factor burden predisposes to atherosclerotic vertebral artery disease, but this aggregate clinical evidence does not establish a uniform directness or intermediate sequence.
+    evidence:
+    - reference: PMID:35301953
+      reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In addition, therapies are targeted at reducing atherosclerotic risk factors, such as hypertension, hyperlipidaemia, smoking, diabetes mellitus, and other lifestyle modifications are recommended for all patients with V.A. disease.
+      explanation: Identifies modifiable atherosclerotic risk factors in vertebral artery disease but does not directly observe the omitted plaque-development sequence.
+  - target: Atherosclerotic basilar artery stenosis or occlusion
+    environmental_effect: PREDISPOSES
+    causal_link_type: UNKNOWN
+    description: Conventional vascular risk-factor burden is associated with atherosclerotic basilar artery disease, but the mixed-cohort evidence does not establish site-specific causal directness.
+    evidence:
+    - reference: PMID:25977279
+      reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The cohort (n=72; 44% women) had a mean age of 65.6 years; 72% presented with ischemic stroke. Hypertension (93%) and hyperlipidemia (81%) were the most prevalent vascular risk factors.
+      explanation: The selected mixed vertebral/basilar cohort documents high risk-factor prevalence but has no comparator and does not isolate a basilar causal effect.
+  - target: Atherosclerotic vertebral artery occlusion
+    environmental_effect: PREDISPOSES
+    causal_link_type: UNKNOWN
+    description: Conventional vascular risk-factor burden can predispose to atherosclerotic vertebral occlusion, but this aggregate evidence does not establish a uniform causal sequence to occlusion.
+    evidence:
+    - reference: PMID:35301953
+      reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In addition, therapies are targeted at reducing atherosclerotic risk factors, such as hypertension, hyperlipidaemia, smoking, diabetes mellitus, and other lifestyle modifications are recommended for all patients with V.A. disease.
+      explanation: Identifies modifiable atherosclerotic risk factors in vertebral artery disease but does not directly observe progression from plaque to occlusion.
   evidence:
   - reference: PMID:25977279
     reference_title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease.
@@ -6752,6 +8851,19 @@ environmental:
     Cervical spine trauma can cause vertebral artery injury, which may lead to
     posterior-circulation stroke and can require conservative, antithrombotic,
     endovascular, or surgical management.
+  influences_mechanisms:
+  - target: Traumatic vertebral artery injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: Blunt or penetrating cervical trauma is the initiating exposure for traumatic vertebral artery injury.
+    evidence:
+    - reference: PMID:37924280
+      reference_title: A Systematic Review and Meta-Analysis of Vertebral Artery Injury After Cervical Spine Trauma.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        20-studies (n = 503) included data on trauma type; 75.5% (n = 380) suffered blunt trauma and 24.5% (n = 123) penetrating.
+      explanation: The meta-analysis directly characterizes blunt and penetrating trauma among traumatic vertebral artery injury cases.
   evidence:
   - reference: PMID:37924280
     reference_title: A Systematic Review and Meta-Analysis of Vertebral Artery Injury After Cervical Spine Trauma.
@@ -6880,12 +8992,20 @@ treatments:
       id: NCIT:C71316
       label: Stenting
   target_mechanisms:
-  - target: Atherosclerotic vertebrobasilar stenosis or occlusion
-    treatment_effect: MODULATES
+  - target: Atherosclerotic vertebral artery stenosis
+    treatment_effect: RESTORES
     description: Stenting attempts to restore arterial lumen and improve flow across stenotic vertebral artery segments.
+    evidence:
+    - reference: PMID:35301953
+      reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Percutaneous transluminal angioplasty and stenting of symptomatic vertebral artery stenosis are promising options widely used in clinical practice with good technical results; however, the improved clinical outcome has been examined in various clinical trials without a sufficient sample size to conclusively determine whether stenting is better than medical therapy.
+      explanation: Supports the intervention acting on the stenosis node with good technical result, while preserving the unresolved outcome question.
   evidence:
-  - reference: DOI:10.2174/1573403x18666220317093131
-    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review&#34;
+  - reference: PMID:35301953
+    reference_title: &#34;Vertebral Artery Interventions: A Comprehensive Updated Review.&#34;
     supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6910,9 +9030,35 @@ treatments:
       id: NCIT:C157725
       label: Vascular Surgical Procedure
   target_mechanisms:
-  - target: Atherosclerotic vertebrobasilar stenosis or occlusion
-    treatment_effect: MODULATES
+  - target: Atherosclerotic vertebral artery stenosis
+    treatment_effect: RESTORES
     description: Microsurgical reconstruction attempts to restore vertebral artery inflow or bypass obstructive anatomy.
+    evidence:
+    - reference: PMID:39673653
+      reference_title: &#34;Application of microsurgical surgery in patients with proximal vertebral artery stenosis unsuited for endovascular treatment: a single-center retrospective study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Postoperative imaging examinations in the 34 patients (Males: 79.4%; Mean age: 66.7 ± 9.6 years) revealed patent vertebral and supplying arteries.
+      explanation: Post-operative vessel patency is the direct imaging readout that this link&#39;s restored-inflow claim asserts.
+    - reference: PMID:37483445
+      reference_title: &#34;Microsurgical revascularization of a symptomatic proximal vertebral artery: pilot experiences from a single center.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Microsurgical reconstruction is an alternative option that can effectively treat refractory proximal VASO disease and in-stent stenosis, with a high rate of postoperative vascular recirculation.
+      explanation: Restored vascular recirculation is the mechanism by which this intervention acts on vertebral stenosis.
+  - target: Atherosclerotic vertebral artery occlusion
+    treatment_effect: RESTORES
+    description: Selected microsurgical reconstructions can restore vertebral inflow or bypass proximal occlusive anatomy.
+    evidence:
+    - reference: PMID:37483445
+      reference_title: &#34;Microsurgical revascularization of a symptomatic proximal vertebral artery: pilot experiences from a single center.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Microsurgical reconstruction is an alternative option that can effectively treat refractory proximal VASO disease and in-stent stenosis, with a high rate of postoperative vascular recirculation.
+      explanation: The VASO cohort includes proximal vertebral occlusive disease and reports restoration of vascular recirculation after reconstruction.
   evidence:
   - reference: PMID:37483445
     reference_title: &#34;Microsurgical revascularization of a symptomatic proximal vertebral artery: pilot experiences from a single center.&#34;
@@ -7019,7 +9165,6 @@ clinical_trials:
     snippet: &gt;-
       Previous systematic review had suggested that the drug eluting stent might reduce the incidence of restenosis of vertebral artery.
     explanation: This trial summary supports evaluation of stent type for restenosis prevention in symptomatic extracranial vertebral artery stenosis.
-datasets:
 </pre>
             </div>
         </div>
@@ -7042,10 +9187,10 @@ datasets:
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.2174/1573403x18666220317093131" target="_blank">DOI:10.2174/1573403x18666220317093131</a>
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35301953" target="_blank">PMID:35301953</a>
                             </div>
 
-                            <div class="reference-title">Vertebral Artery Interventions: A Comprehensive Updated Review</div>
+                            <div class="reference-title">Vertebral Artery Interventions: A Comprehensive Updated Review.</div>
 
                         </div>
 
@@ -8314,7 +10459,7 @@ Infarct-pattern analyses within the VERiTAS cohort describe both hemodynamic and
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vertebral Artery Insufficiency", "mondoId": "MONDO:0001631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vertebral_Artery_Insufficiency", "yamlRevision": "0cf6700d2c0f"};
+        const OS_CONFIG = {"diseaseName": "Vertebral Artery Insufficiency", "mondoId": "MONDO:0001631", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vertebral_Artery_Insufficiency", "yamlRevision": "3c51a1205563"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8733,5 +10878,73 @@ Infarct-pattern analyses within the VERiTAS cohort describe both hemodynamic and
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

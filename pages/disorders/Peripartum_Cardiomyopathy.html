@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Peripartum Cardiomyopathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Peripartum Cardiomyopathy</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Peripartum%20Cardiomyopathy"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3930,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3827,17 +4031,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3858,10 +4069,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3888,16 +4102,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016525">GO:0016525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0016525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of angiogenesis (GO:0016525). GO:0016525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3917,16 +4136,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         vascular endothelial growth factor receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048010">GO:0048010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0048010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased vascular endothelial growth factor receptor signaling pathway (GO:0048010). GO:0048010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3947,6 +4171,7 @@
 
 
                 </div>
+
 
 
 
@@ -3983,6 +4208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4004,6 +4230,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28552862" target="_blank">PMID:28552862</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4037,16 +4264,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4073,16 +4305,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4102,16 +4339,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4128,6 +4370,7 @@
 
 
                 </div>
+
 
 
 
@@ -4172,6 +4415,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17289576" target="_blank">PMID:17289576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4194,6 +4438,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17289576" target="_blank">PMID:17289576</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4215,6 +4460,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24448315" target="_blank">PMID:24448315</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4248,17 +4494,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4279,10 +4532,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4309,16 +4565,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4338,16 +4599,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         adaptive immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4368,6 +4634,7 @@
 
 
                 </div>
+
 
 
 
@@ -4404,6 +4671,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34963460" target="_blank">PMID:34963460</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4425,6 +4693,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37414337" target="_blank">PMID:37414337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4458,16 +4727,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4494,16 +4768,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4533,6 +4812,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4544,6 +4824,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20675664" target="_blank">PMID:20675664</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4593,7 +4874,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is characterized by elevated levels of soluble fms-like tyrosine kinase 1 (sFlt1), an anti-angiogenic factor released by the placenta. sFlt1 antagonizes VEGF and PlGF signaling, leading to endothelial dysfunction and impaired cardiac angiogenesis. In susceptible women, this anti-angiogenic state triggers cardiomyocyte damage and systolic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"negative regulation of angiogenesis\", \"vascular endothelial growth factor receptor signaling pathway\"]}}, {\"id\": \"Bromocriptine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bromocriptine, a dopamine agonist that suppresses prolactin secretion, has been investigated as a targeted therapy for PPCM based on the 16-kDa prolactin pathogenesis hypothesis. Evidence from randomized trials suggests benefit in left ventricular recovery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bromocriptine\"]}}, {\"id\": \"Cardiomyocyte injury and ventricular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of anti-angiogenic stress, oxidative damage, 16-kDa prolactin toxicity, and immune-mediated injury results in cardiomyocyte apoptosis and necrosis. This leads to left ventricular dilation and systolic dysfunction, manifesting as heart failure with reduced ejection fraction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Myocardial inflammation and immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPCM is associated with myocardial inflammation, with infiltration of inflammatory cells and elevated proinflammatory cytokines. Autoimmune mechanisms have been implicated, including the development of cardiac autoantibodies. The inflammatory milieu contributes to progressive myocardial damage and ventricular remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"adaptive immune response\"]}}, {\"id\": \"Oxidative stress and 16-kDa prolactin generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stress in the peripartum myocardium activates cathepsin D, which cleaves full-length prolactin into a 16-kDa N-terminal fragment. This 16-kDa prolactin fragment is strongly anti-angiogenic and pro-apoptotic, damaging the cardiac microvasculature and promoting cardiomyocyte death. This mechanism provided the rationale for bromocriptine therapy in PPCM.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"proteolysis\"]}}], \"edges\": [{\"source\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-angiogenic stress in the cardiac vasculature promotes oxidative stress, which triggers cathepsin D cleavage of prolactin into the anti-angiogenic 16-kDa fragment.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Myocardial inflammation and immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative damage and prolactin fragment-mediated vascular injury activate inflammatory cascades in the myocardium.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct toxicity of the 16-kDa prolactin fragment and oxidative damage lead to cardiomyocyte apoptosis.\"}, {\"source\": \"Myocardial inflammation and immune activation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammation and autoimmune attack contribute to ongoing cardiomyocyte damage and progressive left ventricular dysfunction.\"}, {\"source\": \"Bromocriptine\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is characterized by elevated levels of soluble fms-like tyrosine kinase 1 (sFlt1), an anti-angiogenic factor released by the placenta. sFlt1 antagonizes VEGF and PlGF signaling, leading to endothelial dysfunction and impaired cardiac angiogenesis. In susceptible women, this anti-angiogenic state triggers cardiomyocyte damage and systolic dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"negative regulation of angiogenesis\", \"vascular endothelial growth factor receptor signaling pathway\"]}}, {\"id\": \"Bromocriptine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bromocriptine, a dopamine agonist that suppresses prolactin secretion, has been investigated as a targeted therapy for PPCM based on the 16-kDa prolactin pathogenesis hypothesis. Evidence from randomized trials suggests benefit in left ventricular recovery.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"bromocriptine\"]}}, {\"id\": \"Cardiomyocyte injury and ventricular dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergence of anti-angiogenic stress, oxidative damage, 16-kDa prolactin toxicity, and immune-mediated injury results in cardiomyocyte apoptosis and necrosis. This leads to left ventricular dilation and systolic dysfunction, manifesting as heart failure with reduced ejection fraction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Multiparity and multiple gestations\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Multiple pregnancies and twin/higher-order gestations increase PPCM risk, likely through increased hemodynamic stress and elevated anti-angiogenic factor levels.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myocardial inflammation and immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PPCM is associated with myocardial inflammation, with infiltration of inflammatory cells and elevated proinflammatory cytokines. Autoimmune mechanisms have been implicated, including the development of cardiac autoantibodies. The inflammatory milieu contributes to progressive myocardial damage and ventricular remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"adaptive immune response\"]}}, {\"id\": \"Oxidative stress and 16-kDa prolactin generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidative stress in the peripartum myocardium activates cathepsin D, which cleaves full-length prolactin into a 16-kDa N-terminal fragment. This 16-kDa prolactin fragment is strongly anti-angiogenic and pro-apoptotic, damaging the cardiac microvasculature and promoting cardiomyocyte death. This mechanism provided the rationale for bromocriptine therapy in PPCM.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\", \"proteolysis\"]}}, {\"id\": \"Preeclampsia and hypertensive disorders\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Preeclampsia and gestational hypertension are significant risk factors for PPCM. The shared anti-angiogenic milieu (elevated sFlt1) mechanistically links these conditions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pregnancy and peripartum hemodynamic stress\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pregnancy imposes substantial hemodynamic stress including increased blood volume, increased cardiac output, and decreased systemic vascular resistance. The peripartum period represents the maximal hemodynamic load, which in susceptible individuals unmasks or triggers cardiomyopathy.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anti-angiogenic stress in the cardiac vasculature promotes oxidative stress, which triggers cathepsin D cleavage of prolactin into the anti-angiogenic 16-kDa fragment.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Myocardial inflammation and immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative damage and prolactin fragment-mediated vascular injury activate inflammatory cascades in the myocardium.\"}, {\"source\": \"Oxidative stress and 16-kDa prolactin generation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct toxicity of the 16-kDa prolactin fragment and oxidative damage lead to cardiomyocyte apoptosis.\"}, {\"source\": \"Myocardial inflammation and immune activation\", \"target\": \"Cardiomyocyte injury and ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained inflammation and autoimmune attack contribute to ongoing cardiomyocyte damage and progressive left ventricular dysfunction.\"}, {\"source\": \"Pregnancy and peripartum hemodynamic stress\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The late-pregnant and early postpartum state is what this node is made of, so the exposure constitutes the node rather than acting on it from outside. Worth flagging that the cited sentence supports the angiogenic arm and not the hemodynamic one this exposure is named for: it measures cardiac dysfunction against circulating sFLT1, with nothing about volume or cardiac output. The link is drawn on the angiogenic evidence, and the hemodynamic claim in the exposure description remains uncited.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Preeclampsia and hypertensive disorders\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the other two links into this node. Both cited sentences are about the relationship between two diseases, one reporting raised prevalence and the other asserting shared pathogenesis, and neither measures sFlt1 or any other angiogenic factor. The shared anti-angiogenic milieu this entry proposes is the likely route but is not what the evidence states.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multiparity and multiple gestations\", \"target\": \"Angiogenic imbalance and sFlt1-mediated vascular dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The best-evidenced of the three links into this node, and graded above the preeclampsia link for a reason the sentences make plain: this one names multiple gestation as accentuating placental sFLT1 secretion, which is the node\u0027s own factor, rather than reporting a co-occurrence between two diagnoses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bromocriptine\", \"target\": \"Oxidative stress and 16-kDa prolactin generation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4638,14 +4919,21 @@
                         Thromboembolism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thromboembolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001907">HP:0001907</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thromboembolism (HP:0001907). HP:0001907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4674,14 +4962,21 @@
                         Dilated cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4701,6 +4996,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37414337" target="_blank">PMID:37414337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4723,6 +5019,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20675664" target="_blank">PMID:20675664</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,14 +5052,23 @@
                         Left ventricular systolic dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced left ventricular ejection fraction
+
+                        <span class="phenotype-term-label">Reduced left ventricular ejection fraction</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012664">HP:0012664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced left ventricular ejection fraction (HP:0012664). HP:0012664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4782,14 +5088,21 @@
                         Arrhythmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4809,6 +5122,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30843220" target="_blank">PMID:30843220</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4831,6 +5145,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33791817" target="_blank">PMID:33791817</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4872,14 +5187,21 @@
                         Peripheral edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4908,14 +5230,21 @@
                         Dyspnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4944,14 +5273,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5017,13 +5353,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:12403</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5044,6 +5385,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26735901" target="_blank">PMID:26735901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5066,6 +5408,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26735901" target="_blank">PMID:26735901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5097,6 +5440,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5112,7 +5458,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5160,6 +5511,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37414337" target="_blank">PMID:37414337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5189,7 +5541,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5219,16 +5576,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bromocriptine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3181" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3181">CHEBI:3181</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3181" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:3181</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bromocriptine (CHEBI:3181). CHEBI:3181 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5272,6 +5634,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308616" target="_blank">PMID:20308616</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5293,6 +5656,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17289576" target="_blank">PMID:17289576</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5323,7 +5687,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">mechanical circulatory support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">mechanical circulatory support<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mechanical circulatory support, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5369,7 +5738,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -5415,7 +5789,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticoagulant agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">anticoagulant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticoagulant agent therapy, annotated with Anticoagulation Therapy (NCIT:C63341). NCIT:C63341 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticoagulation Therapy</span>
 
 
@@ -5472,6 +5851,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Pregnancy imposes substantial hemodynamic stress including increased blood volume, increased cardiac output, and decreased systemic vascular resistance. The peripartum period represents the maximal hemodynamic load, which in susceptible individuals unmasks or triggers cardiomyopathy.</div>
 
 
@@ -5487,6 +5870,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5510,10 +5894,67 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The late-pregnant and early postpartum state is what this node is made of, so the exposure constitutes the node rather than acting on it from outside. Worth flagging that the cited sentence supports the angiogenic arm and not the hemodynamic one this exposure is named for: it measures cardiac dysfunction against circulating sFLT1, with nothing about volume or cardiac output. The link is drawn on the angiogenic evidence, and the hemodynamic claim in the exposure description remains uncited.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22596155" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This anti-angiogenic environment is accompanied by subclinical cardiac dysfunction, the extent of which correlates with circulating levels of sFLT1"</div>
+
+
+                <div class="evidence-explanation">Subclinical cardiac dysfunction in late pregnancy correlating with circulating sFLT1, which is this node&#39;s own factor. Partial because it establishes the angiogenic environment rather than the hemodynamic stress the exposure is named for.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-preeclampsia-and-hypertensive-disorders" data-dismech-node="Preeclampsia and hypertensive disorders" data-dismech-type="environmental">
                 <div class="item-name">Preeclampsia and hypertensive disorders</div>
+
+
+
+
 
 
 
@@ -5532,6 +5973,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5555,6 +5997,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5577,10 +6020,90 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the other two links into this node. Both cited sentences are about the relationship between two diseases, one reporting raised prevalence and the other asserting shared pathogenesis, and neither measures sFlt1 or any other angiogenic factor. The shared anti-angiogenic milieu this entry proposes is the likely route but is not what the evidence states.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24013055" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of PE, hypertensive disorders, and multiple gestations in women with PPCM is markedly higher than that in the general population"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis finding preeclampsia and hypertensive disorders markedly more prevalent in affected women than in the general population. An association between conditions, not a measurement at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24013055" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24013055" target="_blank">PMID:24013055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These findings support the concept of a shared pathogenesis between PE and PPCM and highlight the need for awareness of the overlap between these 2 diseases"</div>
+
+
+                <div class="evidence-explanation">States that the findings support a shared pathogenesis between the two conditions. It asserts a shared mechanism without naming which one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-multiparity-and-multiple-gestations" data-dismech-node="Multiparity and multiple gestations" data-dismech-type="environmental">
                 <div class="item-name">Multiparity and multiple gestations</div>
+
+
+
+
 
 
 
@@ -5599,6 +6122,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5622,6 +6146,59 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Angiogenic imbalance and sFlt1-mediated vascular dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The best-evidenced of the three links into this node, and graded above the preeclampsia link for a reason the sentences make plain: this one names multiple gestation as accentuating placental sFLT1 secretion, which is the node&#39;s own factor, rather than reporting a co-occurrence between two diagnoses.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22596155" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22596155" target="_blank">PMID:22596155</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In humans, the placenta in late gestation secretes VEGF inhibitors like soluble FLT1 (sFLT1), and this is accentuated by multiple gestation and pre-eclampsia"</div>
+
+
+                <div class="evidence-explanation">States that placental secretion of soluble FLT1 in late gestation is accentuated by multiple gestation, tying this exposure to the node&#39;s own anti-angiogenic factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5642,7 +6219,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse312561">
                 <div class="item-name">
                     Peptidyl-tRNA hydrolase 2 is an essential negative regulator of peripartum cardiomyopathy with maternal heart failure (human and mouse RNA-seq)
 
@@ -5695,7 +6272,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05180773">
                 <div class="item-name">
                     NCT05180773
 
@@ -5722,6 +6299,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05180773" target="_blank">clinicaltrials:NCT05180773</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5750,6 +6328,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5766,7 +6347,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Peripartum Cardiomyopathy
 creation_date: &#39;2026-05-04T12:00:00Z&#39;
-updated_date: &#39;2026-05-04T21:06:33Z&#39;
 category: Complex
 synonyms:
 - postpartum cardiomyopathy
@@ -6152,6 +6732,29 @@ genetic:
       one year.
 environmental:
 - name: Pregnancy and peripartum hemodynamic stress
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The late-pregnant and early postpartum state is what this node is made
+      of, so the exposure constitutes the node rather than acting on it from
+      outside. Worth flagging that the cited sentence supports the angiogenic
+      arm and not the hemodynamic one this exposure is named for: it measures
+      cardiac dysfunction against circulating sFLT1, with nothing about volume
+      or cardiac output. The link is drawn on the angiogenic evidence, and the
+      hemodynamic claim in the exposure description remains uncited.
+    evidence:
+    - reference: PMID:22596155
+      reference_title: &#34;Cardiac angiogenic imbalance leads to peripartum cardiomyopathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This anti-angiogenic environment is accompanied by subclinical cardiac dysfunction, the extent of which correlates with circulating levels of sFLT1&#34;
+      explanation: &gt;-
+        Subclinical cardiac dysfunction in late pregnancy correlating with
+        circulating sFLT1, which is this node&#39;s own factor. Partial because it
+        establishes the angiogenic environment rather than the hemodynamic
+        stress the exposure is named for.
   description: &gt;-
     Pregnancy imposes substantial hemodynamic stress including increased blood
     volume, increased cardiac output, and decreased systemic vascular resistance.
@@ -6171,6 +6774,35 @@ environmental:
       late pregnancy causes subclinical cardiac dysfunction, supporting
       the peripartum period as a hemodynamic/hormonal stressor.
 - name: Preeclampsia and hypertensive disorders
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the other two links into this node. Both cited sentences
+      are about the relationship between two diseases, one reporting raised
+      prevalence and the other asserting shared pathogenesis, and neither
+      measures sFlt1 or any other angiogenic factor. The shared
+      anti-angiogenic milieu this entry proposes is the likely route but is
+      not what the evidence states.
+    evidence:
+    - reference: PMID:24013055
+      reference_title: &#34;The relationship between pre-eclampsia and peripartum cardiomyopathy: a systematic review and meta-analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The prevalence of PE, hypertensive disorders, and multiple gestations in women with PPCM is markedly higher than that in the general population&#34;
+      explanation: &gt;-
+        Meta-analysis finding preeclampsia and hypertensive disorders markedly
+        more prevalent in affected women than in the general population. An
+        association between conditions, not a measurement at this node.
+    - reference: PMID:24013055
+      reference_title: &#34;The relationship between pre-eclampsia and peripartum cardiomyopathy: a systematic review and meta-analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These findings support the concept of a shared pathogenesis between PE and PPCM and highlight the need for awareness of the overlap between these 2 diseases&#34;
+      explanation: &gt;-
+        States that the findings support a shared pathogenesis between the two
+        conditions. It asserts a shared mechanism without naming which one.
   description: &gt;-
     Preeclampsia and gestational hypertension are significant risk factors for
     PPCM. The shared anti-angiogenic milieu (elevated sFlt1) mechanistically
@@ -6193,6 +6825,26 @@ environmental:
       Supports a mechanistic link between preeclampsia and PPCM through
       shared anti-angiogenic pathogenesis.
 - name: Multiparity and multiple gestations
+  influences_mechanisms:
+  - target: Angiogenic imbalance and sFlt1-mediated vascular dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The best-evidenced of the three links into this node, and graded above
+      the preeclampsia link for a reason the sentences make plain: this one
+      names multiple gestation as accentuating placental sFLT1 secretion,
+      which is the node&#39;s own factor, rather than reporting a co-occurrence
+      between two diagnoses.
+    evidence:
+    - reference: PMID:22596155
+      reference_title: &#34;Cardiac angiogenic imbalance leads to peripartum cardiomyopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In humans, the placenta in late gestation secretes VEGF inhibitors like soluble FLT1 (sFLT1), and this is accentuated by multiple gestation and pre-eclampsia&#34;
+      explanation: &gt;-
+        States that placental secretion of soluble FLT1 in late gestation is
+        accentuated by multiple gestation, tying this exposure to the node&#39;s
+        own anti-angiogenic factor.
   description: &gt;-
     Multiple pregnancies and twin/higher-order gestations increase PPCM risk,
     likely through increased hemodynamic stress and elevated anti-angiogenic
@@ -6323,6 +6975,7 @@ clinical_trials:
     5 months postpartum. Primary endpoint is LVEF at 6 months.
   evidence:
   - reference: clinicaltrials:NCT05180773
+    reference_title: &#34;Randomized Evaluation of Bromocriptine In Myocardial Recovery THerapy for Peripartum Cardiomyopathy (REBIRTH)&#34;
     supports: SUPPORT
     snippet: &gt;-
       The study will enroll 200 women newly diagnosed with peripartum
@@ -7660,7 +8313,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peripartum Cardiomyopathy", "mondoId": "MONDO:0018920", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peripartum_Cardiomyopathy", "yamlRevision": "3b787b4dd947"};
+        const OS_CONFIG = {"diseaseName": "Peripartum Cardiomyopathy", "mondoId": "MONDO:0018920", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peripartum_Cardiomyopathy", "yamlRevision": "bc874ccdb91c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8079,5 +8732,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

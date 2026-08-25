@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Hypermobile Ehlers-Danlos Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hypermobile Ehlers-Danlos Syndrome</h1>
             <div class="header-meta">
 
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3786,7 +3990,7 @@
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -3812,7 +4016,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance-pattern">
                 <div class="item-name">
                     Autosomal dominant inheritance pattern
 
@@ -3857,6 +4061,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3930,7 +4135,7 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
@@ -3956,10 +4161,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         statistical genetics architecture partition
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type statistical genetics architecture partition.</span>
     </span>
 
 
@@ -4006,7 +4217,7 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
@@ -4023,12 +4234,18 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4059,6 +4276,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37813462" target="_blank">PMID:37813462</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4081,6 +4299,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41001447" target="_blank">PMID:41001447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4102,6 +4321,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38947032" target="_blank">PMID:38947032</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4182,10 +4402,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
 
         supervised classification of transcriptomic profiles
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+This experiment is of type supervised classification of transcriptomic profiles.</span>
     </span>
 
 
@@ -4276,6 +4502,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4299,6 +4531,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39225014" target="_blank">PMID:39225014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4320,6 +4553,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36552803" target="_blank">PMID:36552803</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4391,10 +4625,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
 
         retrospective diagnostic yield analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
+This experiment is of type retrospective diagnostic yield analysis.</span>
     </span>
 
 
@@ -4471,6 +4711,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4493,6 +4739,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40428350" target="_blank">PMID:40428350</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4545,21 +4792,21 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Orthostatic tachycardia</span>
+    <a class="entity-ref-chip" href="#phenotype-orthostatic-tachycardia">phenotype#Orthostatic tachycardia</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Peripheral neuropathy</span>
+    <a class="entity-ref-chip" href="#phenotype-peripheral-neuropathy">phenotype#Peripheral neuropathy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Gastrointestinal dysmotility</span>
+    <a class="entity-ref-chip" href="#phenotype-gastrointestinal-dysmotility">phenotype#Gastrointestinal dysmotility</a>
 
 
 
@@ -4585,10 +4832,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-4">
 
         genotype-stratified deep phenotyping study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment is of type this experiment type
+This experiment is of type genotype-stratified deep phenotyping study.</span>
     </span>
 
 
@@ -4635,14 +4888,14 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Orthostatic tachycardia</span>
+    <a class="entity-ref-chip" href="#phenotype-orthostatic-tachycardia">phenotype#Orthostatic tachycardia</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Peripheral neuropathy</span>
+    <a class="entity-ref-chip" href="#phenotype-peripheral-neuropathy">phenotype#Peripheral neuropathy</a>
 
 
 
@@ -4665,6 +4918,12 @@
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4695,6 +4954,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40387691" target="_blank">PMID:40387691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4717,6 +4977,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40843452" target="_blank">PMID:40843452</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4738,6 +4999,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40843452" target="_blank">PMID:40843452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4816,10 +5078,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-5">
 
         paired-tissue transcriptomic comparison
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment is of type this experiment type
+This experiment is of type paired-tissue transcriptomic comparison.</span>
     </span>
 
 
@@ -4903,6 +5171,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4926,6 +5200,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565051" target="_blank">PMID:40565051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4947,6 +5222,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40565051" target="_blank">PMID:40565051</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4992,7 +5268,7 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
@@ -5018,10 +5294,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         ascertainment bias decomposition
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type ascertainment bias decomposition.</span>
     </span>
 
 
@@ -5068,7 +5350,7 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
@@ -5085,12 +5367,18 @@
 
 
 
-    <span class="entity-ref-chip">inheritance#Autosomal dominant inheritance pattern</span>
+    <a class="entity-ref-chip" href="#inheritance-autosomal-dominant-inheritance-pattern">inheritance#Autosomal dominant inheritance pattern</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5120,6 +5408,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41993759" target="_blank">PMID:41993759</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5198,10 +5487,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         high-content perturbation screen
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type high-content perturbation screen.</span>
     </span>
 
 
@@ -5244,9 +5539,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -5256,10 +5556,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-8">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -5337,6 +5640,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5360,6 +5669,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29587413" target="_blank">PMID:29587413</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5382,6 +5692,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31409039" target="_blank">PMID:31409039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5403,6 +5714,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40343813" target="_blank">PMID:40343813</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5451,16 +5763,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5487,16 +5804,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5517,6 +5839,7 @@
 
 
                 </div>
+
 
 
 
@@ -5563,6 +5886,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5585,6 +5909,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31409039" target="_blank">PMID:31409039</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5606,6 +5931,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31409039" target="_blank">PMID:31409039</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5641,16 +5967,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5677,16 +6008,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5707,6 +6043,7 @@
 
 
                 </div>
+
 
 
 
@@ -5771,6 +6108,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5793,6 +6131,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5828,16 +6167,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dermal fibroblast, annotated with skin fibroblast (CL:0002620). CL:0002620 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5864,16 +6208,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5903,6 +6252,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5914,6 +6264,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31409039" target="_blank">PMID:31409039</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5938,6 +6289,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29587413" target="_blank">PMID:29587413</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5960,6 +6312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29587413" target="_blank">PMID:29587413</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6059,14 +6412,23 @@
                         Easy bruising
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bruising susceptibility
+
+                        <span class="phenotype-term-label">Bruising susceptibility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000978">HP:0000978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Easy bruising, annotated with Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6086,6 +6448,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6129,14 +6492,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001634</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6156,6 +6526,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6178,6 +6549,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6210,14 +6582,23 @@
                         Aortic root dilatation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic root aneurysm
+
+                        <span class="phenotype-term-label">Aortic root aneurysm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002616">HP:0002616</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002616</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic root dilatation, annotated with Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6237,6 +6618,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6279,14 +6661,21 @@
                         Hyperextensible skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperextensible skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000974">HP:0000974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperextensible skin (HP:0000974). HP:0000974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6306,6 +6695,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6340,14 +6730,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acrocyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001063">HP:0001063</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001063</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6367,6 +6764,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6399,14 +6797,21 @@
                         Atrophic scars
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrophic scars
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001075">HP:0001075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6426,6 +6831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6467,14 +6873,21 @@
                         Joint hypermobility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6494,6 +6907,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6526,14 +6940,21 @@
                         Joint dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint dislocation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001373">HP:0001373</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001373</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint dislocation (HP:0001373). HP:0001373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6553,6 +6974,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6594,14 +7016,21 @@
                         Orthostatic tachycardia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Orthostatic tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012173">HP:0012173</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012173</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orthostatic tachycardia (HP:0012173). HP:0012173 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6621,6 +7050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6654,14 +7084,21 @@
                         Migraine
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Migraine
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002076">HP:0002076</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002076</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6681,6 +7118,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6713,14 +7151,21 @@
                         Sleep disturbance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6740,6 +7185,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6772,14 +7218,21 @@
                         Peripheral neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6799,6 +7252,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6831,14 +7285,21 @@
                         Anxiety
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6858,6 +7319,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6899,14 +7361,21 @@
                         Chronic pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012532">HP:0012532</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012532</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6926,6 +7395,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6958,14 +7428,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6985,6 +7462,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7019,14 +7497,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7046,6 +7531,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7080,14 +7566,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7107,6 +7600,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7150,14 +7644,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Soft skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000977" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000977">HP:0000977</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000977" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000977</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft skin (HP:0000977). HP:0000977 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7177,6 +7678,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7199,6 +7701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7233,14 +7736,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dental crowding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000678">HP:0000678</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7260,6 +7770,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7282,6 +7793,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7316,14 +7828,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastrointestinal dysmotility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002579">HP:0002579</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002579</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7343,6 +7862,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:285" target="_blank">ORPHA:285</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7365,6 +7885,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7397,14 +7918,21 @@
                         Pelvic organ prolapse
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pelvic organ prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031607">HP:0031607</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0031607</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7424,6 +7952,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7487,6 +8016,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7502,7 +8034,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -7552,6 +8089,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7581,7 +8119,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7631,6 +8174,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301456" target="_blank">PMID:20301456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7675,7 +8219,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse218012">
                 <div class="item-name">
                     Whole-transcriptome analysis of dermal fibroblasts from patients with hypermobile Ehlers-Danlos syndrome and hypermobility spectrum disorders supports their categorization as a single clinical entity with a contribution of inflammatory pathways
 
@@ -7704,16 +8248,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0002620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples dermal fibroblast, annotated with skin fibroblast (CL:0002620). CL:0002620 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7754,6 +8305,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36552803" target="_blank">PMID:36552803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7777,7 +8329,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse77753">
                 <div class="item-name">
                     Microarray expression data from five Ehlers-Danlos Syndrome Hypermobility type/Joint Hypermobility Syndrome (EDS-HT/JHS) patients&#39; skin fibroblasts
 
@@ -7806,16 +8358,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0002620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples dermal fibroblast, annotated with skin fibroblast (CL:0002620). CL:0002620 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7854,6 +8413,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27518164" target="_blank">PMID:27518164</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7877,7 +8437,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse77756">
                 <div class="item-name">
                     microRNA expression profile from five Ehlers-Danlos Syndrome Hypermobility type/Joint Hypermobility Syndrome (EDS-HT/JHS) patients&#39; skin fibroblasts
 
@@ -7906,16 +8466,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0002620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples dermal fibroblast, annotated with skin fibroblast (CL:0002620). CL:0002620 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7953,6 +8520,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27518164" target="_blank">PMID:27518164</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7984,6 +8552,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9508,7 +10079,7 @@ discussions:
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
                 </div>
 
                 <div style="margin-bottom: 4px;">
@@ -10360,6 +10931,377 @@ Always prioritize recent, authoritative sources and provide specific citations f
                     </div>
                 </div>
 
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>OpenScientist</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-meta">
+
+                            <div class="report-subtitle">Hypermobile Ehlers-Danlos Syndrome (hEDS): Comprehensive Disease Characteristics Report</div>
+
+
+                            <span class="report-badge">openscientist-autonomous</span>
+
+
+
+                            <span class="report-meta-text">2026-08-01T23:36:46.879410</span>
+
+                        </div>
+
+                        <div class="report-content">
+                            <h1>Hypermobile Ehlers-Danlos Syndrome (hEDS): Comprehensive Disease Characteristics Report</h1>
+<p><em>Autonomous literature-based discovery report. Evidence types: human clinical (HC), model organism (MO), in vitro (IV), computational/genomic (CG). PMIDs cited throughout.</em></p>
+<hr />
+<h2>Summary (Answer to the Research Question)</h2>
+<p>Hypermobile Ehlers-Danlos syndrome (hEDS) is the most common subtype of the Ehlers-Danlos syndromes—a group of heritable connective-tissue disorders—defined clinically by generalized joint hypermobility, joint instability/recurrent dislocations, chronic musculoskeletal pain, mild skin involvement, and a broad multisystem comorbidity profile (autonomic dysfunction/POTS, mast cell activation, gastrointestinal/gut–brain disorders, fatigue, and psychiatric conditions). It is inherited in an autosomal dominant pattern and, uniquely among the 13 EDS subtypes, has <strong>no confirmed causal gene</strong>; diagnosis rests on the <strong>2017 International Classification clinical criteria</strong> (Malfait et al., PMID 28306229). Recent 2025 genomic and proteomic studies (GWAS near <em>ACKR3</em>; <em>KLK15</em> variant with a knock-in mouse; complement/immune dysregulation) are reframing hEDS as a complex, likely oligogenic/polygenic condition involving <strong>neuroimmune–stromal and matrix-remodeling dysregulation</strong> rather than a single classical collagen defect. Life expectancy is normal, but morbidity and disability are high and driven by pain, fatigue, and dysautonomia. Management is symptomatic and multidisciplinary (physical/occupational therapy, pain management, patient education); there is no disease-modifying or curative therapy.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> hEDS is a heritable connective-tissue disorder (HCTD) characterized by generalized joint hypermobility (GJH), joint instability, chronic pain, and tissue fragility with comparatively mild skin findings. It is the most common symptomatic joint-hypermobility condition in clinical practice (PMID 33856167, HC). The 2017 classification replaced the older terms "EDS hypermobility type" and "joint hypermobility syndrome (JHS)," and introduced <strong>hypermobility spectrum disorders (HSD)</strong> for symptomatic patients not meeting full hEDS criteria (PMID 33856167).</p>
+<p><strong>Key identifiers (from standard ontology/nosology resources):</strong>
+- <strong>OMIM:</strong> 130020 (Ehlers-Danlos syndrome, hypermobility type)
+- <strong>Orphanet:</strong> ORPHA:285 (Hypermobile Ehlers-Danlos syndrome)
+- <strong>MONDO:</strong> MONDO:0007523 (Ehlers-Danlos syndrome, hypermobility type)
+- <strong>ICD-10:</strong> Q79.6 (Ehlers-Danlos syndrome); <strong>ICD-11:</strong> LD28.5 / connective-tissue disorder codes
+- <strong>MeSH:</strong> D004535 (Ehlers-Danlos Syndrome)
+- <strong>UMLS/SNOMED CT:</strong> Ehlers-Danlos syndrome, hypermobility type</p>
+<p><strong>Synonyms / alternative names:</strong> hypermobile EDS; hEDS; EDS type III; EDS hypermobility type; formerly joint hypermobility syndrome (JHS) / benign joint hypermobility syndrome (overlapping historical construct).</p>
+<p><strong>Data source type.</strong> Because hEDS lacks a molecular marker, most disease-level knowledge derives from <strong>aggregated clinical cohorts, registries, and EHR/claims databases</strong> (e.g., Wales national e-cohort PMID 31685485; US PearlDiver claims PMID 39465806) plus expert-consensus nosology (PMID 28306229). <em>(HC/CG)</em></p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause: genetic, but gene(s) unidentified.</strong> Of the 13 EDS subtypes in the 2017 classification, <strong>12 have a recognized causal gene; hEDS does not</strong> (Malfait 2017, PMID 28306229; Riley 2020, PMID 31904772, HC). Quote: <em>"hypermobile EDS (hEDS) currently has no identifiable associated gene"</em> (PMID 31904772). Inheritance is <strong>autosomal dominant</strong> (PMID 33856167).</p>
+<p><strong>Genetic risk factors / emerging loci (2025):</strong>
+- <strong>GWAS meta-analysis</strong> (1,815 cases / 5,008 controls; 6.2M variants): two genome-wide significant loci, including a <strong>regulatory region near <em>ACKR3<em> (atypical chemokine receptor 3)</em><em>—first evidence of common-variant contribution; supports a </em>"complex, multisystem model involving neuroimmune-stromal dysregulation"* (PMID 41001447, CG).
+- </em></strong>KLK15<strong><em> (kallikrein-15): recurrent missense </em>*p.Gly226Asp</strong> from WES of 200 patients, segregating in families; dominant-negative effect on ECM compartmentalization with lysyl oxidase (LOX) (PMID 40949095, CG/MO).
+- <strong>Complement/immune genes and proteins</strong>: serum proteomics showing complement-cascade dysregulation (PMID 40972649, HC/IV).
+- <strong>Modifier / overlapping genes</strong>: <strong><em>TNXB</em></strong> (tenascin-X) haploinsufficiency produces a mild hypermobility phenotype (CAH-X) and complete deficiency causes classical-like EDS (PMID 37007968, 35476220).</p>
+<p><strong>Environmental / non-genetic risk &amp; modifiers:</strong>
+- <strong>Sex/hormones:</strong> strong female predominance (~90–95% of clinical cohorts; 70% in population EHR data, PMID 31685485). Females report symptom worsening at hormonal transitions (puberty, menstrual cycle, pregnancy) and some improvement post-menopause (PMID 41637690, HC).
+- <strong>Family history</strong> is a formal diagnostic feature (Feature B, PMID 28306229).
+- No established infectious or toxic cause. No confirmed protective variants/factors. Regular graded exercise/physiotherapy is broadly beneficial (tertiary, PMID 28306230).</p>
+<p><strong>Gene–environment interactions.</strong> Hypothesized hormone × connective-tissue-gene interactions underlie female predominance and cyclic symptom variation, but no validated GxE mechanism is established (data limited; PMID 41637690). <em>(HC)</em></p>
+<hr />
+<h2>3. Phenotypes (with HPO terms, frequencies, characteristics)</h2>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generalized joint hypermobility</td>
+<td>HP:0001382</td>
+<td>Physical sign</td>
+<td>Childhood</td>
+<td>Required for diagnosis (100% by criteria)</td>
+</tr>
+<tr>
+<td>Recurrent joint dislocations/subluxations</td>
+<td>HP:0001373 / HP:0033729</td>
+<td>Sign</td>
+<td>Childhood–adolescence</td>
+<td>Very common</td>
+</tr>
+<tr>
+<td>Chronic musculoskeletal pain / arthralgia</td>
+<td>HP:0002829, HP:0003422</td>
+<td>Symptom</td>
+<td>Pain onset ~10 yr, chronic by ~20 yr (PMID 31075184)</td>
+<td>~97% severe chronic pain (PMID 31075184)</td>
+</tr>
+<tr>
+<td>Soft/hyperextensible skin</td>
+<td>HP:0000974, HP:0000957</td>
+<td>Sign</td>
+<td>Congenital</td>
+<td>Common, milder than classical EDS</td>
+</tr>
+<tr>
+<td>Atrophic scars / striae</td>
+<td>HP:0000993 / HP:0001065 (piezogenic papules)</td>
+<td>Sign</td>
+<td>Childhood+</td>
+<td>Feature A criteria</td>
+</tr>
+<tr>
+<td>Recurrent hernias</td>
+<td>HP:0100790</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Feature A</td>
+</tr>
+<tr>
+<td>Mitral valve prolapse</td>
+<td>HP:0001634</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Included in criteria; significant cardiac abnormality rare (PMID 36866504)</td>
+</tr>
+<tr>
+<td>Aortic root dilatation</td>
+<td>HP:0002616</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Usually mild/non-progressive (PMID 36866504)</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>HP:0012378</td>
+<td>Symptom</td>
+<td>Adolescence+</td>
+<td>Major QoL driver (PMID 30703284)</td>
+</tr>
+<tr>
+<td>Orthostatic intolerance / POTS</td>
+<td>HP:0031013 / HP:0012432</td>
+<td>Sign</td>
+<td>Adolescence–young adult</td>
+<td>51–79% in cohorts (PMID 42399338, 42229474)</td>
+</tr>
+<tr>
+<td>Functional GI / IBS</td>
+<td>HP:0002020 (GERD), HP:0002574 (IBS-like)</td>
+<td>Symptom</td>
+<td>Childhood+</td>
+<td>Digestive disorders 54.6% (PMID 39465806)</td>
+</tr>
+<tr>
+<td>Anxiety / depression</td>
+<td>HP:0000739 / HP:0000716</td>
+<td>Behavioral</td>
+<td>Adolescence+</td>
+<td>Highly prevalent (PMID 40293579, 33856167)</td>
+</tr>
+<tr>
+<td>ADHD / autistic traits</td>
+<td>HP:0007018</td>
+<td>Behavioral</td>
+<td>Childhood</td>
+<td>Over-represented (PMID 33603376)</td>
+</tr>
+<tr>
+<td>Small-fiber neuropathy (paresthesia)</td>
+<td>HP:0003401</td>
+<td>Sign/lab</td>
+<td>Young adult</td>
+<td>Skin-biopsy nerve-fiber loss (PMID 42399338)</td>
+</tr>
+<tr>
+<td>Pelvic floor / bladder dysfunction</td>
+<td>HP:0000020</td>
+<td>Sign</td>
+<td>Adult</td>
+<td>Common in females (PMID 41512700, 42311207)</td>
+</tr>
+<tr>
+<td>Temporomandibular disorder</td>
+<td>HP:0030766 (jaw pain)</td>
+<td>Sign</td>
+<td>Adult</td>
+<td>up to 98% of women (PMID 38661350)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Characteristics.</strong> Onset is typically <strong>childhood/adolescent</strong> for hypermobility, with pain becoming chronic in early adulthood. Severity is <strong>variable</strong>; course is <strong>chronic, fluctuating/progressive</strong> (75% report gradually increasing pain, PMID 31075184). <strong>Quality of life</strong> is substantially reduced; <strong>fatigue and pain are the strongest predictors of reduced PedsQL scores</strong>, and psychiatric comorbidity further lowers QoL (PMID 30703284, HC).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal genes:</strong> <strong>None confirmed</strong> for idiopathic hEDS (PMID 28306229, 31904772). This is the defining molecular feature.</li>
+<li><strong>Candidate/associated genes (emerging, unreplicated):</strong> <strong><em>KLK15</em></strong> (HGNC:6369; NCBI Gene 55554) — p.Gly226Asp missense, proposed dominant-negative (PMID 40949095); <strong><em>ACKR3</em></strong>/CXCR7 (HGNC:23692) regulatory locus (GWAS, PMID 41001447); complement genes <em>C1QA, C3, C8A, C8B, C9</em> (proteomic, PMID 40972649).</li>
+<li><strong>Overlapping/differential genes (define related, non-hEDS subtypes):</strong> <strong><em>TNXB</em></strong> (HGNC:11976; Gene 7148) — clEDS/CAH-X; collagen genes <em>COL1A1, COL1A2, COL3A1, COL5A1, COL5A2</em> and <em>TGFB2/3, TGFBR1/2, SMAD3, FBN1</em> are tested to <strong>exclude</strong> other HCTDs (PMID 40653826, 28306229).</li>
+<li><strong>Variant classification/type:</strong> For candidate genes, variants are rare/low-frequency missense (e.g., <em>KLK15</em> p.Gly226Asp) and currently <strong>VUS</strong> under ACMG/AMP pending replication. No recurrent pathogenic variant is established. Allele frequencies of candidates are low in gnomAD.</li>
+<li><strong>Origin:</strong> Germline (heritable, AD). No somatic component.</li>
+<li><strong>Functional consequences:</strong> Proposed dominant-negative ECM disruption (<em>KLK15</em>–LOX–fibronectin) and altered complement/immune signaling (loss of complement components).</li>
+<li><strong>Modifier genes:</strong> <em>TNXB</em> haploinsufficiency modifies hypermobility phenotype (PMID 35476220). Hereditary alpha-tryptasemia (<em>TPSAB1</em> copy number) associates with hEDS/POTS/MCAS (PMID 39527936).</li>
+<li><strong>Epigenetics:</strong> No established disease-specific methylation/histone signature (not available).</li>
+<li><strong>Chromosomal abnormalities:</strong> None characteristic; <em>CYP21A2→TNXB</em> contiguous deletion produces CAH-X chimera (PMID 35476220).</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors/toxins:</strong> None causally established. hEDS is fundamentally genetic.</li>
+<li><strong>Lifestyle factors:</strong> Physical deconditioning and fear-avoidance worsen disability; graded exercise is protective/therapeutic (PMID 41637690, 28306230). Hormonal status modulates symptoms in females.</li>
+<li><strong>Infectious agents:</strong> None; hEDS is not infectious. (Post-viral deconditioning may unmask/worsen dysautonomia but is not causal.)</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Overall model (2025 synthesis):</strong> hEDS is increasingly viewed as a <strong>neuroimmune–stromal / matrix-remodeling disorder</strong> rather than a pure structural collagen defect (PMID 41001447, 40949095, 40972649).</p>
+<p><strong>Causal chain (proposed):</strong>
+1. <strong>Upstream (genetic/molecular):</strong> heritable variants affecting ECM regulation (<em>KLK15</em>–LOX–fibronectin cross-linking; PMID 40949095) and immune/complement signaling (<em>ACKR3</em> chemokine axis, complement components; PMID 41001447, 40972649).
+2. <strong>Tissue level:</strong> altered ECM assembly/remodeling → <strong>connective-tissue laxity and fragility</strong> in ligaments, tendons, skin, vasculature, and viscera.
+3. <strong>Biomechanical:</strong> joint instability, recurrent microtrauma, dislocations → nociceptive input.
+4. <strong>Neurological amplification:</strong> <strong>central sensitization</strong> (lowered thermal pain thresholds, increased wind-up ratio; PMID 26919608) and <strong>peripheral small-fiber neuropathy</strong> (intraepidermal nerve-fiber loss; PMID 42399338) → chronic widespread/neuropathic pain.
+5. <strong>Autonomic/immune (downstream):</strong> connective-tissue laxity → venous pooling/reduced preload → <strong>POTS</strong>; <strong>mast cell activation</strong> and complement dysregulation → immune/inflammatory and GI (gut–brain) manifestations (PMID 42229474, 40972649).</p>
+<p><strong>Molecular pathways:</strong> ECM organization/collagen fibril assembly; lysyl-oxidase–mediated cross-linking; chemokine (ACKR3/CXCR4-7) signaling; <strong>complement cascade</strong> (Reactome R-HSA-166658). <strong>Cellular processes:</strong> ECM remodeling, inflammation, mast cell degranulation, neuronal sensitization. <strong>Protein dysfunction:</strong> dominant-negative KLK15 mislocalization with LOX; reduced circulating complement proteins. <strong>Immune involvement:</strong> complement dysregulation + profibrotic cytokines (PMID 40972649); MCAS clustering (PMID 42229474).</p>
+<p><strong>Molecular profiling available:</strong> Proteomics (serum, PMID 40972649); GWAS/TWAS/eQTL (PMID 41001447); WES (PMID 40949095). Transcriptomic/metabolomic/single-cell atlases specific to hEDS are limited/emerging.</p>
+<p><strong>GO/CL suggestions:</strong> GO:0030198 (extracellular matrix organization); GO:0030199 (collagen fibril organization); GO:0018149 (peptide cross-linking/LOX); GO:0006956 (complement activation); GO:0002548 (mast cell chemotaxis); GO:0051930 (regulation of sensory perception of pain). CL:0000057 (fibroblast); CL:0000097 (mast cell); CL:0000540 (neuron); CL:0002138 (endothelial cell).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ/system level:</strong> <strong>Musculoskeletal</strong> (joints, ligaments, tendons — primary); <strong>skin</strong> (integumentary); <strong>cardiovascular</strong> (mitral valve, aortic root, autonomic vasoregulation); <strong>digestive/gut–brain</strong>; <strong>nervous/autonomic</strong>; <strong>genitourinary/pelvic floor</strong>; <strong>immune</strong> (mast cells). Secondary: TMJ, dental.</li>
+<li><strong>Tissue level:</strong> <strong>connective tissue</strong> (ECM/collagen), with vascular smooth muscle, epithelial (GI/bladder), and peripheral nerve (small fibers) involvement.</li>
+<li><strong>Cell level (CL):</strong> fibroblasts (CL:0000057), mast cells (CL:0000097), small sensory neurons (CL:0000101), endothelial cells (CL:0002138).</li>
+<li><strong>Subcellular (GO CC):</strong> extracellular matrix/extracellular region (GO:0031012, GO:0005615); collagen-containing ECM (GO:0062023).</li>
+<li><strong>Localization (UBERON):</strong> joint (UBERON:0000982), skin (UBERON:0002097), ligament (UBERON:0000211), tendon (UBERON:0000043), mitral valve (UBERON:0002135), aorta (UBERON:0000947), small intestine (UBERON:0002108), autonomic nervous system (UBERON:0000010). Involvement is typically <strong>bilateral/generalized</strong>.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Joint hypermobility often <strong>congenital/childhood</strong>; pain onset ~10 years, becoming chronic ~20 years (PMID 31075184). Insidious/chronic pattern.</li>
+<li><strong>Progression:</strong> <strong>Chronic, lifelong</strong>; variable rate. Pain frequently progressive (75%, PMID 31075184); comorbidities (POTS, GI, fatigue) typically accrue through adolescence/young adulthood. Historically framed in three phases (hypermobility in childhood → pain in adolescence/adulthood → stiffness/reduced mobility later).</li>
+<li><strong>Course pattern:</strong> Fluctuating/episodic flares superimposed on chronic baseline; often worse with hormonal transitions in females.</li>
+<li><strong>Remission:</strong> No true remission; symptom control possible with management. Some females report improvement after menopause (PMID 41637690).</li>
+<li><strong>Critical periods:</strong> Puberty, pregnancy/postpartum, and menstrual cycle are windows of symptom exacerbation and intervention opportunity (PMID 41637690, 38748660).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Prevalence:</strong> Diagnosed EDS/JHS combined <strong>194.2 per 100,000 (~1 in 500)</strong> in Wales (2016/17; PMID 31685485). Physical-activity review cites <strong>~1 in 500</strong> for HSD/hEDS (PMID 41637690). Incidence not well quantified.</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (PMID 33856167). <strong>Penetrance</strong> incomplete and age-dependent; <strong>expressivity</strong> highly variable within families. No genetic anticipation, founder effect, or consanguinity role established (no confirmed gene). <strong>Carrier frequency</strong> not applicable (dominant; gene unknown).</li>
+<li><strong>Demographics:</strong> <strong>Strong female predominance</strong> (~90–95% clinical, 70% EHR; PMID 31685485). Mean diagnosis <strong>8.5 years later in women</strong> (PMID 31685485). Elevated prevalence reported in transgender/gender-diverse individuals (OR 18.45; PMID 40986523). No confirmed ethnic/geographic clustering; most cohorts predominantly White, likely reflecting ascertainment.</li>
+<li><strong>Sex ratio:</strong> ~F:M 3:1 (EHR) to ~9:1 (specialty clinics).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical criteria (gold standard):</strong> <strong>2017 International Classification</strong> — three mandatory criteria: (1) <strong>GJH</strong> by Beighton score (≥6 prepubertal, ≥5 pubertal–age 50, ≥4 over 50); (2) <strong>≥2 of</strong> Feature A (systemic connective-tissue signs), Feature B (family history), Feature C (musculoskeletal complications: chronic pain ≥3 months, recurrent dislocations); (3) <strong>exclusion</strong> of other HCTDs (PMID 28306229). Pediatric framework uses <strong>Beighton ≥6/9</strong> and four components (PMID 37143135). Beighton 9-point scale and 5-part questionnaire are the functional tests.</li>
+<li><strong>No diagnostic lab test or biomarker</strong> currently exists. Emerging candidate biomarkers: serum complement proteins (C1QA, C3, C8A/B, C9) and cytokines (research-only; PMID 40972649).</li>
+<li><strong>Genetic testing:</strong> Used to <strong>exclude</strong> other EDS/HCTDs, not to confirm hEDS. Recommended when atypical features (skin fragility, vascular events, aortic disease) suggest classical, vascular, or other subtypes → <strong>EDS/aortopathy gene panels</strong> (e.g., <em>COL1A1/2, COL3A1, COL5A1/2, TNXB, FBN1, TGFBR1/2, SMAD3</em>), <strong>WES/WGS</strong> for research (PMID 40653826). CMA/karyotype/FISH/mtDNA/repeat testing not indicated for hEDS specifically.</li>
+<li><strong>Imaging/functional adjuncts:</strong> Echocardiography (baseline MVP/aortic root; PMID 36866504); tilt-table/active stand for POTS; skin biopsy (intraepidermal nerve-fiber density) for small-fiber neuropathy (PMID 42399338); CT/CTA/MRA for abdominal compression syndromes (MALS, May–Thurner; PMID 40653826).</li>
+<li><strong>Differential diagnosis:</strong> Classical EDS, vascular EDS, Marfan syndrome, Loeys–Dietz, other HCTDs, HSD, fibromyalgia, generalized hypermobility spectrum (PMID 28306229, 33856167).</li>
+<li><strong>Screening:</strong> No newborn/carrier screening (gene unknown). <strong>Cascade clinical evaluation</strong> of at-risk relatives is used.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/life expectancy:</strong> <strong>Normal</strong>; unlike vascular EDS, hEDS is <strong>not</strong> associated with arterial/organ rupture or shortened lifespan.</li>
+<li><strong>Morbidity/disability:</strong> <strong>High.</strong> Disability across all six WHO life domains (PMID 42298945); 58% report symptoms not well-managed (PMID 42298945). Chronic pain, fatigue, dysautonomia, and psychiatric burden dominate. Daily mental-health burden ~61% in an orthopaedic survey (PMID 40638721).</li>
+<li><strong>QoL measures:</strong> PedsQL, SF-36, EQ-5D, PROMIS; <strong>fatigue and pain are strongest QoL predictors</strong> (PMID 30703284).</li>
+<li><strong>Complications:</strong> Recurrent dislocations, early osteoarthritis, higher joint-arthroplasty <strong>revision risk</strong> (TKA HR 1.50; THA HR 2.32; PMID 38936437); complex regional pain syndrome (~11-fold higher; PMID 42398975); abdominal compression syndromes (MALS; PMID 40653826); pelvic organ prolapse (&gt;2-fold; PMID 41512700); pregnancy complications.</li>
+<li><strong>Prognostic factors:</strong> Symptom severity, fatigue, psychiatric comorbidity, degree of dysautonomia; no validated molecular prognostic biomarker.</li>
+</ul>
+<hr />
+<h2>12. Treatment (with MAXO terms)</h2>
+<p><strong>No disease-modifying or curative therapy exists.</strong> Care is <strong>symptomatic and multidisciplinary</strong> (PMID 33856167, 31904772).</p>
+<ul>
+<li><strong>Rehabilitation (cornerstone):</strong> Physical therapy (MAXO:0000004), occupational therapy (MAXO:0000058), graded exercise/strengthening/proprioception, bracing/orthoses; ICF framework (PMID 28306230). Hippotherapy shown beneficial in a case (PMID 39542503). Evidence base limited; RCTs needed.</li>
+<li><strong>Pain management (MAXO:0001152):</strong> Multimodal—physiotherapy, analgesics/NSAIDs, neuropathic agents (given central sensitization/SFN; PMID 26919608, 42399338), interventional (e.g., intercostal nerve RFA for slipping rib; PMID 41618773); opioids generally avoided.</li>
+<li><strong>Pharmacotherapy for comorbidities:</strong> POTS—fluids/salt, compression, beta-blockers, ivabradine, midodrine, fludrocortisone; MCAS—H1/H2 antihistamines, mast-cell stabilizers; GI/DGBI—neuromodulators, dietary measures (AGA 2025 Update, PMID 40387691). Psychiatric—SSRIs/therapy (note cardiac-electrophysiology considerations, PMID 42242906).</li>
+<li><strong>Surgical/interventional (MAXO:0000424):</strong> Joint stabilization when indicated—<strong>but higher failure/revision rates</strong> (PMID 38936437, 40638721); vascular decompression for MALS/May–Thurner (PMID 40653826). Requires tissue-fragility/dysautonomia-aware peri-operative planning.</li>
+<li><strong>Supportive care:</strong> Fatigue management, sleep, nutrition, psychological support/CBT, pacing.</li>
+<li><strong>Advanced therapeutics:</strong> No approved gene, cell, RNA, targeted, or immunotherapy. No hEDS-specific pharmacogenomics established.</li>
+<li><strong>Experimental:</strong> No definitive disease-modifying trials; management guidelines evolving (pregnancy guidelines PMID 38748660).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible (genetic, AD). </li>
+<li><strong>Secondary prevention:</strong> Early clinical recognition and multidisciplinary referral; baseline echocardiography; screening for POTS/MCAS/GI comorbidities (PMID 40387691); risk stratification of at-risk relatives.</li>
+<li><strong>Tertiary prevention (main lever):</strong> Joint protection, graded exercise/physiotherapy to prevent injury and deconditioning, injury-avoidance education, peri-operative precautions, pregnancy planning (PMID 28306230, 38748660).</li>
+<li><strong>Genetic counseling:</strong> Autosomal dominant with <strong>50% recurrence risk</strong> per pregnancy; counseling emphasizes variable expressivity/incomplete penetrance and absence of a confirmatory genetic test (PMID 33856167, 39924336). No carrier/prenatal/PGT test available (gene unknown).</li>
+<li><strong>Public-health/behavioral:</strong> Clinician education to reduce diagnostic delay (notably in women, PMID 31685485); no immunization or environmental measures applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Studied primarily in <em>Homo sapiens</em> (NCBI:txid9606) and <em>Mus musculus</em> (NCBI:txid10090).</li>
+<li><strong>Orthologous genes:</strong> <em>Tnxb</em> (mouse Gene 81877), <em>Klk15</em> (mouse), collagen/ECM orthologs.</li>
+<li><strong>Natural disease in animals:</strong> Heritable connective-tissue/hyperelastosis syndromes ("cutaneous asthenia," dermatosparaxis) occur naturally in dogs, cats, cattle, sheep, and horses (OMIA-catalogued), analogous to human classical/dermatosparactic EDS rather than idiopathic hEDS specifically. No natural animal analog of idiopathic hEDS is confirmed.</li>
+<li><strong>Comparative biology:</strong> ECM/collagen and tenascin-X biology is evolutionarily conserved, enabling mouse modeling. <strong>No zoonotic potential</strong> (non-infectious, genetic).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (primary):</strong></li>
+<li><strong><em>Klk15</em> p.Gly226Asp knock-in mouse</strong> — <strong>first mouse model developed specifically for hEDS</strong>; recapitulates <strong>tendon and cardiac-valve abnormalities</strong> and <strong>dysregulated cytokine profiles</strong>, supporting a matrix-remodeling + immune mechanism (PMID 40949095, MO). <em>Limitation:</em> single-variant model; captures ECM/valve/tendon features but not full multisystem/psychiatric spectrum.</li>
+<li><strong><em>Tnxb−/−</em> (tenascin-X-deficient) mouse</strong> — established model of a hypermobility-type/classical-like EDS connective-tissue disorder; reproduces <strong>skin/connective-tissue fragility, mechanical hyperalgesia, and pain</strong> phenotypes (PMID 37007968, MO). <em>Limitation:</em> models TNX-deficiency (clEDS/CAH-X), not idiopathic hEDS.</li>
+<li><strong>Model types available:</strong> knock-in, knockout; humanized/conditional models not yet reported for hEDS. iPSC/fibroblast and organoid systems are emerging for ECM studies.</li>
+<li><strong>Applications:</strong> ECM assembly/cross-linking, tendon/valve pathology, pain mechanisms, cytokine/immune dysregulation.</li>
+<li><strong>Resources:</strong> MGI (<em>Tnxb</em>, <em>Klk15</em>), IMPC, IMSR.</li>
+</ul>
+<hr />
+<h2>Supported Hypotheses (all evidence-backed)</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Statement</th>
+<th>Status</th>
+<th>Key evidence (PMID)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H001</td>
+<td>hEDS is the only EDS subtype without an identified causal gene; clinical diagnosis, AD</td>
+<td>Supported</td>
+<td>28306229, 31904772, 33856167</td>
+</tr>
+<tr>
+<td>H002</td>
+<td>Immune/complement + matrix-remodeling dysregulation (ACKR3, KLK15, complement) beyond collagen</td>
+<td>Supported</td>
+<td>41001447, 40949095, 40972649</td>
+</tr>
+<tr>
+<td>H003</td>
+<td>Multisystem disorder; high GI/CV/POTS/MCAS/psychiatric burden; female predominance</td>
+<td>Supported</td>
+<td>39465806, 33856167</td>
+</tr>
+<tr>
+<td>H004</td>
+<td>Chronic pain driven by central sensitization (not nerve damage)</td>
+<td>Supported</td>
+<td>26919608, 31075184</td>
+</tr>
+<tr>
+<td>H005</td>
+<td>Diagnosed prevalence ~194/100,000; female predominance; delayed diagnosis in women</td>
+<td>Supported</td>
+<td>31685485</td>
+</tr>
+<tr>
+<td>H006</td>
+<td>TNXB defines a hypermobility CT disorder with a validated mouse model</td>
+<td>Supported</td>
+<td>37007968, 35476220</td>
+</tr>
+<tr>
+<td>H007</td>
+<td>Fatigue and pain (not hypermobility per se) are strongest QoL/disability determinants</td>
+<td>Supported</td>
+<td>30703284</td>
+</tr>
+<tr>
+<td>H008</td>
+<td>POTS + small-fiber neuropathy + MCAS + gut–brain disorders form a comorbidity triad</td>
+<td>Supported</td>
+<td>42399338, 42229474, 41952073</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Limitations and Future Directions</h2>
+<p><strong>Limitations.</strong> (1) hEDS has <strong>no confirmed gene</strong>, so etiology sections rely on emerging, largely unreplicated 2025 genomic/proteomic studies (<em>ACKR3</em>, <em>KLK15</em>, complement) that require independent validation. (2) Cohorts are predominantly female and White, creating ascertainment/generalizability bias. (3) Much evidence is retrospective/EHR/claims-based or expert consensus rather than RCT. (4) Diagnostic criteria evolve, complicating cross-study comparison (pre/post-2017). (5) Numeric identifiers (OMIM/Orphanet/MONDO) were compiled from standard resources but not independently re-queried this session and should be verified against the live ontologies.</p>
+<p><strong>Future directions.</strong> Replicate GWAS/WES findings across ancestries; define molecular subtypes and a diagnostic biomarker (complement/proteomic panel); dissect the connective-tissue → dysautonomia/MCAS causal links; conduct multicenter RCTs of rehabilitation and comorbidity pharmacotherapy; develop humanized/multisystem animal and iPSC/organoid models; and investigate hormonal modifiers underlying female predominance.</p>
+<p><em>Report generated across 5 discovery iterations; 10 findings recorded; ~48 papers reviewed.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Hypermobile_Ehlers-Danlos_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Hypermobile_Ehlers-Danlos_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -10837,5 +11779,73 @@ Always prioritize recent, authoritative sources and provide specific citations f
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

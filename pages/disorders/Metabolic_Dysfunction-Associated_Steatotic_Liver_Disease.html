@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Metabolic Dysfunction-Associated Steatotic Liver Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Metabolic Dysfunction-Associated Steatotic Liver Disease</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Metabolic%20Dysfunction-Associated%20Steatotic%20Liver%20Disease"
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3703,7 +3907,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3730,7 +3934,7 @@
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
@@ -3740,7 +3944,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3838,7 +4042,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-masl">
 
                     <div class="item-name">
                         Metabolic dysfunction-associated steatotic liver (isolated steatosis)
@@ -3872,6 +4076,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37363821" target="_blank">PMID:37363821</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3898,7 +4103,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mash">
 
                     <div class="item-name">
                         Metabolic dysfunction-associated steatohepatitis (MASH/NASH)
@@ -3933,6 +4138,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37363821" target="_blank">PMID:37363821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3970,7 +4176,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-canonical-lipotoxic-multihit-masld">
@@ -4012,6 +4218,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15864352" target="_blank">PMID:15864352</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4138,6 +4345,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412329" target="_blank">PMID:42412329</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4159,6 +4367,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34674097" target="_blank">PMID:34674097</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4183,6 +4392,170 @@
 
             </div>
 
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-sinusoidal-endothelial-dysfunction-masld">
+                <div class="item-name">Liver sinusoidal endothelial dysfunction as an early driver</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">sinusoidal_endothelial_dysfunction_masld</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-EMERGING">EMERGING</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                    <span class="evidence-support support-PARTIAL">1 partial</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">An endothelium-first model in which loss of the liver sinusoidal endothelial cell (LSEC) phenotype — capillarization (loss of fenestrae) and loss of shear-responsive vasodilator production — occurs early, before overt steatohepatitis, and then licenses inflammatory-cell recruitment and hepatic stellate cell activation rather than merely following hepatocyte injury. This is deliberately modeled as a parallel arm of the pathograph, not a replacement for the canonical lipotoxic backbone: the human data are cross-sectional histology, and the causal experiments are endothelium-specific mouse models. The same endothelial lesion has been proposed as the axis shared with atherosclerosis, where vascular endothelial dysfunction initiates lipoprotein retention and leukocyte recruitment; whether dismech should represent that shared axis as a cross-disease module or a comorbidity entry is an open scope question (issue #6352), so no cross-disease structure is asserted here.</div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-cardiometabolic-dysfunction-and-adipose-insulin-resistance">Cardiometabolic Dysfunction and Adipose Insulin Resistance</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The same cardiometabolic state that drives hepatocyte lipid loading also acts on the sinusoidal endothelium: insulin resistance and dyslipidaemia exacerbate endothelial activation and lipid handling across vascular and hepatic beds. This edge is what makes the endothelial arm a branch of the shared cardiometabolic trigger rather than a second, unexplained initiating step.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-hepatocyte-lipid-overload">Hepatocyte Lipid Overload</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The defining endothelium-first claim of this arm: capillarization and loss of shear-responsive vasodilator output occur early in the disease and themselves favour steatosis, rather than arising as a consequence of established hepatocyte injury. This is the edge that orders the endothelial lesion ahead of, not alongside, the steatohepatitis events below.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-hepatocyte-injury-and-inflammatory-activation">Hepatocyte Injury and Inflammatory Activation</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Capillarized LSECs switch from restraining to recruiting: they release inflammatory mediators and support leukocyte adhesion and transmigration, adding an endothelial source to the macrophage-driven inflammation of MASH.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-hepatic-stellate-cell-activation-and-fibrosis">Hepatic Stellate Cell Activation and Fibrosis</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">Healthy LSECs actively maintain stellate-cell quiescence; the capillarized endothelium withdraws that restraint and adds fibrogenic signals, giving a route to fibrosis that does not require hepatocyte death as the intermediate.</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30797053" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30797053" target="_blank">PMID:30797053</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Capillarization, namely the loss of LSEC fenestrae, and LSEC dysfunction, namely the loss of the ability of LSECs to generate vasodilator agents in response to increased shear stress both occur early in NAFLD."</div>
+
+
+                <div class="evidence-explanation">States the temporal claim the hypothesis rests on — that the endothelial lesion is early rather than a downstream consequence of steatohepatitis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31726115" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726115" target="_blank">PMID:31726115</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mice fed a high-fat diet, deficiency in endothelial autophagy induced liver expression of inflammatory markers (Ccl2, Ccl5, Cd68, Vcam-1), liver cell apoptosis (cleaved caspase-3) and perisinusoidal fibrosis."</div>
+
+
+                <div class="evidence-explanation">An endothelium-specific mouse model supplies the causal direction, but the corresponding human data are observational, which is why this is modeled as emerging rather than canonical.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4195,7 +4568,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">9</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiometabolic-dysfunction-and-adipose-insulin-resistance" data-dismech-node="Cardiometabolic Dysfunction and Adipose Insulin Resistance" data-dismech-type="pathophysiology">
@@ -4204,8 +4577,21 @@
                 <div class="item-desc">MASLD is defined by hepatic steatosis in the presence of at least one cardiometabolic risk factor (overweight/obesity, dysglycaemia or type 2 diabetes, hypertension, hypertriglyceridaemia, or low HDL cholesterol). Adipose-tissue insulin resistance fails to restrain lipolysis, so non-esterified fatty acids flood the portal circulation, while hyperinsulinaemia and carbohydrate surplus drive hepatic de novo lipogenesis. This cardiometabolic state is the initiating context that distinguishes MASLD from other steatotic liver diseases.</div>
 
 
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                    </span>
+
+                </div>
+
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         adipocyte
@@ -4213,11 +4599,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4238,10 +4629,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4268,16 +4662,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular response to insulin stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032869" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032869">GO:0032869</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032869" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0032869</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cellular response to insulin stimulus (GO:0032869). GO:0032869 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4305,6 +4704,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4314,6 +4714,25 @@
 
 	                            <span class="crosslink-desc">Adipose insulin resistance and overnutrition supply the fatty acid inflow and lipogenic drive that produce hepatocyte lipid accumulation.</span>
 
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</span>
+
+	                            <span class="crosslink-desc">The same cardiometabolic state that drives hepatocyte lipid loading also acts on the sinusoidal endothelium: insulin resistance and dyslipidaemia exacerbate endothelial activation and lipid handling across vascular and hepatic beds. This edge is what makes the endothelial arm a branch of the shared cardiometabolic trigger rather than a second, unexplained initiating step.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                                    </span>
+
+                                </span>
 
 	                        </div>
 
@@ -4333,6 +4752,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37363821" target="_blank">PMID:37363821</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4355,6 +4775,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412329" target="_blank">PMID:42412329</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4399,16 +4820,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4435,16 +4861,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         triglyceride biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019432" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019432">GO:0019432</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased triglyceride biosynthetic process (GO:0019432). GO:0019432 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4453,6 +4884,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4470,10 +4903,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019915">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4493,16 +4929,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         fatty acid beta-oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006635">GO:0006635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4523,6 +4964,7 @@
 
 
                 </div>
+
 
 
 
@@ -4578,6 +5020,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15864352" target="_blank">PMID:15864352</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4621,16 +5064,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4657,16 +5105,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000423">GO:0000423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0000423</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitophagy (GO:0000423). GO:0000423 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4687,6 +5140,7 @@
 
 
                 </div>
+
 
 
 
@@ -4753,6 +5207,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412329" target="_blank">PMID:42412329</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4774,6 +5229,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34674097" target="_blank">PMID:34674097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4807,16 +5263,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4843,16 +5304,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to endoplasmic reticulum stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4872,16 +5338,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4902,6 +5373,7 @@
 
 
                 </div>
+
 
 
 
@@ -4938,6 +5410,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412329" target="_blank">PMID:42412329</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4959,6 +5432,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20427778" target="_blank">PMID:20427778</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4992,17 +5466,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5023,11 +5504,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000091" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000091">CL:0000091</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000091" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000091</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Kupffer cell (CL:0000091). CL:0000091 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5048,10 +5534,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5078,16 +5567,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5107,16 +5601,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5137,6 +5636,7 @@
 
 
                 </div>
+
 
 
 
@@ -5173,6 +5673,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34674097" target="_blank">PMID:34674097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5196,6 +5697,303 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-liver-sinusoidal-endothelial-cell-dysfunction-and-capillarization" data-dismech-node="Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization" data-dismech-type="pathophysiology">
+                <div class="item-name">Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization</div>
+
+                <div class="item-desc">Liver sinusoidal endothelial cells (LSECs) are the fenestrated gatekeepers between portal blood and the hepatocyte, and in health they hold Kupffer cells and hepatic stellate cells quiescent. In MASLD they capillarize — losing their fenestrae and their shear-responsive vasodilator output — and lose autophagic capacity, converting them from a restraining influence into a source of inflammatory and fibrogenic mediators. This node is the hepatic limb of the endothelial arm; it is not on the canonical lipotoxic backbone and is grouped under the emerging sinusoidal_endothelial_dysfunction_masld hypothesis.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        liver sinusoidal endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_1000398" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:1000398</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves liver sinusoidal endothelial cell, annotated with endothelial cell of hepatic sinusoid (CL:1000398). CL:1000398 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        macroautophagy
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0016236</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased macroautophagy (GO:0016236). GO:0016236 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        leukocyte migration
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0050900</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        nitric oxide biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0006809</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatocyte Lipid Overload</span>
+
+	                            <span class="crosslink-desc">The defining endothelium-first claim of this arm: capillarization and loss of shear-responsive vasodilator output occur early in the disease and themselves favour steatosis, rather than arising as a consequence of established hepatocyte injury. This is the edge that orders the endothelial lesion ahead of, not alongside, the steatohepatitis events below.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatocyte Injury and Inflammatory Activation</span>
+
+	                            <span class="crosslink-desc">Capillarized LSECs switch from restraining to recruiting: they release inflammatory mediators and support leukocyte adhesion and transmigration, adding an endothelial source to the macrophage-driven inflammation of MASH.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hepatic Stellate Cell Activation and Fibrosis</span>
+
+	                            <span class="crosslink-desc">Healthy LSECs actively maintain stellate-cell quiescence; the capillarized endothelium withdraws that restraint and adds fibrogenic signals, giving a route to fibrosis that does not require hepatocyte death as the intermediate.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-sinusoidal-endothelial-dysfunction-masld">Liver sinusoidal endothelial dysfunction as an early driver</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31726115" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726115" target="_blank">PMID:31726115</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with NASH had half as many LSECs containing autophagic vacuoles as patients without liver histological abnormalities, or with simple steatosis."</div>
+
+
+                <div class="evidence-explanation">Transmission electron microscopy in patient liver establishes the autophagy defect in LSECs as a human, not merely a model-system, finding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42430855" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42430855" target="_blank">PMID:42430855</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similarly, in MASLD, liver sinusoidal endothelial cells lose their capacity to regulate lipid trafficking, immune tolerance, and hepatic homeostasis, thereby promoting steatosis, inflammation, and fibrosis."</div>
+
+
+                <div class="evidence-explanation">Names the three functions this node loses and the downstream states they permit — steatosis, inflammation, and fibrosis — which are the three edges below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation-and-fibrosis" data-dismech-node="Hepatic Stellate Cell Activation and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation and Fibrosis</div>
 
@@ -5205,17 +6003,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatic stellate cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000632">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5236,10 +6041,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000186">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5266,16 +6074,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5296,6 +6109,7 @@
 
 
                 </div>
+
 
 
 
@@ -5332,6 +6146,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25935633" target="_blank">PMID:25935633</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5364,16 +6179,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5406,6 +6226,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5417,6 +6238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25935633" target="_blank">PMID:25935633</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5457,15 +6279,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PNPLA3
 
 
-    <a href="https://bioregistry.io/hgnc:18590" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18590">hgnc:18590</a>
+    <a href="https://bioregistry.io/hgnc:18590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:18590</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PNPLA3 (hgnc:18590). hgnc:18590 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5485,6 +6314,7 @@
 
 
                 </div>
+
 
 
 
@@ -5526,6 +6356,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18820647" target="_blank">PMID:18820647</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5565,15 +6396,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TM6SF2
 
 
-    <a href="https://bioregistry.io/hgnc:11861" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11861">hgnc:11861</a>
+    <a href="https://bioregistry.io/hgnc:11861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11861</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TM6SF2 (hgnc:11861). hgnc:11861 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5593,6 +6431,7 @@
 
 
                 </div>
+
 
 
 
@@ -5634,6 +6473,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24531328" target="_blank">PMID:24531328</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5669,7 +6509,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-macrovesicular-steatosis">
                 <div class="item-name">
                     Macrovesicular Steatosis
 
@@ -5690,6 +6530,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28585211" target="_blank">PMID:28585211</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5712,6 +6553,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5736,7 +6578,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-lobular-inflammation">
                 <div class="item-name">
                     Lobular Inflammation
 
@@ -5757,6 +6599,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5781,7 +6624,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hepatocellular-ballooning">
                 <div class="item-name">
                     Hepatocellular Ballooning
 
@@ -5802,6 +6645,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5824,6 +6668,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5848,7 +6693,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-perisinusoidal-fibrosis-progressing-to-bridging-fibrosis-and-cirrhosis">
                 <div class="item-name">
                     Perisinusoidal Fibrosis Progressing to Bridging Fibrosis and Cirrhosis
 
@@ -5869,6 +6714,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5891,6 +6737,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25935633" target="_blank">PMID:25935633</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5937,7 +6784,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bariatric surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metabolic (bariatric) surgery in people with severe obesity and biopsy-proven MASH produced resolution of steatohepatitis in most patients at five years, with progressive fibrosis regression. Evidence is from a prospective cohort with paired biopsies rather than a randomized trial.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MASLD is defined by hepatic steatosis in the presence of at least one cardiometabolic risk factor (overweight/obesity, dysglycaemia or type 2 diabetes, hypertension, hypertriglyceridaemia, or low HDL cholesterol). Adipose-tissue insulin resistance fails to restrain lipolysis, so non-esterified fatty acids flood the portal circulation, while hyperinsulinaemia and carbohydrate surplus drive hepatic de novo lipogenesis. This cardiometabolic state is the initiating context that distinguishes MASLD from other steatotic liver diseases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"hepatocyte\"], \"biological_processes\": [\"cellular response to insulin stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"HSD17B13 rs72613567 protective variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HSD17B13\"], \"gene_terms\": [{\"label\": \"HSD17B13\", \"id\": \"hgnc:18685\"}], \"association\": \"The protein-truncating rs72613567:TA variant reduces progression from steatosis to steatohepatitis without preventing steatosis itself.\", \"relationship_type\": \"PROTECTIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical outcome: bland steatosis advancing through steatohepatitis to bridging fibrosis, cirrhosis, hepatic decompensation, and hepatocellular carcinoma. Most people with MASLD never reach this end of the spectrum, but fibrosis stage stratifies who will.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"role\": \"consequence\"}}, {\"id\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatic stellate cells transdifferentiate into myofibroblast-like cells and deposit excessive extracellular matrix. Fibrosis stage is the histologic feature that determines long-term outcome in MASLD, independent of steatohepatitis activity, which makes this node the principal prognostic and therapeutic target.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\", \"myofibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"effector\"}}, {\"id\": \"Hepatocyte Injury and Inflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stressed hepatocytes undergo apoptosis and pyroptosis, releasing damage signals that activate Kupffer cells and recruited macrophages, with inflammasome activation and pro-inflammatory cytokine release. Steatosis with lobular inflammation and hepatocellular ballooning defines MASH, the inflammatory subtype from which progressive disease arises.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"Kupffer cell\", \"macrophage\"], \"biological_processes\": [\"apoptotic process\", \"inflammatory response\"], \"role\": \"central_effector\"}}, {\"id\": \"Hepatocyte Lipid Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocyte triglyceride accumulates when fatty acid inflow from adipose lipolysis and diet, plus de novo lipogenesis, exceeds fatty acid oxidation and very-low-density lipoprotein export. In MASLD the disorder-specific inflow is metabolic (adipose insulin resistance and carbohydrate surplus) rather than ethanol-driven, but the resulting lipid-droplet overload is the conserved module state.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\", \"lipid storage\", \"fatty acid beta-oxidation\"], \"role\": \"amplifier\"}}, {\"id\": \"Impaired Hepatocyte Mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitophagy is the selective autophagic clearance of damaged mitochondria, executed through ubiquitin-dependent (PINK1/Parkin) and ubiquitin-independent receptor pathways. In steatotic hepatocytes this quality-control step is suppressed, so depolarized, reactive-oxygen-species-producing mitochondria persist and NLRP3 inflammasome activation and pyroptotic hepatocyte death are licensed. This node carries the emerging mitophagy hypothesis and is not asserted as a required step in every case.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"mitophagy\"], \"role\": \"amplifier\"}}, {\"id\": \"Lipotoxic Stress and Organelle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Toxic non-triglyceride lipid species (diacylglycerols, ceramides, free fatty acid metabolites) accumulate alongside stored triglyceride and induce endoplasmic reticulum stress, mitochondrial dysfunction, and reactive oxygen species accumulation. This is the amplification step that converts bland steatosis (MASL) toward steatohepatitis (MASH).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"response to oxidative stress\"], \"role\": \"amplifier\"}}, {\"id\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PNPLA3 rs738409 (I148M) allele increases hepatic triglyceride content and hepatic inflammation, and accounts for much of the ancestry-related variation in susceptibility to fatty liver. It is a susceptibility modifier of lipid retention rather than a necessary or sufficient cause of MASLD.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA3\"], \"gene_terms\": [{\"label\": \"PNPLA3\", \"id\": \"hgnc:18590\"}], \"role\": \"susceptibility\"}}, {\"id\": \"PNPLA3 rs738409 susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA3\"], \"gene_terms\": [{\"label\": \"PNPLA3\", \"id\": \"hgnc:18590\"}], \"association\": \"The rs738409 (I148M) allele increases hepatic fat content and hepatic inflammation and accounts for a large fraction of ancestry-related variation in fatty liver susceptibility. It is neither necessary nor sufficient for MASLD.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Pioglitazone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A PPAR-gamma agonist insulin sensitizer. In PIVENS it reduced steatosis, inflammation, and aminotransferases but did not meet the primary histologic endpoint in adults without diabetes, and caused weight gain. Modeled as acting on the cardiometabolic trigger.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pioglitazone\"]}}, {\"id\": \"Resmetirom\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral, liver-directed, thyroid hormone receptor beta-selective agonist that increases hepatic fatty acid oxidation. In the MAESTRO-NASH phase 3 trial it was superior to placebo for both MASH resolution and fibrosis improvement in patients with F1B-F3 fibrosis, and it is the first agent approved specifically for this indication.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"resmetirom\"]}}, {\"id\": \"Semaglutide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A glucagon-like peptide-1 receptor agonist that produces substantial weight loss and improves glycaemia. A 72-week phase 2 trial increased MASH resolution relative to placebo but found no significant fibrosis-stage benefit; that null result has since been superseded by the phase 3 ESSENCE trial, whose week-72 interim analysis in 800 patients with MASH and F2-F3 fibrosis met both primary endpoints, including reduction in liver fibrosis. Its modeled effect therefore runs through both the upstream cardiometabolic driver and the fibrogenic arm.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"semaglutide\"]}}, {\"id\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TM6SF2 p.Glu167Lys variant reduces TM6SF2 protein levels and impairs hepatic very-low-density lipoprotein export, raising liver triglyceride while lowering circulating LDL cholesterol and triglycerides. It is the prototypical example of the discordance between hepatic fat accumulation and cardiovascular lipid risk in MASLD.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TM6SF2\"], \"gene_terms\": [{\"label\": \"TM6SF2\", \"id\": \"hgnc:11861\"}], \"role\": \"susceptibility\"}}, {\"id\": \"TM6SF2 p.Glu167Lys susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TM6SF2\"], \"gene_terms\": [{\"label\": \"TM6SF2\", \"id\": \"hgnc:11861\"}], \"association\": \"The p.Glu167Lys (rs58542926) variant reduces TM6SF2 protein and hepatic very-low-density lipoprotein export, raising liver fat and alanine transaminase while lowering plasma LDL cholesterol and triglycerides.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Vitamin E\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose alpha-tocopherol improved steatohepatitis histology relative to placebo in the PIVENS trial in adults with MASH without diabetes, but did not improve fibrosis scores. Its modeled action is on the oxidative-stress amplifier node.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"vitamin E\"]}}, {\"id\": \"Weight loss through lifestyle modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hypocaloric diet and increased physical activity, targeting sustained weight loss. The histologic benefit is dose-dependent: 7-10% loss improves steatohepatitis and 10% or more is associated with the highest rates of MASH resolution and fibrosis regression. This remains the foundational intervention for all disease stages.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"rs72613567:TA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Protein-truncating splice variant associated with reduced steatohepatitis risk.\"}], \"edges\": [{\"source\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adipose insulin resistance and overnutrition supply the fatty acid inflow and lipogenic drive that produce hepatocyte lipid accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocyte Lipid Overload\", \"target\": \"Impaired Hepatocyte Mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid overload and the associated mitochondrial workload are proposed to overwhelm and then suppress mitochondrial quality control.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Lipid Overload\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued lipid loading generates toxic non-triglyceride lipid species that stress the endoplasmic reticulum and mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatocyte Mitophagy\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear damaged mitochondria sustains reactive oxygen species production and organelle stress in the steatotic hepatocyte.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatocyte Mitophagy\", \"target\": \"Hepatocyte Injury and Inflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed PINK1-mediated mitophagy permits NLRP3 inflammasome activation and pyroptotic hepatocyte death, an inflammatory route that bypasses the generic lipotoxic-stress step.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"NLRP3 inflammasome activation\"]}, {\"source\": \"Lipotoxic Stress and Organelle Dysfunction\", \"target\": \"Hepatocyte Injury and Inflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Organelle stress sensitizes the hepatocyte to lipoapoptosis and other regulated cell death, which releases damage signals to resident macrophages.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocyte Injury and Inflammatory Activation\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hepatocyte death and macrophage activation provide the cytokine and damage-signal milieu that activates hepatic stellate cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"target\": \"Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive matrix deposition distorts hepatic architecture and yields cirrhosis, portal hypertension, hepatic decompensation, and hepatocellular carcinoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carriage of the 148M allele raises steady-state hepatic triglyceride content, shifting the lipid-overload node toward disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TM6SF2 protein impairs very-low-density lipoprotein export, so triglyceride is retained in the hepatocyte.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced TM6SF2 protein abundance\", \"Impaired hepatic VLDL secretion\"]}, {\"source\": \"Weight loss through lifestyle modification\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Resmetirom\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Semaglutide\", \"target\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Semaglutide\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin E\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pioglitazone\", \"target\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bariatric surgery\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PNPLA3 rs738409 susceptibility\", \"target\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TM6SF2 p.Glu167Lys susceptibility\", \"target\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"rs72613567:TA\", \"target\": \"HSD17B13 rs72613567 protective variant\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bariatric surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metabolic (bariatric) surgery in people with severe obesity and biopsy-proven MASH produced resolution of steatohepatitis in most patients at five years, with progressive fibrosis regression. Evidence is from a prospective cohort with paired biopsies rather than a randomized trial.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MASLD is defined by hepatic steatosis in the presence of at least one cardiometabolic risk factor (overweight/obesity, dysglycaemia or type 2 diabetes, hypertension, hypertriglyceridaemia, or low HDL cholesterol). Adipose-tissue insulin resistance fails to restrain lipolysis, so non-esterified fatty acids flood the portal circulation, while hyperinsulinaemia and carbohydrate surplus drive hepatic de novo lipogenesis. This cardiometabolic state is the initiating context that distinguishes MASLD from other steatotic liver diseases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"hepatocyte\"], \"biological_processes\": [\"cellular response to insulin stimulus\"], \"role\": \"trigger\"}}, {\"id\": \"HSD17B13 rs72613567 protective variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HSD17B13\"], \"gene_terms\": [{\"label\": \"HSD17B13\", \"id\": \"hgnc:18685\"}], \"association\": \"The protein-truncating rs72613567:TA variant reduces progression from steatosis to steatohepatitis without preventing steatosis itself.\", \"relationship_type\": \"PROTECTIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical outcome: bland steatosis advancing through steatohepatitis to bridging fibrosis, cirrhosis, hepatic decompensation, and hepatocellular carcinoma. Most people with MASLD never reach this end of the spectrum, but fibrosis stage stratifies who will.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"role\": \"consequence\"}}, {\"id\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatic stellate cells transdifferentiate into myofibroblast-like cells and deposit excessive extracellular matrix. Fibrosis stage is the histologic feature that determines long-term outcome in MASLD, independent of steatohepatitis activity, which makes this node the principal prognostic and therapeutic target.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\", \"myofibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"effector\"}}, {\"id\": \"Hepatocyte Injury and Inflammatory Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stressed hepatocytes undergo apoptosis and pyroptosis, releasing damage signals that activate Kupffer cells and recruited macrophages, with inflammasome activation and pro-inflammatory cytokine release. Steatosis with lobular inflammation and hepatocellular ballooning defines MASH, the inflammatory subtype from which progressive disease arises.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\", \"Kupffer cell\", \"macrophage\"], \"biological_processes\": [\"apoptotic process\", \"inflammatory response\"], \"role\": \"central_effector\"}}, {\"id\": \"Hepatocyte Lipid Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocyte triglyceride accumulates when fatty acid inflow from adipose lipolysis and diet, plus de novo lipogenesis, exceeds fatty acid oxidation and very-low-density lipoprotein export. In MASLD the disorder-specific inflow is metabolic (adipose insulin resistance and carbohydrate surplus) rather than ethanol-driven, but the resulting lipid-droplet overload is the conserved module state.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\", \"lipid storage\", \"fatty acid beta-oxidation\"], \"role\": \"amplifier\"}}, {\"id\": \"Impaired Hepatocyte Mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitophagy is the selective autophagic clearance of damaged mitochondria, executed through ubiquitin-dependent (PINK1/Parkin) and ubiquitin-independent receptor pathways. In steatotic hepatocytes this quality-control step is suppressed, so depolarized, reactive-oxygen-species-producing mitochondria persist and NLRP3 inflammasome activation and pyroptotic hepatocyte death are licensed. This node carries the emerging mitophagy hypothesis and is not asserted as a required step in every case.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"mitophagy\"], \"role\": \"amplifier\"}}, {\"id\": \"Lipotoxic Stress and Organelle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Toxic non-triglyceride lipid species (diacylglycerols, ceramides, free fatty acid metabolites) accumulate alongside stored triglyceride and induce endoplasmic reticulum stress, mitochondrial dysfunction, and reactive oxygen species accumulation. This is the amplification step that converts bland steatosis (MASL) toward steatohepatitis (MASH).\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"response to oxidative stress\"], \"role\": \"amplifier\"}}, {\"id\": \"Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver sinusoidal endothelial cells (LSECs) are the fenestrated gatekeepers between portal blood and the hepatocyte, and in health they hold Kupffer cells and hepatic stellate cells quiescent. In MASLD they capillarize \\u2014 losing their fenestrae and their shear-responsive vasodilator output \\u2014 and lose autophagic capacity, converting them from a restraining influence into a source of inflammatory and fibrogenic mediators. This node is the hepatic limb of the endothelial arm; it is not on the canonical lipotoxic backbone and is grouped under the emerging sinusoidal_endothelial_dysfunction_masld hypothesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"liver sinusoidal endothelial cell\"], \"biological_processes\": [\"macroautophagy\", \"leukocyte migration\", \"nitric oxide biosynthetic process\"], \"role\": \"amplifier\"}}, {\"id\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The PNPLA3 rs738409 (I148M) allele increases hepatic triglyceride content and hepatic inflammation, and accounts for much of the ancestry-related variation in susceptibility to fatty liver. It is a susceptibility modifier of lipid retention rather than a necessary or sufficient cause of MASLD.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA3\"], \"gene_terms\": [{\"label\": \"PNPLA3\", \"id\": \"hgnc:18590\"}], \"role\": \"susceptibility\"}}, {\"id\": \"PNPLA3 rs738409 susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PNPLA3\"], \"gene_terms\": [{\"label\": \"PNPLA3\", \"id\": \"hgnc:18590\"}], \"association\": \"The rs738409 (I148M) allele increases hepatic fat content and hepatic inflammation and accounts for a large fraction of ancestry-related variation in fatty liver susceptibility. It is neither necessary nor sufficient for MASLD.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Pioglitazone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A PPAR-gamma agonist insulin sensitizer. In PIVENS it reduced steatosis, inflammation, and aminotransferases but did not meet the primary histologic endpoint in adults without diabetes, and caused weight gain. Modeled as acting on the cardiometabolic trigger.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pioglitazone\"]}}, {\"id\": \"Resmetirom\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral, liver-directed, thyroid hormone receptor beta-selective agonist that increases hepatic fatty acid oxidation. In the MAESTRO-NASH phase 3 trial it was superior to placebo for both MASH resolution and fibrosis improvement in patients with F1B-F3 fibrosis, and it is the first agent approved specifically for this indication.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"resmetirom\"]}}, {\"id\": \"Semaglutide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A glucagon-like peptide-1 receptor agonist that produces substantial weight loss and improves glycaemia. A 72-week phase 2 trial increased MASH resolution relative to placebo but found no significant fibrosis-stage benefit; that null result has since been superseded by the phase 3 ESSENCE trial, whose week-72 interim analysis in 800 patients with MASH and F2-F3 fibrosis met both primary endpoints, including reduction in liver fibrosis. Its modeled effect therefore runs through both the upstream cardiometabolic driver and the fibrogenic arm.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"semaglutide\"]}}, {\"id\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The TM6SF2 p.Glu167Lys variant reduces TM6SF2 protein levels and impairs hepatic very-low-density lipoprotein export, raising liver triglyceride while lowering circulating LDL cholesterol and triglycerides. It is the prototypical example of the discordance between hepatic fat accumulation and cardiovascular lipid risk in MASLD.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TM6SF2\"], \"gene_terms\": [{\"label\": \"TM6SF2\", \"id\": \"hgnc:11861\"}], \"role\": \"susceptibility\"}}, {\"id\": \"TM6SF2 p.Glu167Lys susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TM6SF2\"], \"gene_terms\": [{\"label\": \"TM6SF2\", \"id\": \"hgnc:11861\"}], \"association\": \"The p.Glu167Lys (rs58542926) variant reduces TM6SF2 protein and hepatic very-low-density lipoprotein export, raising liver fat and alanine transaminase while lowering plasma LDL cholesterol and triglycerides.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Vitamin E\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose alpha-tocopherol improved steatohepatitis histology relative to placebo in the PIVENS trial in adults with MASH without diabetes, but did not improve fibrosis scores. Its modeled action is on the oxidative-stress amplifier node.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"vitamin E\"]}}, {\"id\": \"Weight loss through lifestyle modification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hypocaloric diet and increased physical activity, targeting sustained weight loss. The histologic benefit is dose-dependent: 7-10% loss improves steatohepatitis and 10% or more is associated with the highest rates of MASH resolution and fibrosis regression. This remains the foundational intervention for all disease stages.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"rs72613567:TA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Protein-truncating splice variant associated with reduced steatohepatitis risk.\"}], \"edges\": [{\"source\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adipose insulin resistance and overnutrition supply the fatty acid inflow and lipogenic drive that produce hepatocyte lipid accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"target\": \"Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same cardiometabolic state that drives hepatocyte lipid loading also acts on the sinusoidal endothelium: insulin resistance and dyslipidaemia exacerbate endothelial activation and lipid handling across vascular and hepatic beds. This edge is what makes the endothelial arm a branch of the shared cardiometabolic trigger rather than a second, unexplained initiating step.\", \"hypothesis_groups\": [\"sinusoidal_endothelial_dysfunction_masld\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocyte Lipid Overload\", \"target\": \"Impaired Hepatocyte Mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid overload and the associated mitochondrial workload are proposed to overwhelm and then suppress mitochondrial quality control.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Lipid Overload\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued lipid loading generates toxic non-triglyceride lipid species that stress the endoplasmic reticulum and mitochondria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatocyte Mitophagy\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to clear damaged mitochondria sustains reactive oxygen species production and organelle stress in the steatotic hepatocyte.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hepatocyte Mitophagy\", \"target\": \"Hepatocyte Injury and Inflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed PINK1-mediated mitophagy permits NLRP3 inflammasome activation and pyroptotic hepatocyte death, an inflammatory route that bypasses the generic lipotoxic-stress step.\", \"hypothesis_groups\": [\"impaired_mitophagy_amplifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"NLRP3 inflammasome activation\"]}, {\"source\": \"Lipotoxic Stress and Organelle Dysfunction\", \"target\": \"Hepatocyte Injury and Inflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Organelle stress sensitizes the hepatocyte to lipoapoptosis and other regulated cell death, which releases damage signals to resident macrophages.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatocyte Injury and Inflammatory Activation\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hepatocyte death and macrophage activation provide the cytokine and damage-signal milieu that activates hepatic stellate cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The defining endothelium-first claim of this arm: capillarization and loss of shear-responsive vasodilator output occur early in the disease and themselves favour steatosis, rather than arising as a consequence of established hepatocyte injury. This is the edge that orders the endothelial lesion ahead of, not alongside, the steatohepatitis events below.\", \"hypothesis_groups\": [\"sinusoidal_endothelial_dysfunction_masld\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization\", \"target\": \"Hepatocyte Injury and Inflammatory Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Capillarized LSECs switch from restraining to recruiting: they release inflammatory mediators and support leukocyte adhesion and transmigration, adding an endothelial source to the macrophage-driven inflammation of MASH.\", \"hypothesis_groups\": [\"sinusoidal_endothelial_dysfunction_masld\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Healthy LSECs actively maintain stellate-cell quiescence; the capillarized endothelium withdraws that restraint and adds fibrogenic signals, giving a route to fibrosis that does not require hepatocyte death as the intermediate.\", \"hypothesis_groups\": [\"sinusoidal_endothelial_dysfunction_masld\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"target\": \"Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive matrix deposition distorts hepatic architecture and yields cirrhosis, portal hypertension, hepatic decompensation, and hepatocellular carcinoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carriage of the 148M allele raises steady-state hepatic triglyceride content, shifting the lipid-overload node toward disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TM6SF2 protein impairs very-low-density lipoprotein export, so triglyceride is retained in the hepatocyte.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced TM6SF2 protein abundance\", \"Impaired hepatic VLDL secretion\"]}, {\"source\": \"Weight loss through lifestyle modification\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Resmetirom\", \"target\": \"Hepatocyte Lipid Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Semaglutide\", \"target\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Semaglutide\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin E\", \"target\": \"Lipotoxic Stress and Organelle Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pioglitazone\", \"target\": \"Cardiometabolic Dysfunction and Adipose Insulin Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bariatric surgery\", \"target\": \"Hepatic Stellate Cell Activation and Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PNPLA3 rs738409 susceptibility\", \"target\": \"PNPLA3 rs738409 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TM6SF2 p.Glu167Lys susceptibility\", \"target\": \"TM6SF2 p.Glu167Lys Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"rs72613567:TA\", \"target\": \"HSD17B13 rs72613567 protective variant\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5980,14 +6827,21 @@
                         Hepatic steatosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic steatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001397</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6007,6 +6861,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15864352" target="_blank">PMID:15864352</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6039,14 +6894,21 @@
                         Hepatic fibrosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001395</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic fibrosis (HP:0001395), qualified as course progressive. HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6085,6 +6947,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25935633" target="_blank">PMID:25935633</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6116,14 +6979,21 @@
                         Cirrhosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6143,6 +7013,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25935633" target="_blank">PMID:25935633</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6175,14 +7046,21 @@
                         Hepatocellular carcinoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatocellular carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001402">HP:0001402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6202,6 +7080,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33989548" target="_blank">PMID:33989548</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6243,14 +7122,21 @@
                         Insulin resistance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6270,6 +7156,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412329" target="_blank">PMID:42412329</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6311,14 +7198,21 @@
                         Obesity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6338,6 +7232,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32553765" target="_blank">PMID:32553765</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6379,14 +7274,23 @@
                         Elevated serum alanine aminotransferase
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating alanine aminotransferase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating alanine aminotransferase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031964" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031964">HP:0031964</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0031964</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alanine aminotransferase concentration (HP:0031964). HP:0031964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,6 +7310,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24531328" target="_blank">PMID:24531328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6484,13 +7389,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PNPLA3
 
 
-    <a href="https://bioregistry.io/hgnc:18590" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18590">hgnc:18590</a>
+    <a href="https://bioregistry.io/hgnc:18590" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:18590</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PNPLA3 (hgnc:18590). hgnc:18590 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6515,6 +7425,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18820647" target="_blank">PMID:18820647</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6552,13 +7463,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TM6SF2
 
 
-    <a href="https://bioregistry.io/hgnc:11861" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11861">hgnc:11861</a>
+    <a href="https://bioregistry.io/hgnc:11861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11861</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TM6SF2 (hgnc:11861). hgnc:11861 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6583,6 +7499,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24531328" target="_blank">PMID:24531328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6620,13 +7537,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GCKR
 
 
-    <a href="https://bioregistry.io/hgnc:4196" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4196">hgnc:4196</a>
+    <a href="https://bioregistry.io/hgnc:4196" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:4196</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GCKR (hgnc:4196). hgnc:4196 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6651,6 +7573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32145256" target="_blank">PMID:32145256</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6688,13 +7611,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MBOAT7
 
 
-    <a href="https://bioregistry.io/hgnc:15505" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15505">hgnc:15505</a>
+    <a href="https://bioregistry.io/hgnc:15505" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:15505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MBOAT7 (hgnc:15505). hgnc:15505 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6719,6 +7647,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32145256" target="_blank">PMID:32145256</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6756,13 +7685,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HSD17B13
 
 
-    <a href="https://bioregistry.io/hgnc:18685" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18685">hgnc:18685</a>
+    <a href="https://bioregistry.io/hgnc:18685" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:18685</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HSD17B13 (hgnc:18685). hgnc:18685 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6787,6 +7721,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29562163" target="_blank">PMID:29562163</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6832,6 +7767,8 @@
 
 
 
+
+
     </div>
 
 
@@ -6843,6 +7780,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6862,7 +7802,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -6920,6 +7865,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865049" target="_blank">PMID:25865049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6961,6 +7907,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865049" target="_blank">PMID:25865049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6992,7 +7939,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7022,16 +7974,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         resmetirom
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170368" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170368">NCIT:C170368</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170368" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C170368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses resmetirom (NCIT:C170368). NCIT:C170368 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7065,6 +8022,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7107,6 +8065,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38324483" target="_blank">PMID:38324483</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7138,7 +8097,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7168,16 +8132,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         semaglutide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152328" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152328">NCIT:C152328</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152328" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C152328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses semaglutide (NCIT:C152328). NCIT:C152328 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7211,6 +8180,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33185364" target="_blank">PMID:33185364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7257,6 +8227,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40305708" target="_blank">PMID:40305708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7298,6 +8269,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40305708" target="_blank">PMID:40305708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7320,6 +8292,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40305708" target="_blank">PMID:40305708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7341,6 +8314,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33185364" target="_blank">PMID:33185364</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7375,7 +8349,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7405,16 +8384,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vitamin E
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:33234">CHEBI:33234</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_33234" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:33234</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vitamin E (CHEBI:33234). CHEBI:33234 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7448,6 +8432,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20427778" target="_blank">PMID:20427778</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7490,6 +8475,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20427778" target="_blank">PMID:20427778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7521,7 +8507,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7551,16 +8542,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pioglitazone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8228" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8228">CHEBI:8228</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8228" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:8228</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pioglitazone (CHEBI:8228). CHEBI:8228 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7594,6 +8590,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20427778" target="_blank">PMID:20427778</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7636,6 +8633,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20427778" target="_blank">PMID:20427778</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7667,7 +8665,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">bariatric surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">bariatric surgery<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bariatric surgery (NCIT:C84399). NCIT:C84399 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bariatric Surgery</span>
 
 
@@ -7725,6 +8728,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32553765" target="_blank">PMID:32553765</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7765,6 +8769,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32553765" target="_blank">PMID:32553765</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7808,6 +8813,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7956,6 +8964,48 @@ mechanistic_hypotheses:
     explanation: &gt;-
       A cell-culture model supports the mitophagy-to-inflammation link but does
       not establish it in human liver, bounding the hypothesis as emerging.
+- hypothesis_group_id: sinusoidal_endothelial_dysfunction_masld
+  hypothesis_label: Liver sinusoidal endothelial dysfunction as an early driver
+  status: EMERGING
+  description: &gt;-
+    An endothelium-first model in which loss of the liver sinusoidal endothelial
+    cell (LSEC) phenotype — capillarization (loss of fenestrae) and loss of
+    shear-responsive vasodilator production — occurs early, before overt
+    steatohepatitis, and then licenses inflammatory-cell recruitment and hepatic
+    stellate cell activation rather than merely following hepatocyte injury.
+    This is deliberately modeled as a parallel arm of the pathograph, not a
+    replacement for the canonical lipotoxic backbone: the human data are
+    cross-sectional histology, and the causal experiments are
+    endothelium-specific mouse models. The same endothelial lesion has been
+    proposed as the axis shared with atherosclerosis, where vascular endothelial
+    dysfunction initiates lipoprotein retention and leukocyte recruitment;
+    whether dismech should represent that shared axis as a cross-disease module
+    or a comorbidity entry is an open scope question (issue #6352), so no
+    cross-disease structure is asserted here.
+  evidence:
+  - reference: PMID:30797053
+    reference_title: Role of liver sinusoidal endothelial cells in non-alcoholic fatty liver disease.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Capillarization, namely the loss of LSEC fenestrae, and LSEC dysfunction,
+      namely the loss of the ability of LSECs to generate vasodilator agents in
+      response to increased shear stress both occur early in NAFLD.
+    explanation: &gt;-
+      States the temporal claim the hypothesis rests on — that the endothelial
+      lesion is early rather than a downstream consequence of steatohepatitis.
+  - reference: PMID:31726115
+    reference_title: A defect in endothelial autophagy occurs in patients with non-alcoholic steatohepatitis and promotes inflammation and fibrosis.
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In mice fed a high-fat diet, deficiency in endothelial autophagy induced
+      liver expression of inflammatory markers (Ccl2, Ccl5, Cd68, Vcam-1), liver
+      cell apoptosis (cleaved caspase-3) and perisinusoidal fibrosis.
+    explanation: &gt;-
+      An endothelium-specific mouse model supplies the causal direction, but the
+      corresponding human data are observational, which is why this is modeled
+      as emerging rather than canonical.
 prevalence:
 - population: Worldwide, general adult population (imaging-diagnosed NAFLD)
   measure_type: POINT_PREVALENCE
@@ -8066,6 +9116,30 @@ pathophysiology:
       explanation: &gt;-
         Directly quantifies adipose-derived non-esterified fatty acids and de novo
         lipogenesis as the dominant sources of stored hepatic triglyceride.
+  - target: Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization
+    description: &gt;-
+      The same cardiometabolic state that drives hepatocyte lipid loading also
+      acts on the sinusoidal endothelium: insulin resistance and dyslipidaemia
+      exacerbate endothelial activation and lipid handling across vascular and
+      hepatic beds. This edge is what makes the endothelial arm a branch of the
+      shared cardiometabolic trigger rather than a second, unexplained
+      initiating step.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - sinusoidal_endothelial_dysfunction_masld
+    evidence:
+    - reference: PMID:42430855
+      reference_title: &#39;Endothelial Cells at the Crossroad of Atherosclerosis and Metabolic Dysfunction-Associated Steatotic Liver Disease: A Unifying Target for Dual Treatment.&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        We further discuss how metabolic disturbances including insulin
+        resistance and dyslipidemia exacerbate endothelial activation, lipid
+        accumulation, and immune cell responses across vascular and hepatic
+        beds.
+      explanation: &gt;-
+        Names insulin resistance and dyslipidaemia — the content of this trigger
+        node — as what exacerbates endothelial activation in the hepatic bed.
 
 - name: Hepatocyte Lipid Overload
   conforms_to: &#39;hepatic_steatosis_lipotoxicity#Hepatocyte Lipid Overload&#39;
@@ -8356,6 +9430,130 @@ pathophysiology:
       explanation: &gt;-
         Couples macrophage dysfunction to hepatic stellate cell activation as the
         pathogenetic route to fibrosis progression.
+
+- name: Liver Sinusoidal Endothelial Cell Dysfunction and Capillarization
+  biological_scale: CELLULAR
+  role: amplifier
+  description: &gt;-
+    Liver sinusoidal endothelial cells (LSECs) are the fenestrated gatekeepers
+    between portal blood and the hepatocyte, and in health they hold Kupffer
+    cells and hepatic stellate cells quiescent. In MASLD they capillarize —
+    losing their fenestrae and their shear-responsive vasodilator output — and
+    lose autophagic capacity, converting them from a restraining influence into
+    a source of inflammatory and fibrogenic mediators. This node is the hepatic
+    limb of the endothelial arm; it is not on the canonical lipotoxic backbone
+    and is grouped under the emerging
+    sinusoidal_endothelial_dysfunction_masld hypothesis.
+  cell_types:
+  - preferred_term: liver sinusoidal endothelial cell
+    term:
+      id: CL:1000398
+      label: endothelial cell of hepatic sinusoid
+  biological_processes:
+  - preferred_term: macroautophagy
+    term:
+      id: GO:0016236
+      label: macroautophagy
+    modifier: DECREASED
+  - preferred_term: leukocyte migration
+    term:
+      id: GO:0050900
+      label: leukocyte migration
+    modifier: INCREASED
+  - preferred_term: nitric oxide biosynthetic process
+    term:
+      id: GO:0006809
+      label: nitric oxide biosynthetic process
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:31726115
+    reference_title: A defect in endothelial autophagy occurs in patients with non-alcoholic steatohepatitis and promotes inflammation and fibrosis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Patients with NASH had half as many LSECs containing autophagic vacuoles
+      as patients without liver histological abnormalities, or with simple
+      steatosis.
+    explanation: &gt;-
+      Transmission electron microscopy in patient liver establishes the
+      autophagy defect in LSECs as a human, not merely a model-system, finding.
+  - reference: PMID:42430855
+    reference_title: &#39;Endothelial Cells at the Crossroad of Atherosclerosis and Metabolic Dysfunction-Associated Steatotic Liver Disease: A Unifying Target for Dual Treatment.&#39;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Similarly, in MASLD, liver sinusoidal endothelial cells lose their
+      capacity to regulate lipid trafficking, immune tolerance, and hepatic
+      homeostasis, thereby promoting steatosis, inflammation, and fibrosis.
+    explanation: &gt;-
+      Names the three functions this node loses and the downstream states they
+      permit — steatosis, inflammation, and fibrosis — which are the three edges
+      below.
+  downstream:
+  - target: Hepatocyte Lipid Overload
+    description: &gt;-
+      The defining endothelium-first claim of this arm: capillarization and loss
+      of shear-responsive vasodilator output occur early in the disease and
+      themselves favour steatosis, rather than arising as a consequence of
+      established hepatocyte injury. This is the edge that orders the endothelial
+      lesion ahead of, not alongside, the steatohepatitis events below.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - sinusoidal_endothelial_dysfunction_masld
+    evidence:
+    - reference: PMID:30797053
+      reference_title: Role of liver sinusoidal endothelial cells in non-alcoholic fatty liver disease.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        These LSEC changes favour steatosis development and set the stage for
+        NAFLD progression.
+      explanation: &gt;-
+        States the steatosis-promoting direction of the edge, and follows
+        immediately on the review&#39;s statement that both LSEC changes occur early
+        in NAFLD, which is what licenses the endothelium-first ordering.
+  - target: Hepatocyte Injury and Inflammatory Activation
+    description: &gt;-
+      Capillarized LSECs switch from restraining to recruiting: they release
+      inflammatory mediators and support leukocyte adhesion and transmigration,
+      adding an endothelial source to the macrophage-driven inflammation of
+      MASH.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - sinusoidal_endothelial_dysfunction_masld
+    evidence:
+    - reference: PMID:30797053
+      reference_title: Role of liver sinusoidal endothelial cells in non-alcoholic fatty liver disease.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        At the stage of non-alcoholic steatohepatitis, altered LSECs release
+        inflammatory mediators and contribute to the recruitment of inflammatory
+        cells, thus promoting liver injury and inflammation.
+      explanation: &gt;-
+        States the edge directly, and locates it at the steatohepatitis stage
+        rather than in bland steatosis.
+  - target: Hepatic Stellate Cell Activation and Fibrosis
+    description: &gt;-
+      Healthy LSECs actively maintain stellate-cell quiescence; the capillarized
+      endothelium withdraws that restraint and adds fibrogenic signals, giving a
+      route to fibrosis that does not require hepatocyte death as the
+      intermediate.
+    causal_link_type: DIRECT
+    hypothesis_groups:
+    - sinusoidal_endothelial_dysfunction_masld
+    evidence:
+    - reference: PMID:30797053
+      reference_title: Role of liver sinusoidal endothelial cells in non-alcoholic fatty liver disease.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Altered LSECs also fail to maintain hepatic stellate cell quiescence and
+        release fibrogenic mediators, including Hedgehog signalling molecules,
+        promoting liver fibrosis.
+      explanation: &gt;-
+        Supplies both halves of the edge — loss of the quiescence-maintaining
+        function and positive release of fibrogenic mediators.
 
 - name: Hepatic Stellate Cell Activation and Fibrosis
   conforms_to: &#39;hepatic_steatosis_lipotoxicity#Hepatic Stellate Cell Activation and Fibrosis&#39;
@@ -8774,6 +9972,7 @@ phenotypes:
       label: Hepatocellular carcinoma
   evidence:
   - reference: PMID:33989548
+    reference_title: &#34;Mechanisms and disease consequences of nonalcoholic fatty liver disease.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: Its more advanced subtype, nonalcoholic steatohepatitis (NASH), connotes progressive liver injury that can lead to cirrhosis and hepatocellular carcinoma.
@@ -9842,7 +11041,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metabolic Dysfunction-Associated Steatotic Liver Disease", "mondoId": "MONDO:0013209", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease", "yamlRevision": "413a8923cb4f"};
+        const OS_CONFIG = {"diseaseName": "Metabolic Dysfunction-Associated Steatotic Liver Disease", "mondoId": "MONDO:0013209", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease", "yamlRevision": "5c6764c17cbd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10261,5 +11460,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

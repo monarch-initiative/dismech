@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Chronic Pancreatitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Chronic Pancreatitis</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chronic%20Pancreatitis"
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3724,7 +3928,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3785,27 +3989,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3848,16 +4129,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Pancreatic Acinar Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002064" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002064">CL:0002064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pancreatic Acinar Cell (CL:0002064). CL:0002064 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3884,16 +4170,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3919,6 +4210,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -3930,6 +4222,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39534420" target="_blank">PMID:39534420</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3952,6 +4245,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19322914" target="_blank">PMID:19322914</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3986,16 +4280,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Pancreatic Stellate Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002410" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002410">CL:0002410</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002410" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pancreatic Stellate Cell (CL:0002410). CL:0002410 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4022,16 +4321,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Extracellular Matrix Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4061,6 +4365,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4072,6 +4377,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753610" target="_blank">PMID:15753610</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4094,6 +4400,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753610" target="_blank">PMID:15753610</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4135,16 +4442,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Digestive System Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022600" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022600">GO:0022600</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022600" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0022600</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Digestive System Process (GO:0022600). GO:0022600 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4165,6 +4477,7 @@
 
 
                 </div>
+
 
 
 
@@ -4209,6 +4522,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30074926" target="_blank">PMID:30074926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4228,6 +4542,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30074926" target="_blank">PMID:30074926</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4260,16 +4575,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Pancreatic Beta Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000169">CL:0000169</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000169</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pancreatic Beta Cell, annotated with type B pancreatic cell (CL:0000169). CL:0000169 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4286,6 +4606,7 @@
 
 
                 </div>
+
 
 
 
@@ -4328,6 +4649,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28404095" target="_blank">PMID:28404095</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4375,7 +4697,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Endocrine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of islet cells leads to diabetes mellitus (type 3c). Often occurs later in disease course.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pancreatic Beta Cell\"]}}, {\"id\": \"Exocrine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of acinar cell mass leads to insufficient digestive enzyme production. Steatorrhea and malabsorption occur when \u003e90% of exocrine function is lost.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Digestive System Process\"]}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Exocrine Insufficiency\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exocrine pancreatic insufficiency causes fat malabsorption, manifesting as steatorrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exocrine Insufficiency\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exocrine pancreatic insufficiency and malnutrition contribute to weight loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Exocrine pancreatic insufficiency causes maldigestion and malnutrition.\"]}, {\"source\": \"Endocrine Insufficiency\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pancreatitis-associated endocrine pancreatic damage manifests as pancreatogenic diabetes mellitus.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alcohol Consumption\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diabetes Mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Endocrine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of islet cells leads to diabetes mellitus (type 3c). Often occurs later in disease course.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Pancreatic Beta Cell\"]}}, {\"id\": \"Exocrine Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of acinar cell mass leads to insufficient digestive enzyme production. Steatorrhea and malabsorption occur when \u003e90% of exocrine function is lost.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Digestive System Process\"]}}, {\"id\": \"Recurrent Acinar Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated episodes of pancreatic inflammation cause progressive acinar cell damage. Alcohol, smoking, and genetic factors are major causes. Premature trypsin activation injures cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Pancreatic Acinar Cell\"], \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Exocrine Insufficiency\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exocrine pancreatic insufficiency causes fat malabsorption, manifesting as steatorrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exocrine Insufficiency\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exocrine pancreatic insufficiency and malnutrition contribute to weight loss.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Exocrine pancreatic insufficiency causes maldigestion and malnutrition.\"]}, {\"source\": \"Endocrine Insufficiency\", \"target\": \"Diabetes Mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pancreatitis-associated endocrine pancreatic damage manifests as pancreatogenic diabetes mellitus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol Consumption\", \"target\": \"Recurrent Acinar Cell Injury\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Alcohol is the commonest cause and acts on the acinar cell itself, which is why this link is direct. Graded partial because the sentence available describes a cohort assembled from patients who already had alcoholic pancreatitis; it presupposes the aetiology rather than demonstrating it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Smoking\", \"target\": \"Recurrent Acinar Cell Injury\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Smoking brings the disease forward and hastens its structural endpoints, and it does so independently of how much alcohol a patient drinks. Recorded as exacerbating rather than triggering, in contrast to the alcohol link into this same node, because every cited figure measures acceleration of an established alcoholic pancreatitis rather than initiation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4420,14 +4742,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Steatorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002570">HP:0002570</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002570</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4449,6 +4778,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27941156" target="_blank">PMID:27941156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4481,14 +4811,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and Vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4519,14 +4856,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000819">HP:0000819</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetes, annotated with Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4548,6 +4892,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28404095" target="_blank">PMID:28404095</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4589,14 +4934,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Abdominal Pain, annotated with Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4618,6 +4970,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38680261" target="_blank">PMID:38680261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4659,14 +5012,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4686,6 +5046,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18554234" target="_blank">PMID:18554234</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4758,6 +5119,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PRSS1
+
+
+    <a href="https://bioregistry.io/hgnc:9475" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:9475</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRSS1 (hgnc:9475). hgnc:9475 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4772,6 +5155,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37389024" target="_blank">PMID:37389024</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4803,6 +5187,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SPINK1
+
+
+    <a href="https://bioregistry.io/hgnc:11244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11244</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPINK1 (hgnc:11244). hgnc:11244 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4817,6 +5223,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37389024" target="_blank">PMID:37389024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4848,6 +5255,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CFTR
+
+
+    <a href="https://bioregistry.io/hgnc:1884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1884</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFTR (hgnc:1884). hgnc:1884 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4862,6 +5291,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37389024" target="_blank">PMID:37389024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4893,6 +5323,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CTRC
+
+
+    <a href="https://bioregistry.io/hgnc:2523" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:2523</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTRC (hgnc:2523). hgnc:2523 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4907,6 +5359,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37389024" target="_blank">PMID:37389024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4934,6 +5387,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4972,6 +5428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38680261" target="_blank">PMID:38680261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5022,6 +5479,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27941156" target="_blank">PMID:27941156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5041,6 +5499,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27941156" target="_blank">PMID:27941156</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5091,6 +5550,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28404095" target="_blank">PMID:28404095</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5139,6 +5599,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30074926" target="_blank">PMID:30074926</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5189,6 +5650,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38013125" target="_blank">PMID:38013125</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5208,6 +5670,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38013125" target="_blank">PMID:38013125</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5258,6 +5721,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38013125" target="_blank">PMID:38013125</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5277,6 +5741,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5327,6 +5792,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30654394" target="_blank">PMID:30654394</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5376,6 +5842,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18471517" target="_blank">PMID:18471517</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5409,8 +5876,35 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-alcohol" data-dismech-node="Alcohol" data-dismech-type="environmental">
-                <div class="item-name">Alcohol</div>
+            <div class="item-box environmental-box anchor-target" id="environmental-alcohol-consumption" data-dismech-node="Alcohol Consumption" data-dismech-type="environmental">
+                <div class="item-name">Alcohol Consumption</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-16">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Most common cause</div>
@@ -5429,6 +5923,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5450,10 +5945,90 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Recurrent Acinar Cell Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Alcohol is the commonest cause and acts on the acinar cell itself, which is why this link is direct. Graded partial because the sentence available describes a cohort assembled from patients who already had alcoholic pancreatitis; it presupposes the aetiology rather than demonstrating it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15753536" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We used data from a retrospective cohort of 934 patients with chronic alcoholic pancreatitis where information on smoking was available, who were diagnosed and followed in clinical centres in five countries."</div>
+
+
+                <div class="evidence-explanation">Describes a multicentre cohort of 934 patients with chronic alcoholic pancreatitis across five countries, establishing the scale of the alcoholic form without measuring alcohol against acinar injury.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-17">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Independent risk factor, accelerates progression</div>
@@ -5472,6 +6047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5493,6 +6069,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5513,10 +6090,90 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Recurrent Acinar Cell Injury</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking brings the disease forward and hastens its structural endpoints, and it does so independently of how much alcohol a patient drinks. Recorded as exacerbating rather than triggering, in contrast to the alcohol link into this same node, because every cited figure measures acceleration of an established alcoholic pancreatitis rather than initiation.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15753536" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"tobacco smoking was associated with earlier diagnosis of chronic alcoholic pancreatitis and with the appearance of calcifications and diabetes, independent of alcohol consumption"</div>
+
+
+                <div class="evidence-explanation">The study&#39;s own conclusion, and the reason this is recorded as an independent effect rather than confounding by drinking. It measures timing and structural endpoints, not acinar injury.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15753536" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15753536" target="_blank">PMID:15753536</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of pancreatitis was made, on average, 4.7 years earlier in smokers than in non-smokers (p = 0.001)."</div>
+
+
+                <div class="evidence-explanation">Diagnosis came on average 4.7 years earlier in smokers, which quantifies the acceleration this link records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-hypertriglyceridemia" data-dismech-node="Hypertriglyceridemia" data-dismech-type="environmental">
                 <div class="item-name">Hypertriglyceridemia</div>
+
+
+
+
 
 
                 <div class="item-desc">Risk factor</div>
@@ -5530,6 +6187,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-hypercalcemia" data-dismech-node="Hypercalcemia" data-dismech-type="environmental">
                 <div class="item-name">Hypercalcemia</div>
+
+
+
+
 
 
                 <div class="item-desc">Risk factor</div>
@@ -5579,6 +6240,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17048055" target="_blank">PMID:17048055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5598,6 +6260,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17048055" target="_blank">PMID:17048055</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5686,7 +6349,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse229528">
                 <div class="item-name">
                     Small RNA-seq of chronic pancreatitis patient plasma samples
 
@@ -5725,7 +6388,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse282913">
                 <div class="item-name">
                     Gene Expression Analysis of CD4 T Cells in Autoimmune Pancreatitis: Treatment-Correlated Expression Profiles
 
@@ -5764,7 +6427,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001005889">
                 <div class="item-name">
                     Single cell analysis of cultivated fibroblasts from chronic pancreatitis and pancreatic cancer patients
 
@@ -5797,7 +6460,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000082883">
                 <div class="item-name">
                     Chronic pancreatitis vs pancreatic cancer LC-MS
 
@@ -5830,7 +6493,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000090255">
                 <div class="item-name">
                     Profiling of Kallikrein Proteases and Global Proteome Biology of PDAC, Chronic Pancreatitis and Normal Pancreas
 
@@ -5863,7 +6526,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000095776">
                 <div class="item-name">
                     Effects of Navitoclax and Venetoclax on changes in the proteome of mouse pancreas in a mouse model of chronic pancreatitis
 
@@ -5909,6 +6572,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5925,7 +6591,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Chronic Pancreatitis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Chronic pancreatitis is a progressive fibroinflammatory disease of the pancreas in
   which recurrent acinar cell injury drives irreversible parenchymal destruction and
@@ -5962,6 +6627,7 @@ pathophysiology:
       label: inflammatory response
   evidence:
   - reference: PMID:39534420
+    reference_title: &#34;Trypsin in pancreatitis: The culprit, a mediator, or epiphenomenon?&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -5974,6 +6640,7 @@ pathophysiology:
       pancreatitis_acinar_autodigestion#Acinar Cell Autodigestion and Necrosis.
       Evidence source is OTHER because the paper is a review.
   - reference: PMID:19322914
+    reference_title: &#34;Acute pancreatitis: etiology and common pathogenesis.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6229,6 +6896,11 @@ biochemical:
   context: When diabetes develops
 genetic:
 - name: PRSS1
+  gene_term:
+    preferred_term: PRSS1
+    term:
+      id: hgnc:9475
+      label: PRSS1
   association: Causative
   notes: Hereditary pancreatitis
   evidence:
@@ -6243,6 +6915,11 @@ genetic:
       causative role of PRSS1 in hereditary pancreatitis is not asserted by this
       source.
 - name: SPINK1
+  gene_term:
+    preferred_term: SPINK1
+    term:
+      id: hgnc:11244
+      label: SPINK1
   association: Risk Factor
   notes: Trypsin inhibitor
   evidence:
@@ -6255,6 +6932,11 @@ genetic:
     explanation: SPINK1 variants were identified in 8.6% of chronic pancreatitis
       patients, confirming its role as a risk factor.
 - name: CFTR
+  gene_term:
+    preferred_term: CFTR
+    term:
+      id: hgnc:1884
+      label: CFTR
   association: Risk Factor
   notes: Cystic fibrosis-related
   evidence:
@@ -6267,6 +6949,11 @@ genetic:
     explanation: CFTR variants were identified in 18.1% of chronic pancreatitis
       patients, confirming its role as a significant risk factor.
 - name: CTRC
+  gene_term:
+    preferred_term: CTRC
+    term:
+      id: hgnc:2523
+      label: CTRC
   association: Risk Factor
   evidence:
   - reference: PMID:37389024
@@ -6279,7 +6966,32 @@ genetic:
       patients, making it the most frequently identified genetic risk factor in
       this cohort.
 environmental:
-- name: Alcohol
+- name: Alcohol Consumption
+  exposure_term:
+    preferred_term: exposure to alcohol consumption
+    term:
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
+  influences_mechanisms:
+  - target: Recurrent Acinar Cell Injury
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Alcohol is the commonest cause and acts on the acinar cell itself, which
+      is why this link is direct. Graded partial because the sentence
+      available describes a cohort assembled from patients who already had
+      alcoholic pancreatitis; it presupposes the aetiology rather than
+      demonstrating it.
+    evidence:
+    - reference: PMID:15753536
+      reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We used data from a retrospective cohort of 934 patients with chronic alcoholic pancreatitis where information on smoking was available, who were diagnosed and followed in clinical centres in five countries.&#34;
+      explanation: &gt;-
+        Describes a multicentre cohort of 934 patients with chronic alcoholic
+        pancreatitis across five countries, establishing the scale of the
+        alcoholic form without measuring alcohol against acinar injury.
   notes: Most common cause
   evidence:
   - reference: PMID:15753536
@@ -6291,6 +7003,40 @@ environmental:
     explanation: Large multicenter cohort study of 934 patients with alcoholic
       chronic pancreatitis confirms alcohol as a major etiology.
 - name: Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Recurrent Acinar Cell Injury
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking brings the disease forward and hastens its structural endpoints,
+      and it does so independently of how much alcohol a patient drinks.
+      Recorded as exacerbating rather than triggering, in contrast to the
+      alcohol link into this same node, because every cited figure measures
+      acceleration of an established alcoholic pancreatitis rather than
+      initiation.
+    evidence:
+    - reference: PMID:15753536
+      reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;tobacco smoking was associated with earlier diagnosis of chronic alcoholic pancreatitis and with the appearance of calcifications and diabetes, independent of alcohol consumption&#34;
+      explanation: &gt;-
+        The study&#39;s own conclusion, and the reason this is recorded as an
+        independent effect rather than confounding by drinking. It measures
+        timing and structural endpoints, not acinar injury.
+    - reference: PMID:15753536
+      reference_title: &#34;Cigarette smoking accelerates progression of alcoholic chronic pancreatitis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The diagnosis of pancreatitis was made, on average, 4.7 years earlier in smokers than in non-smokers (p = 0.001).&#34;
+      explanation: &gt;-
+        Diagnosis came on average 4.7 years earlier in smokers, which
+        quantifies the acceleration this link records.
   notes: Independent risk factor, accelerates progression
   evidence:
   - reference: PMID:15753536
@@ -6901,7 +7647,7 @@ Chronic pancreatitis (CP) is a progressive fibroinflammatory disease of the exoc
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Pancreatitis", "mondoId": "MONDO:0005003", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Pancreatitis", "yamlRevision": "5cae53b0c2eb"};
+        const OS_CONFIG = {"diseaseName": "Chronic Pancreatitis", "mondoId": "MONDO:0005003", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Pancreatitis", "yamlRevision": "3301d1822514"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7320,5 +8066,73 @@ Chronic pancreatitis (CP) is a progressive fibroinflammatory disease of the exoc
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

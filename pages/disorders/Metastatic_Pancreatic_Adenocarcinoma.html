@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Metastatic Pancreatic Adenocarcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Metastatic Pancreatic Adenocarcinoma</h1>
             <div class="header-meta">
 
@@ -3564,7 +3766,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Metastatic%20Pancreatic%20Adenocarcinoma"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3742,7 +3946,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4098,6 +4302,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42223072" target="_blank">PMID:42223072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4120,6 +4325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42465401" target="_blank">PMID:42465401</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4141,6 +4347,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41959066" target="_blank">PMID:41959066</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4340,6 +4547,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41670434" target="_blank">PMID:41670434</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4362,6 +4570,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37782788" target="_blank">PMID:37782788</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4383,6 +4592,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36824971" target="_blank">PMID:36824971</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4440,16 +4650,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4469,16 +4684,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4508,6 +4728,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4519,6 +4740,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35302596" target="_blank">PMID:35302596</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4559,16 +4781,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4588,16 +4815,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4627,6 +4859,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4638,6 +4871,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41814069" target="_blank">PMID:41814069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4678,16 +4912,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030335">GO:0030335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030335</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of cell migration (GO:0030335). GO:0030335 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4717,6 +4956,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4728,6 +4968,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449152" target="_blank">PMID:35449152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4768,16 +5009,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4797,16 +5043,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4837,6 +5088,7 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-metastatic-selection" data-dismech-node="Immune Evasion and Metastatic Selection" data-dismech-type="pathophysiology">
@@ -4855,16 +5107,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050777">GO:0050777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0050777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of immune response (GO:0050777). GO:0050777 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4885,6 +5142,7 @@
 
 
                 </div>
+
 
 
 
@@ -4924,15 +5182,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PPIA
 
 
-    <a href="https://bioregistry.io/hgnc:9253" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9253">hgnc:9253</a>
+    <a href="https://bioregistry.io/hgnc:9253" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9253</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPIA (hgnc:9253). hgnc:9253 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4961,16 +5226,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         peptidyl-prolyl cis-trans isomerase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003755">GO:0003755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0003755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased peptidyl-prolyl cis-trans isomerase activity (GO:0003755). GO:0003755 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4991,6 +5261,7 @@
 
 
                 </div>
+
 
 
 
@@ -5036,6 +5307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42465401" target="_blank">PMID:42465401</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5087,16 +5359,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5117,6 +5394,7 @@
 
 
                 </div>
+
 
 
 
@@ -5164,6 +5442,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41959066" target="_blank">PMID:41959066</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5209,6 +5488,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5220,6 +5500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42223072" target="_blank">PMID:42223072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5275,6 +5556,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5314,6 +5596,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41165456" target="_blank">PMID:41165456</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5369,6 +5652,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5408,6 +5692,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41165456" target="_blank">PMID:41165456</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5463,6 +5748,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5502,6 +5788,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41572361" target="_blank">PMID:41572361</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5553,16 +5840,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ferroptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097707">GO:0097707</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0097707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ferroptosis (GO:0097707). GO:0097707 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5583,6 +5875,7 @@
 
 
                 </div>
+
 
 
 
@@ -5629,6 +5922,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41545339" target="_blank">PMID:41545339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5684,6 +5978,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5723,6 +6018,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39586491" target="_blank">PMID:39586491</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5769,6 +6065,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5780,6 +6077,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37782788" target="_blank">PMID:37782788</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5824,16 +6122,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8-positive effector T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased CD8-positive effector T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5854,6 +6157,7 @@
 
 
                 </div>
+
 
 
 
@@ -5907,6 +6211,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37625401" target="_blank">PMID:37625401</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5962,6 +6267,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6001,6 +6307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36824971" target="_blank">PMID:36824971</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6052,16 +6359,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6082,6 +6394,7 @@
 
 
                 </div>
+
 
 
 
@@ -6129,6 +6442,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41670434" target="_blank">PMID:41670434</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6172,16 +6486,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         regulatory T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000815">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000815</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6198,6 +6517,7 @@
 
 
                 </div>
+
 
 
 
@@ -6274,6 +6594,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6313,6 +6634,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42392864" target="_blank">PMID:42392864</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6375,6 +6697,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6421,6 +6744,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42436354" target="_blank">PMID:42436354</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6470,7 +6794,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquired RAS(ON) Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent outcome node: tumor regrowth under daraxonrasib after an initial response, reflected clinically in the finite progression-free survival observed in RASolute 302. Multiple upstream routes converge here - cyclophilin A loss, RAS-independent cell-cycle uncoupling, RTK/feedback and on-target RAS reactivation, and mTOR/JUN-AP1 hyperactivation; which route dominates in patients is unresolved (no longitudinal daraxonrasib resistance dataset yet).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent adaptive-transcriptional escape in which mTOR and JUN/AP-1 hyperactivation overcome MAPK suppression; JUN is the most downstream mediator and is indirectly targetable via MAP2K4 inhibition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antigen Presentation Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proposed increase in tumor antigen presentation on RAS(ON) inhibition. WEAK and competing for PDAC: MHC-I/antigen presentation in PDAC is largely autophagy(NBR1)- and FAK-controlled and only weakly RAS-owned; the direct daraxonrasib evidence is in NSCLC, not PDAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Durability-limiting counter-program: with long-term KRAS-G12D-inhibitor or daraxonrasib treatment, CDK8 remodels the microenvironment (CXCL2 chemokine secretion, FAS suppression) and reverses the initial immune gains, driving resistance. Bridges the immune-remodeling and resistance hypotheses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under daraxonrasib (RMC-6236) pressure, downregulation of cyclophilin A (PPIA) - the intracellular chaperone the drug must bind to assemble the RAS(ON)-engaging tri-complex - reduces on-target drug engagement while RAS-GTP signaling is retained. This is a drug-class-specific, KRAS-G12D-associated route of acquired resistance to tri-complex RAS(ON) inhibitors.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"peptidyl-prolyl cis-trans isomerase activity\"], \"genes\": [\"PPIA\"], \"gene_terms\": [{\"label\": \"PPIA\", \"id\": \"hgnc:9253\"}]}}, {\"id\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib (RMC-6236) is an oral RAS(ON) multiselective, tri-complex inhibitor that binds cyclophilin A intracellularly to form a binary complex engaging the active, GTP-bound state of mutant and wild-type RAS (KRAS, NRAS, HRAS), including variants at glycine 12 (G12), glycine 13 (G13), and glutamine 61 (Q61), thereby suppressing downstream RAS-MAPK signaling. In the phase 3 RASolute 302 trial of previously treated metastatic PDAC (91.8% RAS G12), daraxonrasib 300 mg orally once daily significantly prolonged overall survival (median 13.2 vs. 6.6 months in the RAS G12 population; hazard ratio for death 0.40) and progression-free survival (7.3 vs. 3.5 months; hazard ratio 0.45) versus investigator\u0027s choice of chemotherapy, roughly doubling the objective response rate (33.2% vs. 11.8%). The most common adverse events were rash, diarrhea, and stomatitis, and treatment-related discontinuation was uncommon (1.2% vs. 11.2% with chemotherapy).\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"daraxonrasib\"]}}, {\"id\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanism node for the immune-remodeling hypothesis: the immunosuppressive, T-cell-excluded microenvironment of PDAC is substantially RAS-activity-dependent and partially reversible by RAS-pathway inhibition, which promotes effector immune infiltration but requires checkpoint-blockade combination for durable regression. Daraxonrasib-specific PDAC immune data are still limited (strongest data use the G12D-selective MRTX1133).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KRAS-Centered Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS signaling is the dominant oncogenic engine in pancreatic adenocarcinoma and drives proliferation, stress adaptation, invasion, and metastatic competence. Even KRAS-wildtype tumors often remain dependent on parallel kinase and fusion pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"]}}, {\"id\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amplification of the downstream transcriptional effector MYC is proposed to restore proliferation independent of RAS engagement, a RAS-independent route not reversed by deeper RAS inhibition. Evidence is currently review-level and needs primary, drug-matched confirmation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial Remodeling and Ferroptosis Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound RAS-MAPK suppression drives persistent mitochondrial remodeling and a lipid-peroxidase/ROS dependency, creating a subtype-independent ferroptosis (GPX4) vulnerability in the resistant state - a salvage target rather than a growth-restoring route.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ferroptosis\"]}}, {\"id\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS-pathway inhibition decreases intratumoral myeloid infiltration, increases CD8+ effector T cells, and reprograms cancer-associated fibroblasts. Demonstrated with the G12D-selective MRTX1133 rather than daraxonrasib.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive effector T cell\"]}}, {\"id\": \"On-Target RAS Reactivation and KRAS Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Restoration of RAS-GTP above the inhibition threshold via KRAS amplification or a secondary/second-site RAS mutation. Because multiselective RAS(ON) inhibitors suppress mutant and wild-type RAS, many such routes often remain targetable by deeper engagement, so amplification must raise the threshold substantially to drive durable escape.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RAS-Independent Cell-Cycle Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A RAS-independent escape in which cell-cycle progression becomes uncoupled from RAS-MAPK output, so tumor cells continue proliferating despite multiselective RAS(ON) inhibition. Co-targeting the cell-cycle kinases CDK4/6 and CDK2 restores sensitivity; this transcriptional/cell-cycle class of resistance is not reversed by deeper RAS inhibition alone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"RTK and Feedback Pathway Reactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Relief of ERK-mediated negative feedback reactivates receptor tyrosine kinases and adaptors (EGFR/ERBB, AXL/PDGFR, SHP2, FAK, YAP-SDC1), restoring RAS-GTP/ERK output or providing RAS-parallel survival signaling. Best demonstrated against partial (MEK/G12C) blockade; its sufficiency against complete RAS(ON) suppression is uncertain.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Regulatory T-Cell Relief\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proposed relief of regulatory-T-cell dominance on RAS/daraxonrasib inhibition. UNSUPPORTED source absence: a targeted literature search found no primary evidence that RAS or daraxonrasib inhibition depletes or disarms Tregs in PDAC. Retained here as an explicitly unverified edge for the immune-remodeling hypothesis, pending direct Treg profiling.\", \"meta\": {\"cell_types\": [\"regulatory T cell\"]}}, {\"id\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS/KRAS-G12D inhibition induces tumor-cell FAS, enabling CD8+ T-cell-mediated killing; regression of advanced PDAC requires CD8+ T cells and synergizes with checkpoint blockade (preclinical, MRTX1133).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D upregulates USP20 (via EGR1) to drive cholesterol metabolism and CD8+ T-cell exhaustion; RAS inhibition reverses this exhaustion axis but triggers compensatory ULK1 autophagy, so co-targeting cholesterol metabolism and autophagy potentiates KRAS-inhibitor efficacy. Human-tissue-anchored.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced tri-complex engagement lets RAS-GTP signaling and proliferation resume despite continued dosing.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-Independent Cell-Cycle Uncoupling\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferation decoupled from RAS sustains tumor growth under continued RAS(ON) inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"On-Target RAS Reactivation and KRAS Amplification\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised RAS-GTP restores mitogenic signaling despite continued dosing.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RTK and Feedback Pathway Reactivation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RTK-driven signaling restores proliferation or parallel survival under inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTOR/JUN-AP1 output restores proliferation independent of restored RAS-GTP.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Remodeling and Ferroptosis Vulnerability\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mitochondrial-remodeled state accompanies therapy resistance and defines a ferroptosis salvage vulnerability.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC-driven proliferation bypasses RAS dependence.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relief of myeloid suppression and CD8 infiltration are components of the RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FAS-enabled CD8 killing is an effector arm of the RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antigen Presentation Restoration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakly RAS-owned, competing contribution to immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Regulatory T-Cell Relief\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed but currently unsupported contribution (source absence); no primary PDAC evidence found.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversal of the cholesterol-driven CD8-exhaustion program contributes to RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CDK8-mediated reversal of immune remodeling drives adaptive resistance.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\", \"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"KRAS-Centered Oncogenic Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquired RAS(ON) Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent outcome node: tumor regrowth under daraxonrasib after an initial response, reflected clinically in the finite progression-free survival observed in RASolute 302. Multiple upstream routes converge here - cyclophilin A loss, RAS-independent cell-cycle uncoupling, RTK/feedback and on-target RAS reactivation, and mTOR/JUN-AP1 hyperactivation; which route dominates in patients is unresolved (no longitudinal daraxonrasib resistance dataset yet).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent adaptive-transcriptional escape in which mTOR and JUN/AP-1 hyperactivation overcome MAPK suppression; JUN is the most downstream mediator and is indirectly targetable via MAP2K4 inhibition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antigen Presentation Restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proposed increase in tumor antigen presentation on RAS(ON) inhibition. WEAK and competing for PDAC: MHC-I/antigen presentation in PDAC is largely autophagy(NBR1)- and FAK-controlled and only weakly RAS-owned; the direct daraxonrasib evidence is in NSCLC, not PDAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"antigen processing and presentation\"]}}, {\"id\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Durability-limiting counter-program: with long-term KRAS-G12D-inhibitor or daraxonrasib treatment, CDK8 remodels the microenvironment (CXCL2 chemokine secretion, FAS suppression) and reverses the initial immune gains, driving resistance. Bridges the immune-remodeling and resistance hypotheses.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under daraxonrasib (RMC-6236) pressure, downregulation of cyclophilin A (PPIA) - the intracellular chaperone the drug must bind to assemble the RAS(ON)-engaging tri-complex - reduces on-target drug engagement while RAS-GTP signaling is retained. This is a drug-class-specific, KRAS-G12D-associated route of acquired resistance to tri-complex RAS(ON) inhibitors.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"peptidyl-prolyl cis-trans isomerase activity\"], \"genes\": [\"PPIA\"], \"gene_terms\": [{\"label\": \"PPIA\", \"id\": \"hgnc:9253\"}]}}, {\"id\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daraxonrasib (RMC-6236) is an oral RAS(ON) multiselective, tri-complex inhibitor that binds cyclophilin A intracellularly to form a binary complex engaging the active, GTP-bound state of mutant and wild-type RAS (KRAS, NRAS, HRAS), including variants at glycine 12 (G12), glycine 13 (G13), and glutamine 61 (Q61), thereby suppressing downstream RAS-MAPK signaling. In the phase 3 RASolute 302 trial of previously treated metastatic PDAC (91.8% RAS G12), daraxonrasib 300 mg orally once daily significantly prolonged overall survival (median 13.2 vs. 6.6 months in the RAS G12 population; hazard ratio for death 0.40) and progression-free survival (7.3 vs. 3.5 months; hazard ratio 0.45) versus investigator\u0027s choice of chemotherapy, roughly doubling the objective response rate (33.2% vs. 11.8%). The most common adverse events were rash, diarrhea, and stomatitis, and treatment-related discontinuation was uncommon (1.2% vs. 11.2% with chemotherapy).\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"daraxonrasib\"]}}, {\"id\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanism node for the immune-remodeling hypothesis: the immunosuppressive, T-cell-excluded microenvironment of PDAC is substantially RAS-activity-dependent and partially reversible by RAS-pathway inhibition, which promotes effector immune infiltration but requires checkpoint-blockade combination for durable regression. Daraxonrasib-specific PDAC immune data are still limited (strongest data use the G12D-selective MRTX1133).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KRAS-Centered Oncogenic Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS signaling is the dominant oncogenic engine in pancreatic adenocarcinoma and drives proliferation, stress adaptation, invasion, and metastatic competence. Even KRAS-wildtype tumors often remain dependent on parallel kinase and fusion pathways.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"]}}, {\"id\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Amplification of the downstream transcriptional effector MYC is proposed to restore proliferation independent of RAS engagement, a RAS-independent route not reversed by deeper RAS inhibition. Evidence is currently review-level and needs primary, drug-matched confirmation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mitochondrial Remodeling and Ferroptosis Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound RAS-MAPK suppression drives persistent mitochondrial remodeling and a lipid-peroxidase/ROS dependency, creating a subtype-independent ferroptosis (GPX4) vulnerability in the resistant state - a salvage target rather than a growth-restoring route.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ferroptosis\"]}}, {\"id\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS-pathway inhibition decreases intratumoral myeloid infiltration, increases CD8+ effector T cells, and reprograms cancer-associated fibroblasts. Demonstrated with the G12D-selective MRTX1133 rather than daraxonrasib.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive effector T cell\"]}}, {\"id\": \"Obesity and diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"On-Target RAS Reactivation and KRAS Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Restoration of RAS-GTP above the inhibition threshold via KRAS amplification or a secondary/second-site RAS mutation. Because multiselective RAS(ON) inhibitors suppress mutant and wild-type RAS, many such routes often remain targetable by deeper engagement, so amplification must raise the threshold substantially to drive durable escape.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RAS-Independent Cell-Cycle Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A RAS-independent escape in which cell-cycle progression becomes uncoupled from RAS-MAPK output, so tumor cells continue proliferating despite multiselective RAS(ON) inhibition. Co-targeting the cell-cycle kinases CDK4/6 and CDK2 restores sensitivity; this transcriptional/cell-cycle class of resistance is not reversed by deeper RAS inhibition alone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"RTK and Feedback Pathway Reactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Relief of ERK-mediated negative feedback reactivates receptor tyrosine kinases and adaptors (EGFR/ERBB, AXL/PDGFR, SHP2, FAK, YAP-SDC1), restoring RAS-GTP/ERK output or providing RAS-parallel survival signaling. Best demonstrated against partial (MEK/G12C) blockade; its sufficiency against complete RAS(ON) suppression is uncertain.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Regulatory T-Cell Relief\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proposed relief of regulatory-T-cell dominance on RAS/daraxonrasib inhibition. UNSUPPORTED source absence: a targeted literature search found no primary evidence that RAS or daraxonrasib inhibition depletes or disarms Tregs in PDAC. Retained here as an explicitly unverified edge for the immune-remodeling hypothesis, pending direct Treg profiling.\", \"meta\": {\"cell_types\": [\"regulatory T cell\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RAS/KRAS-G12D inhibition induces tumor-cell FAS, enabling CD8+ T-cell-mediated killing; regression of advanced PDAC requires CD8+ T cells and synergizes with checkpoint blockade (preclinical, MRTX1133).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KRAS-G12D upregulates USP20 (via EGR1) to drive cholesterol metabolism and CD8+ T-cell exhaustion; RAS inhibition reverses this exhaustion axis but triggers compensatory ULK1 autophagy, so co-targeting cholesterol metabolism and autophagy potentiates KRAS-inhibitor efficacy. Human-tissue-anchored.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Cyclophilin A Loss and Reduced Tri-Complex Engagement\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced tri-complex engagement lets RAS-GTP signaling and proliferation resume despite continued dosing.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RAS-Independent Cell-Cycle Uncoupling\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferation decoupled from RAS sustains tumor growth under continued RAS(ON) inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"On-Target RAS Reactivation and KRAS Amplification\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised RAS-GTP restores mitogenic signaling despite continued dosing.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"RTK and Feedback Pathway Reactivation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RTK-driven signaling restores proliferation or parallel survival under inhibition.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Adaptive mTOR and JUN-AP1 Transcriptional Program\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"mTOR/JUN-AP1 output restores proliferation independent of restored RAS-GTP.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial Remodeling and Ferroptosis Vulnerability\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mitochondrial-remodeled state accompanies therapy resistance and defines a ferroptosis salvage vulnerability.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MYC Amplification-Driven RAS-Independent Proliferation\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYC-driven proliferation bypasses RAS dependence.\", \"hypothesis_groups\": [\"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Myeloid Suppression Relief and CD8 Effector Infiltration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relief of myeloid suppression and CD8 infiltration are components of the RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tumor-Cell FAS Induction and CD8-Mediated Killing\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FAS-enabled CD8 killing is an effector arm of the RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antigen Presentation Restoration\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakly RAS-owned, competing contribution to immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Regulatory T-Cell Relief\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed but currently unsupported contribution (source absence); no primary PDAC evidence found.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"USP20 Cholesterol-Metabolism CD8 Exhaustion Checkpoint\", \"target\": \"Immunosuppressive TME Reversibility under RAS(ON) Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reversal of the cholesterol-driven CD8-exhaustion program contributes to RAS-dependent immune reversal.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CDK8-CXCL2 Adaptive Immune Reversal\", \"target\": \"Acquired RAS(ON) Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CDK8-mediated reversal of immune remodeling drives adaptive resistance.\", \"hypothesis_groups\": [\"ras_on_inhibition_immune_tme_remodeling\", \"ras_on_inhibitor_acquired_resistance\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Smoking\", \"target\": \"KRAS-Centered Oncogenic Signaling\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the oncogenic signalling node because it is the entry\u0027s most upstream mechanism and the only one a carcinogen exposure can honestly reach; the remaining nodes model dissemination, which is downstream of the cancer already existing. Both exposures in this entry rest on the same sentence of the same review, which lists the modifiable risk factors together, so neither can be graded above the other on evidence.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity and diabetes\", \"target\": \"KRAS-Centered Oncogenic Signaling\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded identically to the smoking link because it rests on the same sentence, which names both in one list. This entry\u0027s note proposes that metabolic dysfunction reinforces inflammatory and growth-factor programs relevant to dissemination; that route is the entry\u0027s prose and appears in no cited sentence, so the intermediates stay unknown and the link does not point at the dissemination node.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Daraxonrasib (RAS(ON) Multiselective Inhibitor)\", \"target\": \"KRAS-Centered Oncogenic Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6513,14 +6837,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6540,6 +6871,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25726049" target="_blank">PMID:25726049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6583,14 +6915,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6610,6 +6949,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25726049" target="_blank">PMID:25726049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6642,14 +6982,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6671,14 +7018,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Back pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003418">HP:0003418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6698,6 +7052,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25726049" target="_blank">PMID:25726049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6741,14 +7096,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6768,6 +7130,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25726049" target="_blank">PMID:25726049</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6842,6 +7205,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRAS
+
+
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6856,6 +7241,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33347393" target="_blank">PMID:33347393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6889,6 +7275,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6903,6 +7311,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33347393" target="_blank">PMID:33347393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6936,6 +7345,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SMAD4
+
+
+    <a href="https://bioregistry.io/hgnc:6770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:6770</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD4 (hgnc:6770). hgnc:6770 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6950,6 +7381,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33347393" target="_blank">PMID:33347393</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6983,6 +7415,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:1787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6997,6 +7451,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18772397" target="_blank">PMID:18772397</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7028,6 +7483,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7043,7 +7501,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -7074,16 +7537,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         olaparib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:83766">CHEBI:83766</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_83766" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:83766</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses olaparib (CHEBI:83766). CHEBI:83766 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7108,6 +7576,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1200/jco.21.01604" target="_blank">DOI:10.1200/jco.21.01604</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7138,7 +7607,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7168,16 +7642,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         daraxonrasib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_746946" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:746946">CHEBI:746946</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_746946" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:746946</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses daraxonrasib (CHEBI:746946). CHEBI:746946 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7221,6 +7700,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT06625320" target="_blank">clinicaltrials:NCT06625320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7243,6 +7723,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42223072" target="_blank">PMID:42223072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7264,6 +7745,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42223072" target="_blank">PMID:42223072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7303,6 +7785,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-29">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Smoking is a major modifiable pancreatic cancer risk factor and is linked to aggressive disease biology.</div>
 
@@ -7320,6 +7829,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34002083" target="_blank">PMID:34002083</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7343,10 +7853,67 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">KRAS-Centered Oncogenic Signaling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the oncogenic signalling node because it is the entry&#39;s most upstream mechanism and the only one a carcinogen exposure can honestly reach; the remaining nodes model dissemination, which is downstream of the cancer already existing. Both exposures in this entry rest on the same sentence of the same review, which lists the modifiable risk factors together, so neither can be graded above the other on evidence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34002083" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34002083" target="_blank">PMID:34002083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there are key modifiable risk factors for pancreatic cancer such as cigarette smoking, obesity, diabetes and alcohol intake."</div>
+
+
+                <div class="evidence-explanation">Names cigarette smoking among the key modifiable risk factors for this cancer, alongside obesity, diabetes and alcohol. Risk of the disease, with nothing about the signalling at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-chronic-pancreatitis" data-dismech-node="Chronic pancreatitis" data-dismech-type="environmental">
                 <div class="item-name">Chronic pancreatitis</div>
+
+
+
+
 
 
                 <div class="item-desc">Chronic pancreatic inflammation promotes stromal remodeling and tumor evolution.</div>
@@ -7360,6 +7927,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-obesity-and-diabetes" data-dismech-node="Obesity and diabetes" data-dismech-type="environmental">
                 <div class="item-name">Obesity and diabetes</div>
+
+
+
+
 
 
                 <div class="item-desc">Metabolic dysfunction can reinforce inflammatory and growth-factor programs relevant to dissemination.</div>
@@ -7378,6 +7949,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34002083" target="_blank">PMID:34002083</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7400,6 +7972,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">KRAS-Centered Oncogenic Signaling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the smoking link because it rests on the same sentence, which names both in one list. This entry&#39;s note proposes that metabolic dysfunction reinforces inflammatory and growth-factor programs relevant to dissemination; that route is the entry&#39;s prose and appears in no cited sentence, so the intermediates stay unknown and the link does not point at the dissemination node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34002083" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34002083" target="_blank">PMID:34002083</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there are key modifiable risk factors for pancreatic cancer such as cigarette smoking, obesity, diabetes and alcohol intake."</div>
+
+
+                <div class="evidence-explanation">Names obesity and diabetes among the key modifiable risk factors for this cancer. The same listing sentence as the smoking link.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7424,7 +8049,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06625320">
                 <div class="item-name">
                     NCT06625320
 
@@ -7441,17 +8066,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neoplasm of the pancreas
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002894" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002894">HP:0002894</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002894" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002894</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Neoplasm of the pancreas (HP:0002894). HP:0002894 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pain
@@ -7459,10 +8091,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012531</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7480,6 +8115,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06625320" target="_blank">clinicaltrials:NCT06625320</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7502,6 +8138,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42223072" target="_blank">PMID:42223072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7532,6 +8169,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7548,7 +8188,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Metastatic Pancreatic Adenocarcinoma
 creation_date: &#39;2026-03-28T21:15:00Z&#39;
-updated_date: &#39;2026-05-10T09:08:36Z&#39;
 description: &gt;-
   Metastatic pancreatic adenocarcinoma is pancreatic ductal adenocarcinoma that has
   disseminated to distant sites, most often liver, peritoneum, and lung. The disease
@@ -8143,6 +8782,11 @@ phenotypes:
       ductal adenocarcinoma.
 genetic:
 - name: KRAS
+  gene_term:
+    preferred_term: KRAS
+    term:
+      id: hgnc:6407
+      label: KRAS
   association: Somatic activating mutation
   notes: KRAS mutation is the canonical driver of PDAC and supports metastatic fitness.
   evidence:
@@ -8158,6 +8802,11 @@ genetic:
       Directly supports KRAS as an established driver mutation and
       prognostic marker in pancreatic cancer.
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Somatic loss of function
   notes: TP53 loss promotes genomic instability and aggressive metastatic progression.
   evidence:
@@ -8173,6 +8822,11 @@ genetic:
       Directly supports TP53 mutation as an established driver and poor
       prognostic marker in pancreatic cancer.
 - name: SMAD4
+  gene_term:
+    preferred_term: SMAD4
+    term:
+      id: hgnc:6770
+      label: SMAD4
   association: Somatic loss of function
   notes: SMAD4 loss is associated with widespread metastatic dissemination in PDAC.
   evidence:
@@ -8188,6 +8842,11 @@ genetic:
       Directly supports SMAD4 mutation as an established driver and poor
       prognostic marker in pancreatic cancer.
 - name: CDKN2A
+  gene_term:
+    preferred_term: CDKN2A
+    term:
+      id: hgnc:1787
+      label: CDKN2A
   association: Somatic loss of function
   notes: CDKN2A inactivation removes cell-cycle restraints and cooperates with KRAS in metastasis.
   evidence:
@@ -8204,6 +8863,32 @@ genetic:
       affected by homozygous deletion in pancreatic cancers.
 environmental:
 - name: Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: KRAS-Centered Oncogenic Signaling
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the oncogenic signalling node because it is the entry&#39;s most
+      upstream mechanism and the only one a carcinogen exposure can honestly
+      reach; the remaining nodes model dissemination, which is downstream of
+      the cancer already existing. Both exposures in this entry rest on the
+      same sentence of the same review, which lists the modifiable risk
+      factors together, so neither can be graded above the other on evidence.
+    evidence:
+    - reference: PMID:34002083
+      reference_title: &#34;Pancreatic cancer epidemiology: understanding the role of lifestyle and inherited risk factors.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;there are key modifiable risk factors for pancreatic cancer such as cigarette smoking, obesity, diabetes and alcohol intake.&#34;
+      explanation: &gt;-
+        Names cigarette smoking among the key modifiable risk factors for this
+        cancer, alongside obesity, diabetes and alcohol. Risk of the disease,
+        with nothing about the signalling at this node.
   notes: Smoking is a major modifiable pancreatic cancer risk factor and is linked to aggressive disease biology.
   evidence:
   - reference: PMID:34002083
@@ -8219,6 +8904,26 @@ environmental:
 - name: Chronic pancreatitis
   notes: Chronic pancreatic inflammation promotes stromal remodeling and tumor evolution.
 - name: Obesity and diabetes
+  influences_mechanisms:
+  - target: KRAS-Centered Oncogenic Signaling
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the smoking link because it rests on the same
+      sentence, which names both in one list. This entry&#39;s note proposes that
+      metabolic dysfunction reinforces inflammatory and growth-factor programs
+      relevant to dissemination; that route is the entry&#39;s prose and appears
+      in no cited sentence, so the intermediates stay unknown and the link
+      does not point at the dissemination node.
+    evidence:
+    - reference: PMID:34002083
+      reference_title: &#34;Pancreatic cancer epidemiology: understanding the role of lifestyle and inherited risk factors.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;there are key modifiable risk factors for pancreatic cancer such as cigarette smoking, obesity, diabetes and alcohol intake.&#34;
+      explanation: &gt;-
+        Names obesity and diabetes among the key modifiable risk factors for
+        this cancer. The same listing sentence as the smoking link.
   notes: Metabolic dysfunction can reinforce inflammatory and growth-factor programs relevant to dissemination.
   evidence:
   - reference: PMID:34002083
@@ -8726,6 +9431,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.1930" target="_blank">DOI:10.1001/jamaoncol.2024.1930</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8794,6 +9500,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41467-023-40727-7" target="_blank">DOI:10.1038/s41467-023-40727-7</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8938,6 +9645,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1136/jitc-2021-004485" target="_blank">DOI:10.1136/jitc-2021-004485</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9006,6 +9714,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s12943-024-02003-0" target="_blank">DOI:10.1186/s12943-024-02003-0</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9076,6 +9785,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1200/jco.21.01604" target="_blank">DOI:10.1200/jco.21.01604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9144,6 +9854,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.12688/f1000research.21981.1" target="_blank">DOI:10.12688/f1000research.21981.1</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9214,6 +9925,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3322/caac.21820" target="_blank">DOI:10.3322/caac.21820</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9283,6 +9995,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/curroncol31090385" target="_blank">DOI:10.3390/curroncol31090385</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9351,6 +10064,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/onco5030037" target="_blank">DOI:10.3390/onco5030037</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10400,7 +11114,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Metastatic Pancreatic Adenocarcinoma", "mondoId": "MONDO:0006047", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Pancreatic_Adenocarcinoma", "yamlRevision": "84d56b96320c"};
+        const OS_CONFIG = {"diseaseName": "Metastatic Pancreatic Adenocarcinoma", "mondoId": "MONDO:0006047", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Metastatic_Pancreatic_Adenocarcinoma", "yamlRevision": "e0baceca9edf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10819,5 +11533,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

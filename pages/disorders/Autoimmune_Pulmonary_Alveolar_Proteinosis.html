@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Autoimmune Pulmonary Alveolar Proteinosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autoimmune Pulmonary Alveolar Proteinosis</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autoimmune%20Pulmonary%20Alveolar%20Proteinosis"
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3759,7 +3963,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3812,6 +4016,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3836,29 +4048,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">RESPIRATORY</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+                    <span class="tag tag-classification" title="Primary clinical home: the defining lesion is alveolar surfactant accumulation with hypoxaemia, and management is pulmonary (whole-lung lavage, inhaled GM-CSF).">RESPIRATORY</span>
+
+
+                    <span class="tag tag-classification" title="Secondary Part: the causal lesion is a neutralizing IgG autoantibody, and the disease is simultaneously an autoimmune disease and an acquired innate immunodeficiency. B-cell-depleting therapy targets this axis.">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3873,7 +4163,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-serologic-case-definition-of-autoimmune-pap">
                 <div class="item-name">Serologic case definition of autoimmune PAP</div>
 
                 <div class="item-desc">A PAP syndrome (alveolar surfactant accumulation demonstrated by HRCT plus BAL cytology or lung biopsy) in which serum GM-CSF autoantibody testing is positive, distinguishing the autoimmune form from hereditary PAP (CSF2RA/CSF2RB defects) and secondary PAP.
@@ -3918,6 +4208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3955,7 +4246,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-not-inherited-acquired-autoimmune-disease-with-hla-linked-susceptibility">
                 <div class="item-name">
                     Not inherited (acquired autoimmune disease with HLA-linked susceptibility)
 
@@ -3982,6 +4273,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4102,6 +4394,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4118,6 +4416,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Immunize HLA-DRB1*08:03 transgenic mice with GM-CSF and determine whether the risk allele permits breakdown of tolerance and development of alveolar surfactant accumulation, directly testing the MHC class II presentation hypothesis implied by the human GWAS.</div>
+
+
+
+
+
+
 
 
 
@@ -4158,6 +4462,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4250,6 +4555,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4266,6 +4577,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">In non-Japanese patients, test whether HLA-DRB1*08:03 carriage predicts anti-GM-CSF autoantibody concentration, which would support the allele acting through the magnitude of the autoantibody response independently of ancestry.</div>
+
+
+
+
+
+
 
 
 
@@ -4307,6 +4624,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33589587" target="_blank">PMID:33589587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4329,6 +4647,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4376,16 +4695,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4412,15 +4736,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4948</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4448,16 +4779,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4477,16 +4813,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         humoral immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006959" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006959">GO:0006959</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006959" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006959</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated humoral immune response (GO:0006959). GO:0006959 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4507,6 +4848,7 @@
 
 
                 </div>
+
 
 
 
@@ -4547,6 +4889,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499925" target="_blank">PMID:10499925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4570,6 +4913,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19282464" target="_blank">PMID:19282464</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4592,6 +4936,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33589587" target="_blank">PMID:33589587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4627,16 +4972,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4663,16 +5013,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cytokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4681,6 +5036,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4698,10 +5055,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007259">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased JAK-STAT signaling downstream of the GM-CSF receptor, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4728,19 +5088,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4778,6 +5144,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499925" target="_blank">PMID:10499925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4801,6 +5168,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32897035" target="_blank">PMID:32897035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4823,6 +5191,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4858,16 +5227,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4894,16 +5268,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macrophage differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030225" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030225">GO:0030225</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030225" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased macrophage differentiation (GO:0030225). GO:0030225 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4930,19 +5309,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4974,6 +5359,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499925" target="_blank">PMID:10499925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4996,6 +5382,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5031,16 +5418,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5067,16 +5459,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cholesterol efflux
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033344" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033344">GO:0033344</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033344" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0033344</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cholesterol efflux (GO:0033344). GO:0033344 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5085,6 +5482,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5102,10 +5501,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016042" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016042">GO:0016042</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016042" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0016042</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lipid catabolic process (GO:0016042). GO:0016042 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5132,19 +5534,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5176,6 +5584,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5198,6 +5607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5233,17 +5643,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alveolar macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5264,10 +5681,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002063">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5294,16 +5714,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         surfactant homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043129" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043129">GO:0043129</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043129" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0043129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated surfactant homeostasis (GO:0043129). GO:0043129 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5330,19 +5755,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5404,6 +5835,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30846703" target="_blank">PMID:30846703</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5426,6 +5858,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5471,19 +5904,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5545,6 +5984,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30846703" target="_blank">PMID:30846703</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5578,17 +6018,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5609,10 +6056,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5639,16 +6089,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006909">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5669,6 +6124,7 @@
 
 
                 </div>
+
 
 
 
@@ -5709,6 +6165,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5731,6 +6188,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19282464" target="_blank">PMID:19282464</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5776,19 +6234,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5806,6 +6270,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30846703" target="_blank">PMID:30846703</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5828,6 +6293,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5864,7 +6330,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-pas-positive-alveolar-lipoproteinaceous-material-with-foamy-macrophages">
                 <div class="item-name">
                     PAS-positive alveolar lipoproteinaceous material with foamy macrophages
 
@@ -5886,6 +6352,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5909,6 +6376,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5956,7 +6424,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Surfactant Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar macrophages and free in the alveolar spaces, filling the airspaces while the alveolar walls remain well preserved. This produces the crazy-paving HRCT pattern and blocks gas exchange.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"surfactant homeostasis\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without GM-CSF signaling, alveolar macrophages fail to complete terminal differentiation, in particular failing to sustain the PU.1/PPAR-gamma transcriptional program that licenses surfactant lipid catabolism and cholesterol efflux.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"macrophage differentiation\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Autoimmune antibody positivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum and bronchoalveolar GM-CSF autoantibody positivity is definitional for the autoimmune form.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030057\"}}, {\"id\": \"Cough with scant frothy sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough, often with scant white frothy sputum, accompanies dyspnoea in the typical presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012735\"}}, {\"id\": \"Crackles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Physical examination is generally unremarkable, but crackles may be heard.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030830\"}}, {\"id\": \"Crazy paving pattern on pulmonary HRCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ground-glass opacification with superimposed interlobular septal thickening, often sharply demarcated from normal lung, is the characteristic radiographic finding of alveolar filling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0025391\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cyanosis may be evident in severe disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Exertional dyspnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness of insidious onset is the commonest presenting symptom, recorded in 54.3% of the Japanese registry cohort at presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002875\"}}, {\"id\": \"Foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged lipid-engorged foamy alveolar macrophages are recovered in lavage fluid and seen on biopsy.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003651\"}}, {\"id\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating and alveolar autoantibodies bind GM-CSF and neutralize its bioactivity, producing a functional ligand deficiency despite normal CSF2 expression and an intact GM-CSF receptor. This is the ligand-side mirror of the receptor-side lesion (biallelic CSF2RA/CSF2RB defects) that causes hereditary PAP.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"JAK-STAT signaling downstream of the GM-CSF receptor\"], \"role\": \"central_effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"HLA-DRB1*08:03 susceptibility allele\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypoxaemia reflects the widening alveolar-arterial gradient from airspace filling and defines disease severity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Airspace filling widens the alveolar-arterial oxygen gradient and lowers the diffusing capacity, producing exertional dyspnoea, hypoxaemia and, when progressive, respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize its lipid or efflux the liberated cholesterol. Lipidomic analysis shows the accumulating species is predominantly cholesterol rather than phospholipid, reframing PAP as a disorder of macrophage cholesterol handling and identifying the foamy macrophage as a cholesterol-engorged cell.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cholesterol efflux\", \"lipid catabolic process\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Inhaled Molgramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-daily inhaled recombinant human GM-CSF delivered directly to the alveolar compartment to overcome local autoantibody neutralization and restore alveolar macrophage GM-CSF signaling. Efficacy was shown in the phase 2/3 IMPALA trial (alveolar-arterial oxygen difference) and confirmed in the phase 3 IMPALA-2 trial (DLCO).\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"molgramostim\"]}}, {\"id\": \"Inhaled Sargramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled recombinant human GM-CSF (sargramostim), evaluated in a Japanese multicentre phase II trial with a 62% response rate and a sustained effect, without change in serum autoantibody levels.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sargramostim\"]}}, {\"id\": \"Loss of Immune Tolerance to GM-CSF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of B-cell tolerance to GM-CSF, influenced by MHC class II background (HLA-DRB1*08:03), drives production of high-titre polyclonal neutralizing IgG autoantibodies against GM-CSF. Low-level GM-CSF autoantibodies are present in all healthy people, so disease requires crossing a critical concentration threshold rather than simply acquiring the antibody.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\", \"humoral immune response\"], \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"role\": \"trigger\"}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved for severe disease refractory to all other therapy. PAP recurrence in the allograft has been reported, consistent with the persistence of the circulating autoantibody after transplantation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Opportunistic infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent myeloid defect produces an increased risk of serious infection with opportunistic organisms (Nocardia, mycobacteria, Aspergillus) at intrapulmonary and extrapulmonary sites, carrying a poor prognosis. This is the distinctive infectious consequence of the immunodeficiency arm, and it can occur without severe alveolar disease.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0031690\"}}, {\"id\": \"Oral Statin Therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pathogenesis-based repurposing that targets alveolar macrophage cholesterol overload rather than the autoantibody. Supported by patient-level observational improvement, ex vivo human macrophage data, and rescue in Csf2rb-deficient mice; not established practice.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"HMG-CoA reductase inhibitor\"]}}, {\"id\": \"Plasmapheresis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange to lower circulating GM-CSF autoantibody in refractory disease. Evidence is limited to case-level reports with inconsistent responses, and some patients remain refractory despite documented antibody reduction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polycythemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary polycythaemia develops in severe disease as an erythropoietic response to sustained hypoxaemia from surfactant-filled alveoli. It is a downstream consequence of impaired gas exchange rather than a primary haematologic lesion, and the same finding arises in mice lacking GM-CSF signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001901\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent innate immune defect predisposes to secondary and opportunistic infection, including of the lung.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive airspace filling can culminate in respiratory failure and death in a subset of patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002878\"}}, {\"id\": \"Restrictive ventilatory defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spirometry is normal in many patients. Restriction appears mainly in more advanced disease, with lung volumes falling in proportion to severity; the consistent physiologic abnormality is instead a reduced carbon monoxide diffusing capacity.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion (two 1,000 mg intravenous infusions 15 days apart) used for disease refractory to lavage and inhaled GM-CSF. In an open-label phase II trial oxygenation improved in seven of nine completers, and anti-GM-CSF IgG fell in lavage fluid though not in serum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secondary Pulmonary Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients develop pulmonary fibrosis over years of follow-up, a rare but potentially life-threatening complication of long-standing alveolar surfactant retention.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"modifier\", \"locations\": [\"lung\"]}}, {\"id\": \"Systemic Myeloid Host Defence Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GM-CSF also primes neutrophil and macrophage antimicrobial function, so autoantibody-mediated GM-CSF neutralization produces an acquired innate immunodeficiency in parallel with the surfactant lesion. This is an independent arm of the disease, and it explains the predisposition to opportunistic infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"effector\"}}, {\"id\": \"Whole Lung Lavage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sequential large-volume saline lavage of each lung under general anaesthesia physically removes accumulated alveolar surfactant. It remains the first-line therapy despite never having been tested in a randomized trial.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"Autoimmune antibody positivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Systemic Myeloid Host Defence Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crazy paving pattern on pulmonary HRCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Cough with scant frothy sputum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crackles\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Exertional dyspnoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Polycythemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Restrictive ventilatory defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Opportunistic infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Whole Lung Lavage\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Molgramostim\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Sargramostim\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasmapheresis\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral Statin Therapy (investigational)\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DRB1*08:03 susceptibility allele\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Surfactant Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar macrophages and free in the alveolar spaces, filling the airspaces while the alveolar walls remain well preserved. This produces the crazy-paving HRCT pattern and blocks gas exchange.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"surfactant homeostasis\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without GM-CSF signaling, alveolar macrophages fail to complete terminal differentiation, in particular failing to sustain the PU.1/PPAR-gamma transcriptional program that licenses surfactant lipid catabolism and cholesterol efflux.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"macrophage differentiation\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Autoimmune antibody positivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum and bronchoalveolar GM-CSF autoantibody positivity is definitional for the autoimmune form.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030057\"}}, {\"id\": \"Cigarette smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is common in aPAP cohorts and is often described as a risk or aggravating factor, but the large registry study concluded that the disease was not strongly linked to smoking once ascertained systematically.\\n\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Cough with scant frothy sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough, often with scant white frothy sputum, accompanies dyspnoea in the typical presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012735\"}}, {\"id\": \"Crackles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Physical examination is generally unremarkable, but crackles may be heard.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030830\"}}, {\"id\": \"Crazy paving pattern on pulmonary HRCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ground-glass opacification with superimposed interlobular septal thickening, often sharply demarcated from normal lung, is the characteristic radiographic finding of alveolar filling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0025391\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cyanosis may be evident in severe disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Exertional dyspnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness of insidious onset is the commonest presenting symptom, recorded in 54.3% of the Japanese registry cohort at presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002875\"}}, {\"id\": \"Foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged lipid-engorged foamy alveolar macrophages are recovered in lavage fluid and seen on biopsy.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003651\"}}, {\"id\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating and alveolar autoantibodies bind GM-CSF and neutralize its bioactivity, producing a functional ligand deficiency despite normal CSF2 expression and an intact GM-CSF receptor. This is the ligand-side mirror of the receptor-side lesion (biallelic CSF2RA/CSF2RB defects) that causes hereditary PAP.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"JAK-STAT signaling downstream of the GM-CSF receptor\"], \"role\": \"central_effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"HLA-DRB1*08:03 susceptibility allele\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypoxaemia reflects the widening alveolar-arterial gradient from airspace filling and defines disease severity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Airspace filling widens the alveolar-arterial oxygen gradient and lowers the diffusing capacity, producing exertional dyspnoea, hypoxaemia and, when progressive, respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize its lipid or efflux the liberated cholesterol. Lipidomic analysis shows the accumulating species is predominantly cholesterol rather than phospholipid, reframing PAP as a disorder of macrophage cholesterol handling and identifying the foamy macrophage as a cholesterol-engorged cell.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cholesterol efflux\", \"lipid catabolic process\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Inhaled Molgramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-daily inhaled recombinant human GM-CSF delivered directly to the alveolar compartment to overcome local autoantibody neutralization and restore alveolar macrophage GM-CSF signaling. Efficacy was shown in the phase 2/3 IMPALA trial (alveolar-arterial oxygen difference) and confirmed in the phase 3 IMPALA-2 trial (DLCO).\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"molgramostim\"]}}, {\"id\": \"Inhaled Sargramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled recombinant human GM-CSF (sargramostim), evaluated in a Japanese multicentre phase II trial with a 62% response rate and a sustained effect, without change in serum autoantibody levels.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sargramostim\"]}}, {\"id\": \"Inhaled dust exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Occupational or environmental dust exposure is reported in roughly a quarter of registry patients. Inhalational exposures such as silica are more firmly linked to secondary PAP than to the autoimmune form.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Loss of Immune Tolerance to GM-CSF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of B-cell tolerance to GM-CSF, influenced by MHC class II background (HLA-DRB1*08:03), drives production of high-titre polyclonal neutralizing IgG autoantibodies against GM-CSF. Low-level GM-CSF autoantibodies are present in all healthy people, so disease requires crossing a critical concentration threshold rather than simply acquiring the antibody.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\", \"humoral immune response\"], \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"role\": \"trigger\"}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved for severe disease refractory to all other therapy. PAP recurrence in the allograft has been reported, consistent with the persistence of the circulating autoantibody after transplantation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Opportunistic infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent myeloid defect produces an increased risk of serious infection with opportunistic organisms (Nocardia, mycobacteria, Aspergillus) at intrapulmonary and extrapulmonary sites, carrying a poor prognosis. This is the distinctive infectious consequence of the immunodeficiency arm, and it can occur without severe alveolar disease.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0031690\"}}, {\"id\": \"Oral Statin Therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pathogenesis-based repurposing that targets alveolar macrophage cholesterol overload rather than the autoantibody. Supported by patient-level observational improvement, ex vivo human macrophage data, and rescue in Csf2rb-deficient mice; not established practice.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"HMG-CoA reductase inhibitor\"]}}, {\"id\": \"Plasmapheresis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange to lower circulating GM-CSF autoantibody in refractory disease. Evidence is limited to case-level reports with inconsistent responses, and some patients remain refractory despite documented antibody reduction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polycythemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary polycythaemia develops in severe disease as an erythropoietic response to sustained hypoxaemia from surfactant-filled alveoli. It is a downstream consequence of impaired gas exchange rather than a primary haematologic lesion, and the same finding arises in mice lacking GM-CSF signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001901\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent innate immune defect predisposes to secondary and opportunistic infection, including of the lung.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive airspace filling can culminate in respiratory failure and death in a subset of patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002878\"}}, {\"id\": \"Restrictive ventilatory defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spirometry is normal in many patients. Restriction appears mainly in more advanced disease, with lung volumes falling in proportion to severity; the consistent physiologic abnormality is instead a reduced carbon monoxide diffusing capacity.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion (two 1,000 mg intravenous infusions 15 days apart) used for disease refractory to lavage and inhaled GM-CSF. In an open-label phase II trial oxygenation improved in seven of nine completers, and anti-GM-CSF IgG fell in lavage fluid though not in serum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secondary Pulmonary Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients develop pulmonary fibrosis over years of follow-up, a rare but potentially life-threatening complication of long-standing alveolar surfactant retention.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"modifier\", \"locations\": [\"lung\"]}}, {\"id\": \"Systemic Myeloid Host Defence Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GM-CSF also primes neutrophil and macrophage antimicrobial function, so autoantibody-mediated GM-CSF neutralization produces an acquired innate immunodeficiency in parallel with the surfactant lesion. This is an independent arm of the disease, and it explains the predisposition to opportunistic infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"effector\"}}, {\"id\": \"Whole Lung Lavage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sequential large-volume saline lavage of each lung under general anaesthesia physically removes accumulated alveolar surfactant. It remains the first-line therapy despite never having been tested in a randomized trial.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"Autoimmune antibody positivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Systemic Myeloid Host Defence Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crazy paving pattern on pulmonary HRCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Cough with scant frothy sputum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crackles\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Exertional dyspnoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Polycythemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Restrictive ventilatory defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Opportunistic infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cigarette smoking\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Recorded as modulating rather than predisposing, because the entry\u0027s own best evidence declines to support a risk claim. The registry that documents smoking in 56 percent of patients is the same one that concludes the disease was not strongly linked to smoking once ascertainment was systematic, and both sentences are carried here so the reader meets the refutation at the point of the claim. A prevalence among patients is not a risk, and this link is drawn to record the association without asserting one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inhaled dust exposure\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Graded identically to the smoking link and refuted by the same sentence, which names occupational exposure alongside smoking among the things the disease was not strongly linked to. Worth adding what this exposure\u0027s own description says and the evidence does not: inhalational exposures such as silica are more firmly tied to the secondary form of this disease than to the autoimmune form modelled here, so a dust-driven case may be a different entity rather than this one with an exposure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Whole Lung Lavage\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Molgramostim\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Sargramostim\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasmapheresis\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral Statin Therapy (investigational)\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DRB1*08:03 susceptibility allele\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6003,14 +6471,21 @@
                         Polycythemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polycythemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001901">HP:0001901</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001901</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polycythemia (HP:0001901), qualified as severity severe. HP:0001901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6049,6 +6524,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6071,6 +6547,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6113,14 +6590,21 @@
                         Recurrent respiratory infections
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6143,6 +6627,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30846703" target="_blank">PMID:30846703</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6184,14 +6669,21 @@
                         Cyanosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000961">HP:0000961</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyanosis (HP:0000961), qualified as severity severe. HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6229,6 +6721,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6270,14 +6763,21 @@
                         Cough with scant frothy sputum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6297,6 +6797,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6329,14 +6830,21 @@
                         Hypoxemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoxemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoxemia (HP:0012418), qualified as course progressive. HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6375,6 +6883,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6406,14 +6915,21 @@
                         Restrictive ventilatory defect
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Restrictive ventilatory defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002091">HP:0002091</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002091</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6433,6 +6949,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6457,6 +6974,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6479,6 +6997,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6512,14 +7031,21 @@
                         Respiratory failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6539,6 +7065,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6580,14 +7107,21 @@
                         Chest pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6607,6 +7141,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6650,14 +7185,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exertional dyspnea
+
+                        <span class="phenotype-term-label">Exertional dyspnea</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002875</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exertional dyspnea (HP:0002875), qualified as course progressive. HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6696,6 +7240,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6728,14 +7273,21 @@
                         Crazy paving pattern on pulmonary HRCT
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Crazy paving pattern
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025391" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025391">HP:0025391</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025391" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0025391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Crazy paving pattern (HP:0025391). HP:0025391 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6759,6 +7311,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6781,6 +7334,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6814,14 +7368,21 @@
                         Foam cells
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Foam cells
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003651">HP:0003651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foam cells (HP:0003651). HP:0003651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6841,6 +7402,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6864,6 +7426,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6886,6 +7449,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6919,14 +7483,21 @@
                         Crackles
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Crackles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030830">HP:0030830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Crackles (HP:0030830). HP:0030830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6946,6 +7517,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6979,14 +7551,21 @@
                         Opportunistic infection
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Opportunistic infection
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031690">HP:0031690</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0031690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Opportunistic infection (HP:0031690). HP:0031690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7006,6 +7585,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7030,6 +7610,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7051,6 +7632,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7086,14 +7668,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autoimmune antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030057">HP:0030057</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0030057</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmune antibody positivity (HP:0030057). HP:0030057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7113,6 +7702,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499925" target="_blank">PMID:10499925</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7146,14 +7736,23 @@
                         Digital clubbing (atypical)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Clubbing of fingers
+
+                        <span class="phenotype-term-label">Clubbing of fingers</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100759">HP:0100759</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100759</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clubbing of fingers (HP:0100759). HP:0100759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7173,6 +7772,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7196,6 +7796,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7273,13 +7874,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7305,6 +7911,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33589587" target="_blank">PMID:33589587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7328,6 +7935,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33589587" target="_blank">PMID:33589587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7350,6 +7958,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33589587" target="_blank">PMID:33589587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7382,6 +7991,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7397,7 +8009,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">whole lung lavage</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">whole lung lavage<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is whole lung lavage, annotated with Lavage (NCIT:C38068). NCIT:C38068 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lavage</span>
 
 
@@ -7457,6 +8074,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7498,6 +8116,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7527,7 +8146,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7557,16 +8181,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         molgramostim
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C77591" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C77591">NCIT:C77591</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C77591" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C77591</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses molgramostim (NCIT:C77591). NCIT:C77591 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7602,6 +8231,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32897035" target="_blank">PMID:32897035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7645,6 +8275,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32897035" target="_blank">PMID:32897035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7668,6 +8299,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40834301" target="_blank">PMID:40834301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7690,6 +8322,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40834301" target="_blank">PMID:40834301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7721,7 +8354,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7751,16 +8389,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sargramostim
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1492" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1492">NCIT:C1492</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1492" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C1492</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sargramostim (NCIT:C1492). NCIT:C1492 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7796,6 +8439,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20167854" target="_blank">PMID:20167854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7839,6 +8483,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20167854" target="_blank">PMID:20167854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7860,6 +8505,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20167854" target="_blank">PMID:20167854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7890,7 +8536,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7920,16 +8571,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7965,6 +8621,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21478218" target="_blank">PMID:21478218</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8008,6 +8665,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21478218" target="_blank">PMID:21478218</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8029,6 +8687,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21478218" target="_blank">PMID:21478218</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8060,7 +8719,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">plasmapheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
@@ -8120,6 +8784,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8162,6 +8827,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
@@ -8192,7 +8858,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">lung transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">lung transplantation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is lung transplantation (NCIT:C15274). NCIT:C15274 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lung Transplantation</span>
 
 
@@ -8252,6 +8923,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8294,6 +8966,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8324,7 +8997,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8354,16 +9032,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         HMG-CoA reductase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1655" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1655">NCIT:C1655</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1655" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C1655</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses HMG-CoA reductase inhibitor (NCIT:C1655). NCIT:C1655 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8399,6 +9082,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8442,6 +9126,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8464,6 +9149,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8504,6 +9190,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-52">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Smoking is common in aPAP cohorts and is often described as a risk or aggravating factor, but the large registry study concluded that the disease was not strongly linked to smoking once ascertained systematically.
@@ -8522,6 +9235,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8546,6 +9260,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
@@ -8569,10 +9284,113 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to GM-CSF</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Recorded as modulating rather than predisposing, because the entry&#39;s own best evidence declines to support a risk claim. The registry that documents smoking in 56 percent of patients is the same one that concludes the disease was not strongly linked to smoking once ascertainment was systematic, and both sentences are carried here so the reader meets the refutation at the point of the claim. A prevalence among patients is not a risk, and this link is drawn to record the association without asserting one.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18202348" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A history of smoking occurred in 56%, and dust exposure occurred in 23%; instances of familial onset did not occur."</div>
+
+
+                <div class="evidence-explanation">Registry cohort recording a smoking history in 56 percent of patients alongside dust exposure in 23 percent. Prevalence within the cohort, with no comparison group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18202348" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Autoimmune PAP had an incidence and prevalence higher than previously reported and was not strongly linked to smoking, occupational exposure, or other illnesses."</div>
+
+
+                <div class="evidence-explanation">The same cohort concluding that the disease was not strongly linked to smoking, occupational exposure or other illnesses. Carried deliberately: it is the strongest statement this entry has about the exposure and it points away from a causal reading.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-inhaled-dust-exposure" data-dismech-node="Inhaled dust exposure" data-dismech-type="environmental">
                 <div class="item-name">Inhaled dust exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to inhaled dust
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-53">ECTO:7000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to inhaled dust, annotated with exposure to dust (ECTO:7000001). ECTO:7000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -8592,6 +9410,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8614,6 +9433,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to GM-CSF</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the smoking link and refuted by the same sentence, which names occupational exposure alongside smoking among the things the disease was not strongly linked to. Worth adding what this exposure&#39;s own description says and the evidence does not: inhalational exposures such as silica are more firmly tied to the secondary form of this disease than to the autoimmune form modelled here, so a dust-driven case may be a different entity rather than this one with an exposure.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18202348" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A history of smoking occurred in 56%, and dust exposure occurred in 23%; instances of familial onset did not occur."</div>
+
+
+                <div class="evidence-explanation">Records dust exposure in 23 percent of the registry cohort. Prevalence among patients, without a comparison group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8653,6 +9525,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8674,6 +9547,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10499925" target="_blank">PMID:10499925</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8723,6 +9597,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8771,6 +9646,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8793,6 +9669,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8842,6 +9719,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8863,6 +9741,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8911,6 +9790,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8952,7 +9832,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-pulmonary-alveolar-proteinosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hereditary_Pulmonary_Alveolar_Proteinosis.html">Hereditary pulmonary alveolar proteinosis</a>
@@ -8981,6 +9861,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30846703" target="_blank">PMID:30846703</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9006,7 +9887,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-secondary-pulmonary-alveolar-proteinosis">
                 <div class="item-name">
 
                     Secondary pulmonary alveolar proteinosis
@@ -9035,6 +9916,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18202348" target="_blank">PMID:18202348</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9060,7 +9942,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-community-acquired-pneumonia">
                 <div class="item-name">
 
                     Community-acquired pneumonia
@@ -9088,6 +9970,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9124,7 +10007,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse153957">
                 <div class="item-name">
                     Expression profiles and potential functions of long non-coding RNAs and mRNAs in autoimmune pulmonary alveolar proteinosis patients
 
@@ -9205,6 +10088,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33820876" target="_blank">PMID:33820876</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9240,7 +10124,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02702180">
                 <div class="item-name">
                     NCT02702180
 
@@ -9258,17 +10142,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoxemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012418</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exertional dyspnea
@@ -9276,10 +10167,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9297,6 +10191,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02702180" target="_blank">clinicaltrials:NCT02702180</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9319,6 +10214,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32897035" target="_blank">PMID:32897035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9344,7 +10240,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04544293">
                 <div class="item-name">
                     NCT04544293
 
@@ -9362,17 +10258,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exertional dyspnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoxemia
@@ -9380,10 +10283,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0012418</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9401,6 +10307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40834301" target="_blank">PMID:40834301</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9429,6 +10336,366 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-wild-type-passively-immunized-with-patient-derived-gm-csf-autoantibody-cynomolgus-macaque-macaca-fascicularis" data-dismech-node="Wild type, passively immunized with patient-derived GM-CSF autoantibody Cynomolgus macaque (Macaca fascicularis)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Wild type, passively immunized with patient-derived GM-CSF autoantibody Cynomolgus macaque (Macaca fascicularis)
+
+                    <span class="tag tag-exp-model-type">Passive immunization / autoantibody transfer</span>
+
+                </div>
+
+                <div class="item-desc">Healthy primates given highly purified GM-CSF autoantibody from a patient, maintained at serum levels of 40 micrograms per millilitre or more for 10 months, developed the full alveolar lesion. This is the model that closed the causality argument and licensed renaming the disease from &#34;idiopathic&#34; to &#34;autoimmune&#34; PAP. Its limitation is definitional: it transfers the effector antibody rather than inducing tolerance breakdown, so it models the downstream half of the disease only. See the gap_apap_autoantibody_mediated_animal_model discussion.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Alveolar filling with lipoproteinaceous material</span>
+
+                    <span class="tag tag-phenotype">Foamy alveolar macrophages</span>
+
+                    <span class="tag tag-phenotype">Milky bronchoalveolar lavage fluid</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Cynomolgus macaque (Macaca fascicularis)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Wild type, passively immunized with patient-derived GM-CSF autoantibody</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20042763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We administered highly purified GM-CSF autoantibodies derived from a patient with idiopathic pulmonary alveolar proteinosis to healthy nonhuman primates (Macaca fascicularis)."</div>
+
+
+                <div class="evidence-explanation">Defines the species and the passive-transfer design.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20042763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20042763" target="_blank">PMID:20042763</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A diffuse, patchy distribution of lung lesions composed of well-preserved alveoli filled with eosinophilic, lipoproteinaceous material and enlarged, foamy alveolar macrophages developed in the macaques that received GM-CSF autoantibodies"</div>
+
+
+                <div class="evidence-explanation">The transferred autoantibody reproduced the human alveolar lesion, including the well-preserved alveolar walls.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-csf2-csf2ra-or-csf2rb-knockout-csf2ko-csf2rako-csf2rbko-mouse-mus-musculus" data-dismech-node="Csf2, Csf2ra or Csf2rb knockout (Csf2KO, Csf2raKO, Csf2rbKO) Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Csf2, Csf2ra or Csf2rb knockout (Csf2KO, Csf2raKO, Csf2rbKO) Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Germline disruption of GM-CSF or either GM-CSF receptor subunit produces spontaneous PAP that matches human autoimmune PAP physiologically, radiologically, histopathologically, biochemically and immunologically, and also reproduces the host-defence arm. Mechanistically, however, these mice model hereditary PAP: they ablate the axis at the ligand or receptor rather than by autoantibody, so they sit downstream of the autoimmune lesion. Because the lesion is genetic rather than autoimmune, the model cannot be used to evaluate tolerance-directed or B-cell-depleting therapy - the translational limitation recorded in the gap_apap_autoantibody_mediated_animal_model discussion.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Alveolar surfactant accumulation</span>
+
+                    <span class="tag tag-phenotype">Foamy alveolar macrophages</span>
+
+                    <span class="tag tag-phenotype">Susceptibility to microbial pathogens</span>
+
+                    <span class="tag tag-phenotype">Polycythemia</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Csf2, Csf2ra or Csf2rb knockout (Csf2KO, Csf2raKO, Csf2rbKO)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CSF2
+
+
+    <a href="https://bioregistry.io/hgnc:2434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:2434</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CSF2 (hgnc:2434). hgnc:2434 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CSF2RA
+
+
+    <a href="https://bioregistry.io/hgnc:2435" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:2435</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CSF2RA (hgnc:2435). hgnc:2435 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CSF2RB
+
+
+    <a href="https://bioregistry.io/hgnc:2436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:2436</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CSF2RB (hgnc:2436). hgnc:2436 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"spontaneously develop PAP similar to autoimmune PAP regarding physiological, radiological, histopathological, biochemical, and immunological manifestations"</div>
+
+
+                <div class="evidence-explanation">Establishes the breadth of phenocopy across GM-CSF and receptor-subunit knockouts.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30087322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30087322" target="_blank">PMID:30087322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In Csf2rb-/- mice, statin therapy reduces cholesterol accumulation in alveolar macrophages and ameliorates PAP, and ex vivo statin treatment increases cholesterol efflux from macrophages."</div>
+
+
+                <div class="evidence-explanation">The knockout is tractable for testing surfactant-clearance therapies, which is how the statin hypothesis was established preclinically.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -9735,6 +11002,44 @@ genetic:
     populations. See the KNOWLEDGE_GAP discussion on replication.
 environmental:
 - name: Cigarette smoking
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to GM-CSF
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Recorded as modulating rather than predisposing, because the entry&#39;s own
+      best evidence declines to support a risk claim. The registry that
+      documents smoking in 56 percent of patients is the same one that
+      concludes the disease was not strongly linked to smoking once
+      ascertainment was systematic, and both sentences are carried here so the
+      reader meets the refutation at the point of the claim. A prevalence
+      among patients is not a risk, and this link is drawn to record the
+      association without asserting one.
+    evidence:
+    - reference: PMID:18202348
+      reference_title: &#34;Characteristics of a large cohort of patients with autoimmune pulmonary alveolar proteinosis in Japan.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A history of smoking occurred in 56%, and dust exposure occurred in 23%; instances of familial onset did not occur.&#34;
+      explanation: &gt;-
+        Registry cohort recording a smoking history in 56 percent of patients
+        alongside dust exposure in 23 percent. Prevalence within the cohort,
+        with no comparison group.
+    - reference: PMID:18202348
+      reference_title: &#34;Characteristics of a large cohort of patients with autoimmune pulmonary alveolar proteinosis in Japan.&#34;
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Autoimmune PAP had an incidence and prevalence higher than previously reported and was not strongly linked to smoking, occupational exposure, or other illnesses.&#34;
+      explanation: &gt;-
+        The same cohort concluding that the disease was not strongly linked to
+        smoking, occupational exposure or other illnesses. Carried
+        deliberately: it is the strongest statement this entry has about the
+        exposure and it points away from a causal reading.
   description: &gt;
     Smoking is common in aPAP cohorts and is often described as a risk or
     aggravating factor, but the large registry study concluded that the disease
@@ -9758,6 +11063,32 @@ environmental:
       The same cohort explicitly refutes a strong causal link to smoking or
       occupational exposure, so this exposure is curated as an association only.
 - name: Inhaled dust exposure
+  exposure_term:
+    preferred_term: exposure to inhaled dust
+    term:
+      id: ECTO:7000001
+      label: exposure to dust
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to GM-CSF
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the smoking link and refuted by the same sentence,
+      which names occupational exposure alongside smoking among the things the
+      disease was not strongly linked to. Worth adding what this exposure&#39;s
+      own description says and the evidence does not: inhalational exposures
+      such as silica are more firmly tied to the secondary form of this
+      disease than to the autoimmune form modelled here, so a dust-driven case
+      may be a different entity rather than this one with an exposure.
+    evidence:
+    - reference: PMID:18202348
+      reference_title: &#34;Characteristics of a large cohort of patients with autoimmune pulmonary alveolar proteinosis in Japan.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A history of smoking occurred in 56%, and dust exposure occurred in 23%; instances of familial onset did not occur.&#34;
+      explanation: &gt;-
+        Records dust exposure in 23 percent of the registry cohort. Prevalence
+        among patients, without a comparison group.
   description: &gt;
     Occupational or environmental dust exposure is reported in roughly a quarter
     of registry patients. Inhalational exposures such as silica are more firmly
@@ -12117,7 +13448,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "86f88126121a"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "86c65c519810"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12536,5 +13867,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

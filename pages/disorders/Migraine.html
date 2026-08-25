@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Migraine</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Migraine</h1>
             <div class="header-meta">
 
@@ -3669,6 +3871,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3817,27 +4021,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3884,7 +4165,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-migraine-with-aura">
 
                     <div class="item-name">
                         Migraine with Aura
@@ -3918,6 +4199,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3937,6 +4219,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3962,7 +4245,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-migraine-without-aura">
 
                     <div class="item-name">
                         Migraine without Aura
@@ -3996,6 +4279,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4015,6 +4299,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4040,7 +4325,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-chronic-migraine">
 
                     <div class="item-name">
                         Chronic Migraine
@@ -4074,6 +4359,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30893319" target="_blank">PMID:30893319</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4100,7 +4386,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vestibular-migraine">
 
                     <div class="item-name">
                         Vestibular Migraine
@@ -4133,6 +4419,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38619053" target="_blank">PMID:38619053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4263,6 +4550,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37495957" target="_blank">PMID:37495957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4285,6 +4573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29697154" target="_blank">PMID:29697154</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4349,6 +4638,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29697154" target="_blank">PMID:29697154</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4520,16 +4810,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neural Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neural Signaling, annotated with chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4546,6 +4841,7 @@
 
 
                 </div>
+
 
 
 
@@ -4594,6 +4890,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37495957" target="_blank">PMID:37495957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4613,6 +4910,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37495957" target="_blank">PMID:37495957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4635,6 +4933,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37495957" target="_blank">PMID:37495957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4678,16 +4977,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Pain Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048265">GO:0048265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0048265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pain Signaling, annotated with response to pain (GO:0048265). GO:0048265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4704,6 +5008,7 @@
 
 
                 </div>
+
 
 
 
@@ -4741,6 +5046,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37487740" target="_blank">PMID:37487740</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4760,6 +5066,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4782,6 +5089,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4827,6 +5135,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4838,6 +5147,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4861,6 +5171,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4882,6 +5193,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37487740" target="_blank">PMID:37487740</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4911,6 +5223,7 @@
 
                 <div class="item-desc">Calcitonin gene-related peptide (CGRP) release from trigeminal neurons causes vasodilation and neurogenic inflammation. CGRP blockers are effective treatments.
 </div>
+
 
 
 
@@ -4957,6 +5270,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4977,6 +5291,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37569648" target="_blank">PMID:37569648</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4996,6 +5311,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37569648" target="_blank">PMID:37569648</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5092,14 +5408,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0002018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5119,6 +5442,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5162,14 +5486,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0002321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5192,6 +5523,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38619053" target="_blank">PMID:38619053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5211,6 +5543,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37889468" target="_blank">PMID:37889468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5252,14 +5585,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5280,6 +5620,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322292" target="_blank">PMID:35322292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5299,6 +5640,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5342,14 +5684,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5372,6 +5721,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37495957" target="_blank">PMID:37495957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5391,6 +5741,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5423,14 +5774,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Phonophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002183" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002183">HP:0002183</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002183</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Phonophobia (HP:0002183). HP:0002183 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5450,6 +5808,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33305448" target="_blank">PMID:33305448</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5491,14 +5850,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scintillating scotoma
+
+                        <span class="phenotype-term-label">Scintillating scotoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010822">HP:0010822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0010822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual aura (scintillating scotoma), annotated with Scintillating scotoma (HP:0010822). HP:0010822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5520,6 +5888,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5552,14 +5921,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Allodynia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012533">HP:0012533</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0012533</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous allodynia, annotated with Allodynia (HP:0012533). HP:0012533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5582,6 +5958,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5603,6 +5980,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18427069" target="_blank">PMID:18427069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5681,13 +6059,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1A
 
 
-    <a href="https://bioregistry.io/hgnc:1388" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1388">hgnc:1388</a>
+    <a href="https://bioregistry.io/hgnc:1388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5713,6 +6096,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32430436" target="_blank">PMID:32430436</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5734,6 +6118,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508838" target="_blank">PMID:38508838</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5771,13 +6156,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP1A2
 
 
-    <a href="https://bioregistry.io/hgnc:800" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:800">hgnc:800</a>
+    <a href="https://bioregistry.io/hgnc:800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP1A2 (hgnc:800). hgnc:800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5803,6 +6193,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32430436" target="_blank">PMID:32430436</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5824,6 +6215,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508838" target="_blank">PMID:38508838</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5861,13 +6253,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10585">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:10585</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5893,6 +6290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32430436" target="_blank">PMID:32430436</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5914,6 +6312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508838" target="_blank">PMID:38508838</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5951,13 +6350,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRPM8
 
 
-    <a href="https://bioregistry.io/hgnc:17961" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17961">hgnc:17961</a>
+    <a href="https://bioregistry.io/hgnc:17961" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:17961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRPM8 (hgnc:17961). hgnc:17961 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5981,6 +6385,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21666692" target="_blank">PMID:21666692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6002,6 +6407,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31873179" target="_blank">PMID:31873179</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6039,13 +6445,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRP1
 
 
-    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6692">hgnc:6692</a>
+    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:6692</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP1 (hgnc:6692). hgnc:6692 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6069,6 +6480,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21666692" target="_blank">PMID:21666692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6088,6 +6500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21666692" target="_blank">PMID:21666692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6115,6 +6528,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6154,6 +6570,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6173,6 +6590,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6225,6 +6643,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27713337" target="_blank">PMID:27713337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6274,6 +6693,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37755358" target="_blank">PMID:37755358</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6293,6 +6713,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34160823" target="_blank">PMID:34160823</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6345,6 +6766,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30893319" target="_blank">PMID:30893319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6364,6 +6786,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30893319" target="_blank">PMID:30893319</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6414,6 +6837,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24494792" target="_blank">PMID:24494792</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6433,6 +6857,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24494792" target="_blank">PMID:24494792</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6483,6 +6908,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24494792" target="_blank">PMID:24494792</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6502,6 +6928,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24494792" target="_blank">PMID:24494792</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6552,6 +6979,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39080518" target="_blank">PMID:39080518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6572,6 +7000,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37755358" target="_blank">PMID:37755358</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6591,6 +7020,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34160823" target="_blank">PMID:34160823</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6643,6 +7073,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38910144" target="_blank">PMID:38910144</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6692,6 +7123,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37755358" target="_blank">PMID:37755358</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6728,6 +7160,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-15">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Common trigger</div>
 
@@ -6745,6 +7204,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35143379" target="_blank">PMID:35143379</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6765,6 +7225,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6791,11 +7252,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="environmental">
                 <div class="item-name">Sleep Disturbance</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        disturbed sleep
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001068" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-16">XCO:0001068</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is disturbed sleep, annotated with sleep (XCO:0001068). XCO:0001068 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Both insufficient and excessive sleep are commonly reported migraine triggers; disrupted sleep-wake regulation is one of the recognised precipitating factors for attacks.</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28436283" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28436283" target="_blank">PMID:28436283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lack of sleep (51.4%), stress (44.6%), warm climate (41.9%), noise (32.4%), and excitation (29.7%) were the most frequently reported"</div>
+
+
+                <div class="evidence-explanation">Prospective 3-month trigger diary in 101 paediatric migraine patients; lack of sleep was the single most frequently reported trigger. PARTIAL because it evidences insufficient sleep only, not the excessive-sleep half of this annotation, and the cohort is paediatric.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6803,6 +7324,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-hormonal-changes" data-dismech-node="Hormonal Changes" data-dismech-type="environmental">
                 <div class="item-name">Hormonal Changes</div>
+
+
+
+
 
 
                 <div class="item-desc">Menstruation, oral contraceptives</div>
@@ -6821,6 +7346,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19076658" target="_blank">PMID:19076658</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6842,6 +7368,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19076658" target="_blank">PMID:19076658</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6861,6 +7388,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1525797" target="_blank">PMID:1525797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6888,10 +7416,70 @@
                 <div class="item-name">Dietary Triggers</div>
 
 
-                <div class="item-desc">Alcohol, aged cheese, chocolate, caffeine withdrawal</div>
 
 
 
+
+                <div class="item-desc">Caffeine withdrawal and alcohol have provocation-study support; chocolate and aged cheese are commonly cited but poorly supported</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27699780" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27699780" target="_blank">PMID:27699780</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Caffeine withdrawal and administration of MSG (dissolved in liquid) has the strongest evidence for triggering attacks of headache as evidenced by multiple positive provocation studies"</div>
+
+
+                <div class="evidence-explanation">Narrative review grading the evidence per food. Caffeine withdrawal is the best-supported dietary trigger, resting on positive provocation studies rather than patient self-report.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15806385" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15806385" target="_blank">PMID:15806385</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the importance of chocolate has been doubted seriously, and scientific evidence for cheese as a precipitating factor is lacking"</div>
+
+
+                <div class="evidence-explanation">Refutes two of the four items the note previously listed. The note has been rewritten accordingly: alcohol and caffeine withdrawal are retained as controlled-trial-supported precipitants, while chocolate and aged cheese are marked as commonly cited but poorly supported. This is the same correction pattern as Celiac early-gluten-introduction in tranche 1.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6900,11 +7488,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-weather-changes" data-dismech-node="Weather Changes" data-dismech-type="environmental">
                 <div class="item-name">Weather Changes</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        weather change exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_1000020" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-17">ECTO:1000020</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is weather change exposure, annotated with exposure to weather (ECTO:1000020). ECTO:1000020 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Barometric pressure changes</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36853848" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36853848" target="_blank">PMID:36853848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we found that low barometric pressure, barometric pressure changes, higher humidity, and rainfall were associated with an increased number of headache occurrences"</div>
+
+
+                <div class="evidence-explanation">Smartphone-diary study of 336,951 hourly headache events, which is the scale this question has historically lacked -- the paper&#39;s own background notes the weather-headache relationship remained unknown. PARTIAL because the outcome is headache occurrence across a mixed cohort (37.2% physician-diagnosed migraine) rather than migraine attacks specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6914,10 +7562,47 @@
                 <div class="item-name">Sensory Stimuli</div>
 
 
-                <div class="item-desc">Bright lights, strong odors</div>
 
 
 
+
+                <div class="item-desc">Noise is the sensory trigger with prospective diary support; bright lights and strong odours are commonly cited but not evidenced here</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28436283" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28436283" target="_blank">PMID:28436283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lack of sleep (51.4%), stress (44.6%), warm climate (41.9%), noise (32.4%), and excitation (29.7%) were the most frequently reported"</div>
+
+
+                <div class="evidence-explanation">Prospective trigger diary in which noise was reported before a third of attacks, establishing sensory stimuli as a precipitant. PARTIAL because the diary evidences noise only; the bright lights and strong odours also named on this exposure are unevidenced here, and a light/odour-specific source was searched for and not found.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6961,6 +7646,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37755358" target="_blank">PMID:37755358</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6980,6 +7666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7002,6 +7689,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982963" target="_blank">PMID:30982963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7052,6 +7740,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17970989" target="_blank">PMID:17970989</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7071,6 +7760,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17970989" target="_blank">PMID:17970989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7108,7 +7798,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse318177">
                 <div class="item-name">
                     DNA methylation in episodic migraine and medication overuse headache.
 
@@ -7151,7 +7841,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse197289">
                 <div class="item-name">
                     Human and mouse trigeminal ganglia cell atlas implicates multiple cell types in migraine
 
@@ -7192,7 +7882,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse269117">
                 <div class="item-name">
                     Multiomic-based Immune Response Profiling in Migraine, Vestibular Migraine and Meniere&#39;s Disease
 
@@ -7235,7 +7925,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001006795">
                 <div class="item-name">
                     RNA sequencing of spontaneous migraine attacks
 
@@ -7280,7 +7970,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07040813">
                 <div class="item-name">
                     NCT07040813
 
@@ -7297,17 +7987,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Headache
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nausea
@@ -7315,10 +8012,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7336,6 +8036,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07040813" target="_blank">clinicaltrials:NCT07040813</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7358,7 +8059,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06241313">
                 <div class="item-name">
                     NCT06241313
 
@@ -7375,17 +8076,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Headache
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Photophobia
@@ -7393,11 +8101,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000613</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Phonophobia
@@ -7405,10 +8118,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002183" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002183">HP:0002183</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002183</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Phonophobia (HP:0002183). HP:0002183 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7426,6 +8142,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06241313" target="_blank">clinicaltrials:NCT06241313</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7448,7 +8165,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07061847">
                 <div class="item-name">
                     NCT07061847
 
@@ -7465,16 +8182,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Headache
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7492,6 +8214,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07061847" target="_blank">clinicaltrials:NCT07061847</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7520,6 +8243,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7536,7 +8262,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Migraine
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Migraine is a common chronic neurological disorder characterized by recurrent
   attacks of moderate-to-severe, often unilateral pulsating headache accompanied by
@@ -8246,6 +8971,11 @@ genetic:
       mechanistic link to migraine.
 environmental:
 - name: Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Common trigger
   evidence:
   - reference: PMID:35143379
@@ -8264,10 +8994,22 @@ environmental:
     explanation: Epidemiological study identifies stress as the most common
       precipitating factor for both migraine subtypes.
 - name: Sleep Disturbance
+  exposure_term:
+    preferred_term: disturbed sleep
+    term:
+      id: XCO:0001068
+      label: sleep
   notes: &gt;-
     Both insufficient and excessive sleep are commonly reported migraine
     triggers; disrupted sleep-wake regulation is one of the recognised
     precipitating factors for attacks.
+  evidence:
+  - reference: PMID:28436283
+    reference_title: &#34;Trigger Factors in Childhood Migraine: A Prospective Clinic-Based Study From North of France.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Lack of sleep (51.4%), stress (44.6%), warm climate (41.9%), noise (32.4%), and excitation (29.7%) were the most frequently reported&#34;
+    explanation: &#34;Prospective 3-month trigger diary in 101 paediatric migraine patients; lack of sleep was the single most frequently reported trigger. PARTIAL because it evidences insufficient sleep only, not the excessive-sleep half of this annotation, and the cohort is paediatric.&#34;
 - name: Hormonal Changes
   notes: Menstruation, oral contraceptives
   evidence:
@@ -8296,11 +9038,45 @@ environmental:
     explanation: Population study confirms hormonal factors including
       menstruation and oral contraceptives as migraine triggers.
 - name: Dietary Triggers
-  notes: Alcohol, aged cheese, chocolate, caffeine withdrawal
+  notes: Caffeine withdrawal and alcohol have provocation-study support; chocolate
+    and aged cheese are commonly cited but poorly supported
+  evidence:
+  - reference: PMID:27699780
+    reference_title: &#34;Diet and Headache: Part 1.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Caffeine withdrawal and administration of MSG (dissolved in liquid) has the strongest evidence for triggering attacks of headache as evidenced by multiple positive provocation studies&#34;
+    explanation: &#34;Narrative review grading the evidence per food. Caffeine withdrawal is the best-supported dietary trigger, resting on positive provocation studies rather than patient self-report.&#34;
+  - reference: PMID:15806385
+    reference_title: &#34;[Alimentary trigger factors that provoke migraine and tension-type headache].&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the importance of chocolate has been doubted seriously, and scientific evidence for cheese as a precipitating factor is lacking&#34;
+    explanation: &#34;Refutes two of the four items the note previously listed. The note has been rewritten accordingly: alcohol and caffeine withdrawal are retained as controlled-trial-supported precipitants, while chocolate and aged cheese are marked as commonly cited but poorly supported. This is the same correction pattern as Celiac early-gluten-introduction in tranche 1.&#34;
 - name: Weather Changes
+  exposure_term:
+    preferred_term: weather change exposure
+    term:
+      id: ECTO:1000020
+      label: exposure to weather
   notes: Barometric pressure changes
+  evidence:
+  - reference: PMID:36853848
+    reference_title: &#34;Investigating the effects of weather on headache occurrence using a smartphone application and artificial intelligence: A retrospective observational cross-sectional study.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we found that low barometric pressure, barometric pressure changes, higher humidity, and rainfall were associated with an increased number of headache occurrences&#34;
+    explanation: &#34;Smartphone-diary study of 336,951 hourly headache events, which is the scale this question has historically lacked -- the paper&#39;s own background notes the weather-headache relationship remained unknown. PARTIAL because the outcome is headache occurrence across a mixed cohort (37.2% physician-diagnosed migraine) rather than migraine attacks specifically.&#34;
 - name: Sensory Stimuli
-  notes: Bright lights, strong odors
+  notes: Noise is the sensory trigger with prospective diary support; bright lights
+    and strong odours are commonly cited but not evidenced here
+  evidence:
+  - reference: PMID:28436283
+    reference_title: &#34;Trigger Factors in Childhood Migraine: A Prospective Clinic-Based Study From North of France.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Lack of sleep (51.4%), stress (44.6%), warm climate (41.9%), noise (32.4%), and excitation (29.7%) were the most frequently reported&#34;
+    explanation: &#34;Prospective trigger diary in which noise was reported before a third of attacks, establishing sensory stimuli as a precipitant. PARTIAL because the diary evidences noise only; the bright lights and strong odours also named on this exposure are unevidenced here, and a light/odour-specific source was searched for and not found.&#34;
 treatments:
 - name: Triptans
   description: First-line acute treatment (sumatriptan, rizatriptan).
@@ -9139,7 +9915,7 @@ Because the strongest 2023–2024 quantitative clinical outcomes (e.g., head-to-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Migraine", "mondoId": "MONDO:0005277", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Migraine", "yamlRevision": "1559e8a688f6"};
+        const OS_CONFIG = {"diseaseName": "Migraine", "mondoId": "MONDO:0005277", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Migraine", "yamlRevision": "498b0e170cc3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9558,5 +10334,73 @@ Because the strongest 2023–2024 quantitative clinical outcomes (e.g., head-to-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

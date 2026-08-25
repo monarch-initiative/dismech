@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Autosomal Dominant Cerebellar Ataxia Deafness and Narcolepsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal Dominant Cerebellar Ataxia Deafness and Narcolepsy</h1>
             <div class="header-meta">
 
@@ -3701,6 +3903,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3810,7 +4014,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3852,7 +4056,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-adca-dn-clinical-case-definition">
                 <div class="item-name">ADCA-DN clinical case definition</div>
 
                 <div class="item-desc">Adult-onset (typically 30 to 40 years) progressive cerebellar ataxia, sensory neuronal (sensorineural) deafness, and narcolepsy with cataplexy, with dementia developing later, in an individual carrying a heterozygous DNMT1 variant in the C-terminal part of the targeting-sequence domain (classically exon 21). There are no independently validated formal diagnostic criteria; molecular confirmation is central, and the full triad may not be present at onset.</div>
@@ -3896,6 +4100,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3918,6 +4123,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="https://bioregistry.io/ORPHA:314404" target="_blank">ORPHA:314404</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3939,6 +4145,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3976,7 +4183,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4025,6 +4232,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4047,6 +4255,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4068,6 +4277,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4143,7 +4353,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <span class="entity-ref-chip">biochemical#Cerebrospinal fluid hypocretin-1</span>
+    <a class="entity-ref-chip" href="#biochemical-cerebrospinal-fluid-hypocretin-1">biochemical#Cerebrospinal fluid hypocretin-1</a>
 
 
 
@@ -4194,6 +4404,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4216,6 +4432,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4312,6 +4529,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4335,6 +4558,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4356,6 +4580,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4473,6 +4698,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4496,6 +4727,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34516921" target="_blank">PMID:34516921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4518,6 +4750,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4539,6 +4772,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328247" target="_blank">PMID:40328247</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4635,6 +4869,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4658,6 +4898,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602171" target="_blank">PMID:27602171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4679,6 +4920,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37584462" target="_blank">PMID:37584462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4782,6 +5024,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4805,6 +5053,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4826,6 +5075,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24709307" target="_blank">PMID:24709307</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4922,6 +5172,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4945,6 +5201,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4966,6 +5223,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5011,7 +5269,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <span class="entity-ref-chip">phenotype#Cataract</span>
+    <a class="entity-ref-chip" href="#phenotype-cataract">phenotype#Cataract</a>
 
 
 
@@ -5038,6 +5296,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5088,15 +5347,22 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         DNMT1
 
 
-    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2976">hgnc:2976</a>
+    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2976</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNMT1 (hgnc:2976). hgnc:2976 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5125,16 +5391,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA (cytosine-5-)-methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003886" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003886">GO:0003886</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003886" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003886</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves DNA (cytosine-5-)-methyltransferase activity (GO:0003886). GO:0003886 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5151,6 +5422,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -5186,6 +5458,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5208,6 +5481,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5229,6 +5503,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32754641" target="_blank">PMID:32754641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5272,16 +5547,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA (cytosine-5-)-methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003886" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003886">GO:0003886</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003886" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003886</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal DNA (cytosine-5-)-methyltransferase activity (GO:0003886). GO:0003886 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5302,6 +5582,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -5351,6 +5632,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31804802" target="_blank">PMID:31804802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5373,6 +5655,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31804802" target="_blank">PMID:31804802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5394,6 +5677,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31804802" target="_blank">PMID:31804802</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5429,16 +5713,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5465,16 +5754,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0070841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5483,6 +5777,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5500,10 +5796,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5529,17 +5828,24 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         aggresome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016235" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016235">GO:0016235</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016235" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves aggresome (GO:0016235). GO:0016235 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         heterochromatin
@@ -5547,13 +5853,17 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000792" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000792">GO:0000792</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000792" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000792</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves heterochromatin (GO:0000792). GO:0000792 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5586,6 +5896,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5607,6 +5918,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5647,16 +5959,27 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         DNMT1
 
 
-    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2976">hgnc:2976</a>
+    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2976</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNMT1 (hgnc:2976). hgnc:2976 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5684,10 +6007,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
         NSUN2
 
 
-    <a href="https://bioregistry.io/hgnc:25994" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25994">hgnc:25994</a>
+    <a href="https://bioregistry.io/hgnc:25994" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:25994</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NSUN2 (hgnc:25994). hgnc:25994 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5715,16 +6041,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         RNA methylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001510" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001510">GO:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001510" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001510</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased RNA methylation (GO:0001510). GO:0001510 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5745,6 +6076,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -5779,6 +6111,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328247" target="_blank">PMID:40328247</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5800,6 +6133,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328247" target="_blank">PMID:40328247</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5840,16 +6174,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5870,6 +6209,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -5905,6 +6245,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328247" target="_blank">PMID:40328247</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5945,16 +6286,27 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ZFP57
 
 
-    <a href="https://bioregistry.io/hgnc:18791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18791">hgnc:18791</a>
+    <a href="https://bioregistry.io/hgnc:18791" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:18791</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZFP57 (hgnc:18791). hgnc:18791 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5982,11 +6334,18 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
         PDGFB
 
 
-    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8800">hgnc:8800</a>
+    <a href="https://bioregistry.io/hgnc:8800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:8800</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDGFB (hgnc:8800). hgnc:8800 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6014,11 +6373,18 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
         PRDM8
 
 
-    <a href="https://bioregistry.io/hgnc:13993" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13993">hgnc:13993</a>
+    <a href="https://bioregistry.io/hgnc:13993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:13993</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRDM8 (hgnc:13993). hgnc:13993 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6046,10 +6412,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
         NR2F1
 
 
-    <a href="https://bioregistry.io/hgnc:7975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7975">hgnc:7975</a>
+    <a href="https://bioregistry.io/hgnc:7975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:7975</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NR2F1 (hgnc:7975). hgnc:7975 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6077,16 +6446,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA modification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006304">GO:0006304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006304</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6095,6 +6469,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -6112,10 +6488,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040029">GO:0040029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0040029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6135,16 +6514,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
                     <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6165,6 +6549,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -6199,6 +6584,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602171" target="_blank">PMID:27602171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6221,6 +6607,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602171" target="_blank">PMID:27602171</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6242,6 +6629,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37584462" target="_blank">PMID:37584462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6277,16 +6665,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6316,19 +6709,25 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6392,6 +6791,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6413,6 +6813,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6446,16 +6847,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hypocretin (orexin) neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011109">CL:0011109</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0011109</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hypocretin (orexin) neuron, annotated with hypocretin-secreting neuron (CL:0011109). CL:0011109 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6482,16 +6888,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         circadian sleep/wake cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042745">GO:0042745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0042745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal circadian sleep/wake cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6518,19 +6929,25 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hypothalamus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001898">UBERON:0001898</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0001898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:0001898 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6574,6 +6991,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6595,6 +7013,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6638,19 +7057,25 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6700,6 +7125,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6721,6 +7147,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24709307" target="_blank">PMID:24709307</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6764,19 +7191,25 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         auditory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0016490" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0016490">UBERON:0016490</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0016490" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0016490</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in auditory system (UBERON:0016490). UBERON:0016490 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6808,6 +7241,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6829,6 +7263,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6862,16 +7297,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6888,6 +7328,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -6971,6 +7412,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27869457" target="_blank">PMID:27869457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6992,6 +7434,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7025,16 +7468,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7051,6 +7499,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 </div>
+
 
 
 
@@ -7098,6 +7547,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7119,6 +7569,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7211,14 +7662,23 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Sensorineural hearing loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407), qualified as laterality bilateral; course progressive. HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7259,6 +7719,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7280,6 +7741,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7321,14 +7783,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Optic atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7348,6 +7817,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7370,6 +7840,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7402,14 +7873,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Cataract
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7432,6 +7910,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7453,6 +7932,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7494,14 +7974,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Excessive daytime somnolence
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Excessive daytime somnolence
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001262">HP:0001262</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001262</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive daytime somnolence (HP:0001262), qualified as temporality chronic; course progressive. HP:0001262 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7542,6 +8029,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7573,14 +8061,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Cataplexy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataplexy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002524">HP:0002524</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002524</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataplexy (HP:0002524), qualified as temporality recurrent. HP:0002524 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7619,6 +8114,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7640,6 +8136,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7672,14 +8169,23 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Sleep-onset REM periods
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal rapid eye movement sleep
+
+                        <span class="phenotype-term-label">Abnormal rapid eye movement sleep</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002494" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002494">HP:0002494</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002494</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep-onset REM period, annotated with Abnormal rapid eye movement sleep (HP:0002494). HP:0002494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7699,6 +8205,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24709307" target="_blank">PMID:24709307</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7731,14 +8238,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Cerebellar ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar ataxia, annotated with Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7777,6 +8291,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7798,6 +8313,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7830,14 +8346,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Gait ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait ataxia (HP:0002066), qualified as course progressive. HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7876,6 +8399,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7897,6 +8421,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7929,14 +8454,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Cerebellar atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001272</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7956,6 +8488,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7978,6 +8511,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8010,14 +8544,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Tremor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8037,6 +8578,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8069,14 +8611,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Cerebral atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002059</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8096,6 +8645,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8128,14 +8678,23 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Progressive cognitive decline
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mental deterioration
+
+                        <span class="phenotype-term-label">Mental deterioration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001268">HP:0001268</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001268</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mental deterioration (HP:0001268), qualified as course progressive. HP:0001268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8174,6 +8733,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27869457" target="_blank">PMID:27869457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8205,14 +8765,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Dementia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dementia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000726</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8232,6 +8799,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27869457" target="_blank">PMID:27869457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8254,6 +8822,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8286,14 +8855,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Psychosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Psychosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000709</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8313,6 +8889,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8345,14 +8922,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Hallucinations
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hallucinations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000738">HP:0000738</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000738</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8372,6 +8956,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8404,14 +8989,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Depression
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8431,6 +9023,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8463,14 +9056,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8490,6 +9090,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8522,14 +9123,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Sensory neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensory neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000763">HP:0000763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8549,6 +9157,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8571,6 +9180,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40285998" target="_blank">PMID:40285998</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8612,14 +9222,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Impaired executive functioning
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Impaired executive functioning
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033051">HP:0033051</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0033051</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8639,6 +9256,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27869457" target="_blank">PMID:27869457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8671,14 +9289,23 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         Pyramidal signs
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal pyramidal sign
+
+                        <span class="phenotype-term-label">Abnormal pyramidal sign</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007256">HP:0007256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0007256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8698,6 +9325,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8776,13 +9404,18 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNMT1
 
 
-    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2976">hgnc:2976</a>
+    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:2976</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNMT1 (hgnc:2976). hgnc:2976 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8814,6 +9447,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8835,6 +9469,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38970134" target="_blank">PMID:38970134</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8936,6 +9571,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8947,6 +9584,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8970,6 +9608,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22328086" target="_blank">PMID:22328086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8991,6 +9630,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602171" target="_blank">PMID:27602171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9047,6 +9687,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9058,6 +9700,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9081,6 +9724,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9102,6 +9746,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9145,6 +9790,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9156,6 +9803,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25678562" target="_blank">PMID:25678562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9179,6 +9827,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23365052" target="_blank">PMID:23365052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9200,6 +9849,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32754641" target="_blank">PMID:32754641</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9236,6 +9886,9 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9251,7 +9904,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9281,16 +9939,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         modafinil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31859">CHEBI:31859</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:31859</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9304,17 +9967,24 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Excessive daytime somnolence
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001262">HP:0001262</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001262</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Excessive daytime somnolence (HP:0001262). HP:0001262 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataplexy
@@ -9322,10 +9992,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002524">HP:0002524</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002524</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cataplexy (HP:0002524). HP:0002524 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9344,6 +10017,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9384,16 +10058,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9412,6 +10091,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9442,7 +10122,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cochlear device implantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -9479,16 +10164,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9507,6 +10197,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32754641" target="_blank">PMID:32754641</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9530,6 +10221,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32754641" target="_blank">PMID:32754641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9551,6 +10243,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37199681" target="_blank">PMID:37199681</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9581,7 +10274,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9617,17 +10315,24 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hallucinations
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000738">HP:0000738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000738</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Psychosis
@@ -9635,10 +10340,13 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9657,6 +10365,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9679,6 +10388,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9709,7 +10419,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9757,6 +10472,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9778,6 +10494,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9808,7 +10525,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Physical Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Physical Therapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9844,16 +10566,21 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gait ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9870,7 +10597,12 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9918,6 +10650,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9939,6 +10672,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22338191" target="_blank">PMID:22338191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10004,6 +10738,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10026,6 +10761,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10047,6 +10783,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31957642" target="_blank">PMID:31957642</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10097,6 +10834,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24709307" target="_blank">PMID:24709307</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10137,7 +10875,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-narcolepsy-type-1-sporadic-hla-dqb1-06-02-associated">
                 <div class="item-name">
 
                     Narcolepsy type 1 (sporadic, HLA-DQB1*06:02 associated)
@@ -10165,6 +10903,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23904686" target="_blank">PMID:23904686</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10190,7 +10929,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-sensory-and-autonomic-neuropathy-type-1e-hsan1e">
                 <div class="item-name">
 
                     Hereditary sensory and autonomic neuropathy type 1E (HSAN1E)
@@ -10218,6 +10957,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10239,6 +10979,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24727570" target="_blank">PMID:24727570</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10265,7 +11006,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-spinocerebellar-ataxias-and-other-hereditary-ataxias">
                 <div class="item-name">
 
                     Autosomal dominant spinocerebellar ataxias and other hereditary ataxias
@@ -10292,6 +11033,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32984563" target="_blank">PMID:32984563</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10331,7 +11073,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01793168">
                 <div class="item-name">
                     NCT01793168
 
@@ -10358,6 +11100,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01793168" target="_blank">clinicaltrials:NCT01793168</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10414,6 +11157,8 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10426,6 +11171,7 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37584462" target="_blank">PMID:37584462</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10437,6 +11183,176 @@ Nosologically ADCA-DN is a subtype of autosomal dominant cerebellar ataxia type 
 
 
                 <div class="evidence-explanation">The defining result obtained from the patient-derived cellular model system described here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-dnmt1-m1-and-dnmt1-m2-rfts-domain-knock-in-heterozygous-mouse-mus-musculus" data-dismech-node="Dnmt1-M1 and Dnmt1-M2 RFTS-domain knock-in (heterozygous) Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Dnmt1-M1 and Dnmt1-M2 RFTS-domain knock-in (heterozygous) Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knock-in</span>
+
+                </div>
+
+                <div class="item-desc">CRISPR knock-in mice carrying mouse substitutions equivalent to the human HSAN1E variants Y495C and D490E-P491Y. Heterozygotes are viable with reduced DNMT1 protein and neurodegenerative phenotypes including impaired learning and memory; homozygotes die around embryonic day 10.5. These models support the RFTS-disease mechanism but do not carry ADCA-DN exon-21 alleles and do not reproduce narcolepsy, deafness, or cerebellar ataxia.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced DNMT1 protein</span>
+
+                    <span class="tag tag-phenotype">Impaired learning and memory</span>
+
+                    <span class="tag tag-phenotype">Homozygous embryonic lethality around E10.5</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Dnmt1-M1 and Dnmt1-M2 RFTS-domain knock-in (heterozygous)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DNMT1
+
+
+    <a href="https://bioregistry.io/hgnc:2976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:2976</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns DNMT1 (hgnc:2976). hgnc:2976 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34516921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34516921" target="_blank">PMID:34516921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We generated Dnmt1-M1 and Dnmt1-M2 knock-in mouse models that are equivalent to Y495C and D490E-P491Y mutation in patients with HSAN1E, respectively."</div>
+
+
+                <div class="evidence-explanation">Describes the only published knock-in mouse models of DNMT1 RFTS disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34516921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34516921" target="_blank">PMID:34516921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The homozygous mutants die around embryonic day 10.5 and are apparently devoid of DNMT1 proteins."</div>
+
+
+                <div class="evidence-explanation">Documents homozygous embryonic lethality, which constrains modeling strategies to the heterozygous state that matches human disease.</div>
 
 
 
@@ -14745,5 +15661,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

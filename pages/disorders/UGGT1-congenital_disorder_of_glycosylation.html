@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,15 +3754,21 @@
             <span>UGGT1-congenital disorder of glycosylation</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>UGGT1-congenital disorder of glycosylation</h1>
             <div class="header-meta">
 
                 <span class="badge badge-category">Mendelian</span>
 
 
+                <span class="badge badge-mondo">
+                    <a href="http://purl.obolibrary.org/obo/MONDO_0980705" target="_blank">
+                        MONDO:0980705
+                    </a>
+                </span>
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=UGGT1-congenital%20disorder%20of%20glycosylation"
@@ -3591,7 +3799,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                UGGT1-congenital disorder of glycosylation is a recently described autosomal recessive N-linked glycosylation quality-control disorder caused by biallelic UGGT1 variants. UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an endoplasmic-reticulum enzyme that reglucosylates incompletely folded N-glycoproteins and maintains glycoprotein quality control. Pathogenic variants impair UGGT1 glucosylation/catalytic activity, splicing, or ER retention, leading to abnormal N-linked glycosylation quality control, proteostasis stress, and a multisystem phenotype with developmental delay, intellectual disability, seizures, characteristic facial features, microcephaly, and variable heart, skeletal, hepatic, and renal involvement.
+                UGGT1-congenital disorder of glycosylation is a recently described autosomal recessive N-linked glycosylation quality-control disorder caused by biallelic UGGT1 variants. UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an endoplasmic-reticulum enzyme that reglucosylates incompletely folded N-glycoproteins and maintains glycoprotein quality control. Pathogenic variants impair UGGT1 glucosylation/catalytic activity, splicing, or ER retention, disrupting N-linked glycoprotein quality control. The associated multisystem phenotype includes developmental delay, intellectual disability, seizures, characteristic facial features, microcephaly, and variable heart, skeletal, hepatic, and renal involvement.
             </p>
 
         </header>
@@ -3689,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3705,7 +3915,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3715,18 +3925,26 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3741,19 +3959,129 @@
             </a>
 
 
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">10</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#treatments">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Medical Actions</div>
+            </div>
+            </a>
+
+
+
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
 
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
 
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         <div class="card">
             <div class="card-header">
@@ -3764,9 +4092,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="UGGT1 directly controls ER quality control of N-linked glycoproteins; the report classifies the condition within the N-linked CDG spectrum rather than demonstrating disruption of multiple glycosylation pathways.">n linked protein glycosylation</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3784,7 +4128,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3829,6 +4173,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3866,6 +4211,88 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_uggt1_quality_control_to_multisystem_phenotypes">
+                <div class="item-name">Which cellular stress and signaling intermediates connect disrupted UGGT1-dependent calnexin/calreticulin quality control to the neurodevelopmental and multisystem phenotype?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_uggt1_quality_control_to_multisystem_phenotypes</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-disrupted-calnexin-calreticulin-folding-quality-control">pathophysiology#Disrupted calnexin-calreticulin folding quality control</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Human genetics establishes UGGT1-CDG and the functional assays support deficient enzyme activity and anticipated CNX/CRT-cycle disruption, but the cellular stress, signaling, and tissue-specific intermediates leading to developmental delay, seizures, microcephaly, and other organ findings have not been experimentally resolved.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ultimate anticipated impact of all described variants is a disruption to the CRT/CNX cycle"</div>
+
+
+                <div class="evidence-explanation">The authors identify the shared quality-control endpoint as anticipated, leaving its distal disease mechanisms open.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3873,13 +4300,13 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-uggt1-glycoprotein-quality-control-defect" data-dismech-node="UGGT1 glycoprotein quality-control defect" data-dismech-type="pathophysiology">
-                <div class="item-name">UGGT1 glycoprotein quality-control defect</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-uggt1-functional-impairment" data-dismech-node="Biallelic UGGT1 functional impairment" data-dismech-type="pathophysiology">
+                <div class="item-name">Biallelic UGGT1 functional impairment</div>
 
-                <div class="item-desc">Pathogenic UGGT1 variants reduce UDP-glucose:glycoprotein glucosyltransferase function, disrupting reglucosylation-based ER quality control of N-linked glycoproteins.</div>
+                <div class="item-desc">Biallelic loss-of-function, missense, splice-altering, and ER-retrieval variants reduce functional UGGT1 through catalytic impairment, aberrant splicing and predicted nonsense-mediated decay, or loss of intracellular retention.</div>
 
 
 
@@ -3892,15 +4319,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         UGGT1
 
 
-    <a href="https://bioregistry.io/hgnc:15663" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15663">hgnc:15663</a>
+    <a href="https://bioregistry.io/hgnc:15663" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:15663</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UGGT1 (hgnc:15663). hgnc:15663 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3928,16 +4362,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein N-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006487">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3962,16 +4401,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        glucosyltransferase activity
+                        UDP-glucose:glycoprotein glucosyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046527">GO:0046527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003980" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003980</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased UDP-glucose:glycoprotein glucosyltransferase activity (GO:0003980). GO:0003980 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3998,14 +4442,15 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Impaired N-glycoprotein folding quality control</span>
+	                            <span class="crosslink-meta">Reduced intracellular UGGT1 activity or availability</span>
 
-	                            <span class="crosslink-desc">Loss of UGGT1 catalytic activity or ER retention impairs reglucosylation of client N-glycoproteins.</span>
+	                            <span class="crosslink-desc">Pathogenic variants reduce enzyme activity or intracellular UGGT1 protein.</span>
 
 
 	                        </div>
@@ -4027,17 +4472,18 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an enzyme critical for maintaining quality control of N-linked glycosylation."</div>
+                <div class="evidence-snippet">"Molecular studies showed that pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic activity, disrupt mRNA splicing, or inhibit endoplasmic reticulum (ER) retention."</div>
 
 
-                <div class="evidence-explanation">The abstract establishes UGGT1 as an N-linked glycoprotein quality-control enzyme.</div>
+                <div class="evidence-explanation">The study directly tests three variant-dependent routes to UGGT1 dysfunction.</div>
 
 
 
@@ -4050,10 +4496,188 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-n-glycoprotein-folding-quality-control" data-dismech-node="Impaired N-glycoprotein folding quality control" data-dismech-type="pathophysiology">
-                <div class="item-name">Impaired N-glycoprotein folding quality control</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-intracellular-uggt1-activity-or-availability" data-dismech-node="Reduced intracellular UGGT1 activity or availability" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced intracellular UGGT1 activity or availability</div>
 
-                <div class="item-desc">Defective UGGT1-mediated reglucosylation disturbs ER folding quality control for N-linked glycoproteins, producing a broad N-linked glycosylation disorder.</div>
+                <div class="item-desc">Most tested variants reduce catalytic activity; splice-altering variants generate aberrant transcripts, while p.Arg1546* removes the ER retrieval sequence and increases secretion from patient fibroblasts.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        UGGT1
+
+
+    <a href="https://bioregistry.io/hgnc:15663" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:15663</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UGGT1 (hgnc:15663). hgnc:15663 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        UDP-glucose:glycoprotein glucosyltransferase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003980" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003980</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased UDP-glucose:glycoprotein glucosyltransferase activity (GO:0003980). GO:0003980 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-uggt1-variant-reglucosylation-and-catalytic-activity-cell-models">UGGT1 variant reglucosylation and catalytic-activity cell models</a>
+
+                            <span class="crosslink-meta">CELL LINE</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-p-arg1546-patient-fibroblast-er-retention-model">p.Arg1546* patient-fibroblast ER-retention model</a>
+
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired N-glycoprotein reglucosylation</span>
+
+	                            <span class="crosslink-desc">Reduced enzyme activity lowers UGGT1-dependent client reglucosylation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"demonstrating a severe reduction in UGGT1 protein levels in patient WCLs with a concomitant increase in secreted UGGT1 protein"</div>
+
+
+                <div class="evidence-explanation">Patient fibroblasts directly demonstrate defective intracellular retention.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-n-glycoprotein-reglucosylation" data-dismech-node="Impaired N-glycoprotein reglucosylation" data-dismech-type="pathophysiology">
+                <div class="item-name">Impaired N-glycoprotein reglucosylation</div>
+
+                <div class="item-desc">Reduced UGGT1 function impairs reglucosylation of incompletely folded N-glycoproteins and their re-entry into the calnexin/calreticulin quality-control cycle.</div>
 
 
 
@@ -4066,33 +4690,6 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-bio">
-                        protein folding in endoplasmic reticulum
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034975">GO:0034975</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ⚠ ABNORMAL
-    </span>
-
-
-
-
-
-
-
-
-
 
 
                     <span class="tag tag-bio">
@@ -4101,10 +4698,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006487">GO:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein N-linked glycosylation (GO:0006487). GO:0006487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4130,6 +4730,22 @@
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-uggt1-variant-reglucosylation-and-catalytic-activity-cell-models">UGGT1 variant reglucosylation and catalytic-activity cell models</a>
+
+                            <span class="crosslink-meta">CELL LINE</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
 
 
 	                <div class="crosslink-block">
@@ -4137,9 +4753,9 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Multisystem UGGT1-CDG phenotype</span>
+	                            <span class="crosslink-meta">Disrupted calnexin-calreticulin folding quality control</span>
 
-	                            <span class="crosslink-desc">Impaired N-glycoprotein quality control causes neurologic and multisystem disease.</span>
+	                            <span class="crosslink-desc">Failure to reglucosylate incompletely folded clients reduces their return to the calnexin/calreticulin cycle.</span>
 
 
 	                        </div>
@@ -4161,17 +4777,18 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"broadening the spectrum of N-linked glycosylation disorders."</div>
+                <div class="evidence-snippet">"pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic activity"</div>
 
 
-                <div class="evidence-explanation">The abstract frames UGGT1-CDG as an N-linked glycosylation disorder.</div>
+                <div class="evidence-explanation">Cellular and biochemical assays establish deficient reglucosylation.</div>
 
 
 
@@ -4184,12 +4801,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-uggt1-cdg-phenotype" data-dismech-node="Multisystem UGGT1-CDG phenotype" data-dismech-type="pathophysiology">
-                <div class="item-name">Multisystem UGGT1-CDG phenotype</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-calnexin-calreticulin-folding-quality-control" data-dismech-node="Disrupted calnexin-calreticulin folding quality control" data-dismech-type="pathophysiology">
+                <div class="item-name">Disrupted calnexin-calreticulin folding quality control</div>
 
-                <div class="item-desc">UGGT1-CDG manifests with developmental delay, intellectual disability, seizures, microcephaly, and variable congenital heart, skeletal, hepatic, and renal involvement.</div>
-
-
+                <div class="item-desc">Impaired reglucosylation disrupts ER quality control for misfolded glycoproteins. Downstream cellular stress and signaling effects are proposed by the authors but are not yet demonstrated as causal bridges to individual human phenotypes.</div>
 
 
 
@@ -4200,9 +4815,89 @@
 
 
 
+                <div class="item-meta">
 
 
 
+                    <span class="tag tag-bio">
+                        protein folding in endoplasmic reticulum
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0034975</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding in endoplasmic reticulum (GO:0034975). GO:0034975 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+	                            <span class="crosslink-desc">UGGT1 quality-control disruption causes the core developmental phenotype through unresolved cellular and tissue intermediates.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+
+	                            <span class="crosslink-desc">UGGT1 quality-control disruption causes intellectual disability through unresolved cellular and tissue intermediates.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizures</span>
+
+	                            <span class="crosslink-desc">The disease-defining UGGT1 lesion is associated with seizures through unresolved downstream intermediates.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microcephaly</span>
+
+	                            <span class="crosslink-desc">The disease-defining UGGT1 lesion is associated with microcephaly through unresolved downstream intermediates.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4212,23 +4907,24 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The cardinal clinical features of UGGT1-CDG involve developmental delay, intellectual disability, seizures, characteristic facial features, and microcephaly"</div>
+                <div class="evidence-snippet">"The ultimate anticipated impact of all described variants is a disruption to the CRT/CNX cycle"</div>
 
 
-                <div class="evidence-explanation">The abstract directly supports the recurrent neurologic phenotype.</div>
+                <div class="evidence-explanation">The paper explicitly presents cycle disruption as the anticipated shared consequence; later stress and disease links remain hypotheses.</div>
 
 
 
@@ -4266,7 +4962,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired N-glycoprotein folding quality control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective UGGT1-mediated reglucosylation disturbs ER folding quality control for N-linked glycoproteins, producing a broad N-linked glycosylation disorder.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"protein N-linked glycosylation\"], \"role\": \"central_effector\"}}, {\"id\": \"Multisystem UGGT1-CDG phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UGGT1-CDG manifests with developmental delay, intellectual disability, seizures, microcephaly, and variable congenital heart, skeletal, hepatic, and renal involvement.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"UGGT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGGT1\"], \"gene_terms\": [{\"label\": \"UGGT1\", \"id\": \"hgnc:15663\"}], \"association\": \"Biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"UGGT1 glycoprotein quality-control defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic UGGT1 variants reduce UDP-glucose:glycoprotein glucosyltransferase function, disrupting reglucosylation-based ER quality control of N-linked glycoproteins.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\"], \"molecular_functions\": [\"glucosyltransferase activity\"], \"genes\": [\"UGGT1\"], \"gene_terms\": [{\"label\": \"UGGT1\", \"id\": \"hgnc:15663\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"UGGT1 glycoprotein quality-control defect\", \"target\": \"Impaired N-glycoprotein folding quality control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of UGGT1 catalytic activity or ER retention impairs reglucosylation of client N-glycoproteins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired N-glycoprotein folding quality control\", \"target\": \"Multisystem UGGT1-CDG phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired N-glycoprotein quality control causes neurologic and multisystem disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"UGGT1\", \"target\": \"UGGT1 glycoprotein quality-control defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic UGGT1 functional impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function, missense, splice-altering, and ER-retrieval variants reduce functional UGGT1 through catalytic impairment, aberrant splicing and predicted nonsense-mediated decay, or loss of intracellular retention.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\"], \"molecular_functions\": [\"UDP-glucose:glycoprotein glucosyltransferase activity\"], \"genes\": [\"UGGT1\"], \"gene_terms\": [{\"label\": \"UGGT1\", \"id\": \"hgnc:15663\"}], \"role\": \"trigger\"}}, {\"id\": \"Disrupted calnexin-calreticulin folding quality control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired reglucosylation disrupts ER quality control for misfolded glycoproteins. Downstream cellular stress and signaling effects are proposed by the authors but are not yet demonstrated as causal bridges to individual human phenotypes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding in endoplasmic reticulum\"], \"role\": \"downstream\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe global developmental delay or intellectual disability was uniform among individuals surviving the first year.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Impaired N-glycoprotein reglucosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced UGGT1 function impairs reglucosylation of incompletely folded N-glycoproteins and their re-entry into the calnexin/calreticulin quality-control cycle.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"UGGT1 variant reglucosylation and catalytic-activity cell models\", \"model_type\": \"CELL_LINE\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the cardinal neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is reported in most individuals with available measurements.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Reduced intracellular UGGT1 activity or availability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most tested variants reduce catalytic activity; splice-altering variants generate aberrant transcripts, while p.Arg1546* removes the ER retrieval sequence and increases secretion from patient fibroblasts.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"UDP-glucose:glycoprotein glucosyltransferase activity\"], \"genes\": [\"UGGT1\"], \"gene_terms\": [{\"label\": \"UGGT1\", \"id\": \"hgnc:15663\"}], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"UGGT1 variant reglucosylation and catalytic-activity cell models\", \"model_type\": \"CELL_LINE\"}, {\"name\": \"p.Arg1546* patient-fibroblast ER-retention model\", \"model_type\": \"PRIMARY_CELL_CULTURE\"}]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a cardinal feature of UGGT1-CDG.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"UGGT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGGT1\"], \"gene_terms\": [{\"label\": \"UGGT1\", \"id\": \"hgnc:15663\"}], \"association\": \"Biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 10}}, {\"id\": \"UGGT1 variant reglucosylation and catalytic-activity cell models\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Engineered ALG6/UGGT1/UGGT2-deficient cells reconstituted with patient variants and complementary in-vitro enzyme assays measure self- and client reglucosylation and catalytic activity.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:40267907\"}}, {\"id\": \"c.1168_1191del (p.Asp390_Gly397del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous in-frame deletion in a compound-heterozygous family.\", \"meta\": {\"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.2132C\u003eT (p.Ala711Val)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant predicted to alter splicing.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.2168T\u003eC (p.Phe723Ser)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous missense variant in a compound-heterozygous family.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.2355+4A\u003eG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous splice-region variant of uncertain significance in siblings who also carried an FCSK VUS; its contribution remains unresolved.\", \"meta\": {\"variant_type\": \"splice region\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"c.3464A\u003eG (p.Gln1155Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.3815G\u003eA (p.Arg1272His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant with RNA evidence of altered splicing.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.381_384del (p.Tyr127*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous predicted loss-of-function deletion in a compound-heterozygous family.\", \"meta\": {\"variant_type\": \"deletion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.4081dupC (p.Gln1361Profs*27)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous frameshift duplication in a compound-heterozygous family.\", \"meta\": {\"variant_type\": \"frameshift\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.4636C\u003eT (p.Arg1546*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent homozygous C-terminal nonsense founder variant reported in four unrelated Arab families.\", \"meta\": {\"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.978_979del (p.Ser327Phefs*13)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous frameshift loss-of-function deletion.\", \"meta\": {\"variant_type\": \"frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg1546* patient-fibroblast ER-retention model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fibroblasts from homozygous p.Arg1546* individuals show reduced intracellular UGGT1 with increased secreted protein, modeling loss of the C-terminal ER retrieval signal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:40267907\"}}], \"edges\": [{\"source\": \"Biallelic UGGT1 functional impairment\", \"target\": \"Reduced intracellular UGGT1 activity or availability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pathogenic variants reduce enzyme activity or intracellular UGGT1 protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced intracellular UGGT1 activity or availability\", \"target\": \"Impaired N-glycoprotein reglucosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced enzyme activity lowers UGGT1-dependent client reglucosylation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired N-glycoprotein reglucosylation\", \"target\": \"Disrupted calnexin-calreticulin folding quality control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to reglucosylate incompletely folded clients reduces their return to the calnexin/calreticulin cycle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failure to create a monoglucosylated N-glycan\", \"reduced lectin-chaperone rebinding and ER retention\"]}, {\"source\": \"Disrupted calnexin-calreticulin folding quality control\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UGGT1 quality-control disruption causes the core developmental phenotype through unresolved cellular and tissue intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted calnexin-calreticulin folding quality control\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UGGT1 quality-control disruption causes intellectual disability through unresolved cellular and tissue intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted calnexin-calreticulin folding quality control\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disease-defining UGGT1 lesion is associated with seizures through unresolved downstream intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted calnexin-calreticulin folding quality control\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disease-defining UGGT1 lesion is associated with microcephaly through unresolved downstream intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"UGGT1 variant reglucosylation and catalytic-activity cell models\", \"target\": \"Reduced intracellular UGGT1 activity or availability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"UGGT1 variant reglucosylation and catalytic-activity cell models\", \"target\": \"Impaired N-glycoprotein reglucosylation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"p.Arg1546* patient-fibroblast ER-retention model\", \"target\": \"Reduced intracellular UGGT1 activity or availability\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"UGGT1\", \"target\": \"Biallelic UGGT1 functional impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"UGGT1\", \"target\": \"Reduced intracellular UGGT1 activity or availability\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.4636C\u003eT (p.Arg1546*)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.381_384del (p.Tyr127*)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.978_979del (p.Ser327Phefs*13)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.4081dupC (p.Gln1361Profs*27)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1168_1191del (p.Asp390_Gly397del)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2132C\u003eT (p.Ala711Val)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2168T\u003eC (p.Phe723Ser)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.3464A\u003eG (p.Gln1155Arg)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.3815G\u003eA (p.Arg1272His)\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.2355+4A\u003eG\", \"target\": \"UGGT1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4279,7 +4975,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">12</span>
             </div>
 
 
@@ -4287,13 +4983,15 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4310,15 +5008,26 @@
                     <div class="item-name">
                         Congenital heart malformation
 
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4333,11 +5042,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4346,7 +5056,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"affected individuals display congenital heart malformations"</div>
+                <div class="evidence-snippet">"Congenital heart disease was seen in ﬁve affected individuals"</div>
 
 
                 <div class="evidence-explanation">The cohort reports congenital heart malformations among affected individuals.</div>
@@ -4370,23 +5080,114 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
+                    Genitourinary
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-genitourinary-anomalies" data-dismech-node="Genitourinary anomalies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Genitourinary anomalies
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the genitourinary system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genitourinary anomalies, annotated with Abnormality of the genitourinary system (HP:0000119). HP:0000119 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genitourinary anomalies (observed in four affected indi-
+viduals), including most commonly cryptorchidism in
+males."</div>
+
+
+                <div class="evidence-explanation">Four of fifteen individuals (27%) supports the OCCASIONAL frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4406,6 +5207,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4433,28 +5235,26 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-facial-shape" data-dismech-node="Abnormal facial shape" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Scoliosis
+                        Abnormal facial shape
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4474,6 +5274,83 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characteristic facial features, and microcephaly in the majority"</div>
+
+
+                <div class="evidence-explanation">The cohort identifies facial dysmorphism among majority features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                    </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4503,26 +5380,35 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
 
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4537,11 +5423,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4550,10 +5437,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"The cardinal clinical features of UGGT1-CDG involve developmental delay, intellectual disability, seizures, characteristic facial features, and microcephaly"</div>
+                <div class="evidence-snippet">"year of life uniformly had severe global developmental delay (GDD)/intellectual disability."</div>
 
 
-                <div class="evidence-explanation">The abstract identifies developmental delay as a cardinal feature.</div>
+                <div class="evidence-explanation">The cohort directly supports severe developmental impairment in survivors.</div>
 
 
 
@@ -4573,15 +5460,24 @@
                     <div class="item-name">
                         Intellectual disability
 
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4596,11 +5492,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4609,10 +5506,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"developmental delay, intellectual disability, seizures, characteristic facial features, and microcephaly"</div>
+                <div class="evidence-snippet">"year of life uniformly had severe global developmental delay (GDD)/intellectual disability."</div>
 
 
-                <div class="evidence-explanation">The abstract identifies intellectual disability.</div>
+                <div class="evidence-explanation">The cohort directly supports intellectual disability in survivors.</div>
 
 
 
@@ -4632,15 +5529,116 @@
                     <div class="item-name">
                         Seizures
 
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"developmental delay, intellectual disability, seizures, characteristic facial features, and microcephaly"</div>
+
+
+                <div class="evidence-explanation">The abstract identifies seizures as a cardinal feature; full-text cohort synthesis reports seizures among findings in over half the cohort, supporting FREQUENT.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"over half of the cohort include dysmorphic features, micro- cephaly ... and seizures"</div>
+
+
+                <div class="evidence-explanation">The full-text cohort statement directly supports the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-behavior" data-dismech-node="Atypical behavior" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atypical behavior
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4655,11 +5653,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4668,10 +5667,12 @@
 
                 </div>
 
-                <div class="evidence-snippet">"developmental delay, intellectual disability, seizures, characteristic facial features, and microcephaly"</div>
+                <div class="evidence-snippet">"Behavioral traits were almost universally pre-
+sent and included features associated with autism spec-
+trum disorder"</div>
 
 
-                <div class="evidence-explanation">The abstract identifies seizures as a cardinal feature.</div>
+                <div class="evidence-explanation">The cohort describes behavioral traits as almost universal and enumerates their manifestations.</div>
 
 
 
@@ -4689,11 +5690,11 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-liver" data-dismech-node="Abnormality of the liver" data-dismech-type="phenotype">
@@ -4701,14 +5702,21 @@
                         Abnormality of the liver
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the liver
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001392">HP:0001392</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4729,6 +5737,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4739,7 +5748,7 @@
                 <div class="evidence-snippet">"hepatic and renal involvement"</div>
 
 
-                <div class="evidence-explanation">The cohort reports hepatic involvement, captured with the generic HPO liver abnormality term because the cached abstract does not specify a narrower liver phenotype.</div>
+                <div class="evidence-explanation">The cohort reports hepatic involvement; the full text includes hepatomegaly with periportal echogenicity or fibrosis in individual cases, but the generic term is retained to cover the variable hepatobiliary presentation.</div>
 
 
 
@@ -4759,15 +5768,24 @@
                     <div class="item-name">
                         Polycystic kidney dysplasia
 
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Polycystic kidney dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000113" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000113">HP:0000113</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000113</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polycystic kidney dysplasia (HP:0000113). HP:0000113 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4782,11 +5800,12 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4795,10 +5814,77 @@
 
                 </div>
 
-                <div class="evidence-snippet">"polycystic kidneys mimicking autosomal recessive polycystic kidney disease."</div>
+                <div class="evidence-snippet">"Cystic renal dysplasia and hepatobiliary anomalies ... were reported in two unrelated individuals."</div>
 
 
                 <div class="evidence-explanation">The cohort explicitly reports polycystic kidneys.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-brain-morphology" data-dismech-node="Abnormal brain morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal brain morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012443</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"gray matter heterotopia, abnormal myelination, corpus callosum thinning, and cerebellar vermian atrophy versus hypoplasia"</div>
+
+
+                <div class="evidence-explanation">The paper directly lists the nonspecific imaging spectrum.</div>
 
 
 
@@ -4865,13 +5951,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UGGT1
 
 
-    <a href="https://bioregistry.io/hgnc:15663" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15663">hgnc:15663</a>
+    <a href="https://bioregistry.io/hgnc:15663" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:15663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UGGT1 (hgnc:15663). hgnc:15663 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4897,6 +5988,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4919,6 +6011,361 @@
 
 
 
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (10)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-4636c-t-p-arg1546" data-dismech-node="c.4636C&gt;T (p.Arg1546*)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.4636C&gt;T (p.Arg1546*)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Recurrent homozygous C-terminal nonsense founder variant reported in four unrelated Arab families.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-381-384del-p-tyr127" data-dismech-node="c.381_384del (p.Tyr127*)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.381_384del (p.Tyr127*)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Heterozygous predicted loss-of-function deletion in a compound-heterozygous family.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-978-979del-p-ser327phefs-13" data-dismech-node="c.978_979del (p.Ser327Phefs*13)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.978_979del (p.Ser327Phefs*13)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous frameshift loss-of-function deletion.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-4081dupc-p-gln1361profs-27" data-dismech-node="c.4081dupC (p.Gln1361Profs*27)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.4081dupC (p.Gln1361Profs*27)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Heterozygous frameshift duplication in a compound-heterozygous family.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-1168-1191del-p-asp390-gly397del" data-dismech-node="c.1168_1191del (p.Asp390_Gly397del)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.1168_1191del (p.Asp390_Gly397del)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Heterozygous in-frame deletion in a compound-heterozygous family.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-2132c-t-p-ala711val" data-dismech-node="c.2132C&gt;T (p.Ala711Val)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.2132C&gt;T (p.Ala711Val)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant predicted to alter splicing.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-2168t-c-p-phe723ser" data-dismech-node="c.2168T&gt;C (p.Phe723Ser)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.2168T&gt;C (p.Phe723Ser)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Heterozygous missense variant in a compound-heterozygous family.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-3464a-g-p-gln1155arg" data-dismech-node="c.3464A&gt;G (p.Gln1155Arg)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.3464A&gt;G (p.Gln1155Arg)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-3815g-a-p-arg1272his" data-dismech-node="c.3815G&gt;A (p.Arg1272His)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.3815G&gt;A (p.Arg1272His)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant with RNA evidence of altered splicing.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-2355-4a-g" data-dismech-node="c.2355+4A&gt;G" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.2355+4A&gt;G
+
+        <span class="variant-significance variant-significance-uncertain-significance">Uncertain Significance</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice region</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous splice-region variant of uncertain significance in siblings who also carried an FCSK VUS; its contribution remains unresolved.</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
@@ -4927,7 +6374,102 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
+
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Medical Actions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-multidisciplinary-care" data-dismech-node="Supportive multidisciplinary care" data-dismech-type="treatment">
+                <div class="item-name">
+                    Supportive multidisciplinary care
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">No UGGT1-specific disease-modifying therapy is established. Management is supportive and individualized to seizures, development, nutrition, cardiac, renal, hepatic, orthopedic, respiratory, and behavioral manifestations.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At present, treatment for CDGs is largely supportive"</div>
+
+
+                <div class="evidence-explanation">The source supports supportive CDG care but does not report UGGT1-specific outcome data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Environmental Factors -->
@@ -4938,6 +6480,157 @@
 
         <!-- Differential Diagnoses -->
 
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">2</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from UGGT1-congenital disorder of glycosylation:
+            </p>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mogs-congenital-disorder-of-glycosylation">
+                <div class="item-name">
+
+                    MOGS-congenital disorder of glycosylation
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    MOGS-CDG affects an upstream step in the same N-linked glycoprotein quality-control pathway and overlaps through severe neurodevelopmental, seizure, cardiac, hepatic, skeletal, respiratory, craniofacial, and feeding features.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Biallelic pathogenic UGGT1 variants favor UGGT1-CDG.</li>
+
+                        <li>Biallelic pathogenic MOGS variants favor MOGS-CDG.</li>
+
+                        <li>A normal transferrin pattern can occur in both and is not discriminating.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"scoliosis, central apnea, craniofacial dysmorphology, and feeding problems"</div>
+
+
+                <div class="evidence-explanation">The paper directly compares shared UGGT1-CDG and MOGS-CDG features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-man1b1-congenital-disorder-of-glycosylation">
+                <div class="item-name">
+
+                    MAN1B1-congenital disorder of glycosylation
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    MAN1B1-CDG overlaps through intellectual disability, dysmorphism, behavioral abnormalities, seizures, and variable liver dysfunction.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Biallelic pathogenic UGGT1 variants favor UGGT1-CDG.</li>
+
+                        <li>Biallelic pathogenic MAN1B1 variants favor MAN1B1-CDG.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"similar clinical features (speciﬁcally intellectual
+disability, dysmorphism, behavioral abnormalities, sei-
+zures, and variable liver dysfunction) are also observed in
+MAN1B1-CDG"</div>
+
+
+                <div class="evidence-explanation">The source explicitly names the overlapping MAN1B1-CDG differential.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
 
@@ -4946,6 +6639,384 @@
 
 
         <!-- Experimental Models -->
+
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-uggt1-variant-reglucosylation-and-catalytic-activity-cell-models" data-dismech-node="UGGT1 variant reglucosylation and catalytic-activity cell models" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    UGGT1 variant reglucosylation and catalytic-activity cell models
+
+                    <span class="tag tag-exp-model-type">CELL_LINE</span>
+
+
+                </div>
+
+                <div class="item-desc">Engineered ALG6/UGGT1/UGGT2-deficient cells reconstituted with patient variants and complementary in-vitro enzyme assays measure self- and client reglucosylation and catalytic activity.</div>
+
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-22">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-22">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Engineered HEK293-derived cell lines</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Monolayer transfection and biochemical catalytic assays</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:40267907">PMID:40267907</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-intracellular-uggt1-activity-or-availability">Reduced intracellular UGGT1 activity or availability</a>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"to cause partial to full loss of enzymatic activity of UGGT1"</div>
+
+
+                <div class="evidence-explanation">Variant catalytic assays directly reproduce reduced enzyme activity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-n-glycoprotein-reglucosylation">Impaired N-glycoprotein reglucosylation</a>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40267907" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic activity"</div>
+
+
+                <div class="evidence-explanation">The cell model directly measures deficient client reglucosylation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a cell-based glucosylation assay and an in vitro catalytic activity assay"</div>
+
+
+                <div class="evidence-explanation">The primary study describes the complementary model systems.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-p-arg1546-patient-fibroblast-er-retention-model" data-dismech-node="p.Arg1546* patient-fibroblast ER-retention model" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    p.Arg1546* patient-fibroblast ER-retention model
+
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+
+
+                </div>
+
+                <div class="item-desc">Fibroblasts from homozygous p.Arg1546* individuals show reduced intracellular UGGT1 with increased secreted protein, modeling loss of the C-terminal ER retrieval signal.</div>
+
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-23">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-23">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Primary fibroblasts from affected individuals and healthy controls</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Fibroblast monolayer with cell-lysate and supernatant immunoblotting</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:40267907">PMID:40267907</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-intracellular-uggt1-activity-or-availability">Reduced intracellular UGGT1 activity or availability</a>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"demonstrating a severe reduction in UGGT1 protein levels in patient WCLs with a concomitant increase in secreted UGGT1 protein"</div>
+
+
+                <div class="evidence-explanation">Patient fibroblasts directly reproduce the ER-retention defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://europepmc.org/articles/PMC12120171?pdf=render" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"demonstrating a severe reduction in UGGT1 protein levels in patient WCLs with a concomitant increase in secreted UGGT1 protein"</div>
+
+
+                <div class="evidence-explanation">Secreted UGGT1 in patient culture supernatant supports the primary-cell model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -4971,25 +7042,39 @@ description: &gt;-
   an endoplasmic-reticulum enzyme that reglucosylates incompletely folded
   N-glycoproteins and maintains glycoprotein quality control. Pathogenic
   variants impair UGGT1 glucosylation/catalytic activity, splicing, or ER
-  retention, leading to abnormal N-linked glycosylation quality control,
-  proteostasis stress, and a multisystem phenotype with developmental delay,
+  retention, disrupting N-linked glycoprotein quality control. The associated
+  multisystem phenotype includes developmental delay,
   intellectual disability, seizures, characteristic facial features,
   microcephaly, and variable heart, skeletal, hepatic, and renal involvement.
 category: Mendelian
 disease_term:
   preferred_term: UGGT1-congenital disorder of glycosylation
+  term:
+    id: MONDO:0980705
+    label: congenital disorder of glycosylation, type IIcc
 synonyms:
+- congenital disorder of glycosylation, type IIcc
+- CDG2CC
 - UGGT1-CDG
 - UDP-glucose:glycoprotein glucosyltransferase 1 deficiency
 parents:
 - congenital disorder of glycosylation
 classifications:
   icimd_category:
-  - classification_value: multiple_glycosylation_pathways
+  - classification_value: n_linked_protein_glycosylation
     notes: &gt;-
-      Classified as a multiple-glycosylation-pathway disorder because UGGT1
-      controls ER quality control of N-linked glycoproteins rather than a single
-      terminal glycan structure.
+      UGGT1 directly controls ER quality control of N-linked glycoproteins; the
+      report classifies the condition within the N-linked CDG spectrum rather
+      than demonstrating disruption of multiple glycosylation pathways.
+    evidence:
+    - reference: PMID:40267907
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        an enzyme critical for maintaining quality control of N-linked
+        glycosylation.
+      explanation: The biochemical role supports classification as an N-linked glycosylation quality-control disorder.
 inheritance:
 - name: Autosomal recessive inheritance
   inheritance_term:
@@ -5011,23 +7096,25 @@ inheritance:
     explanation: &gt;-
       The clinical cohort directly supports biallelic UGGT1 causation.
 pathophysiology:
-- name: UGGT1 glycoprotein quality-control defect
+- name: Biallelic UGGT1 functional impairment
   description: &gt;-
-    Pathogenic UGGT1 variants reduce UDP-glucose:glycoprotein
-    glucosyltransferase function, disrupting reglucosylation-based ER quality
-    control of N-linked glycoproteins.
+    Biallelic loss-of-function, missense, splice-altering, and ER-retrieval
+    variants reduce functional UGGT1 through catalytic impairment, aberrant
+    splicing and predicted nonsense-mediated decay, or loss of intracellular
+    retention.
   role: trigger
+  biological_scale: MOLECULAR
   genes:
   - preferred_term: UGGT1
     term:
       id: hgnc:15663
       label: UGGT1
   molecular_functions:
-  - preferred_term: glucosyltransferase activity
+  - preferred_term: UDP-glucose:glycoprotein glucosyltransferase activity
     modifier: DECREASED
     term:
-      id: GO:0046527
-      label: glucosyltransferase activity
+      id: GO:0003980
+      label: UDP-glucose:glycoprotein glucosyltransferase activity
   biological_processes:
   - preferred_term: protein N-linked glycosylation
     modifier: ABNORMAL
@@ -5038,43 +7125,72 @@ pathophysiology:
   - reference: PMID:40267907
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &gt;-
-      UGGT1 encodes UDP-glucose:glycoprotein glucosyltransferase 1, an enzyme
-      critical for maintaining quality control of N-linked glycosylation.
-    explanation: &gt;-
-      The abstract establishes UGGT1 as an N-linked glycoprotein quality-control
-      enzyme.
+      Molecular studies showed that pathogenic UGGT1 variants impair UGGT1
+      glucosylation and catalytic activity, disrupt mRNA splicing, or inhibit
+      endoplasmic reticulum (ER) retention.
+    explanation: The study directly tests three variant-dependent routes to UGGT1 dysfunction.
   downstream:
-  - target: Impaired N-glycoprotein folding quality control
+  - target: Reduced intracellular UGGT1 activity or availability
     description: &gt;-
-      Loss of UGGT1 catalytic activity or ER retention impairs reglucosylation
-      of client N-glycoproteins.
+      Pathogenic variants reduce enzyme activity or intracellular UGGT1 protein.
     causal_link_type: DIRECT
+    evidence:
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        to cause partial to full loss of enzymatic activity of UGGT1
+      explanation: Variant-specific enzymatic assays support reduced catalytic activity.
+- name: Reduced intracellular UGGT1 activity or availability
+  description: &gt;-
+    Most tested variants reduce catalytic activity; splice-altering variants
+    generate aberrant transcripts, while p.Arg1546* removes the ER retrieval
+    sequence and increases secretion from patient fibroblasts.
+  role: central_effector
+  biological_scale: MOLECULAR
+  genes:
+  - preferred_term: UGGT1
+    term:
+      id: hgnc:15663
+      label: UGGT1
+  molecular_functions:
+  - preferred_term: UDP-glucose:glycoprotein glucosyltransferase activity
+    modifier: DECREASED
+    term:
+      id: GO:0003980
+      label: UDP-glucose:glycoprotein glucosyltransferase activity
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      demonstrating a severe reduction in UGGT1 protein levels in patient WCLs
+      with a concomitant increase in secreted UGGT1 protein
+    explanation: Patient fibroblasts directly demonstrate defective intracellular retention.
+  downstream:
+  - target: Impaired N-glycoprotein reglucosylation
+    causal_link_type: DIRECT
+    description: Reduced enzyme activity lowers UGGT1-dependent client reglucosylation.
     evidence:
     - reference: PMID:40267907
       reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
-        Molecular studies showed that pathogenic UGGT1 variants impair UGGT1
-        glucosylation and catalytic activity, disrupt mRNA splicing, or inhibit
-        endoplasmic reticulum (ER) retention.
-      explanation: &gt;-
-        Molecular studies directly support impaired glucosylation/catalytic
-        activity and ER retention as proximal mechanisms.
-- name: Impaired N-glycoprotein folding quality control
+        pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic
+        activity
+      explanation: The functional assays directly measure impaired UGGT1-dependent glucosylation.
+- name: Impaired N-glycoprotein reglucosylation
   description: &gt;-
-    Defective UGGT1-mediated reglucosylation disturbs ER folding quality control
-    for N-linked glycoproteins, producing a broad N-linked glycosylation
-    disorder.
+    Reduced UGGT1 function impairs reglucosylation of incompletely folded
+    N-glycoproteins and their re-entry into the calnexin/calreticulin quality-control cycle.
   role: central_effector
+  biological_scale: CELLULAR
   biological_processes:
-  - preferred_term: protein folding in endoplasmic reticulum
-    modifier: ABNORMAL
-    term:
-      id: GO:0034975
-      label: protein folding in endoplasmic reticulum
   - preferred_term: protein N-linked glycosylation
     modifier: ABNORMAL
     term:
@@ -5084,70 +7200,149 @@ pathophysiology:
   - reference: PMID:40267907
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &gt;-
-      broadening the spectrum of N-linked glycosylation disorders.
-    explanation: &gt;-
-      The abstract frames UGGT1-CDG as an N-linked glycosylation disorder.
+      pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic
+      activity
+    explanation: Cellular and biochemical assays establish deficient reglucosylation.
   downstream:
-  - target: Multisystem UGGT1-CDG phenotype
+  - target: Disrupted calnexin-calreticulin folding quality control
     description: &gt;-
-      Impaired N-glycoprotein quality control causes neurologic and multisystem
-      disease.
-    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
-- name: Multisystem UGGT1-CDG phenotype
+      Failure to reglucosylate incompletely folded clients reduces their return
+      to the calnexin/calreticulin cycle.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - failure to create a monoglucosylated N-glycan
+    - reduced lectin-chaperone rebinding and ER retention
+    evidence:
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The glycan re-binds to CNX/CRT to be retained in the ER.
+      explanation: The pathway description identifies reglucosylation as the step enabling cycle re-entry.
+- name: Disrupted calnexin-calreticulin folding quality control
   description: &gt;-
-    UGGT1-CDG manifests with developmental delay, intellectual disability,
-    seizures, microcephaly, and variable congenital heart, skeletal, hepatic,
-    and renal involvement.
-  role: consequence
+    Impaired reglucosylation disrupts ER quality control for misfolded
+    glycoproteins. Downstream cellular stress and signaling effects are proposed
+    by the authors but are not yet demonstrated as causal bridges to individual
+    human phenotypes.
+  role: downstream
+  biological_scale: CELLULAR
+  biological_processes:
+  - preferred_term: protein folding in endoplasmic reticulum
+    modifier: ABNORMAL
+    term:
+      id: GO:0034975
+      label: protein folding in endoplasmic reticulum
   evidence:
-  - reference: PMID:40267907
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    supports: PARTIAL
+    evidence_source: OTHER
     snippet: &gt;-
-      The cardinal clinical features of UGGT1-CDG involve developmental delay,
-      intellectual disability, seizures, characteristic facial features, and
-      microcephaly
+      The ultimate anticipated impact of all described variants is a disruption
+      to the CRT/CNX cycle
     explanation: &gt;-
-      The abstract directly supports the recurrent neurologic phenotype.
+      The paper explicitly presents cycle disruption as the anticipated shared
+      consequence; later stress and disease links remain hypotheses.
+  downstream:
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: UGGT1 quality-control disruption causes the core developmental phenotype through unresolved cellular and tissue intermediates.
+    evidence:
+    - reference: PMID:40267907
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Herein, we describe bi-allelic UGGT1 variants in fifteen individuals from
+        ten unrelated families of various ethnic backgrounds as a cause of a
+        distinctive CDG of variable severity.
+      explanation: The disease-defining study supports a causal lesion-to-CDG link while intermediates remain unknown.
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        year of life uniformly had severe global developmental delay
+        (GDD)/intellectual disability.
+      explanation: Full-text cohort synthesis identifies severe GDD as a core outcome.
+  - target: Intellectual disability
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: UGGT1 quality-control disruption causes intellectual disability through unresolved cellular and tissue intermediates.
+    evidence:
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        year of life uniformly had severe global developmental delay
+        (GDD)/intellectual disability.
+      explanation: Full-text cohort synthesis identifies intellectual disability as a core outcome.
+  - target: Seizures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: The disease-defining UGGT1 lesion is associated with seizures through unresolved downstream intermediates.
+    evidence:
+    - reference: PMID:40267907
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        developmental delay, intellectual disability, seizures, characteristic
+        facial features, and microcephaly
+      explanation: The clinical cohort places seizures within the causal UGGT1-CDG syndrome.
+  - target: Microcephaly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: The disease-defining UGGT1 lesion is associated with microcephaly through unresolved downstream intermediates.
+    evidence:
+    - reference: PMID:40267907
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        microcephaly in the majority (9/11 affected individuals for whom
+        measurements were available).
+      explanation: The cohort directly quantifies microcephaly in UGGT1-CDG.
 phenotypes:
 - name: Global developmental delay
-  description: Developmental delay is a cardinal feature of UGGT1-CDG.
+  description: Severe global developmental delay or intellectual disability was uniform among individuals surviving the first year.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Global developmental delay
     term:
       id: HP:0001263
       label: Global developmental delay
   evidence:
-  - reference: PMID:40267907
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The cardinal clinical features of UGGT1-CDG involve developmental delay,
-      intellectual disability, seizures, characteristic facial features, and
-      microcephaly
-    explanation: The abstract identifies developmental delay as a cardinal feature.
+      year of life uniformly had severe global developmental delay
+      (GDD)/intellectual disability.
+    explanation: The cohort directly supports severe developmental impairment in survivors.
 - name: Intellectual disability
   description: Intellectual disability is part of the cardinal neurologic phenotype.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Intellectual disability
     term:
       id: HP:0001249
       label: Intellectual disability
   evidence:
-  - reference: PMID:40267907
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      developmental delay, intellectual disability, seizures, characteristic
-      facial features, and microcephaly
-    explanation: The abstract identifies intellectual disability.
+      year of life uniformly had severe global developmental delay
+      (GDD)/intellectual disability.
+    explanation: The cohort directly supports intellectual disability in survivors.
 - name: Seizures
   description: Seizures are a cardinal feature of UGGT1-CDG.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Seizure
     term:
@@ -5161,9 +7356,17 @@ phenotypes:
     snippet: &gt;-
       developmental delay, intellectual disability, seizures, characteristic
       facial features, and microcephaly
-    explanation: The abstract identifies seizures as a cardinal feature.
+    explanation: The abstract identifies seizures as a cardinal feature; full-text cohort synthesis reports seizures among findings in over half the cohort, supporting FREQUENT.
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      over half of the cohort include dysmorphic features, micro- cephaly ... and seizures
+    explanation: The full-text cohort statement directly supports the FREQUENT band.
 - name: Microcephaly
   description: Microcephaly is reported in most individuals with available measurements.
+  frequency: VERY_FREQUENT
   phenotype_term:
     preferred_term: Microcephaly
     term:
@@ -5180,18 +7383,19 @@ phenotypes:
     explanation: The abstract quantifies microcephaly among measured individuals.
 - name: Congenital heart malformation
   description: Congenital heart malformations are part of the multisystem UGGT1-CDG phenotype.
+  frequency: FREQUENT
   phenotype_term:
     preferred_term: Abnormal heart morphology
     term:
       id: HP:0001627
       label: Abnormal heart morphology
   evidence:
-  - reference: PMID:40267907
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      affected individuals display congenital heart malformations
+      Congenital heart disease was seen in ﬁve affected individuals
     explanation: &gt;-
       The cohort reports congenital heart malformations among affected
       individuals.
@@ -5226,25 +7430,94 @@ phenotypes:
     snippet: &gt;-
       hepatic and renal involvement
     explanation: &gt;-
-      The cohort reports hepatic involvement, captured with the generic HPO
-      liver abnormality term because the cached abstract does not specify a
-      narrower liver phenotype.
+      The cohort reports hepatic involvement; the full text includes
+      hepatomegaly with periportal echogenicity or fibrosis in individual cases,
+      but the generic term is retained to cover the variable hepatobiliary presentation.
 - name: Polycystic kidney dysplasia
   description: Polycystic kidneys are reported in UGGT1-CDG.
+  frequency: OCCASIONAL
   phenotype_term:
     preferred_term: Polycystic kidney dysplasia
     term:
       id: HP:0000113
       label: Polycystic kidney dysplasia
   evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Cystic renal dysplasia and hepatobiliary anomalies ... were reported in
+      two unrelated individuals.
+    explanation: &gt;-
+      The cohort explicitly reports polycystic kidneys.
+- name: Genitourinary anomalies
+  description: Genitourinary anomalies occurred in four of fifteen affected individuals, most often cryptorchidism in males.
+  frequency: OCCASIONAL
+  phenotype_term:
+    preferred_term: Genitourinary anomalies
+    term:
+      id: HP:0000119
+      label: Abnormality of the genitourinary system
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: |-
+      genitourinary anomalies (observed in four affected indi-
+      viduals), including most commonly cryptorchidism in
+      males.
+    explanation: Four of fifteen individuals (27%) supports the OCCASIONAL frequency band.
+- name: Abnormal facial shape
+  description: Variable craniofacial dysmorphism occurs without a single recognizable gestalt.
+  phenotype_term:
+    preferred_term: Abnormal facial shape
+    term:
+      id: HP:0001999
+      label: Abnormal facial shape
+  evidence:
   - reference: PMID:40267907
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      polycystic kidneys mimicking autosomal recessive polycystic kidney disease.
-    explanation: &gt;-
-      The cohort explicitly reports polycystic kidneys.
+      characteristic facial features, and microcephaly in the majority
+    explanation: The cohort identifies facial dysmorphism among majority features.
+- name: Atypical behavior
+  description: Reported behaviors include anxiety, stereotypies, self-injury, hyperactivity, and autism-associated traits.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Atypical behavior
+    term:
+      id: HP:0000708
+      label: Atypical behavior
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: |-
+      Behavioral traits were almost universally pre-
+      sent and included features associated with autism spec-
+      trum disorder
+    explanation: The cohort describes behavioral traits as almost universal and enumerates their manifestations.
+- name: Abnormal brain morphology
+  description: Brain MRI abnormalities are nonspecific and include heterotopia, myelination abnormalities, callosal thinning, and vermian atrophy or hypoplasia.
+  phenotype_term:
+    preferred_term: Abnormal brain morphology
+    term:
+      id: HP:0012443
+      label: Abnormal brain morphology
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      gray matter heterotopia, abnormal myelination, corpus callosum thinning,
+      and cerebellar vermian atrophy versus hypoplasia
+    explanation: The paper directly lists the nonspecific imaging spectrum.
 genetic:
 - name: UGGT1
   association: Biallelic pathogenic variants
@@ -5255,6 +7528,47 @@ genetic:
     term:
       id: hgnc:15663
       label: UGGT1
+  variants:
+  - name: c.4636C&gt;T (p.Arg1546*)
+    description: Recurrent homozygous C-terminal nonsense founder variant reported in four unrelated Arab families.
+    type: nonsense
+    clinical_significance: PATHOGENIC
+  - name: c.381_384del (p.Tyr127*)
+    description: Heterozygous predicted loss-of-function deletion in a compound-heterozygous family.
+    type: deletion
+    clinical_significance: PATHOGENIC
+  - name: c.978_979del (p.Ser327Phefs*13)
+    description: Homozygous frameshift loss-of-function deletion.
+    type: frameshift
+    clinical_significance: PATHOGENIC
+  - name: c.4081dupC (p.Gln1361Profs*27)
+    description: Heterozygous frameshift duplication in a compound-heterozygous family.
+    type: frameshift
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.1168_1191del (p.Asp390_Gly397del)
+    description: Heterozygous in-frame deletion in a compound-heterozygous family.
+    type: in-frame deletion
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.2132C&gt;T (p.Ala711Val)
+    description: Homozygous missense variant predicted to alter splicing.
+    type: missense
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.2168T&gt;C (p.Phe723Ser)
+    description: Heterozygous missense variant in a compound-heterozygous family.
+    type: missense
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.3464A&gt;G (p.Gln1155Arg)
+    description: Homozygous missense variant.
+    type: missense
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.3815G&gt;A (p.Arg1272His)
+    description: Homozygous missense variant with RNA evidence of altered splicing.
+    type: missense
+    clinical_significance: LIKELY_PATHOGENIC
+  - name: c.2355+4A&gt;G
+    description: Homozygous splice-region variant of uncertain significance in siblings who also carried an FCSK VUS; its contribution remains unresolved.
+    type: splice region
+    clinical_significance: UNCERTAIN_SIGNIFICANCE
   evidence:
   - reference: PMID:40267907
     reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
@@ -5265,11 +7579,346 @@ genetic:
       ten unrelated families of various ethnic backgrounds as a cause of a
       distinctive CDG of variable severity.
     explanation: The cohort establishes UGGT1 as the causal gene for UGGT1-CDG.
+clinical_burden:
+  burden_level: HIGH
+  rationale: &gt;-
+    Survivors have severe neurodevelopmental disability, often with seizures
+    and multisystem involvement; biallelic null genotypes can cause fetal demise
+    or infant death. The phenotype is variable, and survival into adulthood is possible.
+  evidence:
+  - reference: PMID:40267907
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      bi-allelic UGGT1 loss-of-function variants associated with increased
+      disease severity, including death in infancy.
+    explanation: The cohort directly links null alleles with severe and lethal presentations.
+diagnosis:
+- name: Exome or genome sequencing with segregation analysis
+  description: &gt;-
+    Molecular diagnosis requires identification of pathogenic biallelic UGGT1
+    variants by exome or genome sequencing, with family segregation and
+    variant-specific functional interpretation where necessary.
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: NCIT:C19770
+      label: Molecular Analysis
+  results: Biallelic pathogenic UGGT1 variants establish the molecular diagnosis.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      genome sequencing (GS) was performed for families 1–3, while exome
+      sequencing (ES) was done for families 4–10
+    explanation: The disease cohort was ascertained through both genome and exome sequencing.
+- name: Serum transferrin glycosylation analysis
+  description: &gt;-
+    Carbohydrate-deficient transferrin screening may be normal in UGGT1-CDG and
+    therefore cannot exclude the diagnosis when clinical suspicion remains high.
+  presence: Normal in tested individuals
+  results: A normal transferrin pattern does not exclude UGGT1-CDG.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      and 8) displayed a normal transferrin pattern.
+    explanation: All three tested affected individuals had unremarkable transferrin analysis.
+- name: Electroencephalography
+  description: EEG evaluates seizures and encephalopathy; abnormalities were present in 8 of 11 tested individuals.
+  diagnosis_term:
+    preferred_term: electroencephalography
+    term:
+      id: NCIT:C38054
+      label: Electroencephalography
+  results: Diffuse slowing, discontinuity, focal or generalized epileptiform discharges, or electrographic seizures may occur.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      abnormal (8/11), including diffuse slowing
+    explanation: The cohort quantifies frequent EEG abnormalities.
+- name: Brain MRI
+  description: MRI evaluates the heterogeneous structural brain findings and may be normal.
+  diagnosis_term:
+    preferred_term: magnetic resonance imaging procedure
+    term:
+      id: NCIT:C16809
+      label: Magnetic Resonance Imaging
+  results: Findings are nonspecific; normal imaging does not exclude UGGT1-CDG.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Neuroimaging was reportedly normal in two individuals with the homozygous
+      UGGT1 p.Arg1546* variant
+    explanation: Normal MRI in molecularly confirmed cases demonstrates limited exclusion value.
+treatments:
+- name: Supportive multidisciplinary care
+  description: &gt;-
+    No UGGT1-specific disease-modifying therapy is established. Management is
+    supportive and individualized to seizures, development, nutrition, cardiac,
+    renal, hepatic, orthopedic, respiratory, and behavioral manifestations.
+  treatment_term:
+    preferred_term: Supportive Care
+    term:
+      id: NCIT:C15747
+      label: Supportive Care
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      At present, treatment for CDGs is largely supportive
+    explanation: The source supports supportive CDG care but does not report UGGT1-specific outcome data.
+differential_diagnoses:
+- name: MOGS-congenital disorder of glycosylation
+  description: &gt;-
+    MOGS-CDG affects an upstream step in the same N-linked glycoprotein
+    quality-control pathway and overlaps through severe neurodevelopmental,
+    seizure, cardiac, hepatic, skeletal, respiratory, craniofacial, and feeding features.
+  distinguishing_features:
+  - Biallelic pathogenic UGGT1 variants favor UGGT1-CDG.
+  - Biallelic pathogenic MOGS variants favor MOGS-CDG.
+  - A normal transferrin pattern can occur in both and is not discriminating.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      scoliosis, central apnea, craniofacial dysmorphology, and feeding problems
+    explanation: The paper directly compares shared UGGT1-CDG and MOGS-CDG features.
+- name: MAN1B1-congenital disorder of glycosylation
+  description: MAN1B1-CDG overlaps through intellectual disability, dysmorphism, behavioral abnormalities, seizures, and variable liver dysfunction.
+  distinguishing_features:
+  - Biallelic pathogenic UGGT1 variants favor UGGT1-CDG.
+  - Biallelic pathogenic MAN1B1 variants favor MAN1B1-CDG.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: |-
+      similar clinical features (speciﬁcally intellectual
+      disability, dysmorphism, behavioral abnormalities, sei-
+      zures, and variable liver dysfunction) are also observed in
+      MAN1B1-CDG
+    explanation: The source explicitly names the overlapping MAN1B1-CDG differential.
+progression:
+- phase: Fetal and infantile severe presentation
+  notes: &gt;-
+    Likely biallelic null alleles can produce fetal demise, early multiorgan
+    disease, respiratory failure, and infant death.
+  evidence:
+  - reference: PMID:40267907
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      bi-allelic UGGT1 loss-of-function variants associated with increased
+      disease severity, including death in infancy.
+    explanation: The cohort supports a severe early null-allele presentation.
+- phase: Childhood to adulthood in hypomorphic disease
+  notes: &gt;-
+    Individuals retaining partial UGGT1 activity may survive beyond infancy
+    with persistent syndromic neurodevelopmental disability; the oldest reported individual was 20 years.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      survival beyond infancy was seen in affected individuals harboring UGGT1
+      missense variant(s)
+    explanation: Residual-function genotypes are associated with survival beyond infancy.
+experimental_models:
+- name: UGGT1 variant reglucosylation and catalytic-activity cell models
+  description: &gt;-
+    Engineered ALG6/UGGT1/UGGT2-deficient cells reconstituted with patient
+    variants and complementary in-vitro enzyme assays measure self- and client
+    reglucosylation and catalytic activity.
+  experimental_model_type: CELL_LINE
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_source: Engineered HEK293-derived cell lines
+  culture_system: Monolayer transfection and biochemical catalytic assays
+  publication: PMID:40267907
+  modeled_mechanisms:
+  - target: Reduced intracellular UGGT1 activity or availability
+    evidence:
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        to cause partial to full loss of enzymatic activity of UGGT1
+      explanation: Variant catalytic assays directly reproduce reduced enzyme activity.
+  - target: Impaired N-glycoprotein reglucosylation
+    evidence:
+    - reference: PMID:40267907
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        pathogenic UGGT1 variants impair UGGT1 glucosylation and catalytic
+        activity
+      explanation: The cell model directly measures deficient client reglucosylation.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      a cell-based glucosylation assay and an in vitro catalytic activity assay
+    explanation: The primary study describes the complementary model systems.
+- name: p.Arg1546* patient-fibroblast ER-retention model
+  description: &gt;-
+    Fibroblasts from homozygous p.Arg1546* individuals show reduced intracellular
+    UGGT1 with increased secreted protein, modeling loss of the C-terminal ER retrieval signal.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_source: Primary fibroblasts from affected individuals and healthy controls
+  culture_system: Fibroblast monolayer with cell-lysate and supernatant immunoblotting
+  publication: PMID:40267907
+  modeled_mechanisms:
+  - target: Reduced intracellular UGGT1 activity or availability
+    evidence:
+    - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+      reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        demonstrating a severe reduction in UGGT1 protein levels in patient WCLs
+        with a concomitant increase in secreted UGGT1 protein
+      explanation: Patient fibroblasts directly reproduce the ER-retention defect.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      demonstrating a severe reduction in UGGT1 protein levels in patient WCLs
+      with a concomitant increase in secreted UGGT1 protein
+    explanation: Secreted UGGT1 in patient culture supernatant supports the primary-cell model.
+datasets: []
+discussions:
+- discussion_id: gap_uggt1_quality_control_to_multisystem_phenotypes
+  prompt: Which cellular stress and signaling intermediates connect disrupted UGGT1-dependent calnexin/calreticulin quality control to the neurodevelopmental and multisystem phenotype?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Disrupted calnexin-calreticulin folding quality control
+  rationale: &gt;-
+    Human genetics establishes UGGT1-CDG and the functional assays support
+    deficient enzyme activity and anticipated CNX/CRT-cycle disruption, but the
+    cellular stress, signaling, and tissue-specific intermediates leading to
+    developmental delay, seizures, microcephaly, and other organ findings have
+    not been experimentally resolved.
+  evidence:
+  - reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+    reference_title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      The ultimate anticipated impact of all described variants is a disruption
+      to the CRT/CNX cycle
+    explanation: The authors identify the shared quality-control endpoint as anticipated, leaving its distal disease mechanisms open.
+references:
+- reference: PMID:40267907
+  title: &#34;Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.&#34;
+- reference: url:https://europepmc.org/articles/PMC12120171?pdf=render
+  title: &#34;https://europepmc.org/articles/PMC12120171?pdf=render&#34;
+review_notes: &gt;-
+  This review uses the only disease-specific primary cohort currently identified:
+  15 affected individuals from 10 families reported in 2025. The entry has no
+  MONDO identifier because an exact UGGT1-CDG concept was not found in OLS/MONDO;
+  it should not be mapped to a broader CDG term merely to fill the slot. The full
+  open-access article was fetched only through the sanctioned reference workflow.
+  Mechanisms were atomized, and every causal and model edge has direct or explicitly
+  partial evidence. Three core neurodevelopmental phenotypes are connected through
+  explicitly unknown intermediates, while other phenotype-specific routes remain
+  unwired. The unresolved stress and signaling bridge is captured as a structured
+  knowledge gap. The paper reports controlled
+  genomic deposition to a broad BHCMG/GREGoR dbGaP/AnVIL study, not a clearly
+  disease-specific public dataset, so `datasets` is explicitly empty. Normal
+  transferrin screening in all three tested families is an important diagnostic
+  limitation. Care is supportive; sugar supplementation is a research question,
+  not an established UGGT1-CDG treatment. No matching GeneReviews chapter or
+  repository deep-research artifact was found.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">2</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40267907" target="_blank">PMID:40267907</a>
+                            </div>
+
+                            <div class="reference-title">Bi-allelic UGGT1 variants cause a congenital disorder of glycosylation.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/url:https://europepmc.org/articles/PMC12120171?pdf=render" target="_blank">url:https://europepmc.org/articles/PMC12120171?pdf=render</a>
+                            </div>
+
+                            <div class="reference-title">https://europepmc.org/articles/PMC12120171?pdf=render</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
+
+        </div>
 
 
         <footer class="page-footer">
@@ -5325,7 +7974,7 @@ genetic:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "UGGT1-congenital disorder of glycosylation", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "UGGT1-congenital_disorder_of_glycosylation", "yamlRevision": "f509ddad8726"};
+        const OS_CONFIG = {"diseaseName": "UGGT1-congenital disorder of glycosylation", "mondoId": "MONDO:0980705", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "UGGT1-congenital_disorder_of_glycosylation", "yamlRevision": "48843e058f85"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -5744,5 +8393,73 @@ genetic:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

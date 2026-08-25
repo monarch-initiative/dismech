@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Endometriosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Endometriosis</h1>
             <div class="header-meta">
 
@@ -3669,6 +3871,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3825,27 +4029,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4104,6 +4385,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24859987" target="_blank">PMID:24859987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4126,6 +4408,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30472739" target="_blank">PMID:30472739</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4205,7 +4488,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Pelvic Pain</span>
+    <a class="entity-ref-chip" href="#phenotype-pelvic-pain">phenotype#Pelvic Pain</a>
 
 
 
@@ -4231,10 +4514,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         prospective longitudinal cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal cohort study.</span>
     </span>
 
 
@@ -4283,6 +4572,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4305,6 +4600,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062866" target="_blank">PMID:39062866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4329,6 +4625,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24859987" target="_blank">PMID:24859987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4351,6 +4648,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40721059" target="_blank">PMID:40721059</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4400,16 +4698,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endometrial Stromal Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002255">CL:0002255</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endometrial Stromal Cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4436,16 +4739,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cell Proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Proliferation, annotated with cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4471,6 +4779,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4482,6 +4791,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16166933" target="_blank">PMID:16166933</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4509,6 +4819,7 @@
 
                 <div class="item-desc">Menstrual blood flows backward through fallopian tubes into pelvic cavity. Most women have retrograde menstruation, but only some develop endometriosis, suggesting other factors involved.
 </div>
+
 
 
 
@@ -4555,6 +4866,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16166933" target="_blank">PMID:16166933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4586,16 +4898,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endometriotic Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002149">CL:0002149</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endometriotic Epithelial Cell, annotated with epithelial cell of uterus (CL:0002149). CL:0002149 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4622,16 +4939,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007265">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4652,6 +4974,7 @@
 
 
                 </div>
+
 
 
 
@@ -4689,6 +5012,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4712,6 +5036,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4734,6 +5059,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11156411" target="_blank">PMID:11156411</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4769,16 +5095,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endometriotic Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002149">CL:0002149</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endometriotic Epithelial Cell, annotated with epithelial cell of uterus (CL:0002149). CL:0002149 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4805,16 +5136,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Epithelial Clonal Proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Epithelial Clonal Proliferation, annotated with cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4835,6 +5171,7 @@
 
 
                 </div>
+
 
 
 
@@ -4871,6 +5208,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30110635" target="_blank">PMID:30110635</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4924,16 +5262,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4950,6 +5293,7 @@
 
 
                 </div>
+
 
 
 
@@ -5027,6 +5371,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16166933" target="_blank">PMID:16166933</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5065,16 +5410,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Estrogen Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043627">GO:0043627</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043627" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043627</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Estrogen Response, annotated with response to estrogen (GO:0043627). GO:0043627 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5091,6 +5441,7 @@
 
 
                 </div>
+
 
 
 
@@ -5112,6 +5463,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10731122" target="_blank">PMID:10731122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5132,6 +5484,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10731122" target="_blank">PMID:10731122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5151,6 +5504,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10731122" target="_blank">PMID:10731122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5183,17 +5537,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endometrial Stromal Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002255">CL:0002255</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002255" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endometrial Stromal Cell, annotated with stromal cell of endometrium (CL:0002255). CL:0002255 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5214,10 +5575,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002149">CL:0002149</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002149" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endometrial Epithelial Cell, annotated with epithelial cell of uterus (CL:0002149). CL:0002149 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5244,16 +5608,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to progesterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032570" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032570">GO:0032570</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032570" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0032570</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Response to progesterone (GO:0032570). GO:0032570 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5274,6 +5643,7 @@
 
 
                 </div>
+
 
 
 
@@ -5311,6 +5681,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16406281" target="_blank">PMID:16406281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5334,6 +5705,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16406281" target="_blank">PMID:16406281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5356,6 +5728,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16406281" target="_blank">PMID:16406281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5398,16 +5771,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5433,6 +5811,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5444,6 +5823,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16166933" target="_blank">PMID:16166933</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5467,6 +5847,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28971893" target="_blank">PMID:28971893</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5486,6 +5867,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28971893" target="_blank">PMID:28971893</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5536,17 +5918,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to Hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5567,10 +5956,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5587,6 +5979,7 @@
 
 
                 </div>
+
 
 
 
@@ -5635,6 +6028,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408396" target="_blank">PMID:26408396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5655,6 +6049,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408396" target="_blank">PMID:26408396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5674,6 +6069,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30074218" target="_blank">PMID:30074218</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5706,16 +6102,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Peritoneal Mesothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000077">CL:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Peritoneal Mesothelial Cell, annotated with mesothelial cell (CL:0000077). CL:0000077 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5742,16 +6143,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Aerobic Glycolysis (Warburg Effect)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006096">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Aerobic Glycolysis (Warburg Effect), annotated with glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5771,16 +6177,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Response to Hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5801,6 +6212,7 @@
 
 
                 </div>
+
 
 
 
@@ -5838,6 +6250,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24796928" target="_blank">PMID:24796928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5861,6 +6274,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24796928" target="_blank">PMID:24796928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5883,6 +6297,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24796928" target="_blank">PMID:24796928</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5934,6 +6349,7 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-peritoneal-metalloproteinase-activity" data-dismech-node="Dysregulated Peritoneal Metalloproteinase Activity" data-dismech-type="pathophysiology">
@@ -5953,16 +6369,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Extracellular Matrix Disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022617">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Extracellular Matrix Disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5987,16 +6408,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         metalloendopeptidase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004222" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004222">GO:0004222</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004222" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0004222</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased metalloendopeptidase activity (GO:0004222). GO:0004222 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6042,6 +6468,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6053,6 +6480,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23157326" target="_blank">PMID:23157326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6099,16 +6527,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6135,16 +6568,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neurogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022008">GO:0022008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0022008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neurogenesis (GO:0022008). GO:0022008 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6164,16 +6602,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6194,6 +6637,7 @@
 
 
                 </div>
+
 
 
 
@@ -6242,6 +6686,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24859987" target="_blank">PMID:24859987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6264,6 +6709,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21054165" target="_blank">PMID:21054165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6310,16 +6756,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         nociceptor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves nociceptor, annotated with pain receptor cell (CL:0000198). CL:0000198 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6346,16 +6797,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sensory perception of pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0019233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6376,6 +6832,7 @@
 
 
                 </div>
+
 
 
 
@@ -6443,6 +6900,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37169264" target="_blank">PMID:37169264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6466,6 +6924,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37169264" target="_blank">PMID:37169264</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6488,6 +6947,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28954602" target="_blank">PMID:28954602</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6541,16 +7001,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sensory perception of pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0019233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6571,6 +7036,7 @@
 
 
                 </div>
+
 
 
 
@@ -6619,6 +7085,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30472739" target="_blank">PMID:30472739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6642,6 +7109,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39768444" target="_blank">PMID:39768444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6664,6 +7132,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40721059" target="_blank">PMID:40721059</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6716,7 +7185,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cabergoline (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational non-hormonal anti-angiogenic therapy. The dopamine D2 receptor agonist cabergoline promotes VEGF receptor-2 (VEGFR-2) endocytosis, preventing VEGF-VEGFR-2 binding and reducing neoangiogenesis. In experimentally induced endometriosis it decreased the proportion of active lesions and vascularization, and it is being evaluated as a non-hormonal, non-surgical option for endometriosis pain.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cabergoline\"]}}, {\"id\": \"Central Sensitization and Nociplastic Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic endometriosis-associated pain can involve central nervous system amplification of pain signals and nociplastic pain mechanisms. This downstream state helps explain pain persistence and incomplete response to lesion-directed therapy in some patients.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Sensory perception of pain\"]}}, {\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lesions trigger chronic pelvic inflammation with elevated cytokines and prostaglandins. Inflammatory milieu contributes to pain and adhesion formation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Dichloroacetate (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational non-hormonal, non-contraceptive metabolic therapy. The pyruvate dehydrogenase kinase (PDK) inhibitor / PDH activator dichloroacetate reverses the aberrant glycolytic phenotype of peritoneal mesothelial cells, reduces lactate secretion, and shrank lesions in a mouse model; a single-arm open-label feasibility trial (EPiC) is evaluating it for endometriosis-associated pain ahead of a planned placebo-controlled trial.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Picoliter-scale droplet-microfluidic platform (barcoded droplet library with pico-injection and Proteolytic Activity Matrix Analysis deconvolution) for multiplexed metalloproteinase activity profiling in small-volume clinical samples, applied to peritoneal fluid from subjects with and without endometriosis. A non-animal New Approach Methodology that resolves specific MMP and ADAM enzymatic activities in cell-free clinical fluid.\", \"meta\": {\"model_type\": \"OTHER\", \"conditions\": [\"endometriosis\", \"peritoneal fluid metalloproteinase activity profiling\"], \"publication\": \"PMID:23157326\"}}, {\"id\": \"Dysregulated Peritoneal Metalloproteinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriosis is associated with altered extracellular-matrix metalloproteinase activity in the peritoneal compartment. Multiplexed droplet-microfluidic protease-activity profiling of patient peritoneal fluid \\u2014 a non-animal, microphysiological (New Approach Methodology) measurement platform \\u2014 resolved disease-associated differences in specific metalloproteinase activities, in particular decreased MMP-2 and ADAM-9 activity in subjects with endometriosis versus controls. This describes a measured activity signature in the peritoneal microenvironment rather than an established causal driver of lesion establishment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular Matrix Disassembly\"], \"molecular_functions\": [\"metalloendopeptidase activity\"], \"experimental_models\": [{\"name\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"model_type\": \"OTHER\", \"description\": \"Multiplexed quantification of MMP and ADAM activities in peritoneal fluid, resolving endometriosis-associated decreases in MMP-2 and ADAM-9 activity.\"}]}}, {\"id\": \"Ectopic Endometrial Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrial-like tissue grows outside the uterus, commonly on ovaries, fallopian tubes, and pelvic peritoneum. Responds to hormonal cycling with bleeding and inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endometrial Stromal Cell\"], \"biological_processes\": [\"Cell Proliferation\"]}}, {\"id\": \"Epithelial Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrial epithelial cells carrying cancer-associated mutations show rising mutant-allele fractions at ectopic sites relative to normal endometrium, marking clonal selection and expansion of the epithelial compartment. This supports a model in which refluxed, already-mutated cells gain a selective advantage and establish lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endometriotic Epithelial Cell\"], \"biological_processes\": [\"Epithelial Clonal Proliferation\"]}}, {\"id\": \"Estrogen Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions produce their own estrogen via aromatase and are highly estrogen-responsive. Progesterone resistance impairs normal tissue regression.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Estrogen Response\"]}}, {\"id\": \"Hypoxia and Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lesions experience hypoxia which stabilizes HIF-1alpha, upregulating VEGF and promoting angiogenesis. Neovascularization supports lesion survival and growth. Ovarian endometriomas show particularly high expression of hypoxic and angiogenic factors.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Response to Hypoxia\", \"Angiogenesis\"]}}, {\"id\": \"Lesion-Peritoneal Neuroangiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions and peritoneal fluid can acquire neuroangiogenic properties, including nerve-fiber growth, altered sensory/autonomic fiber distribution, neurotrophin up-regulation, and vascular remodeling. This provides a peripheral anatomic substrate for pain but does not by itself explain perceived pain severity in all patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nociceptor\"], \"biological_processes\": [\"Neurogenesis\", \"Angiogenesis\"]}}, {\"id\": \"Pelvic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pelvic pain is a cardinal symptomatic burden of endometriosis and may be cyclical, non-cyclical, or persistent after lesion-directed therapy when sensitization mechanisms are established.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034267\"}}, {\"id\": \"Peripheral Nociceptor Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesion and peritoneal mediators, including inflammatory mediators and prolactin/prolactin-receptor signaling, can sensitize pelvic nociceptive sensory neurons. This provides a mechanism by which pain may be amplified without requiring proportional increases in lesion burden.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"nociceptor\"], \"biological_processes\": [\"Sensory perception of pain\"]}}, {\"id\": \"Progesterone Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic tissue is resistant to progesterone action. Progesterone receptor levels are reduced and the PR-B isoform is essentially absent, so progesterone fails to induce epithelial 17beta-hydroxysteroid dehydrogenase type 2 (17beta-HSD-2). Because 17beta-HSD-2 normally inactivates estradiol to estrone, its deficient induction leaves high local concentrations of the mitogen estradiol, and this progesterone resistance explains why a subset of patients do not respond to progestin therapy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Endometrial Stromal Cell\", \"Endometrial Epithelial Cell\"], \"biological_processes\": [\"Response to progesterone\"]}}, {\"id\": \"Retrograde Menstruation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Menstrual blood flows backward through fallopian tubes into pelvic cavity. Most women have retrograde menstruation, but only some develop endometriosis, suggesting other factors involved.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatic Cancer-Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deep-infiltrating endometriotic lesions harbor recurrent somatic cancer-driver mutations (KRAS, PIK3CA, ARID1A, PPP2R1A) that are largely confined to the epithelial compartment. Endometrial cells can already carry these cancer-associated mutations before reaching ectopic sites. Despite these oncogenic drivers, deep-infiltrating lesions remain benign \\u2014 morphologically normal, non-expansile, and at virtually no risk of malignant transformation; ovarian endometrioma, in contrast, is a recognized precursor of endometriosis-associated ovarian cancer.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Endometriotic Epithelial Cell\"], \"biological_processes\": [\"Ras protein signal transduction\"]}}, {\"id\": \"Warburg-like Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions and the peritoneal mesothelium of women with endometriosis undergo a cancer-like (\\\"Warburg\\\") metabolic shift away from mitochondrial respiration toward aerobic glycolysis. TGF-beta1, which is elevated in endometriosis peritoneal fluid, drives human peritoneal mesothelial cells to upregulate glycolysis-associated genes (HIF1A, PDK1, LDHA, SLC2A1) and secrete lactate. This glycolytic phenotype \\u2014 higher glycolysis, lower mitochondrial respiration, and reduced pyruvate dehydrogenase activity \\u2014 favors lesion establishment and survival and is the target of the investigational metabolic therapy dichloroacetate.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Peritoneal Mesothelial Cell\"], \"biological_processes\": [\"Aerobic Glycolysis (Warburg Effect)\", \"Response to Hypoxia\"]}}], \"edges\": [{\"source\": \"Retrograde Menstruation\", \"target\": \"Epithelial Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retrograde flow can deliver endometrial cells that already harbor cancer-associated mutations to ectopic sites, where they gain a selective advantage and expand clonally.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde flow of pre-mutated endometrial cells\"]}, {\"source\": \"Somatic Cancer-Driver Mutations\", \"target\": \"Epithelial Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-driver mutations confer a selective growth advantage that drives clonal expansion of the epithelial compartment at ectopic sites.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"selective growth advantage of mutant epithelium\"]}, {\"source\": \"Epithelial Clonal Expansion\", \"target\": \"Ectopic Endometrial Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective expansion of mutated endometrial epithelium at ectopic sites contributes to establishment of endometriosis lesions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal selection at ectopic sites\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Lesion-Peritoneal Neuroangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory peritoneal microenvironment provides prostaglandin, cytokine, and growth-factor signals that can couple lesion survival to neural and vascular remodeling.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"prostaglandins\", \"cytokines\", \"growth factors\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory and hormonal mediators from the lesion/peritoneal compartment can lower nociceptor thresholds and amplify pelvic pain signaling.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"prostaglandins\", \"cytokines\", \"prolactin signaling\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Warburg-like Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta1 in the inflammatory peritoneal fluid drives peritoneal mesothelial cells toward the glycolytic (Warburg-like) phenotype.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TGF-beta1 signaling\"]}, {\"source\": \"Progesterone Resistance\", \"target\": \"Estrogen Dependence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progesterone resistance prevents progesterone-driven induction of 17beta-HSD-2, so estradiol is not inactivated and local estrogen levels stay high \\u2014 reinforcing the estrogen-dependent growth of lesions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent PR-B\", \"failure to induce 17beta-HSD-2\", \"deficient estradiol inactivation\"]}, {\"source\": \"Hypoxia and Angiogenesis\", \"target\": \"Lesion-Peritoneal Neuroangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Angiogenic lesion programs can coexist with or promote nerve-fiber recruitment in endometriotic implants and adjacent peritoneal tissue.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"VEGF-associated vascular remodeling\"]}, {\"source\": \"Warburg-like Metabolic Reprogramming\", \"target\": \"Hypoxia and Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lactate secreted by the glycolytic peritoneal microenvironment is implicated in supporting angiogenesis and lesion invasion, coupling the metabolic shift to the angiogenic program.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lactate accumulation\"]}, {\"source\": \"Lesion-Peritoneal Neuroangiogenesis\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Newly recruited lesion-associated nerve fibers and neurotrophic factors provide a peripheral substrate that can feed nociceptor sensitization.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurotrophins\", \"sensory nerve-fiber recruitment\"]}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"Central Sensitization and Nociplastic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent peripheral nociceptive input can contribute to central amplification and broader nociplastic pain processing.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"persistent pelvic nociceptive input\"]}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensitized pelvic nociceptors amplify the chronic pelvic pain phenotype.\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Sensitization and Nociplastic Pain\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central amplification can sustain or worsen pelvic pain even when lesion-directed treatment reduces peripheral disease activity.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dichloroacetate (Investigational)\", \"target\": \"Warburg-like Metabolic Reprogramming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cabergoline (Investigational)\", \"target\": \"Hypoxia and Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"target\": \"Dysregulated Peritoneal Metalloproteinase Activity\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cabergoline (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational non-hormonal anti-angiogenic therapy. The dopamine D2 receptor agonist cabergoline promotes VEGF receptor-2 (VEGFR-2) endocytosis, preventing VEGF-VEGFR-2 binding and reducing neoangiogenesis. In experimentally induced endometriosis it decreased the proportion of active lesions and vascularization, and it is being evaluated as a non-hormonal, non-surgical option for endometriosis pain.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cabergoline\"]}}, {\"id\": \"Central Sensitization and Nociplastic Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic endometriosis-associated pain can involve central nervous system amplification of pain signals and nociplastic pain mechanisms. This downstream state helps explain pain persistence and incomplete response to lesion-directed therapy in some patients.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Sensory perception of pain\"]}}, {\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lesions trigger chronic pelvic inflammation with elevated cytokines and prostaglandins. Inflammatory milieu contributes to pain and adhesion formation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Dichloroacetate (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational non-hormonal, non-contraceptive metabolic therapy. The pyruvate dehydrogenase kinase (PDK) inhibitor / PDH activator dichloroacetate reverses the aberrant glycolytic phenotype of peritoneal mesothelial cells, reduces lactate secretion, and shrank lesions in a mouse model; a single-arm open-label feasibility trial (EPiC) is evaluating it for endometriosis-associated pain ahead of a planned placebo-controlled trial.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dichloroacetate\"]}}, {\"id\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Picoliter-scale droplet-microfluidic platform (barcoded droplet library with pico-injection and Proteolytic Activity Matrix Analysis deconvolution) for multiplexed metalloproteinase activity profiling in small-volume clinical samples, applied to peritoneal fluid from subjects with and without endometriosis. A non-animal New Approach Methodology that resolves specific MMP and ADAM enzymatic activities in cell-free clinical fluid.\", \"meta\": {\"model_type\": \"OTHER\", \"conditions\": [\"endometriosis\", \"peritoneal fluid metalloproteinase activity profiling\"], \"publication\": \"PMID:23157326\"}}, {\"id\": \"Dysregulated Peritoneal Metalloproteinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriosis is associated with altered extracellular-matrix metalloproteinase activity in the peritoneal compartment. Multiplexed droplet-microfluidic protease-activity profiling of patient peritoneal fluid \\u2014 a non-animal, microphysiological (New Approach Methodology) measurement platform \\u2014 resolved disease-associated differences in specific metalloproteinase activities, in particular decreased MMP-2 and ADAM-9 activity in subjects with endometriosis versus controls. This describes a measured activity signature in the peritoneal microenvironment rather than an established causal driver of lesion establishment.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Extracellular Matrix Disassembly\"], \"molecular_functions\": [\"metalloendopeptidase activity\"], \"experimental_models\": [{\"name\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"model_type\": \"OTHER\", \"description\": \"Multiplexed quantification of MMP and ADAM activities in peritoneal fluid, resolving endometriosis-associated decreases in MMP-2 and ADAM-9 activity.\"}]}}, {\"id\": \"Ectopic Endometrial Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrial-like tissue grows outside the uterus, commonly on ovaries, fallopian tubes, and pelvic peritoneum. Responds to hormonal cycling with bleeding and inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endometrial Stromal Cell\"], \"biological_processes\": [\"Cell Proliferation\"]}}, {\"id\": \"Epithelial Clonal Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrial epithelial cells carrying cancer-associated mutations show rising mutant-allele fractions at ectopic sites relative to normal endometrium, marking clonal selection and expansion of the epithelial compartment. This supports a model in which refluxed, already-mutated cells gain a selective advantage and establish lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endometriotic Epithelial Cell\"], \"biological_processes\": [\"Epithelial Clonal Proliferation\"]}}, {\"id\": \"Estrogen Dependence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions produce their own estrogen via aromatase and are highly estrogen-responsive. Progesterone resistance impairs normal tissue regression.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Estrogen Response\"]}}, {\"id\": \"Hypoxia and Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lesions experience hypoxia which stabilizes HIF-1alpha, upregulating VEGF and promoting angiogenesis. Neovascularization supports lesion survival and growth. Ovarian endometriomas show particularly high expression of hypoxic and angiogenic factors.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Response to Hypoxia\", \"Angiogenesis\"]}}, {\"id\": \"Lesion-Peritoneal Neuroangiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions and peritoneal fluid can acquire neuroangiogenic properties, including nerve-fiber growth, altered sensory/autonomic fiber distribution, neurotrophin up-regulation, and vascular remodeling. This provides a peripheral anatomic substrate for pain but does not by itself explain perceived pain severity in all patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nociceptor\"], \"biological_processes\": [\"Neurogenesis\", \"Angiogenesis\"]}}, {\"id\": \"Pelvic Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic pelvic pain is a cardinal symptomatic burden of endometriosis and may be cyclical, non-cyclical, or persistent after lesion-directed therapy when sensitization mechanisms are established.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034267\"}}, {\"id\": \"Peripheral Nociceptor Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lesion and peritoneal mediators, including inflammatory mediators and prolactin/prolactin-receptor signaling, can sensitize pelvic nociceptive sensory neurons. This provides a mechanism by which pain may be amplified without requiring proportional increases in lesion burden.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"nociceptor\"], \"biological_processes\": [\"Sensory perception of pain\"]}}, {\"id\": \"Progesterone Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic tissue is resistant to progesterone action. Progesterone receptor levels are reduced and the PR-B isoform is essentially absent, so progesterone fails to induce epithelial 17beta-hydroxysteroid dehydrogenase type 2 (17beta-HSD-2). Because 17beta-HSD-2 normally inactivates estradiol to estrone, its deficient induction leaves high local concentrations of the mitogen estradiol, and this progesterone resistance explains why a subset of patients do not respond to progestin therapy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Endometrial Stromal Cell\", \"Endometrial Epithelial Cell\"], \"biological_processes\": [\"Response to progesterone\"]}}, {\"id\": \"Retrograde Menstruation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Menstrual blood flows backward through fallopian tubes into pelvic cavity. Most women have retrograde menstruation, but only some develop endometriosis, suggesting other factors involved.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatic Cancer-Driver Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deep-infiltrating endometriotic lesions harbor recurrent somatic cancer-driver mutations (KRAS, PIK3CA, ARID1A, PPP2R1A) that are largely confined to the epithelial compartment. Endometrial cells can already carry these cancer-associated mutations before reaching ectopic sites. Despite these oncogenic drivers, deep-infiltrating lesions remain benign \\u2014 morphologically normal, non-expansile, and at virtually no risk of malignant transformation; ovarian endometrioma, in contrast, is a recognized precursor of endometriosis-associated ovarian cancer.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Endometriotic Epithelial Cell\"], \"biological_processes\": [\"Ras protein signal transduction\"]}}, {\"id\": \"Warburg-like Metabolic Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometriotic lesions and the peritoneal mesothelium of women with endometriosis undergo a cancer-like (\\\"Warburg\\\") metabolic shift away from mitochondrial respiration toward aerobic glycolysis. TGF-beta1, which is elevated in endometriosis peritoneal fluid, drives human peritoneal mesothelial cells to upregulate glycolysis-associated genes (HIF1A, PDK1, LDHA, SLC2A1) and secrete lactate. This glycolytic phenotype \\u2014 higher glycolysis, lower mitochondrial respiration, and reduced pyruvate dehydrogenase activity \\u2014 favors lesion establishment and survival and is the target of the investigational metabolic therapy dichloroacetate.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Peritoneal Mesothelial Cell\"], \"biological_processes\": [\"Aerobic Glycolysis (Warburg Effect)\", \"Response to Hypoxia\"]}}], \"edges\": [{\"source\": \"Retrograde Menstruation\", \"target\": \"Epithelial Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retrograde flow can deliver endometrial cells that already harbor cancer-associated mutations to ectopic sites, where they gain a selective advantage and expand clonally.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde flow of pre-mutated endometrial cells\"]}, {\"source\": \"Somatic Cancer-Driver Mutations\", \"target\": \"Epithelial Clonal Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-driver mutations confer a selective growth advantage that drives clonal expansion of the epithelial compartment at ectopic sites.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"selective growth advantage of mutant epithelium\"]}, {\"source\": \"Epithelial Clonal Expansion\", \"target\": \"Ectopic Endometrial Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective expansion of mutated endometrial epithelium at ectopic sites contributes to establishment of endometriosis lesions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal selection at ectopic sites\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Lesion-Peritoneal Neuroangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory peritoneal microenvironment provides prostaglandin, cytokine, and growth-factor signals that can couple lesion survival to neural and vascular remodeling.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"prostaglandins\", \"cytokines\", \"growth factors\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory and hormonal mediators from the lesion/peritoneal compartment can lower nociceptor thresholds and amplify pelvic pain signaling.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"prostaglandins\", \"cytokines\", \"prolactin signaling\"]}, {\"source\": \"Chronic Inflammation\", \"target\": \"Warburg-like Metabolic Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TGF-beta1 in the inflammatory peritoneal fluid drives peritoneal mesothelial cells toward the glycolytic (Warburg-like) phenotype.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TGF-beta1 signaling\"]}, {\"source\": \"Progesterone Resistance\", \"target\": \"Estrogen Dependence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progesterone resistance prevents progesterone-driven induction of 17beta-HSD-2, so estradiol is not inactivated and local estrogen levels stay high \\u2014 reinforcing the estrogen-dependent growth of lesions.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"absent PR-B\", \"failure to induce 17beta-HSD-2\", \"deficient estradiol inactivation\"]}, {\"source\": \"Hypoxia and Angiogenesis\", \"target\": \"Lesion-Peritoneal Neuroangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Angiogenic lesion programs can coexist with or promote nerve-fiber recruitment in endometriotic implants and adjacent peritoneal tissue.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"VEGF-associated vascular remodeling\"]}, {\"source\": \"Warburg-like Metabolic Reprogramming\", \"target\": \"Hypoxia and Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lactate secreted by the glycolytic peritoneal microenvironment is implicated in supporting angiogenesis and lesion invasion, coupling the metabolic shift to the angiogenic program.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lactate accumulation\"]}, {\"source\": \"Lesion-Peritoneal Neuroangiogenesis\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Newly recruited lesion-associated nerve fibers and neurotrophic factors provide a peripheral substrate that can feed nociceptor sensitization.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neurotrophins\", \"sensory nerve-fiber recruitment\"]}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"Central Sensitization and Nociplastic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent peripheral nociceptive input can contribute to central amplification and broader nociplastic pain processing.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"persistent pelvic nociceptive input\"]}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensitized pelvic nociceptors amplify the chronic pelvic pain phenotype.\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Central Sensitization and Nociplastic Pain\", \"target\": \"Pelvic Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central amplification can sustain or worsen pelvic pain even when lesion-directed treatment reduces peripheral disease activity.\\n\", \"hypothesis_groups\": [\"neuroimmune_pain_sensitization_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dichloroacetate (Investigational)\", \"target\": \"Warburg-like Metabolic Reprogramming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cabergoline (Investigational)\", \"target\": \"Hypoxia and Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Droplet-based microfluidic protease-activity profiling platform (PrAMA; MIT Griffith/Han)\", \"target\": \"Dysregulated Peritoneal Metalloproteinase Activity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Multiplexed quantification of MMP and ADAM activities in peritoneal fluid, resolving endometriosis-associated decreases in MMP-2 and ADAM-9 activity.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6761,14 +7230,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Menorrhagia
+
+                        <span class="phenotype-term-label">Menorrhagia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000132">HP:0000132</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000132</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Menorrhagia (HP:0000132). HP:0000132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6799,14 +7277,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspareunia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030016">HP:0030016</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030016</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6830,14 +7315,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000789">HP:0000789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6857,6 +7349,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844487" target="_blank">PMID:37844487</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6900,14 +7393,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pelvic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0034267</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pelvic pain, annotated with Pelvic pain (HP:0034267), qualified as temporality chronic. HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6948,6 +7448,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24859987" target="_blank">PMID:24859987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6970,6 +7471,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844487" target="_blank">PMID:37844487</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7005,14 +7507,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysmenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100607">HP:0100607</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100607</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysmenorrhea (HP:0100607). HP:0100607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7032,6 +7541,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30074218" target="_blank">PMID:30074218</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7064,14 +7574,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7102,14 +7619,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Painful defecation
+
+                        <span class="phenotype-term-label">Painful defecation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000222">HP:6000222</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:6000222</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyschezia, annotated with Painful defecation (HP:6000222). HP:6000222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7177,13 +7703,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WNT4
 
 
-    <a href="https://bioregistry.io/hgnc:12783" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12783">hgnc:12783</a>
+    <a href="https://bioregistry.io/hgnc:12783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:12783</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WNT4 (hgnc:12783). hgnc:12783 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7209,13 +7740,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VEZT
 
 
-    <a href="https://bioregistry.io/hgnc:18258" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18258">hgnc:18258</a>
+    <a href="https://bioregistry.io/hgnc:18258" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:18258</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VEZT (hgnc:18258). hgnc:18258 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7241,13 +7777,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GREB1
 
 
-    <a href="https://bioregistry.io/hgnc:24885" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24885">hgnc:24885</a>
+    <a href="https://bioregistry.io/hgnc:24885" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:24885</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GREB1 (hgnc:24885). hgnc:24885 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7273,13 +7814,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ID4
 
 
-    <a href="https://bioregistry.io/hgnc:5363" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5363">hgnc:5363</a>
+    <a href="https://bioregistry.io/hgnc:5363" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:5363</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ID4 (hgnc:5363). hgnc:5363 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7305,13 +7851,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6407">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:6407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7336,6 +7887,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7374,13 +7926,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8975">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:8975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7405,6 +7962,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7443,13 +8001,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ARID1A
 
 
-    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11110">hgnc:11110</a>
+    <a href="https://bioregistry.io/hgnc:11110" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7474,6 +8037,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7512,13 +8076,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PPP2R1A
 
 
-    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9302">hgnc:9302</a>
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:9302</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7543,6 +8112,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28489996" target="_blank">PMID:28489996</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7581,13 +8151,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PTEN
 
 
-    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9588">hgnc:9588</a>
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:9588</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7612,6 +8187,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11156411" target="_blank">PMID:11156411</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7644,6 +8220,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7659,7 +8238,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">NSAID therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7690,16 +8274,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         NSAID
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C257">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7722,7 +8311,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">combined oral contraceptive therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">combined oral contraceptive therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is combined oral contraceptive therapy, annotated with Hormonal Contraception (NCIT:C92808). NCIT:C92808 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormonal Contraception</span>
 
 
@@ -7768,7 +8362,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">progestin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">progestin therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is progestin therapy (NCIT:C15484). NCIT:C15484 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Progestin Therapy</span>
 
 
@@ -7814,7 +8413,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">GnRH agonist therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">GnRH agonist therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is GnRH agonist therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7845,16 +8449,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         gonadotropin-releasing hormone agonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1910" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1910">NCIT:C1910</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1910" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C1910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gonadotropin-releasing hormone agonist, annotated with Gonadotropin-releasing Hormone Analog (NCIT:C1910). NCIT:C1910 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7877,7 +8486,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">GnRH antagonist therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">GnRH antagonist therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is GnRH antagonist therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7908,16 +8522,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         gonadotropin-releasing hormone antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2092" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2092">NCIT:C2092</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2092" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C2092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gonadotropin-releasing hormone antagonist, annotated with Gonadotropin Releasing Hormone Antagonist (NCIT:C2092). NCIT:C2092 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7940,7 +8559,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">aromatase inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">aromatase inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is aromatase inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7986,7 +8610,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8016,16 +8645,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dichloroacetate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28240" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28240">CHEBI:28240</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28240" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:28240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dichloroacetate (CHEBI:28240). CHEBI:28240 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8061,6 +8695,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1073/pnas.1916144116" target="_blank">DOI:10.1073/pnas.1916144116</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8104,6 +8739,7 @@
                         <a href="https://bioregistry.io/DOI:10.1073/pnas.1916144116" target="_blank">DOI:10.1073/pnas.1916144116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8126,6 +8762,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33712086" target="_blank">PMID:33712086</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8157,7 +8794,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8187,16 +8829,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cabergoline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3286" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3286">CHEBI:3286</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3286" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:3286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cabergoline (CHEBI:3286). CHEBI:3286 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8232,6 +8879,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19189995" target="_blank">PMID:19189995</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8275,6 +8923,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19189995" target="_blank">PMID:19189995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8305,7 +8954,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">laparoscopic surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">laparoscopic surgery<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is laparoscopic surgery, annotated with Laparoscopy (NCIT:C16969). NCIT:C16969 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laparoscopy</span>
 
 
@@ -8351,7 +9005,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hysterectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">hysterectomy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hysterectomy</span>
 
 
@@ -8407,6 +9066,10 @@
                 <div class="item-name">Early Menarche</div>
 
 
+
+
+
+
                 <div class="item-desc">Increases lifetime estrogen exposure</div>
 
 
@@ -8418,6 +9081,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-short-menstrual-cycles" data-dismech-node="Short Menstrual Cycles" data-dismech-type="environmental">
                 <div class="item-name">Short Menstrual Cycles</div>
+
+
+
+
 
 
                 <div class="item-desc">More frequent retrograde menstruation</div>
@@ -8433,6 +9100,10 @@
                 <div class="item-name">Nulliparity</div>
 
 
+
+
+
+
                 <div class="item-desc">Risk factor</div>
 
 
@@ -8444,6 +9115,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-low-bmi" data-dismech-node="Low BMI" data-dismech-type="environmental">
                 <div class="item-name">Low BMI</div>
+
+
+
+
 
 
                 <div class="item-desc">Associated with increased risk</div>
@@ -8516,7 +9191,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse302961">
                 <div class="item-name">
                     Altered miRNA cargo of endometrial extracellular vesicles in endometriosis: potential implications for pregnancy outcomes
 
@@ -8559,7 +9234,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse310627">
                 <div class="item-name">
                     Menstrual Fluid-Derived Small Extracellular Vesicles: A Novel Reservoir with Distinct Molecular Signatures and Implications for Endometriosis Etiopathology
 
@@ -8602,7 +9277,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse287223">
                 <div class="item-name">
                     Circulating microRNAs as predictive biomarkers for progestin treatment response in endometriosis patients
 
@@ -8639,7 +9314,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00000000075">
                 <div class="item-name">
                     ARID1A Mutations in Endometriosis-Associated Ovarian Carcinomas
 
@@ -8674,7 +9349,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001741">
                 <div class="item-name">
                     Searching for variants associated with endometriosis
 
@@ -8713,7 +9388,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003095">
                 <div class="item-name">
                     Somatic mutations in endometriosis and normal uterine endometrium
 
@@ -8764,7 +9439,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03928288">
                 <div class="item-name">
                     NCT03928288
 
@@ -8782,16 +9457,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pelvic pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0034267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8809,6 +9489,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03928288" target="_blank">clinicaltrials:NCT03928288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8834,7 +9515,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04046081">
                 <div class="item-name">
                     NCT04046081
 
@@ -8852,16 +9533,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pelvic pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0034267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8879,6 +9565,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04046081" target="_blank">clinicaltrials:NCT04046081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8943,30 +9630,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-60">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-60">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             peritoneal fluid
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001268" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001268">UBERON:0001268</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001268" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-61">UBERON:0001268</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-61">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses peritoneal fluid (UBERON:0001268). UBERON:0001268 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -8998,22 +9695,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dysregulated-peritoneal-metalloproteinase-activity">Dysregulated Peritoneal Metalloproteinase Activity</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Multiplexed quantification of MMP and ADAM activities in peritoneal fluid, resolving endometriosis-associated decreases in MMP-2 and ADAM-9 activity.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dysregulated-peritoneal-metalloproteinase-activity">Dysregulated Peritoneal Metalloproteinase Activity</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Multiplexed quantification of MMP and ADAM activities in peritoneal fluid, resolving endometriosis-associated decreases in MMP-2 and ADAM-9 activity.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9038,6 +9741,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23157326" target="_blank">PMID:23157326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9074,6 +9778,9 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -9090,7 +9797,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Endometriosis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-06-03T15:44:34Z&#39;
 description: &gt;-
   Endometrial-like tissue, seeded in part through retrograde menstruation, implants and grows at ectopic sites on the ovaries, peritoneum, and pelvic organs.
   These lesions are estrogen-dependent and progesterone-resistant, sustaining chronic pelvic inflammation, immune evasion, and hypoxia-driven neoangiogenesis.
@@ -10326,6 +11032,7 @@ clinical_trials:
       label: Pelvic pain
   evidence:
   - reference: clinicaltrials:NCT03928288
+    reference_title: &#34;Novel, Non-Hormonal Therapy for the Treatment of Chronic Pain Due to Endometriosis in Adolescent and Adult Women&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;repurposing an existing drug, cabergoline, as a safe, alternative angiogenesis inhibitor for adolescents and young women with endometriosis&#34;
@@ -10348,6 +11055,7 @@ clinical_trials:
       label: Pelvic pain
   evidence:
   - reference: clinicaltrials:NCT04046081
+    reference_title: &#34;A Single-arm Open Label Exploratory Clinical Trial to Evaluate Dichloroacetate (DCA) as a Possible Treatment for Endometriosis-associated Pain&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;single-arm open label exploratory clinical trial to evaluate dichloroacetate (DCA)&#34;
@@ -10951,7 +11659,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Endometriosis", "mondoId": "MONDO:0005133", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Endometriosis", "yamlRevision": "9150f82cbe5d"};
+        const OS_CONFIG = {"diseaseName": "Endometriosis", "mondoId": "MONDO:0005133", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Endometriosis", "yamlRevision": "bbfd16995ff3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11370,5 +12078,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

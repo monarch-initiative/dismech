@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Acute Hepatitis C Virus Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Hepatitis C Virus Infection</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Acute%20Hepatitis%20C%20Virus%20Infection"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3705,7 +3909,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3742,7 +3946,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3811,29 +4015,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3895,16 +4177,71 @@
 
                             <span class="crosslink-desc">-&gt;</span>
 
+                            <a href="#pathophysiology-hcv-polyprotein-translation">HCV Polyprotein Translation</a>
+
+
+                            <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
+
+
+                            <span class="crosslink-desc">Productive hepatocyte entry and genome release permit translation of the HCV polyprotein.</span>
+
+
+                            <span class="crosslink-desc">Intermediates: Endosomal fusion and release of the positive-sense viral RNA genome</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-hcv-polyprotein-translation">HCV Polyprotein Translation</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-hcv-ns3-4a-dependent-processing-of-the-nonstructural-polyprotein">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</a>
+
+
+                            <span class="crosslink-meta">DIRECT</span>
+
+
+                            <span class="crosslink-desc">The viral NS3/4A serine protease cleaves defined sites in the nonstructural region of the HCV polyprotein.</span>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-hcv-ns3-4a-dependent-processing-of-the-nonstructural-polyprotein">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
                             <a href="#pathophysiology-hcv-genome-replication-and-early-viremia">HCV genome replication and early viremia</a>
 
 
                             <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
 
 
-                            <span class="crosslink-desc">Productive hepatocyte entry permits intracellular infection followed by detectable circulating HCV RNA.</span>
+                            <span class="crosslink-desc">NS3/4A-dependent processing releases nonstructural proteins required for HCV genome replication.</span>
 
 
-                            <span class="crosslink-desc">Intermediates: Endosomal fusion and release of the positive-sense viral RNA genome; Translation and membrane-associated genome replication</span>
+                            <span class="crosslink-desc">Intermediates: Release of processed HCV nonstructural proteins; Assembly of the HCV replication complex</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-hcv-ns3-4a-dependent-processing-of-the-nonstructural-polyprotein">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-ns3-4a-mediated-innate-immune-evasion">NS3/4A-mediated innate immune evasion</a>
+
+
+                            <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
+
+
+                            <span class="crosslink-desc">Processed active NS3/4A also cleaves the host innate-sensing adaptors MAVS and TRIF, suppressing interferon induction.</span>
+
+
+                            <span class="crosslink-desc">Intermediates: Release and assembly of the active NS3/4A protease complex</span>
 
                         </div>
 
@@ -3924,25 +4261,6 @@
 
 
                             <span class="crosslink-desc">Intermediates: Viral RNA sensing and type I interferon induction</span>
-
-                        </div>
-
-                        <div class="crosslink-item">
-
-                            <a href="#pathophysiology-hcv-genome-replication-and-early-viremia">HCV genome replication and early viremia</a>
-
-                            <span class="crosslink-desc">-&gt;</span>
-
-                            <a href="#pathophysiology-ns3-4a-mediated-innate-immune-evasion">NS3/4A-mediated innate immune evasion</a>
-
-
-                            <span class="crosslink-meta">INDIRECT KNOWN INTERMEDIATES</span>
-
-
-                            <span class="crosslink-desc">Viral NS3/4A protease activity in infected cells cleaves host innate-sensing adaptors and reduces interferon induction.</span>
-
-
-                            <span class="crosslink-desc">Intermediates: Translation and processing of the HCV polyprotein to active NS3/4A protease</span>
 
                         </div>
 
@@ -4189,6 +4507,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25443342" target="_blank">PMID:25443342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4293,6 +4612,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40956619" target="_blank">PMID:40956619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4384,6 +4704,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40956619" target="_blank">PMID:40956619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4435,7 +4756,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Elevated hepatic transaminases</span>
+    <a class="entity-ref-chip" href="#phenotype-elevated-hepatic-transaminases">phenotypes#Elevated hepatic transaminases</a>
 
 
 
@@ -4462,6 +4783,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34905514" target="_blank">PMID:34905514</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4549,6 +4871,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21139063" target="_blank">PMID:21139063</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4581,7 +4904,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">12</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-attachment-and-hepatocyte-entry" data-dismech-node="HCV attachment and hepatocyte entry" data-dismech-type="pathophysiology">
@@ -4604,16 +4927,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4640,16 +4968,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         symbiont entry into host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046718">GO:0046718</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0046718</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4676,19 +5009,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4698,9 +5037,9 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">HCV genome replication and early viremia</span>
+	                            <span class="crosslink-meta">HCV Polyprotein Translation</span>
 
-	                            <span class="crosslink-desc">Productive hepatocyte entry permits intracellular infection followed by detectable circulating HCV RNA.</span>
+	                            <span class="crosslink-desc">Productive hepatocyte entry and genome release permit translation of the HCV polyprotein.</span>
 
 
                                 <span class="tag-list" style="margin-top: 4px;">
@@ -4733,6 +5072,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31427285" target="_blank">PMID:31427285</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4756,10 +5096,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-genome-replication-and-early-viremia" data-dismech-node="HCV genome replication and early viremia" data-dismech-type="pathophysiology">
-                <div class="item-name">HCV genome replication and early viremia</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-polyprotein-translation" data-dismech-node="HCV Polyprotein Translation" data-dismech-type="pathophysiology">
+                <div class="item-name">HCV Polyprotein Translation</div>
 
-                <div class="item-desc">Productive acute infection is marked by circulating HCV RNA. In one tertiary-center cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort proportion is not assigned as a universal frequency.</div>
+                <div class="item-desc">The positive-sense HCV RNA genome is translated as a single long polyprotein in infected hepatocytes. Host and viral proteases subsequently process this precursor into structural and nonstructural proteins.</div>
 
 
                 <div class="item-meta">
@@ -4776,16 +5116,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4812,16 +5157,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        viral genome replication
+                        Viral Gene Expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019080</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral Gene Expression (GO:0019080). GO:0019080 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4848,19 +5198,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4870,9 +5226,232 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Interferon-driven innate and NK-cell activation</span>
+	                            <span class="crosslink-meta">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</span>
 
-	                            <span class="crosslink-desc">Acute HCV infection is accompanied by a transient type-I-interferon-imprinted activated NK-cell population.</span>
+	                            <span class="crosslink-desc">The viral NS3/4A serine protease cleaves defined sites in the nonstructural region of the HCV polyprotein.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-canonical-acute-hcv-clearance-persistence-model">Host-virus response balance determines clearance or persistence</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22558217" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22558217" target="_blank">PMID:22558217</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The hepatitis C virus (HCV) genome encodes a long polyprotein, which is processed by host cell and viral proteases to the individual structural and non-structural (NS) proteins."</div>
+
+
+                <div class="evidence-explanation">The primary cleavage-assay study establishes the HCV polyprotein precursor and its processing into individual viral proteins.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-ns3-4a-dependent-processing-of-the-nonstructural-polyprotein" data-dismech-node="HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein" data-dismech-type="pathophysiology">
+                <div class="item-name">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</div>
+
+                <div class="item-desc">HCV NS3/4A is a virus-encoded serine protease complex that cleaves four defined junctions in the nonstructural region of the HCV polyprotein. This processing is essential for viral replication and produces active viral proteins, including NS3/4A itself. The active protease can also cleave host innate-sensing adaptors, a distinct downstream immune-evasion effect.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-canonical-acute-hcv-clearance-persistence-model">Host-virus response balance determines clearance or persistence</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        hepatocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000182</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Viral Protein Processing
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0019082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral Protein Processing (GO:0019082). GO:0019082 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Peptidase Activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008233</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves Peptidase Activity (GO:0008233). GO:0008233 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        liver
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002107</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">HCV genome replication and early viremia</span>
+
+	                            <span class="crosslink-desc">NS3/4A-dependent processing releases nonstructural proteins required for HCV genome replication.</span>
 
 
                                 <span class="tag-list" style="margin-top: 4px;">
@@ -4891,7 +5470,219 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">NS3/4A-mediated innate immune evasion</span>
 
-	                            <span class="crosslink-desc">Viral NS3/4A protease activity in infected cells cleaves host innate-sensing adaptors and reduces interferon induction.</span>
+	                            <span class="crosslink-desc">Processed active NS3/4A also cleaves the host innate-sensing adaptors MAVS and TRIF, suppressing interferon induction.</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-canonical-acute-hcv-clearance-persistence-model">Host-virus response balance determines clearance or persistence</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22558217" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22558217" target="_blank">PMID:22558217</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NS3/4A cleaves the polyprotein sequence at four specific regions."</div>
+
+
+                <div class="evidence-explanation">The primary cleavage-assay study directly establishes four specific NS3/4A-dependent polyprotein cleavage regions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22558217" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22558217" target="_blank">PMID:22558217</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NS3/4A is essential for viral replication and has been considered an attractive drug target."</div>
+
+
+                <div class="evidence-explanation">The study directly links NS3/4A activity to viral replication and its therapeutic vulnerability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcv-genome-replication-and-early-viremia" data-dismech-node="HCV genome replication and early viremia" data-dismech-type="pathophysiology">
+                <div class="item-name">HCV genome replication and early viremia</div>
+
+                <div class="item-desc">Processed HCV nonstructural proteins assemble the replication complex that synthesizes viral RNA in infected hepatocytes, producing the circulating HCV RNA that marks productive acute infection. In one tertiary-center cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort proportion is not assigned as a universal frequency.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-canonical-acute-hcv-clearance-persistence-model">Host-virus response balance determines clearance or persistence</a>
+
+                    </span>
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        hepatocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000182</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Viral RNA Genome Replication
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0039694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0039694</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral RNA Genome Replication (GO:0039694). GO:0039694 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        liver
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002107</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Interferon-driven innate and NK-cell activation</span>
+
+	                            <span class="crosslink-desc">Acute HCV infection is accompanied by a transient type-I-interferon-imprinted activated NK-cell population.</span>
 
 
                                 <span class="tag-list" style="margin-top: 4px;">
@@ -4943,6 +5734,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4986,16 +5778,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         natural killer cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5022,16 +5819,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         natural killer cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030101" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030101">GO:0030101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased natural killer cell activation (GO:0030101). GO:0030101 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5051,16 +5853,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5081,6 +5888,7 @@
 
 
                 </div>
+
 
 
 
@@ -5128,6 +5936,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41453396" target="_blank">PMID:41453396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5171,16 +5980,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5207,15 +6021,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MAVS
 
 
-    <a href="https://bioregistry.io/hgnc:29233" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29233">hgnc:29233</a>
+    <a href="https://bioregistry.io/hgnc:29233" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:29233</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAVS (hgnc:29233). hgnc:29233 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5243,16 +6064,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         symbiont-mediated suppression of host type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0039502">GO:0039502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0039502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased symbiont-mediated suppression of host type I interferon-mediated signaling pathway (GO:0039502). GO:0039502 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5272,16 +6098,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5302,6 +6133,7 @@
 
 
                 </div>
+
 
 
 
@@ -5349,6 +6181,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25443342" target="_blank">PMID:25443342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5370,6 +6203,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25443342" target="_blank">PMID:25443342</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5421,16 +6255,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5457,16 +6296,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5487,6 +6331,7 @@
 
 
                 </div>
+
 
 
 
@@ -5586,6 +6431,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21139063" target="_blank">PMID:21139063</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5607,6 +6453,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40956619" target="_blank">PMID:40956619</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5658,15 +6505,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IFNL3
 
 
-    <a href="https://bioregistry.io/hgnc:18365" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18365">hgnc:18365</a>
+    <a href="https://bioregistry.io/hgnc:18365" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:18365</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IFNL3 (hgnc:18365). hgnc:18365 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5686,6 +6540,7 @@
 
 
                 </div>
+
 
 
 
@@ -5738,6 +6593,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19759533" target="_blank">PMID:19759533</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5777,16 +6633,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5816,6 +6677,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5827,6 +6689,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5871,16 +6734,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5907,16 +6775,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral genome replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5937,6 +6810,7 @@
 
 
                 </div>
+
 
 
 
@@ -5984,6 +6858,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25443342" target="_blank">PMID:25443342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6016,16 +6891,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6052,16 +6932,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0016032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased viral process (GO:0016032). GO:0016032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6091,6 +6976,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6102,6 +6988,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39599853" target="_blank">PMID:39599853</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6146,16 +7033,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6185,19 +7077,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6318,6 +7216,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34905514" target="_blank">PMID:34905514</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6366,7 +7265,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alanine aminotransferase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased or fluctuating during acute hepatocellular injury\", \"readouts\": [{\"target\": \"Immune-associated hepatocellular injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ALT is a biochemical readout of liver injury, not proof of a particular immune effector mechanism.\"}]}}, {\"id\": \"Anorexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of appetite is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002039\"}}, {\"id\": \"Blood-exposure risk contexts\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Injection drug use and unsafe medical procedures increase the opportunity for blood-borne HCV acquisition; HIV coinfection identifies an important clinical risk context but is not itself a transmission route.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic hepatitis C virus infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HCV is the natural-history outcome in which viremia persists for more than six months after recent acquisition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral process\"]}}, {\"id\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen produced high sustained virologic response rates in a completed single-arm phase IIIb study of adults with acute HCV. The absence of a randomized untreated comparator and geography-specific regulatory status should be considered when applying the result.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glecaprevir\", \"pibrentasvir\"]}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum ALT is a biochemical readout of acute hepatocellular injury.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Immune-associated hepatocellular injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher serum transaminases report greater hepatocellular injury but do not identify the responsible immune-cell population.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HCV RNA\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Detected during active infection\", \"readouts\": [{\"target\": \"HCV genome replication and early viremia\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detectable circulating HCV RNA reports active viremia.\"}]}}, {\"id\": \"HCV attachment and hepatocyte entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV first attaches to cell-surface proteoglycans, SR-BI, and CD81, then uses the tight-junction proteins claudin-1 and occludin and clathrin-mediated endocytosis to enter human liver cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"locations\": [\"liver\"]}}, {\"id\": \"HCV genome replication and early viremia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Productive acute infection is marked by circulating HCV RNA. In one tertiary-center cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort proportion is not assigned as a universal frequency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral genome replication\"], \"locations\": [\"liver\"]}}, {\"id\": \"HCV-specific adaptive immune response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Virus-specific T-cell responses emerge after the early innate response. Strong multispecific responses are associated with spontaneous clearance, whereas the recent liver-enriched Tfh1-like helper-cell refinement is based on chimpanzee data and remains unconfirmed in humans.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"]}}, {\"id\": \"IFNL3 rs12979860 host-clearance modifier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rs12979860 C/C genotype near IFNL3 (formerly IL28B) is associated with a higher probability of untreated HCV clearance in both European- and African-ancestry cohorts. The associated locus is established, but its precise functional mechanism remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IFNL3\"], \"gene_terms\": [{\"label\": \"IFNL3\", \"id\": \"hgnc:18365\"}], \"role\": \"susceptibility\"}}, {\"id\": \"Immune-associated hepatocellular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocellular injury during acute HCV releases alanine aminotransferase and may produce symptomatic hepatitis. Human iNKT-cell activation correlates with ALT, but available data do not determine whether those cells cause injury or respond to the same inflammatory drivers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Interferon-driven innate and NK-cell activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During acute HCV, a highly activated NK-cell subset shows a strong type I interferon imprint and largely returns toward baseline after viral clearance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell activation\", \"type I interferon-mediated signaling pathway\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice occurs in a subset of clinically apparent acute-HCV presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"NS3/4A-mediated innate immune evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV NS3/4A protease cleaves and inactivates MAVS and TRIF, blunting pathogen-sensing pathways that induce interferons. Viral escape mutations can additionally reduce antibody and T-cell recognition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"symbiont-mediated suppression of host type I interferon-mediated signaling pathway\", \"type I interferon-mediated signaling pathway\"], \"genes\": [\"MAVS\"], \"gene_terms\": [{\"label\": \"MAVS\", \"id\": \"hgnc:29233\"}]}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002018\"}}, {\"id\": \"Persistent HCV viremia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When host responses do not eradicate HCV, viremia persists despite ongoing innate and adaptive responses and can progress to chronic infection.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral genome replication\"]}}, {\"id\": \"Spontaneous viral clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some acute infections lose detectable viremia without antiviral therapy. Clearance proportions vary by population and ascertainment; a small tertiary-center cohort observed clearance in 9 of 30 patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to virus\"]}}], \"edges\": [{\"source\": \"HCV attachment and hepatocyte entry\", \"target\": \"HCV genome replication and early viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Productive hepatocyte entry permits intracellular infection followed by detectable circulating HCV RNA.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Endosomal fusion and release of the positive-sense viral RNA genome\", \"Translation and membrane-associated genome replication\"]}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"Interferon-driven innate and NK-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute HCV infection is accompanied by a transient type-I-interferon-imprinted activated NK-cell population.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Viral RNA sensing and type I interferon induction\"]}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"NS3/4A-mediated innate immune evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral NS3/4A protease activity in infected cells cleaves host innate-sensing adaptors and reduces interferon induction.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Translation and processing of the HCV polyprotein to active NS3/4A protease\"]}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"Immune-associated hepatocellular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute HCV viremia is associated with inflammatory immune activation and hepatocellular injury, but the exact direction and cell-specific causal contribution remain unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Interferon-driven innate and NK-cell activation\", \"target\": \"HCV-specific adaptive immune response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early interferon-associated innate activation precedes the later adaptive response associated with control or persistence, but the cited temporal pattern does not establish that NK-cell activation causes the adaptive response.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"NS3/4A-mediated innate immune evasion\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed interferon induction and escape from immune recognition are proposed contributors to failure of viral clearance, but their specific causal contribution to persistence is not isolated by the cited review.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Spontaneous viral clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early multispecific T-cell responses and low viral diversity are associated with untreated clearance, without establishing that the measured response is independently causal.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\", \"intrahepatic_tfh1_helper_refinement\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Immune-associated hepatocellular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated immune-cell populations track with biochemical hepatitis, but their causal contribution to hepatocyte killing remains unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\", \"intrahepatic_tfh1_helper_refinement\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adaptive responses can remain ongoing yet fail to clear immune-escape variants.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Incomplete effector control\", \"Viral escape from antibody and T-cell recognition\"]}, {\"source\": \"IFNL3 rs12979860 host-clearance modifier\", \"target\": \"Spontaneous viral clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"rs12979860 C/C is associated with spontaneous HCV clearance, while the molecular intermediates and causal mechanism remain unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Persistent HCV viremia\", \"target\": \"Chronic hepatitis C virus infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viremia persisting beyond six months meets the definition of chronic HCV infection.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular injury is reflected by increased circulating ALT and other hepatic transaminases.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinically apparent acute hepatitis can impair bilirubin handling and present with jaundice.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatocellular dysfunction and impaired bilirubin handling\"]}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include nausea through incompletely resolved systemic and gastrointestinal intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include fatigue through incompletely resolved systemic inflammatory intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Anorexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include loss of appetite through incompletely resolved systemic and gastrointestinal intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Blood-exposure risk contexts\", \"target\": \"HCV attachment and hepatocyte entry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Hepatitis C is efficiently transmitted percutaneously, so unsafe injection and unsterile medical procedures put virus directly into blood, from which it reaches and attaches to hepatocytes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"target\": \"HCV genome replication and early viremia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"HCV RNA\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detectable circulating HCV RNA reports active viremia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Alanine aminotransferase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ALT is a biochemical readout of liver injury, not proof of a particular immune effector mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum transaminases report greater hepatocellular injury but do not identify the responsible immune-cell population.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alanine aminotransferase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Increased or fluctuating during acute hepatocellular injury\", \"readouts\": [{\"target\": \"Immune-associated hepatocellular injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"ALT is a biochemical readout of liver injury, not proof of a particular immune effector mechanism.\"}]}}, {\"id\": \"Anorexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of appetite is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002039\"}}, {\"id\": \"Blood-exposure risk contexts\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Injection drug use and unsafe medical procedures increase the opportunity for blood-borne HCV acquisition; HIV coinfection identifies an important clinical risk context but is not itself a transmission route.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic hepatitis C virus infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HCV is the natural-history outcome in which viremia persists for more than six months after recent acquisition.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral process\"]}}, {\"id\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen produced high sustained virologic response rates in a completed single-arm phase IIIb study of adults with acute HCV. Glecaprevir is the regimen\u0027s NS3/4A protease inhibitor, whereas pibrentasvir inhibits NS5A. The absence of a randomized untreated comparator and geography-specific regulatory status should be considered when applying the result.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glecaprevir\", \"pibrentasvir\"]}}, {\"id\": \"Elevated hepatic transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated serum ALT is a biochemical readout of acute hepatocellular injury.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Immune-associated hepatocellular injury\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Higher serum transaminases report greater hepatocellular injury but do not identify the responsible immune-cell population.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV NS3/4A is a virus-encoded serine protease complex that cleaves four defined junctions in the nonstructural region of the HCV polyprotein. This processing is essential for viral replication and produces active viral proteins, including NS3/4A itself. The active protease can also cleave host innate-sensing adaptors, a distinct downstream immune-evasion effect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"Viral Protein Processing\"], \"molecular_functions\": [\"Peptidase Activity\"], \"role\": \"therapeutic_vulnerability\", \"locations\": [\"liver\"]}}, {\"id\": \"HCV Polyprotein Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The positive-sense HCV RNA genome is translated as a single long polyprotein in infected hepatocytes. Host and viral proteases subsequently process this precursor into structural and nonstructural proteins.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"Viral Gene Expression\"], \"role\": \"trigger\", \"locations\": [\"liver\"]}}, {\"id\": \"HCV RNA\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Detected during active infection\", \"readouts\": [{\"target\": \"HCV genome replication and early viremia\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detectable circulating HCV RNA reports active viremia.\"}]}}, {\"id\": \"HCV attachment and hepatocyte entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV first attaches to cell-surface proteoglycans, SR-BI, and CD81, then uses the tight-junction proteins claudin-1 and occludin and clathrin-mediated endocytosis to enter human liver cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"locations\": [\"liver\"]}}, {\"id\": \"HCV genome replication and early viremia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Processed HCV nonstructural proteins assemble the replication complex that synthesizes viral RNA in infected hepatocytes, producing the circulating HCV RNA that marks productive acute infection. In one tertiary-center cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort proportion is not assigned as a universal frequency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"Viral RNA Genome Replication\"], \"role\": \"effector\", \"locations\": [\"liver\"]}}, {\"id\": \"HCV-specific adaptive immune response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Virus-specific T-cell responses emerge after the early innate response. Strong multispecific responses are associated with spontaneous clearance, whereas the recent liver-enriched Tfh1-like helper-cell refinement is based on chimpanzee data and remains unconfirmed in humans.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"]}}, {\"id\": \"IFNL3 rs12979860 host-clearance modifier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rs12979860 C/C genotype near IFNL3 (formerly IL28B) is associated with a higher probability of untreated HCV clearance in both European- and African-ancestry cohorts. The associated locus is established, but its precise functional mechanism remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IFNL3\"], \"gene_terms\": [{\"label\": \"IFNL3\", \"id\": \"hgnc:18365\"}], \"role\": \"susceptibility\"}}, {\"id\": \"Immune-associated hepatocellular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocellular injury during acute HCV releases alanine aminotransferase and may produce symptomatic hepatitis. Human iNKT-cell activation correlates with ALT, but available data do not determine whether those cells cause injury or respond to the same inflammatory drivers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"locations\": [\"liver\"]}}, {\"id\": \"Interferon-driven innate and NK-cell activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During acute HCV, a highly activated NK-cell subset shows a strong type I interferon imprint and largely returns toward baseline after viral clearance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell activation\", \"type I interferon-mediated signaling pathway\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice occurs in a subset of clinically apparent acute-HCV presentations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"NS3/4A-mediated innate immune evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HCV NS3/4A protease cleaves and inactivates MAVS and TRIF, blunting pathogen-sensing pathways that induce interferons. Viral escape mutations can additionally reduce antibody and T-cell recognition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"symbiont-mediated suppression of host type I interferon-mediated signaling pathway\", \"type I interferon-mediated signaling pathway\"], \"genes\": [\"MAVS\"], \"gene_terms\": [{\"label\": \"MAVS\", \"id\": \"hgnc:29233\"}]}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea is a possible symptom of clinically apparent acute hepatitis C.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002018\"}}, {\"id\": \"Persistent HCV viremia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When host responses do not eradicate HCV, viremia persists despite ongoing innate and adaptive responses and can progress to chronic infection.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"viral genome replication\"]}}, {\"id\": \"Spontaneous viral clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some acute infections lose detectable viremia without antiviral therapy. Clearance proportions vary by population and ascertainment; a small tertiary-center cohort observed clearance in 9 of 30 patients.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to virus\"]}}], \"edges\": [{\"source\": \"HCV attachment and hepatocyte entry\", \"target\": \"HCV Polyprotein Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Productive hepatocyte entry and genome release permit translation of the HCV polyprotein.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Endosomal fusion and release of the positive-sense viral RNA genome\"]}, {\"source\": \"HCV Polyprotein Translation\", \"target\": \"HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The viral NS3/4A serine protease cleaves defined sites in the nonstructural region of the HCV polyprotein.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein\", \"target\": \"HCV genome replication and early viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NS3/4A-dependent processing releases nonstructural proteins required for HCV genome replication.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release of processed HCV nonstructural proteins\", \"Assembly of the HCV replication complex\"]}, {\"source\": \"HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein\", \"target\": \"NS3/4A-mediated innate immune evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Processed active NS3/4A also cleaves the host innate-sensing adaptors MAVS and TRIF, suppressing interferon induction.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release and assembly of the active NS3/4A protease complex\"]}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"Interferon-driven innate and NK-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute HCV infection is accompanied by a transient type-I-interferon-imprinted activated NK-cell population.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Viral RNA sensing and type I interferon induction\"]}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"Immune-associated hepatocellular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute HCV viremia is associated with inflammatory immune activation and hepatocellular injury, but the exact direction and cell-specific causal contribution remain unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Interferon-driven innate and NK-cell activation\", \"target\": \"HCV-specific adaptive immune response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early interferon-associated innate activation precedes the later adaptive response associated with control or persistence, but the cited temporal pattern does not establish that NK-cell activation causes the adaptive response.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"NS3/4A-mediated innate immune evasion\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppressed interferon induction and escape from immune recognition are proposed contributors to failure of viral clearance, but their specific causal contribution to persistence is not isolated by the cited review.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Spontaneous viral clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early multispecific T-cell responses and low viral diversity are associated with untreated clearance, without establishing that the measured response is independently causal.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\", \"intrahepatic_tfh1_helper_refinement\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Immune-associated hepatocellular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated immune-cell populations track with biochemical hepatitis, but their causal contribution to hepatocyte killing remains unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\", \"intrahepatic_tfh1_helper_refinement\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HCV-specific adaptive immune response\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adaptive responses can remain ongoing yet fail to clear immune-escape variants.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Incomplete effector control\", \"Viral escape from antibody and T-cell recognition\"]}, {\"source\": \"IFNL3 rs12979860 host-clearance modifier\", \"target\": \"Spontaneous viral clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"rs12979860 C/C is associated with spontaneous HCV clearance, while the molecular intermediates and causal mechanism remain unresolved.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Persistent HCV viremia\", \"target\": \"Chronic hepatitis C virus infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viremia persisting beyond six months meets the definition of chronic HCV infection.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular injury is reflected by increased circulating ALT and other hepatic transaminases.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clinically apparent acute hepatitis can impair bilirubin handling and present with jaundice.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatocellular dysfunction and impaired bilirubin handling\"]}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include nausea through incompletely resolved systemic and gastrointestinal intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include fatigue through incompletely resolved systemic inflammatory intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Anorexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Symptomatic acute hepatitis can include loss of appetite through incompletely resolved systemic and gastrointestinal intermediates.\", \"hypothesis_groups\": [\"canonical_acute_hcv_clearance_persistence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Blood-exposure risk contexts\", \"target\": \"HCV attachment and hepatocyte entry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Hepatitis C is efficiently transmitted percutaneously, so unsafe injection and unsterile medical procedures put virus directly into blood, from which it reaches and attaches to hepatocytes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"target\": \"HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"target\": \"HCV genome replication and early viremia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Eight-week glecaprevir/pibrentasvir therapy\", \"target\": \"Persistent HCV viremia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HCV genome replication and early viremia\", \"target\": \"HCV RNA\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detectable circulating HCV RNA reports active viremia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Alanine aminotransferase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"ALT is a biochemical readout of liver injury, not proof of a particular immune effector mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Immune-associated hepatocellular injury\", \"target\": \"Elevated hepatic transaminases\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum transaminases report greater hepatocellular injury but do not identify the responsible immune-cell population.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6407,14 +7306,21 @@
                         Jaundice
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6434,6 +7340,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19124916" target="_blank">PMID:19124916</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6466,14 +7373,21 @@
                         Nausea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6493,6 +7407,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6525,14 +7440,21 @@
                         Anorexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anorexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002039">HP:0002039</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002039</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6552,6 +7474,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6593,14 +7516,23 @@
                         Elevated hepatic transaminases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6620,6 +7552,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19124916" target="_blank">PMID:19124916</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6661,14 +7594,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6688,6 +7628,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29642211" target="_blank">PMID:29642211</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6766,13 +7707,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IFNL3
 
 
-    <a href="https://bioregistry.io/hgnc:18365" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18365">hgnc:18365</a>
+    <a href="https://bioregistry.io/hgnc:18365" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:18365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFNL3 (hgnc:18365). hgnc:18365 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6797,6 +7743,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19759533" target="_blank">PMID:19759533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6828,6 +7775,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6843,7 +7793,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiviral therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antiviral Therapy</span>
 
 
@@ -6892,6 +7847,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/hep.31060" target="_blank">DOI:10.1002/hep.31060</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6921,7 +7877,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiviral therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antiviral Therapy</span>
 
 
@@ -6952,17 +7913,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         glecaprevir
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170029" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170029">NCIT:C170029</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170029" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C170029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses glecaprevir (NCIT:C170029). NCIT:C170029 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         pibrentasvir
@@ -6970,21 +7938,93 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166601" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C166601">NCIT:C166601</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166601" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C166601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pibrentasvir (NCIT:C166601). NCIT:C166601 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen produced high sustained virologic response rates in a completed single-arm phase IIIb study of adults with acute HCV. The absence of a randomized untreated comparator and geography-specific regulatory status should be considered when applying the result.</div>
+                <div class="item-desc">An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen produced high sustained virologic response rates in a completed single-arm phase IIIb study of adults with acute HCV. Glecaprevir is the regimen&#39;s NS3/4A protease inhibitor, whereas pibrentasvir inhibits NS5A. The absence of a randomized untreated comparator and geography-specific regulatory status should be considered when applying the result.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The glecaprevir component directly inhibits HCV NS3/4A protease and therefore blocks NS3/4A-dependent nonstructural-polyprotein processing. Pibrentasvir acts through NS5A and is not represented by this protease-target edge.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29084747" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29084747" target="_blank">PMID:29084747</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Glecaprevir (formerly ABT-493) is a novel hepatitis C virus (HCV) NS3/4A protease inhibitor (PI) with pangenotypic activity."</div>
+
+
+                <div class="evidence-explanation">The primary biochemical study directly identifies glecaprevir as an HCV NS3/4A protease inhibitor.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29084747" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29084747" target="_blank">PMID:29084747</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It inhibited the enzymatic activity of purified NS3/4A proteases from HCV genotypes 1 to 6 in vitro"</div>
+
+
+                <div class="evidence-explanation">The biochemical assay directly demonstrates glecaprevir inhibition of purified HCV NS3/4A proteases across genotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
 
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
@@ -7007,6 +8047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41297677" target="_blank">PMID:41297677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7053,6 +8094,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41297677" target="_blank">PMID:41297677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7094,6 +8136,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41297677" target="_blank">PMID:41297677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7115,6 +8158,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41297677" target="_blank">PMID:41297677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7154,6 +8198,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-blood-exposure-risk-contexts" data-dismech-node="Blood-exposure risk contexts" data-dismech-type="environmental">
                 <div class="item-name">Blood-exposure risk contexts</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        blood exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000110" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:7000110</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is blood exposure, annotated with exposure to blood (ECTO:7000110). ECTO:7000110 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Injection drug use and unsafe medical procedures increase the opportunity for blood-borne HCV acquisition; HIV coinfection identifies an important clinical risk context but is not itself a transmission route.</div>
@@ -7171,6 +8242,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36800699" target="_blank">PMID:36800699</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7220,6 +8292,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36800699" target="_blank">PMID:36800699</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7308,6 +8381,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23481134" target="_blank">PMID:23481134</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7347,6 +8421,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927209" target="_blank">PMID:30927209</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7396,6 +8471,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927209" target="_blank">PMID:30927209</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7468,6 +8544,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34905514" target="_blank">PMID:34905514</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7507,6 +8584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19124916" target="_blank">PMID:19124916</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7548,7 +8626,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-drug-induced-liver-injury">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Drug-induced liver injury</span>
@@ -7596,6 +8674,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927209" target="_blank">PMID:30927209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7621,7 +8700,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-viral-autoimmune-and-biliary-causes-of-acute-hepatocellular-injury">
                 <div class="item-name">
 
                     Other viral, autoimmune, and biliary causes of acute hepatocellular injury
@@ -7664,6 +8743,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927209" target="_blank">PMID:30927209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7699,7 +8779,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse119117">
                 <div class="item-name">
                     Longitudinal transcriptomic characterization of the immune response to acute hepatitis C virus infection
 
@@ -7742,7 +8822,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse267834">
                 <div class="item-name">
                     Hepatitis C Virus-induced Differential Transcriptional Traits in Host Cells After Persistent Infection Elimination by Direct-Acting Antivirals In Cell Culture
 
@@ -7785,7 +8865,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse65123">
                 <div class="item-name">
                     Gene expression analysis during acute hepatitis C virus infection associates dendritic cell activation with viral clearance
 
@@ -7840,7 +8920,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04903626">
                 <div class="item-name">
                     NCT04903626
 
@@ -7868,6 +8948,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT04903626" target="_blank">clinicaltrials:NCT04903626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7889,6 +8970,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41297677" target="_blank">PMID:41297677</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7919,6 +9001,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7935,7 +9020,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Hepatitis C Virus Infection
 creation_date: &#39;2026-05-04T19:32:38Z&#39;
-updated_date: &#39;2026-07-09T13:20:18Z&#39;
 description: &gt;-
   Acute hepatitis C virus infection is the early phase after acquisition of
   hepatitis C virus (HCV), before either spontaneous viral clearance or
@@ -8025,6 +9109,11 @@ transmission:
     explanation: This acute-HCV cohort documents injection drug use and medical procedures as observed acquisition sources.
 environmental:
 - name: Blood-exposure risk contexts
+  exposure_term:
+    preferred_term: blood exposure
+    term:
+      id: ECTO:7000110
+      label: exposure to blood
   influences_mechanisms:
   - target: HCV attachment and hepatocyte entry
     environmental_effect: TRIGGERS
@@ -8236,14 +9325,15 @@ pathophysiology:
       (CLDN1) and occludin (OCLN) are essential for entry.
     explanation: This review directly supports the host-factor sequence in the entry node.
   downstream:
-  - target: HCV genome replication and early viremia
-    description: Productive hepatocyte entry permits intracellular infection followed by detectable circulating HCV RNA.
+  - target: HCV Polyprotein Translation
+    description: &gt;-
+      Productive hepatocyte entry and genome release permit translation of the
+      HCV polyprotein.
     hypothesis_groups:
     - canonical_acute_hcv_clearance_persistence_model
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     intermediate_mechanisms:
     - Endosomal fusion and release of the positive-sense viral RNA genome
-    - Translation and membrane-associated genome replication
     evidence:
     - reference: PMID:31427285
       reference_title: &#34;Hepatitis C Virus Entry: Protein Interactions and Fusion Determinants Governing Productive Hepatocyte Invasion.&#34;
@@ -8252,12 +9342,18 @@ pathophysiology:
       snippet: &gt;-
         Numerous host factors including proteins, lipids, and glycans promote
         productive uptake of HCV particles into human liver cells.
-      explanation: Productive uptake supports the entry side of this edge; downstream viremia is independently evidenced at the target node.
-- name: HCV genome replication and early viremia
+      explanation: &gt;-
+        Productive uptake supports the entry side of the edge; polyprotein
+        translation after genome release is independently evidenced at the
+        target node.
+- name: HCV Polyprotein Translation
+  biological_scale: MOLECULAR
+  conforms_to: &#34;viral_protease_inhibition#Synthesis of the Viral Polyprotein Precursor&#34;
+  role: trigger
   description: &gt;-
-    Productive acute infection is marked by circulating HCV RNA. In one
-    tertiary-center cohort, RNA was detectable at presentation in 26 of 30
-    patients; this cohort proportion is not assigned as a universal frequency.
+    The positive-sense HCV RNA genome is translated as a single long
+    polyprotein in infected hepatocytes. Host and viral proteases subsequently
+    process this precursor into structural and nonstructural proteins.
   cell_types:
   - preferred_term: hepatocyte
     term:
@@ -8269,11 +9365,154 @@ pathophysiology:
       id: UBERON:0002107
       label: liver
   biological_processes:
-  - preferred_term: viral genome replication
+  - preferred_term: Viral Gene Expression
+    term:
+      id: GO:0019080
+      label: viral gene expression
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:22558217
+    reference_title: &#34;New details of HCV NS3/4A proteinase functionality revealed by a high-throughput cleavage assay.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The hepatitis C virus (HCV) genome encodes a long polyprotein, which is
+      processed by host cell and viral proteases to the individual structural
+      and non-structural (NS) proteins.
+    explanation: &gt;-
+      The primary cleavage-assay study establishes the HCV polyprotein
+      precursor and its processing into individual viral proteins.
+  downstream:
+  - target: HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein
+    description: &gt;-
+      The viral NS3/4A serine protease cleaves defined sites in the
+      nonstructural region of the HCV polyprotein.
+    hypothesis_groups:
+    - canonical_acute_hcv_clearance_persistence_model
+    causal_link_type: DIRECT
+- name: HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein
+  biological_scale: MOLECULAR
+  conforms_to: &#34;viral_protease_inhibition#Virus-Encoded Protease-Dependent Polyprotein Processing&#34;
+  role: therapeutic_vulnerability
+  description: &gt;-
+    HCV NS3/4A is a virus-encoded serine protease complex that cleaves four
+    defined junctions in the nonstructural region of the HCV polyprotein. This
+    processing is essential for viral replication and produces active viral
+    proteins, including NS3/4A itself. The active protease can also cleave host
+    innate-sensing adaptors, a distinct downstream immune-evasion effect.
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  biological_processes:
+  - preferred_term: Viral Protein Processing
+    term:
+      id: GO:0019082
+      label: viral protein processing
+    modifier: INCREASED
+  molecular_functions:
+  - preferred_term: Peptidase Activity
+    term:
+      id: GO:0008233
+      label: peptidase activity
+  evidence:
+  - reference: PMID:22558217
+    reference_title: &#34;New details of HCV NS3/4A proteinase functionality revealed by a high-throughput cleavage assay.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      NS3/4A cleaves the polyprotein sequence at four specific regions.
+    explanation: &gt;-
+      The primary cleavage-assay study directly establishes four specific
+      NS3/4A-dependent polyprotein cleavage regions.
+  - reference: PMID:22558217
+    reference_title: &#34;New details of HCV NS3/4A proteinase functionality revealed by a high-throughput cleavage assay.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      NS3/4A is essential for viral replication and has been considered an
+      attractive drug target.
+    explanation: &gt;-
+      The study directly links NS3/4A activity to viral replication and its
+      therapeutic vulnerability.
+  downstream:
+  - target: HCV genome replication and early viremia
+    description: &gt;-
+      NS3/4A-dependent processing releases nonstructural proteins required for
+      HCV genome replication.
+    hypothesis_groups:
+    - canonical_acute_hcv_clearance_persistence_model
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Release of processed HCV nonstructural proteins
+    - Assembly of the HCV replication complex
+    evidence:
+    - reference: PMID:22558217
+      reference_title: &#34;New details of HCV NS3/4A proteinase functionality revealed by a high-throughput cleavage assay.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        NS3/4A is essential for viral replication and has been considered an
+        attractive drug target.
+      explanation: &gt;-
+        The primary cleavage study directly links NS3/4A processing activity
+        to the viral-replication output represented by this edge.
+  - target: NS3/4A-mediated innate immune evasion
+    description: &gt;-
+      Processed active NS3/4A also cleaves the host innate-sensing adaptors MAVS
+      and TRIF, suppressing interferon induction.
+    hypothesis_groups:
+    - canonical_acute_hcv_clearance_persistence_model
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Release and assembly of the active NS3/4A protease complex
+    evidence:
+    - reference: PMID:25443342
+      reference_title: Innate and adaptive immune responses in HCV infections.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        the HCV NS3/4A protease can efficiently cleave and inactivate two
+        important signalling molecules in the sensory pathways that react to
+        HCV pathogen-associated molecular patterns (PAMPs) to induce IFNs,
+        i.e., the mitochondrial anti-viral signalling protein (MAVS) and the
+        Toll-IL-1 receptor-domain-containing adaptor-inducing IFN-β (TRIF).
+      explanation: &gt;-
+        The review directly supports cleavage of MAVS and TRIF by active
+        NS3/4A; release of that protease from the polyprotein is the stated
+        intermediate.
+- name: HCV genome replication and early viremia
+  biological_scale: CELLULAR
+  conforms_to: &#34;viral_protease_inhibition#Replication-Complex Formation and Viral RNA Replication&#34;
+  role: effector
+  description: &gt;-
+    Processed HCV nonstructural proteins assemble the replication complex that
+    synthesizes viral RNA in infected hepatocytes, producing the circulating
+    HCV RNA that marks productive acute infection. In one tertiary-center
+    cohort, RNA was detectable at presentation in 26 of 30 patients; this cohort
+    proportion is not assigned as a universal frequency.
+  cell_types:
+  - preferred_term: hepatocyte
+    term:
+      id: CL:0000182
+      label: hepatocyte
+  locations:
+  - preferred_term: liver
+    term:
+      id: UBERON:0002107
+      label: liver
+  biological_processes:
+  - preferred_term: Viral RNA Genome Replication
     modifier: INCREASED
     term:
-      id: GO:0019079
-      label: viral genome replication
+      id: GO:0039694
+      label: viral RNA genome replication
   evidence:
   - reference: PMID:23481134
     reference_title: &#34;Clinical characteristics, spontaneous clearance and treatment outcome of acute hepatitis C: a single tertiary center experience.&#34;
@@ -8298,25 +9537,6 @@ pathophysiology:
         At the transcriptomic level, we identified a subset of highly activated
         NK cells with a robust type I interferon imprint.
       explanation: Longitudinal human data directly support interferon-imprinted NK-cell activation during acute HCV.
-  - target: NS3/4A-mediated innate immune evasion
-    description: Viral NS3/4A protease activity in infected cells cleaves host innate-sensing adaptors and reduces interferon induction.
-    hypothesis_groups:
-    - canonical_acute_hcv_clearance_persistence_model
-    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-    intermediate_mechanisms:
-    - Translation and processing of the HCV polyprotein to active NS3/4A protease
-    evidence:
-    - reference: PMID:25443342
-      reference_title: Innate and adaptive immune responses in HCV infections.
-      supports: SUPPORT
-      evidence_source: IN_VITRO
-      snippet: &gt;-
-        the HCV NS3/4A protease can efficiently cleave and inactivate two
-        important signalling molecules in the sensory pathways that react to
-        HCV pathogen-associated molecular patterns (PAMPs) to induce IFNs,
-        i.e., the mitochondrial anti-viral signalling protein (MAVS) and the
-        Toll-IL-1 receptor-domain-containing adaptor-inducing IFN-β (TRIF).
-      explanation: This directly supports the viral-protease-to-innate-evasion mechanism.
   - target: Immune-associated hepatocellular injury
     description: &gt;-
       Acute HCV viremia is associated with inflammatory immune activation and
@@ -9094,9 +10314,11 @@ treatments:
   description: &gt;-
     An eight-week oral glecaprevir/pibrentasvir direct-acting antiviral regimen
     produced high sustained virologic response rates in a completed single-arm
-    phase IIIb study of adults with acute HCV. The absence of a randomized
-    untreated comparator and geography-specific regulatory status should be
-    considered when applying the result.
+    phase IIIb study of adults with acute HCV. Glecaprevir is the regimen&#39;s
+    NS3/4A protease inhibitor, whereas pibrentasvir inhibits NS5A. The absence
+    of a randomized untreated comparator and geography-specific regulatory
+    status should be considered when applying the result.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: antiviral therapy
     term:
@@ -9112,6 +10334,34 @@ treatments:
         id: NCIT:C166601
         label: Pibrentasvir
   target_mechanisms:
+  - target: HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein
+    treatment_effect: INHIBITS
+    description: &gt;-
+      The glecaprevir component directly inhibits HCV NS3/4A protease and
+      therefore blocks NS3/4A-dependent nonstructural-polyprotein processing.
+      Pibrentasvir acts through NS5A and is not represented by this
+      protease-target edge.
+    evidence:
+    - reference: PMID:29084747
+      reference_title: &#34;In Vitro Antiviral Activity and Resistance Profile of the Next-Generation Hepatitis C Virus NS3/4A Protease Inhibitor Glecaprevir.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Glecaprevir (formerly ABT-493) is a novel hepatitis C virus (HCV)
+        NS3/4A protease inhibitor (PI) with pangenotypic activity.
+      explanation: &gt;-
+        The primary biochemical study directly identifies glecaprevir as an HCV
+        NS3/4A protease inhibitor.
+    - reference: PMID:29084747
+      reference_title: &#34;In Vitro Antiviral Activity and Resistance Profile of the Next-Generation Hepatitis C Virus NS3/4A Protease Inhibitor Glecaprevir.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        It inhibited the enzymatic activity of purified NS3/4A proteases from
+        HCV genotypes 1 to 6 in vitro
+      explanation: &gt;-
+        The biochemical assay directly demonstrates glecaprevir inhibition of
+        purified HCV NS3/4A proteases across genotypes.
   - target: HCV genome replication and early viremia
     treatment_effect: INHIBITS
     description: Direct-acting antiviral treatment suppresses acute HCV replication and enables virologic eradication.
@@ -9274,7 +10524,7 @@ datasets:
   notes: Identified by GEO DataSets index search for Acute Hepatitis C Virus Infection (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 - accession: geo:GSE267834
   title: Hepatitis C Virus-induced Differential Transcriptional Traits in Host Cells After Persistent Infection Elimination by Direct-Acting Antivirals In Cell Culture
-  description: Chronic hepatitis C virus infection (HCV) causes liver inflammation and fibrosis, leading to development of severe liver disease, such as cirrhosis or hepatocellular carcinoma (HCC). Approval of direct acting antiviral (DAA) drug combinations has revolutionized chronic HCV therapy, with virus eradication in &gt;98% of the treated patients. The efficacy of these treatments is such that it is formally possible for cured patients to carry formerly infected cells that display irreversible transcriptional alterations directly caused by chronic HCV Infection.
+  description: Chronic hepatitis C virus infection (HCV) causes liver inflammation and fibrosis, leading to development of severe liver disease, such as cirrhosis or hepatocellular carcinoma (HCC). Approval of direct acting antiviral (DAA) drug combinations has revolutionized chronic HCV therapy, with virus eradication in &gt;98% of the treated patients. The efficacy of these treatments is such that it is formally possible for cured patients to carry formerly infected cells that display irreversible transcriptional alterations directly caused by chronic HCV Infection.  # codespell:ignore-line
   organism:
     preferred_term: human
     term:
@@ -11422,7 +12672,7 @@ DAA TREATMENT: SVR 96-100% (8 weeks glecaprevir/pibrentasvir)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Hepatitis C Virus Infection", "mondoId": "MONDO:0100371", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Hepatitis_C_Virus_Infection", "yamlRevision": "e6ad37697078"};
+        const OS_CONFIG = {"diseaseName": "Acute Hepatitis C Virus Infection", "mondoId": "MONDO:0100371", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Hepatitis_C_Virus_Infection", "yamlRevision": "f02c245c88f6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11841,5 +13091,73 @@ DAA TREATMENT: SVR 96-100% (8 weeks glecaprevir/pibrentasvir)
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

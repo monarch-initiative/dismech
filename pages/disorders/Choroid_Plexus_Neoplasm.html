@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Choroid Plexus Neoplasm</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Choroid Plexus Neoplasm</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3811,6 +4015,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3835,27 +4047,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4048,7 +4337,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-li-fraumeni-associated-cases">
                 <div class="item-name">
                     Autosomal dominant (Li-Fraumeni-associated cases)
 
@@ -4093,6 +4382,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457520" target="_blank">PMID:32457520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4114,6 +4404,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457520" target="_blank">PMID:32457520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4172,7 +4463,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpp">
 
                     <div class="item-name">
                         Choroid Plexus Papilloma (WHO grade 1)
@@ -4208,6 +4499,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4230,6 +4522,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4251,6 +4544,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34997889" target="_blank">PMID:34997889</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4278,7 +4572,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acpp">
 
                     <div class="item-name">
                         Atypical Choroid Plexus Papilloma (WHO grade 2)
@@ -4314,6 +4608,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4336,6 +4631,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4357,6 +4653,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17918524" target="_blank">PMID:17918524</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4386,7 +4683,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cpc">
 
                     <div class="item-name">
                         Choroid Plexus Carcinoma (WHO grade 3)
@@ -4422,6 +4719,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322202" target="_blank">PMID:35322202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4443,6 +4741,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34997889" target="_blank">PMID:34997889</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4507,7 +4806,7 @@
 
 
 
-    <span class="entity-ref-chip">environmental#Simian virus 40 (SV40) exposure</span>
+    <a class="entity-ref-chip" href="#environmental-simian-virus-40-sv40-exposure">environmental#Simian virus 40 (SV40) exposure</a>
 
 
 
@@ -4544,35 +4843,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Reproducible SV40 reads above matched-normal background in a meaningful fraction of tumors.</li>
 
-
-
-    <span class="entity-ref-chip">Reproducible SV40 reads above matched-normal background in a meaningful fraction of tumors.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Absence of SV40 reads above background across an adequately powered cohort.</li>
 
-
-
-    <span class="entity-ref-chip">Absence of SV40 reads above background across an adequately powered cohort.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4606,35 +4901,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Persistence of geographic positivity after assay harmonisation.</li>
 
-
-
-    <span class="entity-ref-chip">Persistence of geographic positivity after assay harmonisation.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Disappearance of positivity under common contamination controls.</li>
 
-
-
-    <span class="entity-ref-chip">Disappearance of positivity under common contamination controls.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4665,6 +4956,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12671021" target="_blank">PMID:12671021</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4747,35 +5039,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>A step change in molecular profile at the 2-mitoses-per-10-HPF threshold.</li>
 
-
-
-    <span class="entity-ref-chip">A step change in molecular profile at the 2-mitoses-per-10-HPF threshold.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>A continuous molecular gradient across mitotic counts with no discontinuity.</li>
 
-
-
-    <span class="entity-ref-chip">A continuous molecular gradient across mitotic counts with no discontinuity.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4809,35 +5097,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Mitotic count outperforming methylation class as a predictor of recurrence.</li>
 
-
-
-    <span class="entity-ref-chip">Mitotic count outperforming methylation class as a predictor of recurrence.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Methylation class outperforming mitotic count as a predictor of recurrence.</li>
 
-
-
-    <span class="entity-ref-chip">Methylation class outperforming mitotic count as a predictor of recurrence.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4868,6 +5152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25336695" target="_blank">PMID:25336695</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4913,16 +5198,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4949,15 +5239,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4985,16 +5282,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         signal transduction by p53 class mediator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072331">GO:0072331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0072331</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased signal transduction by p53 class mediator (GO:0072331). GO:0072331 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5015,6 +5317,7 @@
 
 
                 </div>
+
 
 
 
@@ -5067,6 +5370,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5089,6 +5393,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308654" target="_blank">PMID:20308654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5110,6 +5415,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308654" target="_blank">PMID:20308654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5143,16 +5449,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5179,16 +5490,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromosome segregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007059" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007059">GO:0007059</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007059" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007059</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromosome segregation (GO:0007059). GO:0007059 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5208,16 +5524,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006974">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5238,6 +5559,7 @@
 
 
                 </div>
+
 
 
 
@@ -5282,6 +5604,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5304,6 +5627,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24478045" target="_blank">PMID:24478045</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5325,6 +5649,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25336695" target="_blank">PMID:25336695</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5360,16 +5685,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5396,15 +5726,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11730</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5432,16 +5769,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         telomere maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000723">GO:0000723</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0000723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased telomere maintenance (GO:0000723). GO:0000723 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5462,6 +5804,7 @@
 
 
                 </div>
+
 
 
 
@@ -5498,6 +5841,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5520,6 +5864,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5541,6 +5886,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25315281" target="_blank">PMID:25315281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5576,16 +5922,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5612,16 +5963,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5642,6 +5998,7 @@
 
 
                 </div>
+
 
 
 
@@ -5678,6 +6035,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322202" target="_blank">PMID:35322202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5699,6 +6057,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322202" target="_blank">PMID:35322202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5732,17 +6091,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5763,11 +6129,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor-associated macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5788,10 +6159,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008019">CL:0008019</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0008019</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor stromal mesenchymal cell, annotated with mesenchymal cell (CL:0008019). CL:0008019 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5818,16 +6192,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008284">GO:0008284</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0008284</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of cell population proliferation (GO:0008284). GO:0008284 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5854,19 +6233,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         choroid plexus epithelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003911" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003911">UBERON:0003911</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003911" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0003911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in choroid plexus epithelium (UBERON:0003911). UBERON:0003911 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5900,6 +6285,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38867333" target="_blank">PMID:38867333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5922,6 +6308,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5943,6 +6330,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39482394" target="_blank">PMID:39482394</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5988,17 +6376,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004086" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004086">UBERON:0004086</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004086" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0004086</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain ventricle (UBERON:0004086). UBERON:0004086 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         lateral ventricle
@@ -6006,11 +6401,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002285" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002285">UBERON:0002285</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002285" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002285</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lateral ventricle, annotated with telencephalic ventricle (UBERON:0002285). UBERON:0002285 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         fourth ventricle
@@ -6018,13 +6418,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002422" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002422">UBERON:0002422</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002422" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002422</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fourth ventricle (UBERON:0002422). UBERON:0002422 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6074,6 +6478,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6095,6 +6500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23172371" target="_blank">PMID:23172371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6128,16 +6534,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroid plexus epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000706">CL:0000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroid plexus epithelial cell (CL:0000706). CL:0000706 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6164,16 +6575,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cerebrospinal fluid secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033326" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033326">GO:0033326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0033326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cerebrospinal fluid secretion (GO:0033326). GO:0033326 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6194,6 +6610,7 @@
 
 
                 </div>
+
 
 
 
@@ -6230,6 +6647,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1022421" target="_blank">PMID:1022421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6252,6 +6670,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6273,6 +6692,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322202" target="_blank">PMID:35322202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6313,16 +6733,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cerebrospinal fluid circulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090660">GO:0090660</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0090660</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6349,17 +6774,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         fourth ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002422" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002422">UBERON:0002422</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002422" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002422</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fourth ventricle (UBERON:0002422). UBERON:0002422 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         subarachnoid space
@@ -6367,13 +6799,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000315" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000315">UBERON:0000315</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000315" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0000315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBERON:0000315 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6407,6 +6843,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7414480" target="_blank">PMID:7414480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6429,6 +6866,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6738779" target="_blank">PMID:6738779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6450,6 +6888,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6738779" target="_blank">PMID:6738779</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6478,6 +6917,7 @@
                 <div class="item-name">Ventricular Enlargement and Raised Intracranial Pressure</div>
 
                 <div class="item-desc">The convergent consequence of both hydrocephalus mechanisms. Ventricular dilatation and raised intracranial pressure produce the characteristic clinical syndrome, which differs by age: in infants with open sutures, macrocephaly and a bulging fontanelle; in older children and adults, headache, vomiting and papilledema. Posterior-fossa (fourth-ventricular) tumors additionally produce cerebellar signs.</div>
+
 
 
 
@@ -6603,6 +7043,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6642,16 +7083,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6672,6 +7118,7 @@
 
 
                 </div>
+
 
 
 
@@ -6708,6 +7155,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38867333" target="_blank">PMID:38867333</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6729,6 +7177,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17918524" target="_blank">PMID:17918524</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6772,19 +7221,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         subarachnoid space
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000315" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000315">UBERON:0000315</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000315" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0000315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in subarachnoid space (UBERON:0000315). UBERON:0000315 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6818,6 +7273,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19543851" target="_blank">PMID:19543851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6839,6 +7295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23172371" target="_blank">PMID:23172371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6875,7 +7332,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-papillary-architecture">
                 <div class="item-name">
                     Papillary Architecture
 
@@ -6898,6 +7355,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6922,7 +7380,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-increased-mitotic-activity">
                 <div class="item-name">
                     Increased Mitotic Activity
 
@@ -6946,6 +7404,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6967,6 +7426,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6991,7 +7451,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-hypercellularity-and-nuclear-pleomorphism">
                 <div class="item-name">
                     Hypercellularity and Nuclear Pleomorphism
 
@@ -7014,6 +7474,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17086103" target="_blank">PMID:17086103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7038,7 +7499,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-kir7-1-and-stanniocalcin-1-immunoreactivity">
                 <div class="item-name">
                     Kir7.1 and Stanniocalcin-1 Immunoreactivity
 
@@ -7062,6 +7523,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7083,6 +7545,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7176,14 +7639,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7203,6 +7673,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21121734" target="_blank">PMID:21121734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7246,14 +7717,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Papilledema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001085">HP:0001085</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001085</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papilledema (HP:0001085). HP:0001085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7273,6 +7751,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34754533" target="_blank">PMID:34754533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7316,14 +7795,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000256">HP:0000256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7343,6 +7829,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21121734" target="_blank">PMID:21121734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7365,6 +7852,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36659972" target="_blank">PMID:36659972</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7408,14 +7896,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7435,6 +7930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7458,6 +7954,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7414480" target="_blank">PMID:7414480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7479,6 +7976,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34754533" target="_blank">PMID:34754533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7513,14 +8011,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased intracranial pressure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002516">HP:0002516</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002516</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased intracranial pressure (HP:0002516). HP:0002516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7540,6 +8045,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1022421" target="_blank">PMID:1022421</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7562,6 +8068,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21121734" target="_blank">PMID:21121734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7596,14 +8103,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7623,6 +8137,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34754533" target="_blank">PMID:34754533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7645,6 +8160,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913261" target="_blank">PMID:27913261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7679,14 +8195,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7706,6 +8229,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913261" target="_blank">PMID:27913261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7740,14 +8264,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7767,6 +8298,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37928807" target="_blank">PMID:37928807</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7801,14 +8333,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7828,6 +8367,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913261" target="_blank">PMID:27913261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7850,6 +8390,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913261" target="_blank">PMID:27913261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7893,14 +8434,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bulging fontanelle
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000647" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000647">HP:6000647</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:6000647</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulging fontanelle (HP:6000647). HP:6000647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7920,6 +8468,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34754533" target="_blank">PMID:34754533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7942,6 +8491,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21121734" target="_blank">PMID:21121734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7976,14 +8526,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cranial nerve physiology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031910">HP:0031910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0031910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cranial nerve physiology (HP:0031910). HP:0031910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8003,6 +8560,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27913261" target="_blank">PMID:27913261</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8037,14 +8595,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurodevelopmental abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012759">HP:0012759</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012759</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8064,6 +8629,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20515336" target="_blank">PMID:20515336</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8098,14 +8664,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the central nervous system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100006">HP:0100006</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0100006</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP:0100006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8125,6 +8698,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8203,13 +8777,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8235,6 +8814,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308654" target="_blank">PMID:20308654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8257,6 +8837,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308654" target="_blank">PMID:20308654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8278,6 +8859,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38316675" target="_blank">PMID:38316675</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8317,13 +8899,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8349,6 +8936,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33506206" target="_blank">PMID:33506206</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8371,6 +8959,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33506206" target="_blank">PMID:33506206</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8392,6 +8981,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20308654" target="_blank">PMID:20308654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8431,13 +9021,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8462,6 +9057,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33249490" target="_blank">PMID:33249490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8493,6 +9089,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8510,7 +9109,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Gross Total Resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Gross Total Resection<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8567,6 +9171,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1022421" target="_blank">PMID:1022421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8608,6 +9213,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28939225" target="_blank">PMID:28939225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8630,6 +9236,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38339361" target="_blank">PMID:38339361</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8651,6 +9258,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30969571" target="_blank">PMID:30969571</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8685,7 +9293,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Follow-up Examination After Treatment for Malignant Neoplasm</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Follow-up Examination After Treatment for Malignant Neoplasm<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Follow-up Examination After Treatment for Malignant Neoplasm (NCIT:C171209). NCIT:C171209 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8733,6 +9346,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19543851" target="_blank">PMID:19543851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8754,6 +9368,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38339361" target="_blank">PMID:38339361</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8786,7 +9401,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -8817,17 +9437,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31355">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -8835,11 +9462,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         vincristine
@@ -8847,10 +9479,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8884,6 +9519,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19543851" target="_blank">PMID:19543851</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8926,6 +9562,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34997889" target="_blank">PMID:34997889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8947,6 +9584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19543851" target="_blank">PMID:19543851</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8979,7 +9617,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -9010,17 +9653,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ifosfamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5864">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:5864</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         carboplatin
@@ -9028,11 +9678,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31355">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -9040,10 +9695,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9069,6 +9727,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20515336" target="_blank">PMID:20515336</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9090,6 +9749,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20515336" target="_blank">PMID:20515336</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9122,7 +9782,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9170,6 +9835,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34997889" target="_blank">PMID:34997889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9192,6 +9858,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457520" target="_blank">PMID:32457520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9213,6 +9880,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38316675" target="_blank">PMID:38316675</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9245,7 +9913,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Diagnostic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Testing</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Genetic Testing<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Testing (NCIT:C15709). NCIT:C15709 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9293,6 +9966,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457520" target="_blank">PMID:32457520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9314,6 +9988,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38316675" target="_blank">PMID:38316675</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9346,7 +10021,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Disease Screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Disease Screening<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9394,6 +10074,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457520" target="_blank">PMID:32457520</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9425,7 +10106,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Ventriculoperitoneal Shunt Placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Ventriculoperitoneal Shunt Placement<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168483 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9482,6 +10168,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6738779" target="_blank">PMID:6738779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9523,6 +10210,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6738779" target="_blank">PMID:6738779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9561,6 +10249,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-simian-virus-40-sv40-exposure" data-dismech-node="Simian virus 40 (SV40) exposure" data-dismech-type="environmental">
                 <div class="item-name">Simian virus 40 (SV40) exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        viral exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-57">ECTO:3000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is viral exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">`presence: ABSENT` is the closest available schema value for &#34;exposure examined and found not to be associated&#34;; the enum has no NOT_ASSOCIATED value, and `effect:` is deliberately left unset because neither a causal nor a protective label is correct. Read the description and the REFUTE-tagged evidence, not the enum, for the intended claim. The residual uncertainty is that the negative studies address vaccine-era population exposure and large T antigen protein detection, not every proposed SV40 mechanism.</div>
 
@@ -9580,6 +10295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12671021" target="_blank">PMID:12671021</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -9603,6 +10319,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12671021" target="_blank">PMID:12671021</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9624,6 +10341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15790713" target="_blank">PMID:15790713</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -9687,6 +10405,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9708,6 +10427,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21276081" target="_blank">PMID:21276081</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9756,6 +10476,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9796,7 +10517,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ependymoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Ependymoma</span>
@@ -9844,6 +10565,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9869,7 +10591,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-papillary-meningioma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Meningioma.html">Papillary meningioma</a>
@@ -9916,6 +10638,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9941,7 +10664,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-metastatic-papillary-carcinoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Metastatic papillary carcinoma</span>
@@ -9989,6 +10712,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16330944" target="_blank">PMID:16330944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10014,7 +10738,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-atypical-teratoid-rhabdoid-tumor">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Atypical_Teratoid_Rhabdoid_Tumor.html">Atypical teratoid/rhabdoid tumor</a>
@@ -10061,6 +10785,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21276081" target="_blank">PMID:21276081</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10082,6 +10807,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21276081" target="_blank">PMID:21276081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10108,7 +10834,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-choroid-plexus-cyst">
                 <div class="item-name">
 
                     Choroid plexus cyst
@@ -10149,6 +10875,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42143260" target="_blank">PMID:42143260</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10170,6 +10897,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42143260" target="_blank">PMID:42143260</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10196,7 +10924,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-choroid-plexus-hyperplasia-villous-hypertrophy">
                 <div class="item-name">
 
                     Choroid plexus hyperplasia (villous hypertrophy)
@@ -10237,6 +10965,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1022421" target="_blank">PMID:1022421</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10275,7 +11004,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04994977">
                 <div class="item-name">
                     NCT04994977
 
@@ -10292,16 +11021,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neoplasm of the central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100006">HP:0100006</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0100006</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Neoplasm of the central nervous system (HP:0100006). HP:0100006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10319,6 +11053,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04994977" target="_blank">clinicaltrials:NCT04994977</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10341,6 +11076,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04994977" target="_blank">clinicaltrials:NCT04994977</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10369,6 +11105,240 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-otx2-lineage-conditional-myct58a-expression-with-trp53-inactivation-mus-musculus" data-dismech-node="Otx2-lineage conditional MycT58A expression with Trp53 inactivation Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Otx2-lineage conditional MycT58A expression with Trp53 inactivation Mus musculus
+
+                    <span class="tag tag-exp-model-type">GENETICALLY_ENGINEERED</span>
+
+                </div>
+
+                <div class="item-desc">Conditional expression of a stabilised c-Myc together with Trp53 inactivation in the choroid plexus of newborn mice produces choroid plexus carcinoma with complete penetrance across all brain ventricles, with a lateral- and fourth-ventricular predominance matching the human site distribution, and death from hydrocephalus within 150 days. The tumours recapitulate human carcinoma histology and show dysregulated cell-cycle and DNA-damage-response programs. Translational caveat: MYC stabilisation is an engineered lesion, not a recurrent human alteration, so the model demonstrates sufficiency of the p53-loss-plus-oncogene combination rather than fidelity to the human genotype.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Otx2-lineage conditional MycT58A expression with Trp53 inactivation</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:11998</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29339161" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29339161" target="_blank">PMID:29339161</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Choroid plexus tumours occurred with a complete penetrance in all brain ventricles, with prevalence in the lateral and fourth ventricles."</div>
+
+
+                <div class="evidence-explanation">Penetrance and site distribution of the model, both matching the human disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29339161" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29339161" target="_blank">PMID:29339161</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Comparison of gene expression profiles of CPCs and non-neoplastic tissues revealed profound alterations in cell cycle regulation and DNA damage responses, suggesting that dysregulation of cell division and DNA checkpoint pathways may represent key vulnerabilities."</div>
+
+
+                <div class="evidence-explanation">Identifies the cell-cycle and DNA-damage-response programs that the model shares with the human chromosomal-instability node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-combined-notch-and-sonic-hedgehog-pathway-perturbation-in-choroid-plexus-mus-musculus" data-dismech-node="Combined NOTCH and Sonic Hedgehog pathway perturbation in choroid plexus Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Combined NOTCH and Sonic Hedgehog pathway perturbation in choroid plexus Mus musculus
+
+                    <span class="tag tag-exp-model-type">GENETICALLY_ENGINEERED</span>
+
+                </div>
+
+                <div class="item-desc">Mice with combined NOTCH and Sonic Hedgehog signalling defects develop tumours resembling human choroid plexus carcinoma. The tumours are monociliated, and disrupting the NOTCH complex restores multiciliation and reduces tumour growth, which is the experimental basis for the GMNC-MCIDAS multiciliogenesis arm of the pathograph.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Combined NOTCH and Sonic Hedgehog pathway perturbation in choroid plexus</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35322202" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35322202" target="_blank">PMID:35322202</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we show that combined defects in NOTCH and Sonic Hedgehog signaling in mice generates tumors that are similar to CPC in humans."</div>
+
+
+                <div class="evidence-explanation">Establishes the model and its resemblance to human carcinoma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -12149,6 +13119,11 @@ inheritance:
     explanation: Supports the variable penetrance qualifier.
 environmental:
 - name: Simian virus 40 (SV40) exposure
+  exposure_term:
+    preferred_term: viral exposure
+    term:
+      id: ECTO:3000001
+      label: exposure to virus
   presence: ABSENT
   description: &gt;-
     An aetiological role for SV40 in choroid plexus tumors was proposed historically on
@@ -12792,10 +13767,10 @@ discussions:
       Deep sequencing of a contemporary, well-powered choroid plexus tumor cohort with
       rigorous contamination controls, reporting SV40 read counts against matched
       normal tissue from the same patients.
-    would_support:
+    supporting_outcome:
     - Reproducible SV40 reads above matched-normal background in a meaningful fraction
       of tumors.
-    would_refute:
+    refuting_outcome:
     - Absence of SV40 reads above background across an adequately powered cohort.
   - experiment_id: sv40_harmonised_pcr_reanalysis
     name: Harmonised reanalysis of discordant PCR series
@@ -12803,9 +13778,9 @@ discussions:
       Pooled reanalysis of the discordant PCR-positive and PCR-negative series using
       harmonised assay controls, to determine whether laboratory contamination explains
       the geographic pattern of positivity.
-    would_support:
+    supporting_outcome:
     - Persistence of geographic positivity after assay harmonisation.
-    would_refute:
+    refuting_outcome:
     - Disappearance of positivity under common contamination controls.
   evidence:
   - reference: PMID:12671021
@@ -12840,9 +13815,9 @@ discussions:
       Prospective single-cell and methylation profiling of a papilloma cohort stratified
       by mitotic count, testing whether a molecular discontinuity exists at the
       2-mitoses-per-10-HPF threshold.
-    would_support:
+    supporting_outcome:
     - A step change in molecular profile at the 2-mitoses-per-10-HPF threshold.
-    would_refute:
+    refuting_outcome:
     - A continuous molecular gradient across mitotic counts with no discontinuity.
   - experiment_id: acpp_grade_versus_methylation_prognosis
     name: Head-to-head prognostic comparison of grade versus methylation class
@@ -12850,9 +13825,9 @@ discussions:
       Correlate methylation subgroup (pediatric A / pediatric B / adult) against mitotic
       count and recurrence in a pooled registry to determine which better predicts
       outcome.
-    would_support:
+    supporting_outcome:
     - Mitotic count outperforming methylation class as a predictor of recurrence.
-    would_refute:
+    refuting_outcome:
     - Methylation class outperforming mitotic count as a predictor of recurrence.
   evidence:
   - reference: PMID:25336695
@@ -13563,7 +14538,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Choroid Plexus Neoplasm", "mondoId": "MONDO:0016717", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choroid_Plexus_Neoplasm", "yamlRevision": "f7dd059b3d71"};
+        const OS_CONFIG = {"diseaseName": "Choroid Plexus Neoplasm", "mondoId": "MONDO:0016717", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choroid_Plexus_Neoplasm", "yamlRevision": "4307dadc4d2d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13982,5 +14957,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Alstrom Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Alstrom Syndrome</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3806,7 +4010,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3851,7 +4055,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3898,6 +4102,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941369" target="_blank">PMID:11941369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3920,6 +4125,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3941,6 +4147,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4035,6 +4242,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38756069" target="_blank">PMID:38756069</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4084,15 +4292,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ALMS1
 
 
-    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:428</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased ALMS1 (hgnc:428). hgnc:428 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4126,17 +4341,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         centrosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005813">GO:0005813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves centrosome (GO:0005813). GO:0005813 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary basal body
@@ -4144,13 +4366,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4225,6 +4451,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15855349" target="_blank">PMID:15855349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4246,6 +4473,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941370" target="_blank">PMID:11941370</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4279,16 +4507,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4305,6 +4538,7 @@
 
 
                 </div>
+
 
 
 
@@ -4380,6 +4614,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32994277" target="_blank">PMID:32994277</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4412,16 +4647,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4448,17 +4688,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4479,10 +4726,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4499,6 +4749,7 @@
 
 
                 </div>
+
 
 
 
@@ -4543,6 +4794,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38062477" target="_blank">PMID:38062477</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4575,16 +4827,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         nephron tubule epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000494">CL:1000494</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000494" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:1000494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves nephron tubule epithelial cell (CL:1000494). CL:1000494 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4611,17 +4868,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044782">GO:0044782</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044782" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0044782</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cilium organization (GO:0044782). GO:0044782 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4642,10 +4906,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071260">GO:0071260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0071260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cellular response to mechanical stimulus (GO:0071260). GO:0071260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4672,19 +4939,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4718,6 +4991,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17206865" target="_blank">PMID:17206865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4739,6 +5013,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30064963" target="_blank">PMID:30064963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4772,17 +5047,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4803,10 +5085,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4833,16 +5118,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045494">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4869,19 +5159,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4939,6 +5235,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16000322" target="_blank">PMID:16000322</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4960,6 +5257,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4993,16 +5291,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cochlear outer hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000601">CL:0000601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL:0000601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5032,19 +5335,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cochlea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001844">UBERON:0001844</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0001844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5078,6 +5387,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21071598" target="_blank">PMID:21071598</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5099,6 +5409,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5132,17 +5443,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5163,10 +5481,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5192,6 +5513,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         extracellular matrix organization
@@ -5199,10 +5522,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5225,16 +5551,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5256,6 +5587,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5296,6 +5628,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5318,6 +5651,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5339,6 +5673,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5375,7 +5710,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-endocardial-fibroelastosis">
                 <div class="item-name">
                     Endocardial fibroelastosis
 
@@ -5396,6 +5731,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34387706" target="_blank">PMID:34387706</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5442,7 +5778,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\"}], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"ALMS1 knockout\", \"isogenic wild-type control\"], \"publication\": \"PMID:39243575\"}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous acanthosis nigricans commonly accompanies severe insulin resistance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"], \"experimental_models\": [{\"name\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"semaglutide\", \"exendin-4\"]}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fibrogenic liver involvement can accompany steatosis and increasing liver stiffness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertriglyceridemia is a highly penetrant metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile nystagmus accompanies the earliest cone-rod dystrophy and is an important diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early photophobia accompanies progressive cone-rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Reduced-Calorie Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A healthful reduced-calorie diet with restricted simple carbohydrate intake is a foundational management strategy for obesity and insulin resistance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Restrictive cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later-onset restrictive cardiomyopathy is part of the biphasic cardiac spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001723\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Standard Heart Failure and Cardiomyopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dilated or restrictive cardiomyopathy and heart failure require standard guideline-directed cardiac management individualized to phenotype and age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal body and centrosome dysfunction in ALMS1-related ciliopathy contributes directly to the childhood obesity component of Alstrom syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and metabolically adverse obesity contribute to common steatotic liver disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance commonly produces acanthosis nigricans as a cutaneous marker.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe insulin-resistant metabolic state is commonly accompanied by hypertriglyceridemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated extracellular-matrix programs contribute to progressive liver fibrogenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cone-rod dysfunction commonly presents with nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early cone-rod dysfunction produces marked light sensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile or later myocardial remodeling can manifest as dilated cardiomyopathy in a subset of affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult-onset remodeling can produce a restrictive cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Insulin resistance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALMS1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\"}], \"association\": \"Causative\"}}, {\"id\": \"ALMS1 Basal Body Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 is a centrosome and ciliary basal body-associated protein. Loss of ALMS1 function disrupts basal-body dependent cellular organization across multiple tissues and acts as the upstream lesion for the sensory, renal, metabolic, and fibrotic components of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ALMS1\"], \"gene_terms\": [{\"label\": \"ALMS1\", \"id\": \"hgnc:428\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"ALMS1 knockout\", \"isogenic wild-type control\"], \"publication\": \"PMID:39243575\"}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous acanthosis nigricans commonly accompanies severe insulin resistance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000956\"}}, {\"id\": \"Cardiac Fibroelastotic Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac disease in Alstrom syndrome spans infantile fibroelastotic cardiomyopathy and later adult myocardial remodeling, with both cardiomyocyte and cardiac fibroblast abnormalities implicated.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\", \"fibroblast of cardiac tissue\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"heart\"], \"experimental_models\": [{\"name\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Age-progressive primary kidney involvement with declining kidney function and proteinuria in a subset of adults.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Cochlear Outer Hair Cell Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 localizes to cochlear hair-cell basal bodies; its loss perturbs planar cell polarity and outer hair cell survival, producing progressive sensory hearing loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear outer hair cell\"], \"locations\": [\"cochlea\"]}}, {\"id\": \"Cochlear implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation should be considered for severe or functionally limiting hearing loss not adequately managed with amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cone/cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early progressive retinal degeneration involving cones and rods, often beginning in infancy and driving lifelong visual disability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000548\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile or later-onset myocardial disease with ventricular dilation and systolic dysfunction; infantile episodes may partially recover while adult cardiomyopathy can progress.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Extracellular Matrix Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency alters extracellular matrix regulatory programs, favoring collagen remodeling and fibroproliferative disease in liver and heart.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen fibril organization\"]}}, {\"id\": \"GLP-1 Receptor Agonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Semaglutide or exenatide can improve weight, glycemia, and lipid parameters in adults with Alstrom syndrome and metabolically significant obesity or diabetes.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"semaglutide\", \"exendin-4\"]}}, {\"id\": \"Hearing aid usage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sound amplification is beneficial for the common progressive sensory hearing loss of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive fibrogenic liver involvement can accompany steatosis and increasing liver stiffness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Common metabolic liver involvement that often coexists with early fibrogenic liver stiffness abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertriglyceridemia is a highly penetrant metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early and often severe insulin resistance complicating obesity in Alstrom syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Kidney Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal disease in Alstrom syndrome reflects a primary nephron ciliopathy rather than merely secondary metabolic injury, with progressive tubular ciliary loss and impaired mechanosensory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"nephron tubule epithelial cell\"], \"biological_processes\": [\"cilium organization\", \"cellular response to mechanical stimulus\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Infantile nystagmus accompanies the earliest cone-rod dystrophy and is an important diagnostic clue.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000639\"}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early-onset obesity, often beginning in childhood and frequently truncal in distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early photophobia accompanies progressive cone-rod dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALMS1 deficiency disrupts photoreceptor intracellular trafficking and drives progressive cone and rod degeneration, producing the characteristic retinal dystrophy of Alstrom syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal cone cell\", \"retinal rod cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\"], \"locations\": [\"retina\"]}}, {\"id\": \"Reduced-Calorie Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A healthful reduced-calorie diet with restricted simple carbohydrate intake is a foundational management strategy for obesity and insulin resistance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Relative Adipose Tissue Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obesity in Alstrom syndrome is accompanied by inadequate adipose tissue expansion and adipocyte dysfunction, producing a metabolically fragile state in which insulin resistance develops early and progresses rapidly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"adipocyte\"]}}, {\"id\": \"Restrictive cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A later-onset restrictive cardiomyopathy is part of the biphasic cardiac spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001723\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive, usually symmetric sensory hearing loss beginning in childhood.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Standard Heart Failure and Cardiomyopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dilated or restrictive cardiomyopathy and heart failure require standard guideline-directed cardiac management individualized to phenotype and age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hyperglycemia emerging as insulin resistance worsens over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005978\"}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe early-onset visual loss caused by progressive retinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal body and centrosome dysfunction in ALMS1-related ciliopathy contributes directly to the childhood obesity component of Alstrom syndrome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Relative Adipose Tissue Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ALMS1 loss compromises adipose tissue buffering capacity and promotes metabolically adverse obesity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Extracellular Matrix Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cilia-linked signaling defects alter matrix remodeling programs and favor multiorgan fibrotic disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Kidney Ciliary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal tubular primary cilia lose normal maintenance and mechanosensory function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photoreceptor cells progressively fail when ALMS1-dependent ciliary trafficking is lost.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALMS1 Basal Body Dysfunction\", \"target\": \"Cochlear Outer Hair Cell Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-cell basal body dysfunction perturbs inner-ear sensory-cell polarity and survival.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limited adipose buffering capacity accelerates systemic insulin resistance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive insulin resistance drives diabetes as beta-cell compensation fails.\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance and metabolically adverse obesity contribute to common steatotic liver disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe insulin resistance commonly produces acanthosis nigricans as a cutaneous marker.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Relative Adipose Tissue Failure\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe insulin-resistant metabolic state is commonly accompanied by hypertriglyceridemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Hepatic fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated extracellular-matrix programs contribute to progressive liver fibrogenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extracellular Matrix Dysregulation\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal matrix remodeling contributes to infantile fibroelastosis and later adult cardiomyopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Kidney Ciliary Dysfunction\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary renal involvement progresses with age to chronic kidney disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Cone/cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cone and rod loss produces the hallmark retinal dystrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early photoreceptor loss causes severe lifelong visual disability.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile cone-rod dysfunction commonly presents with nystagmus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early cone-rod dysfunction produces marked light sensitivity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Outer Hair Cell Degeneration\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive predominantly sensory hearing loss reflects outer hair cell dysfunction and loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infantile or later myocardial remodeling can manifest as dilated cardiomyopathy in a subset of affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac Fibroelastotic Remodeling\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult-onset remodeling can produce a restrictive cardiomyopathy phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GLP-1 Receptor Agonist Therapy\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Reduced-Calorie Dietary Management\", \"target\": \"Insulin resistance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing aid usage\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Standard Heart Failure and Cardiomyopathy Management\", \"target\": \"Restrictive cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALMS1-knockout human iPSC-derived cardiomyocytes\", \"target\": \"Cardiac Fibroelastotic Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.\"}, {\"source\": \"ALMS1\", \"target\": \"ALMS1 Basal Body Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5501,14 +5837,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5528,6 +5871,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17594715" target="_blank">PMID:17594715</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5550,6 +5894,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38806112" target="_blank">PMID:38806112</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5593,14 +5938,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic steatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001397</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5620,6 +5972,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5652,14 +6005,21 @@
                         Hepatic fibrosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001395</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5679,6 +6039,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33924909" target="_blank">PMID:33924909</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5722,14 +6083,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5749,6 +6117,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5790,14 +6159,21 @@
                         Type II diabetes mellitus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type II diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0005978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5817,6 +6193,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33566311" target="_blank">PMID:33566311</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5860,14 +6237,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5887,6 +6271,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5919,14 +6304,21 @@
                         Nystagmus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5946,6 +6338,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5978,14 +6371,21 @@
                         Photophobia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6005,6 +6405,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6048,14 +6449,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6075,6 +6483,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30064963" target="_blank">PMID:30064963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6116,14 +6525,21 @@
                         Acanthosis nigricans
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acanthosis nigricans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000956">HP:0000956</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000956</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6143,6 +6559,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6184,14 +6601,21 @@
                         Insulin resistance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6211,6 +6635,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32994277" target="_blank">PMID:32994277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6245,14 +6670,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertriglyceridemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6272,6 +6704,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6315,14 +6748,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6342,6 +6782,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6385,14 +6826,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6412,6 +6860,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6455,14 +6904,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cone/cone-rod dystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000548">HP:0000548</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000548</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cone/cone-rod dystrophy (HP:0000548). HP:0000548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6482,6 +6938,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33566311" target="_blank">PMID:33566311</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6514,14 +6971,21 @@
                         Restrictive cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Restrictive cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001723">HP:0001723</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001723</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6541,6 +7005,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6575,14 +7040,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Specific learning disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001328">HP:0001328</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001328</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Learning disability, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6602,6 +7074,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6680,13 +7153,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALMS1
 
 
-    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:428</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALMS1 (hgnc:428). hgnc:428 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6714,6 +7192,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11941370" target="_blank">PMID:11941370</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6736,6 +7215,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6757,6 +7237,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466426" target="_blank">PMID:41466426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6788,6 +7269,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6803,7 +7287,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6833,17 +7322,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         semaglutide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:167574">CHEBI:167574</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:167574</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses semaglutide (CHEBI:167574). CHEBI:167574 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         exendin-4
@@ -6851,10 +7347,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64073" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64073">CHEBI:64073</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64073" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:64073</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses exendin-4 (CHEBI:64073). CHEBI:64073 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6868,17 +7367,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Type II diabetes mellitus
@@ -6886,10 +7392,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005978</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6908,6 +7417,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38151964" target="_blank">PMID:38151964</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6930,6 +7440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38151964" target="_blank">PMID:38151964</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6962,7 +7473,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -6999,17 +7515,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Insulin resistance
@@ -7017,10 +7540,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000855</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7039,6 +7565,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7079,16 +7606,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7107,6 +7639,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7137,7 +7670,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7174,16 +7712,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7202,6 +7745,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28573831" target="_blank">PMID:28573831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7234,7 +7778,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7282,6 +7831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7338,6 +7888,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7359,6 +7910,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7391,7 +7943,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7427,17 +7984,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dilated cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001644</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Restrictive cardiomyopathy
@@ -7445,10 +8009,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001723">HP:0001723</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7467,6 +8034,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7523,6 +8091,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301444" target="_blank">PMID:20301444</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7569,7 +8138,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bardet-biedl-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
@@ -7618,6 +8187,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39763001" target="_blank">PMID:39763001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7653,7 +8223,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000099396">
                 <div class="item-name">
                     Metabolomic data of ALMS1 WT and ALMS1 KO mice before and after symptoms of Alstrom syndrome
 
@@ -7702,7 +8272,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03746522">
                 <div class="item-name">
                     NCT03746522
 
@@ -7719,16 +8289,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7746,6 +8321,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03746522" target="_blank">clinicaltrials:NCT03746522</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7768,6 +8344,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36356613" target="_blank">PMID:36356613</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7792,7 +8369,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03184584">
                 <div class="item-name">
                     NCT03184584
 
@@ -7819,6 +8396,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03184584" target="_blank">clinicaltrials:NCT03184584</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7877,15 +8455,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         cardiac muscle cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-56">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7895,30 +8478,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-57">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-57">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             heart
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-58">UBERON:0000948</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-58">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -7950,14 +8543,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cardiac-fibroelastotic-remodeling">Cardiac Fibroelastotic Remodeling</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cardiac-fibroelastotic-remodeling">Cardiac Fibroelastotic Remodeling</a>
+
+
+
+                <span class="crosslink-desc">The model probes cell-autonomous contractile, calcium-handling, metabolic, and senescence effects of ALMS1 loss in cardiomyocytes.</span>
+
+
 
 
 
@@ -7972,6 +8570,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39243575" target="_blank">PMID:39243575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7994,10 +8593,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8024,6 +8624,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39243575" target="_blank">PMID:39243575</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8066,6 +8667,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39243575" target="_blank">PMID:39243575</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8077,6 +8679,155 @@
 
 
                 <div class="evidence-explanation">Supports the model&#39;s disease relevance while keeping its in-vitro evidence class explicit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-alms1-gene-trap-disruption-alms1-mouse-mus-musculus" data-dismech-node="Homozygous Alms1 gene-trap disruption (Alms1-/-) Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous Alms1 gene-trap disruption (Alms1-/-) Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout mouse</span>
+
+                </div>
+
+                <div class="item-desc">Alms1-disrupted mice reproduce retinal degeneration, late-onset hearing loss, obesity, hyperinsulinemia, and insulin resistance, making them useful for the sensory and metabolic arms of the disease while not fully modeling the human cardiac spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Obesity</span>
+
+                    <span class="tag tag-phenotype">Insulin resistance</span>
+
+                    <span class="tag tag-phenotype">Photoreceptor degeneration</span>
+
+                    <span class="tag tag-phenotype">Late-onset hearing loss</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous Alms1 gene-trap disruption (Alms1-/-)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ALMS1
+
+
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:428</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ALMS1 (hgnc:428). hgnc:428 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16000322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16000322" target="_blank">PMID:16000322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alms1-/- mice develop features similar to patients with AS, including obesity, hypogonadism, hyperinsulinemia, retinal dysfunction and late-onset hearing loss."</div>
+
+
+                <div class="evidence-explanation">The foundational mouse-model paper documents multisystem phenotypic recapitulation.</div>
 
 
 
@@ -8108,7 +8859,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alstrom Syndrome
 creation_date: &#39;2026-04-12T20:00:00Z&#39;
-updated_date: &#39;2026-08-05T04:41:57Z&#39;
 description: &gt;-
   Alstrom syndrome is a rare autosomal recessive multisystem ciliopathy caused by
   biallelic ALMS1 loss-of-function variants. The disease combines early retinal
@@ -9612,7 +10362,7 @@ Prospective single-center audiology data specifically conclude that affected ind
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alstrom Syndrome", "mondoId": "MONDO:0008763", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alstrom_Syndrome", "yamlRevision": "13f66095e7ef"};
+        const OS_CONFIG = {"diseaseName": "Alstrom Syndrome", "mondoId": "MONDO:0008763", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alstrom_Syndrome", "yamlRevision": "6d007b2a0a76"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10031,5 +10781,73 @@ Prospective single-center audiology data specifically conclude that affected ind
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

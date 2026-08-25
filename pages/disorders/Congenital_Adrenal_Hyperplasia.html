@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Congenital Adrenal Hyperplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Congenital Adrenal Hyperplasia</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3789,14 +3993,6 @@
 
 
 
-            <a class="stat-link" href="#references">
-            <div class="stat-item">
-                <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">18</div>
-                <div class="stat-label">References</div>
-            </div>
-            </a>
-
 
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
@@ -3827,7 +4023,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3871,6 +4067,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39911519" target="_blank">PMID:39911519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3949,7 +4146,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-classic-21-ohd">
 
                     <div class="item-name">
                         Classic 21-hydroxylase deficiency
@@ -3979,7 +4176,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-salt-wasting-21-ohd">
 
                     <div class="item-name">
                         Classic salt-wasting 21-hydroxylase deficiency
@@ -4009,7 +4206,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-simple-virilizing-21-ohd">
 
                     <div class="item-name">
                         Classic simple-virilizing 21-hydroxylase deficiency
@@ -4039,7 +4236,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-nonclassic-21-ohd">
 
                     <div class="item-name">
                         Nonclassic congenital adrenal hyperplasia
@@ -4069,7 +4266,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-11b-ohd">
 
                     <div class="item-name">
                         11 beta-hydroxylase deficiency
@@ -4099,7 +4296,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-17a-ohd">
 
                     <div class="item-name">
                         17 alpha-hydroxylase/17,20-lyase deficiency
@@ -4129,7 +4326,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-3b-hsd">
 
                     <div class="item-name">
                         3 beta-hydroxysteroid dehydrogenase deficiency
@@ -4159,7 +4356,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lipoid-cah">
 
                     <div class="item-name">
                         Lipoid congenital adrenal hyperplasia
@@ -4217,16 +4414,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4247,6 +4449,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4258,10 +4464,13 @@
         CYP21A2
 
 
-    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2600">hgnc:2600</a>
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2600</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4289,16 +4498,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4307,6 +4521,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4324,10 +4540,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006700">GO:0006700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased C21-steroid hormone biosynthetic process (GO:0006700). GO:0006700 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4348,6 +4567,7 @@
 
 
                 </div>
+
 
 
 
@@ -4384,6 +4604,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39911519" target="_blank">PMID:39911519</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4416,16 +4637,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4452,15 +4678,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CYP11B1
 
 
-    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2591">hgnc:2591</a>
+    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2591</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP11B1 (hgnc:2591). hgnc:2591 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4488,16 +4721,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4522,16 +4760,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid 11-beta-monooxygenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004507" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004507">GO:0004507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0004507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased steroid 11-beta-monooxygenase activity (GO:0004507). GO:0004507 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4552,6 +4795,7 @@
 
 
                 </div>
+
 
 
 
@@ -4595,6 +4839,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28228528" target="_blank">PMID:28228528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4616,6 +4861,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28228528" target="_blank">PMID:28228528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4649,16 +4895,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4685,15 +4936,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CYP17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2593">hgnc:2593</a>
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2593</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4721,16 +4979,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4755,16 +5018,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid 17-alpha-monooxygenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004508">GO:0004508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0004508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased steroid 17-alpha-monooxygenase activity (GO:0004508). GO:0004508 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4785,6 +5053,7 @@
 
 
                 </div>
+
 
 
 
@@ -4828,6 +5097,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34524979" target="_blank">PMID:34524979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4860,16 +5130,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4896,16 +5171,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4926,6 +5206,7 @@
 
 
                 </div>
+
 
 
 
@@ -4962,6 +5243,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4994,16 +5276,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5030,16 +5317,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5060,6 +5352,7 @@
 
 
                 </div>
+
 
 
 
@@ -5096,6 +5389,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39836621" target="_blank">PMID:39836621</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5117,6 +5411,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791102" target="_blank">PMID:38791102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5150,16 +5445,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5186,16 +5486,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5225,6 +5530,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5236,6 +5542,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5336,14 +5643,21 @@
                         Hypertension
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5363,6 +5677,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36857009" target="_blank">PMID:36857009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5386,6 +5701,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28228528" target="_blank">PMID:28228528</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5407,6 +5723,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34524979" target="_blank">PMID:34524979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5448,14 +5765,21 @@
                         Adrenal Insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Adrenal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000846">HP:0000846</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000846</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5475,6 +5799,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5497,6 +5822,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34524979" target="_blank">PMID:34524979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5529,14 +5855,23 @@
                         Type 2 Diabetes or Hyperinsulinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type II diabetes mellitus
+
+                        <span class="phenotype-term-label">Type II diabetes mellitus</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5556,6 +5891,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36857009" target="_blank">PMID:36857009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5597,14 +5933,21 @@
                         Irregular Menstruation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Irregular menstruation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000858">HP:0000858</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000858" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000858</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular menstruation (HP:0000858). HP:0000858 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5624,6 +5967,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5656,14 +6000,21 @@
                         Infertility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000789">HP:0000789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5683,6 +6034,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5724,14 +6076,21 @@
                         Hirsutism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hirsutism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001007">HP:0001007</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001007</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hirsutism (HP:0001007). HP:0001007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5751,6 +6110,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5792,14 +6152,23 @@
                         Salt-Wasting Electrolyte Crisis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyponatremia
+
+                        <span class="phenotype-term-label">Hyponatremia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002902">HP:0002902</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002902</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hyponatremia (HP:0002902), qualified as neonatal onset. HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5849,6 +6218,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5889,14 +6259,21 @@
                         Osteoporosis or Osteopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteoporosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000939</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5916,6 +6293,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36857009" target="_blank">PMID:36857009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5957,14 +6335,21 @@
                         Short Stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5984,6 +6369,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6025,14 +6411,21 @@
                         Ambiguous Genitalia and 46,XX Virilization
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ambiguous genitalia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000062">HP:0000062</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000062</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ambiguous genitalia (HP:0000062), qualified as congenital onset. HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6082,6 +6475,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6130,6 +6524,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40921717" target="_blank">PMID:40921717</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6208,13 +6603,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYP21A2
 
 
-    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2600">hgnc:2600</a>
+    <a href="https://bioregistry.io/hgnc:2600" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2600</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP21A2 (hgnc:2600). hgnc:2600 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6235,6 +6635,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39911519" target="_blank">PMID:39911519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6272,13 +6673,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYP11B1
 
 
-    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2591">hgnc:2591</a>
+    <a href="https://bioregistry.io/hgnc:2591" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2591</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP11B1 (hgnc:2591). hgnc:2591 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6299,6 +6705,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28228528" target="_blank">PMID:28228528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6336,13 +6743,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYP17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2593">hgnc:2593</a>
+    <a href="https://bioregistry.io/hgnc:2593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2593</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP17A1 (hgnc:2593). hgnc:2593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6363,6 +6775,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34524979" target="_blank">PMID:34524979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6400,13 +6813,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HSD3B2
 
 
-    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5218">hgnc:5218</a>
+    <a href="https://bioregistry.io/hgnc:5218" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:5218</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HSD3B2 (hgnc:5218). hgnc:5218 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6432,13 +6850,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STAR
 
 
-    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11359">hgnc:11359</a>
+    <a href="https://bioregistry.io/hgnc:11359" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:11359</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAR (hgnc:11359). hgnc:11359 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6458,6 +6881,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6473,7 +6899,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6503,16 +6934,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         therapeutic hydrocortisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C555" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C555">NCIT:C555</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C555" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C555</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses therapeutic hydrocortisone (NCIT:C555). NCIT:C555 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6569,6 +7005,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38828955" target="_blank">PMID:38828955</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6598,7 +7035,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6628,16 +7070,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         fludrocortisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C71629" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C71629">NCIT:C71629</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C71629" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C71629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fludrocortisone (NCIT:C71629). NCIT:C71629 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6669,16 +7116,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         hyponatremia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002902">HP:0002902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6697,6 +7149,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36857009" target="_blank">PMID:36857009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6727,7 +7180,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6757,16 +7215,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         crinecerfont
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174708" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C174708">NCIT:C174708</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174708" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C174708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses crinecerfont (NCIT:C174708). NCIT:C174708 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6810,6 +7273,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38828955" target="_blank">PMID:38828955</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6831,6 +7295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38828955" target="_blank">PMID:38828955</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6861,7 +7326,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -6928,6 +7398,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982440" target="_blank">PMID:36982440</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6988,6 +7459,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31984156" target="_blank">PMID:31984156</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7009,6 +7481,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28938470" target="_blank">PMID:28938470</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7055,6 +7528,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37176569" target="_blank">PMID:37176569</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7076,6 +7550,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38791102" target="_blank">PMID:38791102</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7115,7 +7590,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs001317">
                 <div class="item-name">
                     Long-Term Outcome in Offspring and Mothers of Dexamethasone-Treated Pregnancies at Risk for Classical Congenital Adrenal Hyperplasia Owing to 21-Hydroxylase Deficiency
 
@@ -7160,7 +7635,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04490915">
                 <div class="item-name">
                     NCT04490915
 
@@ -7188,6 +7663,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT04490915" target="_blank">clinicaltrials:NCT04490915</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7211,7 +7687,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04783181">
                 <div class="item-name">
                     NCT04783181
 
@@ -7238,6 +7714,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04783181" target="_blank">clinicaltrials:NCT04783181</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7268,6 +7745,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7284,7 +7764,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Congenital Adrenal Hyperplasia
 creation_date: &#34;2026-05-07T12:55:39Z&#34;
-updated_date: &#34;2026-05-09T20:20:45Z&#34;
 category: Mendelian
 synonyms:
 - CAH
@@ -8376,97 +8855,6 @@ clinical_trials:
     explanation: &gt;-
       The trial record directly describes an AAV5 BBP-631 gene therapy study in
       classic CAH.
-references:
-- reference: DOI:10.3390/jcm12093128
-  title: &#34;Clinical Update on Congenital Adrenal Hyperplasia: Recommendations from a Multidisciplinary Adrenal Program.&#34;
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1210/jendso/bvaf018
-  title: Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.4274/jcrpe.galenos.2024.2024-6-6-s
-  title: Clinical, biochemical and molecular characteristics of congenital adrenal hyperplasia due to 21-hydroxylase deficiency.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1210/jendso/bvaa152
-  title: Attention-deficit/hyperactivity disorder among US children and adolescents with congenital adrenal hyperplasia.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1210/js.2019-00122
-  title: &#34;Increased Risk of Autoimmune Disorders in 21-Hydroxylase Deficiency: A Swedish Population-Based National Cohort Study.&#34;
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1056/nejmoa2404656
-  title: Phase 3 Trial of Crinecerfont in Adult Congenital Adrenal Hyperplasia.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1007/s12020-023-03330-w
-  title: Long-term cardiometabolic morbidity in young adults with classic 21-hydroxylase deficiency congenital adrenal hyperplasia.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1055/s-0039-1698424
-  title: Newborn Screening for Congenital Hypothyroidism, Congenital Adrenal Hyperplasia, and Glucose-6-Phosphate Dehydrogenase Deficiency for Improving Health Care in India.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1210/en.2017-00549
-  title: Genetic Disruption of 21-Hydroxylase in Zebrafish Causes Interrenal Hyperplasia.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.3390/ijms25105062
-  title: A Humanized and Viable Animal Model for Congenital Adrenal Hyperplasia-CYP21A2-R484Q Mutant Mouse.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.3390/ijms24065365
-  title: Models of Congenital Adrenal Hyperplasia for Gene Therapies Testing.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1210/jendso/bvac062
-  title: CYP21A2 Gene Expression in a Humanized 21-Hydroxylase Mouse Model Does Not Affect Adrenocortical Morphology and Function.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.3390/metabo15020089
-  title: &#34;Metabolic syndrome spectrum in children with classic congenital adrenal hyperplasia: a comprehensive review.&#34;
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.70315/uloap.ulcnu.2025.0201002
-  title: &#34;Congenital adrenal hyperplasia: a clinical review.&#34;
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.4274/jcrpe.galenos.2024.2024-6-10-s
-  title: Antenatal diagnosis and treatment in congenital adrenal hyperplasia due to 21-hydroxylase deficiency and congenital adrenal hyperplasia screening in newborns.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1186/s42826-024-00212-8
-  title: &#34;Non-classical animal models for studying adrenal diseases: advantages, limitations, and implications for research.&#34;
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.4274/jcrpe.galenos.2024.2024-6-21-s
-  title: Congenital adrenal hyperplasia due to rare enzyme deficiencies.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
-- reference: DOI:10.1016/b978-0-12-416006-4.00026-0
-  title: Animal models of adrenal genetic disorders.
-  found_in:
-  - Congenital_Adrenal_Hyperplasia-deep-research-falcon.md
-  findings: []
 datasets:
 - accession: dbgap:phs001317
   title: Long-Term Outcome in Offspring and Mothers of Dexamethasone-Treated Pregnancies at Risk for Classical Congenital Adrenal Hyperplasia Owing to 21-Hydroxylase Deficiency
@@ -8482,320 +8870,6 @@ datasets:
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
-            </div>
-
-            <div class="grouped-section anchor-target" id="references">
-                <div class="grouped-section-header">
-                    <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">18</span>
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.3390/jcm12093128" target="_blank">DOI:10.3390/jcm12093128</a>
-                            </div>
-
-                            <div class="reference-title">Clinical Update on Congenital Adrenal Hyperplasia: Recommendations from a Multidisciplinary Adrenal Program.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1210/jendso/bvaf018" target="_blank">DOI:10.1210/jendso/bvaf018</a>
-                            </div>
-
-                            <div class="reference-title">Genetics in Congenital Adrenal Hyperplasia Due to 21-Hydroxylase Deficiency and Clinical Implications.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.4274/jcrpe.galenos.2024.2024-6-6-s" target="_blank">DOI:10.4274/jcrpe.galenos.2024.2024-6-6-s</a>
-                            </div>
-
-                            <div class="reference-title">Clinical, biochemical and molecular characteristics of congenital adrenal hyperplasia due to 21-hydroxylase deficiency.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1210/jendso/bvaa152" target="_blank">DOI:10.1210/jendso/bvaa152</a>
-                            </div>
-
-                            <div class="reference-title">Attention-deficit/hyperactivity disorder among US children and adolescents with congenital adrenal hyperplasia.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1210/js.2019-00122" target="_blank">DOI:10.1210/js.2019-00122</a>
-                            </div>
-
-                            <div class="reference-title">Increased Risk of Autoimmune Disorders in 21-Hydroxylase Deficiency: A Swedish Population-Based National Cohort Study.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1056/nejmoa2404656" target="_blank">DOI:10.1056/nejmoa2404656</a>
-                            </div>
-
-                            <div class="reference-title">Phase 3 Trial of Crinecerfont in Adult Congenital Adrenal Hyperplasia.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1007/s12020-023-03330-w" target="_blank">DOI:10.1007/s12020-023-03330-w</a>
-                            </div>
-
-                            <div class="reference-title">Long-term cardiometabolic morbidity in young adults with classic 21-hydroxylase deficiency congenital adrenal hyperplasia.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1055/s-0039-1698424" target="_blank">DOI:10.1055/s-0039-1698424</a>
-                            </div>
-
-                            <div class="reference-title">Newborn Screening for Congenital Hypothyroidism, Congenital Adrenal Hyperplasia, and Glucose-6-Phosphate Dehydrogenase Deficiency for Improving Health Care in India.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1210/en.2017-00549" target="_blank">DOI:10.1210/en.2017-00549</a>
-                            </div>
-
-                            <div class="reference-title">Genetic Disruption of 21-Hydroxylase in Zebrafish Causes Interrenal Hyperplasia.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.3390/ijms25105062" target="_blank">DOI:10.3390/ijms25105062</a>
-                            </div>
-
-                            <div class="reference-title">A Humanized and Viable Animal Model for Congenital Adrenal Hyperplasia-CYP21A2-R484Q Mutant Mouse.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.3390/ijms24065365" target="_blank">DOI:10.3390/ijms24065365</a>
-                            </div>
-
-                            <div class="reference-title">Models of Congenital Adrenal Hyperplasia for Gene Therapies Testing.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1210/jendso/bvac062" target="_blank">DOI:10.1210/jendso/bvac062</a>
-                            </div>
-
-                            <div class="reference-title">CYP21A2 Gene Expression in a Humanized 21-Hydroxylase Mouse Model Does Not Affect Adrenocortical Morphology and Function.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.3390/metabo15020089" target="_blank">DOI:10.3390/metabo15020089</a>
-                            </div>
-
-                            <div class="reference-title">Metabolic syndrome spectrum in children with classic congenital adrenal hyperplasia: a comprehensive review.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.70315/uloap.ulcnu.2025.0201002" target="_blank">DOI:10.70315/uloap.ulcnu.2025.0201002</a>
-                            </div>
-
-                            <div class="reference-title">Congenital adrenal hyperplasia: a clinical review.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.4274/jcrpe.galenos.2024.2024-6-10-s" target="_blank">DOI:10.4274/jcrpe.galenos.2024.2024-6-10-s</a>
-                            </div>
-
-                            <div class="reference-title">Antenatal diagnosis and treatment in congenital adrenal hyperplasia due to 21-hydroxylase deficiency and congenital adrenal hyperplasia screening in newborns.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1186/s42826-024-00212-8" target="_blank">DOI:10.1186/s42826-024-00212-8</a>
-                            </div>
-
-                            <div class="reference-title">Non-classical animal models for studying adrenal diseases: advantages, limitations, and implications for research.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.4274/jcrpe.galenos.2024.2024-6-21-s" target="_blank">DOI:10.4274/jcrpe.galenos.2024.2024-6-21-s</a>
-                            </div>
-
-                            <div class="reference-title">Congenital adrenal hyperplasia due to rare enzyme deficiencies.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1016/b978-0-12-416006-4.00026-0" target="_blank">DOI:10.1016/b978-0-12-416006-4.00026-0</a>
-                            </div>
-
-                            <div class="reference-title">Animal models of adrenal genetic disorders.</div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="reference-empty">No top-level findings curated for this source.</div>
-
-                </div>
-
             </div>
 
 
@@ -10104,7 +10178,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Adrenal Hyperplasia", "mondoId": "MONDO:0018479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Adrenal_Hyperplasia", "yamlRevision": "10ed1ae03e05"};
+        const OS_CONFIG = {"diseaseName": "Congenital Adrenal Hyperplasia", "mondoId": "MONDO:0018479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Adrenal_Hyperplasia", "yamlRevision": "ab240fc5635a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10523,5 +10597,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

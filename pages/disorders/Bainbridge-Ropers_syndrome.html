@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Bainbridge-Ropers syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Bainbridge-Ropers syndrome</h1>
             <div class="header-meta">
 
@@ -3701,6 +3903,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3815,27 +4019,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3908,7 +4189,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-typically-de-novo">
                 <div class="item-name">
                     Autosomal dominant, typically de novo
 
@@ -3953,6 +4234,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3975,6 +4257,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3996,6 +4279,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4113,6 +4397,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4140,6 +4430,12 @@
             <div class="experiment-section-title">Decision criterion</div>
             <div class="experiment-decision">Statistically significant reduction in cortical thickness or upper-layer-associated volume relative to matched controls would reconcile the model finding with the clinical observation of &#34;normal&#34; MRI.</div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4191,6 +4487,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4213,6 +4515,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32132929" target="_blank">PMID:32132929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4309,6 +4612,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4336,6 +4645,12 @@
             <div class="experiment-section-title">Decision criterion</div>
             <div class="experiment-decision">Divergent methylation profiles between the NMD and no-NMD groups would provide molecular support for two distinct disease mechanisms rather than a single haploinsufficiency mechanism.</div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4387,6 +4702,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4409,6 +4730,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35361921" target="_blank">PMID:35361921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4454,7 +4776,7 @@
 
 
 
-    <span class="entity-ref-chip">genetic#ASXL3</span>
+    <a class="entity-ref-chip" href="#genetic-asxl3">genetic#ASXL3</a>
 
 
 
@@ -4493,6 +4815,12 @@
             <div class="experiment-section-title">Decision criterion</div>
             <div class="experiment-decision">A carrier frequency substantially exceeding the expected disease prevalence, with a meaningful fraction of carriers lacking a neurodevelopmental diagnosis, would establish reduced penetrance for at least some variant classes.</div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4544,6 +4872,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4567,6 +4901,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4589,6 +4924,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4610,6 +4946,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4655,7 +4992,7 @@
 
 
 
-    <span class="entity-ref-chip">genetic#ASXL3</span>
+    <a class="entity-ref-chip" href="#genetic-asxl3">genetic#ASXL3</a>
 
 
 
@@ -4694,6 +5031,12 @@
             <div class="experiment-section-title">Decision criterion</div>
             <div class="experiment-decision">A bimodal functional score distribution separating known pathogenic truncating-equivalent losses from tolerated substitutions would provide a calibrated assay for missense variant interpretation.</div>
         </div>
+
+
+
+
+
+
 
 
 
@@ -4745,6 +5088,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4784,6 +5133,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4806,6 +5161,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4851,16 +5207,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4885,15 +5246,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ASXL3
 
 
-    <a href="https://bioregistry.io/hgnc:29357" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29357">hgnc:29357</a>
+    <a href="https://bioregistry.io/hgnc:29357" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:29357</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ASXL3 (hgnc:29357). hgnc:29357 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4921,16 +5289,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nonsense-mediated decay of the mutant ASXL3 transcript
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000184">GO:0000184</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0000184</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased nonsense-mediated decay of the mutant ASXL3 transcript, annotated with nuclear-transcribed mRNA catabolic process, nonsense-mediated decay (GO:0000184). GO:0000184 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4951,6 +5324,7 @@
 
 
                 </div>
+
 
 
 
@@ -4987,6 +5361,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23383720" target="_blank">PMID:23383720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5009,6 +5384,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26647312" target="_blank">PMID:26647312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5030,6 +5406,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5071,16 +5448,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         ASXL3-BAP1 PR-DUB complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035517" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035517">GO:0035517</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035517" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035517</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves ASXL3-BAP1 PR-DUB complex, annotated with PR-DUB complex (GO:0035517). GO:0035517 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5089,16 +5471,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         histone H2A deubiquitinase activity of the PR-DUB complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140950">GO:0140950</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140950" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0140950</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H2A deubiquitinase activity of the PR-DUB complex, annotated with histone H2A deubiquitinase activity (GO:0140950). GO:0140950 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5119,6 +5506,7 @@
 
 
                 </div>
+
 
 
 
@@ -5154,6 +5542,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26647312" target="_blank">PMID:26647312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5176,6 +5565,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25835095" target="_blank">PMID:25835095</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5197,6 +5587,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32132929" target="_blank">PMID:32132929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,16 +5621,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5266,16 +5662,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         PR-DUB-mediated histone H2A deubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016579">GO:0016579</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016579</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased PR-DUB-mediated histone H2A deubiquitination, annotated with protein deubiquitination (GO:0016579). GO:0016579 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5295,16 +5696,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         chromatin organization at Polycomb target loci
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization at Polycomb target loci, annotated with chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5325,6 +5731,7 @@
 
 
                 </div>
+
 
 
 
@@ -5369,6 +5776,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26647312" target="_blank">PMID:26647312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5390,6 +5798,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26647312" target="_blank">PMID:26647312</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5423,16 +5832,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5459,16 +5873,55 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         dysregulated transcription of developmental target genes
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal dysregulated transcription of developmental target genes, annotated with regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        epigenetic regulation of gene expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0040029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5489,6 +5942,7 @@
 
 
                 </div>
+
 
 
 
@@ -5525,6 +5979,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26647312" target="_blank">PMID:26647312</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5557,16 +6012,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         developing neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves developing neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5593,16 +6053,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neural cell fate commitment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045165">GO:0045165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0045165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neural cell fate commitment, annotated with cell fate commitment (GO:0045165). GO:0045165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5611,6 +6076,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -5628,10 +6095,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007399">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5651,16 +6121,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5681,6 +6156,7 @@
 
 
                 </div>
+
 
 
 
@@ -5717,6 +6193,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32132929" target="_blank">PMID:32132929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5738,6 +6215,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32132929" target="_blank">PMID:32132929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5784,6 +6262,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5795,6 +6274,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5817,6 +6297,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5863,6 +6344,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5874,6 +6356,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35361921" target="_blank">PMID:35361921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5896,6 +6379,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35361921" target="_blank">PMID:35361921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5945,7 +6429,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"association\": \"Heterozygous protein-truncating (nonsense, frameshift, canonical splice-site) variants, clustered in the two large coding exons 11 and 12\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense, frameshift, or canonical splice-site variant, almost always falling in the two large coding exons 11 and 12, is the initiating lesion. For variants predicted to trigger nonsense-mediated decay the mutant transcript is degraded and total ASXL3 message and protein fall, producing true haploinsufficiency. A second class of truncating variants escapes decay and yields a truncated protein, and the two classes are associated with measurably different clinical severity, which argues that reduced dosage is the dominant but not the only mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"nonsense-mediated decay of the mutant ASXL3 transcript\"], \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}]}}, {\"id\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A negative but mechanistically informative finding. Blood DNA methylation signatures are established for many chromatinopathies, and ASXL1-related Bohring-Opitz syndrome has a robust one. When that classifier was applied to ASXL3 patients their methylation profiles were control-like, and unlike ASXL1 and ASXL2 patients they showed no epigenetic age acceleration. This means (a) there is currently no validated episignature available to help classify ASXL3 variants of uncertain significance, and (b) ASXL3 dysfunction diverges mechanistically from ASXL1 despite paralogy - which is a molecular argument for keeping BRPS and BOS as separate entities.\", \"meta\": {\"evidence_count\": 2, \"role\": \"BIOMARKER\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the syndrome. Most affected individuals are nonverbal or have only a handful of words, and augmentative and alternative communication is a core need.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-reflux management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-reflux medication for gastroesophageal reflux disease, with fundoplication reserved for severe or refractory cases. Reflux control also reduces aspiration risk in a hypotonic child with dysphagia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-seizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard neurologist-directed management of childhood-onset generalized epilepsy with generalized tonic-clonic and atypical absence seizures. Broad-spectrum agents are the rational choice given the generalized phenotype, but there are no BRPS-specific efficacy data. Confirm that paroxysmal events are epileptic on video-EEG before escalating, since breath-holding, hyperventilation and dystonic episodes in this disorder are non-epileptic.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Behavioral intervention for self-injury\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured behaviour-analytic assessment and treatment, using functional analysis and differential reinforcement, is the best-evidenced non-pharmacological approach to self-injury in this disorder. Coexisting sleep disruption can confound assessment and should be addressed in parallel.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including crowding are recognized manifestations, and six-monthly dental review from age three is recommended.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Disrupted Neural Cell Fate Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental consequence of ASXL3 loss falls on early neural patterning. In a vertebrate embryo model, ASXL3 depletion severely perturbs specification of neural cell fates, with reduced expression of hindbrain, primary neuron, and neural crest markers, while spinal-cord identity is relatively spared. This positions ASXL3 as a chromatin regulator required during the earliest steps of nervous system induction and anteroposterior patterning, which is when the human phenotype is determined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"developing neuron\"], \"biological_processes\": [\"neural cell fate commitment\", \"nervous system development\", \"neuron differentiation\"]}}, {\"id\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB output leaves H2AK119 monoubiquitination abnormally high. This mark is the repressive output of Polycomb repressive complex 1, and its dynamic removal by PR-DUB is required for normal derepression of developmental target genes. BRPS was the first single-gene disorder attributed to a defect in H2AK119Ub1 deubiquitination, making this the defining chromatin lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"PR-DUB-mediated histone H2A deubiquitination\", \"chromatin organization at Polycomb target loci\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe feeding difficulty is one of the two features that named the disorder. It presents in early infancy, frequently necessitates nasogastric and then gastrostomy feeding, and drives failure to thrive. Feeding tube use is more frequent in the nonsense-mediated-decay and exon 11 variant groups.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding therapy and gastrostomy tube placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield intervention in infancy. Clinical feeding evaluation with a low threshold for referral, feeding therapy, and nasogastric then gastrostomy feeding where oral intake is inadequate. Many children later wean off tube feeding as feeding skills improve with age.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux disease is common, compounds the feeding difficulty and aspiration risk, and may require anti-reflux medication or fundoplication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aberrant chromatin state translates into widespread transcriptional change. Patient fibroblast transcriptomes show hundreds of differentially expressed genes split almost evenly between up- and downregulated, which is more consistent with loss of a chromatin scaffold that tunes both repression and activation than with loss of a pure repressor. The affected genes are enriched for transcriptional regulation, development, and proliferation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"dysregulated transcription of developmental target genes\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central hypotonia, often severe and evident from infancy, contributing to feeding failure and motor delay. In many individuals truncal hypotonia later coexists with, or gives way to, increased limb tone and flexion contractures of the elbows, wrists, and fingers.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL3 is a non-catalytic scaffolding subunit of the Polycomb repressive deubiquitinase (PR-DUB) complex, binding the ubiquitin C-terminal hydrolase BAP1 through its DEUBAD module. BAP1 has little activity on nucleosomes on its own and depends on an ASXL partner, so reduced ASXL3 dosage limits assembly of functional ASXL3-BAP1 PR-DUB and blunts its catalytic output. The ASXL paralogs are epigenetic scaffolds more generally, also engaging EZH2, nuclear receptors and other partners.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H2A deubiquitinase activity of the PR-DUB complex\"]}}, {\"id\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal node: a static (non-degenerative) neurodevelopmental phenotype comprising moderate-to-severe intellectual disability, absent or profoundly limited speech, autistic features, central hypotonia evolving toward limb hypertonia, severe infantile feeding difficulty with failure to thrive, gastroesophageal reflux, and a nonspecific craniofacial gestalt, with generalized epilepsy in a minority.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ophthalmological and renal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"At least annual ophthalmology review for all, given the frequency of strabismus and refractive error. Baseline renal imaging after diagnosis is a newer recommendation arising from the emerging renal phenotype identified in the international natural history study.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy for hypotonia, motor delay, joint laxity and contracture prevention, with durable medical equipment and orthotics as needed. Longitudinal data show motor skills improve over time, so rehabilitation goals should be progressive rather than purely maintenance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregabalin for severe challenging behavior\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported in a single adult with BRPS, severe intellectual disability, autism and epilepsy admitted for severe self- and hetero-aggression, in whom pregabalin produced rapid stabilization and allowed withdrawal of analgesics, neuroleptics, antidepressants and benzodiazepines, sustained at nine months. This is hypothesis-generating only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"Preventive dental care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six-monthly dental review from age three, with preventive measures. Dental anomalies are a recognized feature and oral health is difficult to maintain in a nonverbal child with behavioural challenges.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An emerging renal phenotype was identified in the international natural history study and is the basis for the recommendation of baseline renal imaging after diagnosis. The specific renal lesions and their frequency are not yet characterized.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of individuals develop childhood-onset generalized epilepsy, typically with generalized tonic-clonic and sometimes atypical absence seizures, and EEG features of generalized epilepsy. Most affected individuals have normal brain MRI. Non-epileptic breath-holding and dystonic episodes are an important mimic, so video-EEG is needed before escalating anti-seizure medication.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior and aggression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and aggression are a major source of morbidity and can be severe enough to require inpatient psychiatric admission. They are amenable to structured behavioral intervention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech and language therapy with augmentative and alternative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because most affected individuals are nonverbal or minimally verbal, speech and language therapy focused on augmentative and alternative communication is a core, lifelong intervention rather than an optional adjunct.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the commonest ophthalmological finding and is one of the reasons annual ophthalmology review is recommended for all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}], \"edges\": [{\"source\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"target\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASXL3 protein limits assembly of the ASXL3-BAP1 PR-DUB complex, of which ASXL3 is an obligate scaffolding subunit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"target\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB catalytic output leaves the repressive H2AK119 monoubiquitin mark abnormally elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chromatin lesion does not propagate into a detectable peripheral blood DNA methylation signature: ASXL3 patients profile as control-like on the ASXL1/Bohring-Opitz classifier. The steps that would connect an elevated H2AK119Ub1 mark to a blood DNAm readout are unknown, and this edge asserts the absence of a detectable downstream signature rather than a positive effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Genome-Wide Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered chromatin state produces widespread bidirectional changes in gene expression in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation\", \"target\": \"Disrupted Neural Cell Fate Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation during early neural patterning is inferred to derail cell-fate specification. The specific intermediate target genes in human neural tissue are not known, and the direct evidence is model-organism only.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Derepression of Polycomb target genes at neural patterning loci\", \"Altered dosage of hindbrain, primary neuron, and neural crest fate determinants\"]}, {\"source\": \"Disrupted Neural Cell Fate Specification\", \"target\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted early neural specification is inferred to produce the clinical neurodevelopmental phenotype. Because most affected individuals have structurally normal brain imaging, the intervening steps between a patterning defect and the clinical picture are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Feeding therapy and gastrostomy tube placement\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-reflux management\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy with augmentative and alternative communication\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral intervention for self-injury\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pregabalin for severe challenging behavior\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Preventive dental care\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Renal anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL3\", \"target\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASXL3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}], \"association\": \"Heterozygous protein-truncating (nonsense, frameshift, canonical splice-site) variants, clustered in the two large coding exons 11 and 12\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense, frameshift, or canonical splice-site variant, almost always falling in the two large coding exons 11 and 12, is the initiating lesion. For variants predicted to trigger nonsense-mediated decay the mutant transcript is degraded and total ASXL3 message and protein fall, producing true haploinsufficiency. A second class of truncating variants escapes decay and yields a truncated protein, and the two classes are associated with measurably different clinical severity, which argues that reduced dosage is the dominant but not the only mechanism.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"nonsense-mediated decay of the mutant ASXL3 transcript\"], \"genes\": [\"ASXL3\"], \"gene_terms\": [{\"label\": \"ASXL3\", \"id\": \"hgnc:29357\"}]}}, {\"id\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A negative but mechanistically informative finding. Blood DNA methylation signatures are established for many chromatinopathies, and ASXL1-related Bohring-Opitz syndrome has a robust one. When that classifier was applied to ASXL3 patients their methylation profiles were control-like, and unlike ASXL1 and ASXL2 patients they showed no epigenetic age acceleration. This means (a) there is currently no validated episignature available to help classify ASXL3 variants of uncertain significance, and (b) ASXL3 dysfunction diverges mechanistically from ASXL1 despite paralogy - which is a molecular argument for keeping BRPS and BOS as separate entities.\", \"meta\": {\"evidence_count\": 2, \"role\": \"BIOMARKER\"}}, {\"id\": \"Absent or severely limited speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech and language impairment is the most consistent feature of the syndrome. Most affected individuals are nonverbal or have only a handful of words, and augmentative and alternative communication is a core need.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anti-reflux management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-reflux medication for gastroesophageal reflux disease, with fundoplication reserved for severe or refractory cases. Reflux control also reduces aspiration risk in a hypotonic child with dysphagia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anti-seizure medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard neurologist-directed management of childhood-onset generalized epilepsy with generalized tonic-clonic and atypical absence seizures. Broad-spectrum agents are the rational choice given the generalized phenotype, but there are no BRPS-specific efficacy data. Confirm that paroxysmal events are epileptic on video-EEG before escalating, since breath-holding, hyperventilation and dystonic episodes in this disorder are non-epileptic.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Behavioral intervention for self-injury\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Structured behaviour-analytic assessment and treatment, using functional analysis and differential reinforcement, is the best-evidenced non-pharmacological approach to self-injury in this disorder. Coexisting sleep disruption can confound assessment and should be addressed in parallel.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dental anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental anomalies including crowding are recognized manifestations, and six-monthly dental review from age three is recommended.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Disrupted Neural Cell Fate Specification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The developmental consequence of ASXL3 loss falls on early neural patterning. In a vertebrate embryo model, ASXL3 depletion severely perturbs specification of neural cell fates, with reduced expression of hindbrain, primary neuron, and neural crest markers, while spinal-cord identity is relatively spared. This positions ASXL3 as a chromatin regulator required during the earliest steps of nervous system induction and anteroposterior patterning, which is when the human phenotype is determined.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"developing neuron\"], \"biological_processes\": [\"neural cell fate commitment\", \"nervous system development\", \"neuron differentiation\"]}}, {\"id\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB output leaves H2AK119 monoubiquitination abnormally high. This mark is the repressive output of Polycomb repressive complex 1, and its dynamic removal by PR-DUB is required for normal derepression of developmental target genes. BRPS was the first single-gene disorder attributed to a defect in H2AK119Ub1 deubiquitination, making this the defining chromatin lesion of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"PR-DUB-mediated histone H2A deubiquitination\", \"chromatin organization at Polycomb target loci\"]}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe feeding difficulty is one of the two features that named the disorder. It presents in early infancy, frequently necessitates nasogastric and then gastrostomy feeding, and drives failure to thrive. Feeding tube use is more frequent in the nonsense-mediated-decay and exon 11 variant groups.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Feeding therapy and gastrostomy tube placement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The highest-yield intervention in infancy. Clinical feeding evaluation with a low threshold for referral, feeding therapy, and nasogastric then gastrostomy feeding where oral intake is inadequate. Many children later wean off tube feeding as feeding skills improve with age.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux disease is common, compounds the feeding difficulty and aspiration risk, and may require anti-reflux medication or fundoplication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Genome-Wide Transcriptional Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The aberrant chromatin state translates into widespread transcriptional change. Patient fibroblast transcriptomes show hundreds of differentially expressed genes split almost evenly between up- and downregulated, which is more consistent with loss of a chromatin scaffold that tunes both repression and activation than with loss of a pure repressor. The affected genes are enriched for transcriptional regulation, development, and proliferation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"patient dermal fibroblast\"], \"biological_processes\": [\"dysregulated transcription of developmental target genes\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central hypotonia, often severe and evident from infancy, contributing to feeding failure and motor delay. In many individuals truncal hypotonia later coexists with, or gives way to, increased limb tone and flexion contractures of the elbows, wrists, and fingers.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASXL3 is a non-catalytic scaffolding subunit of the Polycomb repressive deubiquitinase (PR-DUB) complex, binding the ubiquitin C-terminal hydrolase BAP1 through its DEUBAD module. BAP1 has little activity on nucleosomes on its own and depends on an ASXL partner, so reduced ASXL3 dosage limits assembly of functional ASXL3-BAP1 PR-DUB and blunts its catalytic output. The ASXL paralogs are epigenetic scaffolds more generally, also engaging EZH2, nuclear receptors and other partners.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"histone H2A deubiquitinase activity of the PR-DUB complex\"]}}, {\"id\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal node: a static (non-degenerative) neurodevelopmental phenotype comprising moderate-to-severe intellectual disability, absent or profoundly limited speech, autistic features, central hypotonia evolving toward limb hypertonia, severe infantile feeding difficulty with failure to thrive, gastroesophageal reflux, and a nonspecific craniofacial gestalt, with generalized epilepsy in a minority.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ophthalmological and renal surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"At least annual ophthalmology review for all, given the frequency of strabismus and refractive error. Baseline renal imaging after diagnosis is a newer recommendation arising from the emerging renal phenotype identified in the international natural history study.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physiotherapy for hypotonia, motor delay, joint laxity and contracture prevention, with durable medical equipment and orthotics as needed. Longitudinal data show motor skills improve over time, so rehabilitation goals should be progressive rather than purely maintenance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pregabalin for severe challenging behavior\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reported in a single adult with BRPS, severe intellectual disability, autism and epilepsy admitted for severe self- and hetero-aggression, in whom pregabalin produced rapid stabilization and allowed withdrawal of analgesics, neuroleptics, antidepressants and benzodiazepines, sustained at nine months. This is hypothesis-generating only.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pregabalin\"]}}, {\"id\": \"Preventive dental care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six-monthly dental review from age three, with preventive measures. Dental anomalies are a recognized feature and oral health is difficult to maintain in a nonverbal child with behavioural challenges.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An emerging renal phenotype was identified in the international natural history study and is the basis for the recommendation of baseline renal imaging after diagnosis. The specific renal lesions and their frequency are not yet characterized.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of individuals develop childhood-onset generalized epilepsy, typically with generalized tonic-clonic and sometimes atypical absence seizures, and EEG features of generalized epilepsy. Most affected individuals have normal brain MRI. Non-epileptic breath-holding and dystonic episodes are an important mimic, so video-EEG is needed before escalating anti-seizure medication.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Self-injurious behavior and aggression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Self-injury and aggression are a major source of morbidity and can be severe enough to require inpatient psychiatric admission. They are amenable to structured behavioral intervention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100716\"}}, {\"id\": \"Speech and language therapy with augmentative and alternative communication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because most affected individuals are nonverbal or minimally verbal, speech and language therapy focused on augmentative and alternative communication is a core, lifelong intervention rather than an optional adjunct.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the commonest ophthalmological finding and is one of the reasons annual ophthalmology review is recommended for all affected individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}], \"edges\": [{\"source\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"target\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced ASXL3 protein limits assembly of the ASXL3-BAP1 PR-DUB complex, of which ASXL3 is an obligate scaffolding subunit.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired PR-DUB Deubiquitinase Complex Function\", \"target\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PR-DUB catalytic output leaves the repressive H2AK119 monoubiquitin mark abnormally elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Absence of an ASXL3 DNA Methylation Episignature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chromatin lesion does not propagate into a detectable peripheral blood DNA methylation signature: ASXL3 patients profile as control-like on the ASXL1/Bohring-Opitz classifier. The steps that would connect an elevated H2AK119Ub1 mark to a blood DNAm readout are unknown, and this edge asserts the absence of a detectable downstream signature rather than a positive effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated H2A Lysine 119 Monoubiquitination\", \"target\": \"Genome-Wide Transcriptional Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The altered chromatin state produces widespread bidirectional changes in gene expression in patient-derived cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genome-Wide Transcriptional Dysregulation\", \"target\": \"Disrupted Neural Cell Fate Specification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation during early neural patterning is inferred to derail cell-fate specification. The specific intermediate target genes in human neural tissue are not known, and the direct evidence is model-organism only.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Derepression of Polycomb target genes at neural patterning loci\", \"Altered dosage of hindbrain, primary neuron, and neural crest fate determinants\"]}, {\"source\": \"Disrupted Neural Cell Fate Specification\", \"target\": \"Neurodevelopmental and Multisystem Clinical Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted early neural specification is inferred to produce the clinical neurodevelopmental phenotype. Because most affected individuals have structurally normal brain imaging, the intervening steps between a patterning defect and the clinical picture are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Feeding therapy and gastrostomy tube placement\", \"target\": \"Feeding difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-reflux management\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and language therapy with augmentative and alternative communication\", \"target\": \"Absent or severely limited speech\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Hypotonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Behavioral intervention for self-injury\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pregabalin for severe challenging behavior\", \"target\": \"Self-injurious behavior and aggression\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Preventive dental care\", \"target\": \"Dental anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Strabismus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological and renal surveillance\", \"target\": \"Renal anomalies\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ASXL3\", \"target\": \"ASXL3 Haploinsufficiency from Protein-Truncating Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6000,14 +6484,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968), qualified as infantile onset. HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6057,6 +6548,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6079,6 +6571,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23383720" target="_blank">PMID:23383720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6100,6 +6593,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6134,14 +6628,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastroesophageal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6161,6 +6662,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6183,6 +6685,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6226,14 +6729,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6253,6 +6763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6275,6 +6786,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6309,14 +6821,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6336,6 +6855,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6377,14 +6897,23 @@
                         Renal anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the kidney
+
+                        <span class="phenotype-term-label">Abnormality of the kidney</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000077">HP:0000077</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,6 +6935,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6449,14 +6979,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Highly arched eyebrow
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002553">HP:0002553</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002553</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6476,6 +7013,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6498,6 +7036,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6532,14 +7071,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Downslanted palpebral fissures
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000494">HP:0000494</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000494</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6559,6 +7105,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27901041" target="_blank">PMID:27901041</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6581,6 +7128,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6615,14 +7163,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        High palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000218">HP:0000218</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000218</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6642,6 +7197,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27901041" target="_blank">PMID:27901041</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6664,6 +7220,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6698,14 +7255,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011220">HP:0011220</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011220</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6725,6 +7289,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6759,14 +7324,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6786,6 +7358,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6809,6 +7382,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24044690" target="_blank">PMID:24044690</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6830,6 +7404,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27901041" target="_blank">PMID:27901041</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6873,14 +7448,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6900,6 +7482,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6923,6 +7506,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6944,6 +7528,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6978,14 +7563,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7005,6 +7597,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7039,14 +7632,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint contracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034392">HP:0034392</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0034392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7066,6 +7666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7109,14 +7710,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7136,6 +7744,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7170,14 +7779,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7197,6 +7813,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7220,6 +7837,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7241,6 +7859,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7275,14 +7894,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Absent speech
+
+                        <span class="phenotype-term-label">Absent speech</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001344">HP:0001344</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001344</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7302,6 +7930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7324,6 +7953,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27901041" target="_blank">PMID:27901041</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7358,14 +7988,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7385,6 +8022,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7419,14 +8057,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autism
+
+                        <span class="phenotype-term-label">Autism</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000717</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7446,6 +8093,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7469,6 +8117,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7490,6 +8139,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7524,14 +8174,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7551,6 +8208,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34086428" target="_blank">PMID:34086428</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7573,6 +8231,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7607,14 +8266,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Self-injurious behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7634,6 +8300,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34086428" target="_blank">PMID:34086428</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7656,6 +8323,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7690,14 +8358,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250), qualified as childhood onset. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7747,6 +8422,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29367179" target="_blank">PMID:29367179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7769,6 +8445,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29367179" target="_blank">PMID:29367179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7790,6 +8467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7824,14 +8502,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010535">HP:0010535</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0010535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7851,6 +8536,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7873,6 +8559,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7907,14 +8594,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Attention deficit hyperactivity disorder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7934,6 +8628,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34086428" target="_blank">PMID:34086428</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7966,14 +8661,21 @@
                         Dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332), qualified as infantile onset. HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8025,6 +8727,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35863334" target="_blank">PMID:35863334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8046,6 +8749,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35863334" target="_blank">PMID:35863334</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8089,14 +8793,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperventilation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002883">HP:0002883</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperventilation (HP:0002883). HP:0002883 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8116,6 +8827,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28955728" target="_blank">PMID:28955728</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8138,6 +8850,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8179,14 +8892,21 @@
                         Failure to thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508), qualified as infantile onset. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8238,6 +8958,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23383720" target="_blank">PMID:23383720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8269,14 +8990,23 @@
                         Poor postnatal growth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
+
+                        <span class="phenotype-term-label">Growth delay</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8299,6 +9029,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8320,6 +9051,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8352,14 +9084,21 @@
                         Obesity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513), qualified as childhood onset. HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8411,6 +9150,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8444,14 +9184,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intrauterine growth retardation
+
+                        <span class="phenotype-term-label">Intrauterine growth retardation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001511">HP:0001511</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrauterine growth retardation (HP:0001511), qualified as antenatal onset. HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8501,6 +9250,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8541,14 +9291,23 @@
                         Dental anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dental crowding
+
+                        <span class="phenotype-term-label">Dental crowding</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000678">HP:0000678</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8571,6 +9330,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8592,6 +9352,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8624,14 +9385,21 @@
                         Athetosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Athetosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002305">HP:0002305</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002305</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8653,6 +9421,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28955728" target="_blank">PMID:28955728</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8731,13 +9500,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ASXL3
 
 
-    <a href="https://bioregistry.io/hgnc:29357" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29357">hgnc:29357</a>
+    <a href="https://bioregistry.io/hgnc:29357" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:29357</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ASXL3 (hgnc:29357). hgnc:29357 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8763,6 +9537,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23383720" target="_blank">PMID:23383720</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8785,6 +9560,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38420660" target="_blank">PMID:38420660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8806,6 +9582,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42494517" target="_blank">PMID:42494517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8839,6 +9616,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8854,7 +9634,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gastrostomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy</span>
 
 
@@ -8891,16 +9676,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8919,6 +9709,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8941,6 +9732,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8971,7 +9763,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9007,16 +9804,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastroesophageal reflux
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9035,6 +9837,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9065,7 +9868,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech and language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -9102,16 +9910,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Absent speech
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001344">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001344</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9130,6 +9943,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100473" target="_blank">PMID:28100473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9152,6 +9966,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9182,7 +9997,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -9219,16 +10039,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypotonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9247,6 +10072,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9277,7 +10103,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">behavioral intervention<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral intervention, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -9314,16 +10145,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Self-injurious behavior
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0100716</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9342,6 +10178,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36249891" target="_blank">PMID:36249891</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9364,6 +10201,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36249891" target="_blank">PMID:36249891</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9394,7 +10232,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9424,16 +10267,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pregabalin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64356">CHEBI:64356</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:64356</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9447,16 +10295,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Self-injurious behavior
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0100716</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9475,6 +10328,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39698206" target="_blank">PMID:39698206</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9505,7 +10359,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9541,16 +10400,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9569,6 +10433,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9591,6 +10456,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29367179" target="_blank">PMID:29367179</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9621,7 +10487,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9658,16 +10529,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dental crowding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000678">HP:0000678</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0000678</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9686,6 +10562,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9716,7 +10593,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9753,17 +10635,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Strabismus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000486</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormality of the kidney
@@ -9771,10 +10660,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000077">HP:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9793,6 +10685,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9815,6 +10708,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40552904" target="_blank">PMID:40552904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9845,7 +10739,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -9894,6 +10793,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9916,6 +10816,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33151654" target="_blank">PMID:33151654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9937,6 +10838,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39833101" target="_blank">PMID:39833101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9984,7 +10886,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bohring-opitz-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Bohring-Opitz_syndrome.html">Bohring-Opitz syndrome</a>
@@ -10035,6 +10937,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27901041" target="_blank">PMID:27901041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10057,6 +10960,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23383720" target="_blank">PMID:23383720</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10078,6 +10982,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35361921" target="_blank">PMID:35361921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10104,7 +11009,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-shashi-pena-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Shashi-Pena syndrome</span>
@@ -10156,6 +11061,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27693232" target="_blank">PMID:27693232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10177,6 +11083,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33751773" target="_blank">PMID:33751773</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10203,7 +11110,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-angelman-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Angelman_Syndrome.html">Angelman syndrome</a>
@@ -10252,6 +11159,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33751773" target="_blank">PMID:33751773</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10277,7 +11185,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-mendelian-chromatinopathies-with-syndromic-intellectual-disability">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Other Mendelian chromatinopathies with syndromic intellectual disability</span>
@@ -10325,6 +11233,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35361921" target="_blank">PMID:35361921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10358,6 +11267,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10899,6 +11811,7 @@ pathophysiology:
       molecular lesion of this disorder.
 
 - name: Genome-Wide Transcriptional Dysregulation
+  conforms_to: &#34;epigenetic_alterations#Altered Epigenetic Regulation of Gene Expression&#34;
   biological_scale: MOLECULAR
   description: &gt;-
     The aberrant chromatin state translates into widespread transcriptional
@@ -10914,6 +11827,11 @@ pathophysiology:
     term:
       id: GO:0006355
       label: regulation of DNA-templated transcription
+    modifier: ABNORMAL
+  - preferred_term: epigenetic regulation of gene expression
+    term:
+      id: GO:0040029
+      label: epigenetic regulation of gene expression
     modifier: ABNORMAL
   cell_types:
   - preferred_term: patient dermal fibroblast
@@ -15412,7 +16330,7 @@ Encoding: <code>treatment_term</code> NCIT:C15986 Pharmacotherapy; <code>therape
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bainbridge-Ropers syndrome", "mondoId": "MONDO:0014205", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bainbridge-Ropers_syndrome", "yamlRevision": "ca2e7b021207"};
+        const OS_CONFIG = {"diseaseName": "Bainbridge-Ropers syndrome", "mondoId": "MONDO:0014205", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bainbridge-Ropers_syndrome", "yamlRevision": "97c73931f2fd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15831,5 +16749,73 @@ Encoding: <code>treatment_term</code> NCIT:C15986 Pharmacotherapy; <code>therape
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

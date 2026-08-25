@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Uveal Coloboma-Cleft Lip and Palate-Intellectual Disability Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Uveal Coloboma-Cleft Lip and Palate-Intellectual Disability Syndrome</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Uveal%20Coloboma-Cleft%20Lip%20and%20Palate-Intellectual%20Disability%20Syndrome"
@@ -3601,7 +3803,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                An ultra-rare autosomal dominant multiple congenital anomaly syndrome (COB1; MONDO:0007355, OMIM:120433, ORPHA:1473) combining uveal (iris/chorioretinal) coloboma with orofacial clefting and variable intellectual disability. The entity rests on a single large British pedigree: Kingston, Harper and Jones described twelve affected subjects over three generations in 1982, and Ravine and colleagues re-evaluated a four-generation Cardiff family in 1997 as a dominant coloboma-microphthalmos syndrome that also featured mid-frequency sensorineural hearing loss and haematuria. Williamson et al. subsequently identified a cosegregating heterozygous nonsense variant in YAP1 (c.1066G&gt;T, p.Glu356*) in this family, establishing YAP1 haploinsufficiency as the molecular cause. YAP1 encodes the Hippo-pathway transcriptional co-activator Yes-associated protein 1, which is expressed in the developing human retina, otic vesicle, palatine process primordium, neural tube, and renal tubules — a pleiotropic expression domain that maps closely onto the eye, ear, palate, neural tube, and kidney features of the syndrome, and that supplies the shared developmental logic linking failed optic fissure closure to failed facial process fusion. Deliberately scoped: this entry models the YAP1-attributable syndromic arm and does NOT reproduce generic coloboma or generic orofacial clefting biology.
+                An ultra-rare autosomal dominant multiple congenital anomaly syndrome (COB1; MONDO:0007355, OMIM:120433, ORPHA:1473) combining uveal (iris/chorioretinal) coloboma with orofacial clefting and variable intellectual disability. The entity rests on a single large British pedigree: Kingston, Harper and Jones described twelve affected subjects over three generations in 1982, and Ravine and colleagues re-evaluated a four-generation Cardiff family in 1997 as a dominant coloboma-microphthalmos syndrome that also featured mid-frequency sensorineural hearing loss and haematuria. Williamson et al. subsequently identified a cosegregating heterozygous nonsense variant in YAP1 (c.1066G&gt;T, p.Glu356*) in their syndromic pedigree (family 132), establishing YAP1 haploinsufficiency as the molecular cause of that phenotype. That this is the same pedigree as the 1982 and 1997 reports is inferred from author and institutional overlap and is not asserted in any abstract — see the notes block. YAP1 encodes the Hippo-pathway transcriptional co-activator Yes-associated protein 1, which is expressed in the developing human retina, otic vesicle, palatine process primordium, neural tube, and renal tubules — a pleiotropic expression domain that maps closely onto the eye, ear, palate, neural tube, and kidney features of the syndrome, and that supplies the shared developmental logic linking failed optic fissure closure to failed facial process fusion. Deliberately scoped: this entry models the YAP1-attributable syndromic arm and does NOT reproduce generic coloboma or generic orofacial clefting biology.
             </p>
 
         </header>
@@ -3703,6 +3905,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3764,7 +3968,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3809,12 +4013,20 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3904,7 +4116,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3927,6 +4139,8 @@
             Autosomal dominant inheritance
         </span>
 
+
+        <span class="tag tag-classification">Penetrance: INCOMPLETE</span>
 
 
 
@@ -3951,6 +4165,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3973,6 +4188,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3994,6 +4210,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4102,6 +4319,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4209,6 +4427,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4248,6 +4472,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4270,6 +4500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4366,6 +4597,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4388,6 +4625,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4438,15 +4676,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:16262</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4474,16 +4719,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nonsense-mediated decay of the mutant YAP1 transcript
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000184">GO:0000184</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0000184</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased nonsense-mediated decay of the mutant YAP1 transcript, annotated with nuclear-transcribed mRNA catabolic process, nonsense-mediated decay (GO:0000184). GO:0000184 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4508,16 +4758,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         YAP1 transcriptional co-activator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003713">GO:0003713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003713</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased YAP1 transcriptional co-activator activity, annotated with transcription coactivator activity (GO:0003713). GO:0003713 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4544,6 +4799,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4564,6 +4820,14 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual Disability</span>
+
+	                            <span class="crosslink-desc">Intellectual disability is part of the multisystem phenotype attributed to the heterozygous YAP1 loss-of-function allele, but the intervening neurodevelopmental mechanism is unknown. This edge therefore starts at the upstream dosage lesion rather than at the tissue-expression node; it does not assert that embryonic brain expression explains cognition.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4580,6 +4844,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4602,6 +4867,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35318877" target="_blank">PMID:35318877</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4635,16 +4901,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4669,15 +4940,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:16262</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4705,16 +4983,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         hippo signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035329">GO:0035329</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035329</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal hippo signaling (GO:0035329). GO:0035329 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4739,6 +5022,27 @@
 
 
 
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-yap1-mutant-alone-and-with-wwtr1-taz">Zebrafish yap1 mutant, alone and with wwtr1 (taz)</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">perturbs</span>
+
+
+                            <span class="crosslink-desc">Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors — the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -4771,6 +5075,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4793,6 +5098,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4814,6 +5120,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4847,16 +5154,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4883,16 +5195,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         closure of optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061386">GO:0061386</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061386" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0061386</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased closure of optic fissure (GO:0061386). GO:0061386 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4919,20 +5236,46 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0005412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
 
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-zebrafish-yap1-mutant-alone-and-with-wwtr1-taz">Zebrafish yap1 mutant, alone and with wwtr1 (taz)</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">yap1 mutants develop coloboma — the optic fissure closure defect itself — alongside the RPE deficiency proposed to underlie it.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -4965,17 +5308,18 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35318877" target="_blank">PMID:35318877</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Uveal colobomata are eye defects that result from failure of the optic fissure of the neuroectoderm-derived optic cup to close between weeks 5-7 of fetal life."</div>
 
 
-                <div class="evidence-explanation">States the developmental mechanism and the developmental window for the cardinal ocular feature.</div>
+                <div class="evidence-explanation">States the developmental mechanism and the developmental window for the cardinal ocular feature. This sentence sits under the literal BACKGROUND heading of DeYoung et al.&#39;s abstract — established developmental biology rather than a result of their case report — hence evidence_source OTHER.</div>
 
 
 
@@ -4986,6 +5330,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5024,15 +5369,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:16262</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5063,17 +5415,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         optic fissure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005412">UBERON:0005412</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005412" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0005412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic fissure (UBERON:0005412). UBERON:0005412 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         primordium of the lateral palatine process
@@ -5081,11 +5440,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005871">UBERON:0005871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0005871</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in primordium of the lateral palatine process, annotated with palatine process of maxilla (UBERON:0005871). UBERON:0005871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         otic vesicle
@@ -5093,11 +5457,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003051" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003051">UBERON:0003051</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003051" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0003051</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in otic vesicle, annotated with ear vesicle (UBERON:0003051). UBERON:0003051 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         neural tube
@@ -5105,13 +5474,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001049">UBERON:0001049</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:0001049 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5124,6 +5497,22 @@
 	                            <span class="crosslink-meta">Impaired Fusion of the Facial Processes and Palatal Shelves</span>
 
 	                            <span class="crosslink-desc">Reduced YAP1 dose in the maxillary/lateral palatine process primordium impairs the fusion events that form the primary and secondary palate.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Sensorineural Hearing Loss</span>
+
+	                            <span class="crosslink-desc">The otic-vesicle arm of the same pleiotropic requirement. The hearing loss cosegregates with the YAP1 allele in the index family, and Holt et al. read their otic-vesicle expression as consistent with that phenotype; the intervening steps are unresolved, and no cochlear phenotype has been assayed at reduced YAP1 dose in any system.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hematuria</span>
+
+	                            <span class="crosslink-desc">The renal arm of the same pleiotropic requirement. The haematuria cosegregates with the YAP1 allele in the index family, and Holt et al. read their renal expression as consistent with it; the renal lesion itself is uncharacterised — see the open knowledge-gap discussion.</span>
 
 
 	                        </div>
@@ -5144,6 +5533,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5167,6 +5557,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5188,6 +5579,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,16 +5622,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0060021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5259,16 +5656,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         face morphogenesis (medial nasal and maxillary prominence fusion)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060325">GO:0060325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0060325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal face morphogenesis (medial nasal and maxillary prominence fusion), annotated with face morphogenesis (GO:0060325). GO:0060325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5295,22 +5697,51 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         primordium of the lateral palatine process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005871">UBERON:0005871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0005871</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in primordium of the lateral palatine process, annotated with palatine process of maxilla (UBERON:0005871). UBERON:0005871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cleft Lip</span>
+
+	                            <span class="crosslink-desc">Failure of medial nasal and maxillary process fusion yields the cleft of the upper lip.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cleft Palate</span>
+
+	                            <span class="crosslink-desc">Failure of palatal shelf fusion yields the cleft palate; Orphanet records the clefting as variably involving lip, palate, and/or uvula.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5325,6 +5756,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5347,6 +5779,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5390,22 +5823,75 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         eye
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000970">UBERON:0000970</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000970</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Uveal Coloboma</span>
+
+	                            <span class="crosslink-desc">The clinical uveal coloboma is the direct expression of the unclosed ventral fissure at the level of the uveal tract.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Iris Coloboma</span>
+
+	                            <span class="crosslink-desc">Anterior (iris) expression of the same colobomatous defect.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chorioretinal Coloboma</span>
+
+	                            <span class="crosslink-desc">Posterior extension of the same colobomatous defect into choroid and retina.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Optic Disc Coloboma</span>
+
+	                            <span class="crosslink-desc">Most posterior extension of the same defect, at the optic disc.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microphthalmia</span>
+
+	                            <span class="crosslink-desc">Where the colobomatous tissue deficiency is severe enough, the globe is also small — colobomatous microphthalmia rather than an isolated cleft.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5420,6 +5906,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5442,6 +5929,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5491,15 +5979,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:16262</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5518,6 +6013,7 @@
 
 
                 </div>
+
 
 
 
@@ -5571,6 +6067,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5587,23 +6084,24 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24462371" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:24462371" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Amelioration of the phenotype by the alternative transcripts provides a plausible explanation for the phenotypic differences between the families."</div>
 
 
-                <div class="evidence-explanation">The authors present this explicitly as a plausible explanation, i.e. a hypothesis rather than a demonstrated mechanism.</div>
+                <div class="evidence-explanation">The authors present this explicitly as a plausible explanation, i.e. a hypothesis rather than a demonstrated mechanism. PARTIAL for the same reason this entry marks &#34;should result in NMD&#34; and &#34;likely results in NMD&#34; PARTIAL — the source hedges — and OTHER because the sentence is interpretive discussion rather than a clinical result.</div>
 
 
 
@@ -5614,6 +6112,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5663,7 +6162,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for why one YAP1 nonsense family is syndromic and the other is eye-only. YAP1 has an alternative transcription start site in intron 1, widely used in human and mouse development, whose transcripts initiate at codon Met179. The isolated-coloboma allele c.370C\u003eT (p.Arg124*) falls in the 5\u0027 UTR of those alternative transcripts and so cannot trigger nonsense-mediated decay in them, leaving a partially rescuing pool of protein; the syndromic allele c.1066G\u003eT (p.Glu356*) lies downstream of both start sites and is predicted to cause NMD of transcripts from either. On this model the syndromic multisystem phenotype of this entity reflects the absence of that alternative-transcript rescue. The model is proposed rather than experimentally demonstrated in patient tissue, and other alleles complicate it \\u2014 the c.1160delA frameshift escapes NMD altogether yet was inherited from an asymptomatic father.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"modifier\"}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal coloboma of this syndrome is an optic fissure closure defect. The optic fissure is a transient groove in the ventral optic cup that must fuse between weeks 5 and 7 of human fetal life; failure of that fusion leaves a persistent ventral gap expressed clinically as an inferonasal iris, chorioretinal, and/or optic disc coloboma, and \\u2014 when tissue deficiency is severe \\u2014 as microphthalmia. Williamson et al. framed the entire YAP1 phenotype under this heading, describing both the isolated and the syndromic families as optic fissure closure defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"intermediate\", \"locations\": [\"optic fissure\"]}}, {\"id\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the medial nasal, maxillary, and palatal shelf fusion events yields the cleft lip and cleft palate of the syndrome. Orphanet records the clefting as variably involving lip, palate, and/or uvula, which is the pattern expected of a partially penetrant, dosage-dependent perturbation of a fusion program rather than a complete block. This node is deliberately kept thin: the generic orofacial clefting cascade is not reproduced here, because the YAP1-specific evidence extends only to expression in the fusing processes and the resulting clinical cleft.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\", \"face morphogenesis (medial nasal and maxillary prominence fusion)\"], \"role\": \"consequence\", \"locations\": [\"primordium of the lateral palatine process\"]}}, {\"id\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The cosegregating heterozygous nonsense allele identified in the syndromic family (family 132) that defines this entity. It lies downstream of both the canonical and the intron-1 alternative transcription start sites and is therefore predicted to cause nonsense-mediated decay of transcripts from either, producing true YAP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}]}}, {\"id\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the syndrome is a syndrome, and it carries the shared developmental mechanism the eye and the face have in common. Whole-mount in situ hybridisation in mouse embryos localises Yap1 to the eye, brain, and the fusing facial processes; nonradioactive in situ hybridisation on staged human embryos localises YAP1 to the retina, the otic vesicle (primitive ear), the primordium of the lateral palatine process, the neural tube, and the renal tubules. Optic fissure closure and palatal/facial process fusion are both epithelial fusion events occurring in overlapping embryonic windows, and both depend on the same dosage-sensitive Hippo effector \\u2014 so a single haploinsufficient allele perturbs both. The correspondence of this expression domain to the clinical phenotype is close to one-to-one: retina to coloboma, otic vesicle to sensorineural hearing loss, lateral palatine process to cleft lip/palate, neural tube to the discussed neural tube defect, and renal tubules to the haematuria.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"locations\": [\"optic fissure\", \"primordium of the lateral palatine process\", \"otic vesicle\", \"neural tube\"]}}, {\"id\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YAP1 is a transcriptional co-activator that, with its paralogue TAZ (WWTR1), acts as the major nuclear effector of the Hippo pathway by binding TEAD1-4 to drive transcription; Hippo activation phosphorylates YAP1 and exports it to the cytoplasm, extinguishing this output. Loss of one YAP1 allele lowers the ceiling of YAP-TEAD transcriptional activity available to developing tissues. Zebrafish work shows this activity is not merely permissive but instructive for ocular fate: Yap/Taz-Tead activity is both necessary and sufficient for optic vesicle progenitors to adopt retinal pigment epithelium identity, and both nuclear localisation and Tead binding are required.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"hippo signaling\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\"}}, {\"id\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical ocular endpoint: an inferonasal uveal coloboma that in this entity is typically bilateral and may extend from iris through choroid to the optic disc and macula, with microphthalmia, cataract, and impaired extraocular movement in the fuller expressions. Expression is strikingly variable within the single family, so relatives sharing the allele may range from a minor iris notch to microphthalmia with poor vision \\u2014 uveal coloboma is nonetheless the most constant feature.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"eye\"]}}, {\"id\": \"YAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"presence\": \"PRESENT\", \"association\": \"Heterozygous loss-of-function (nonsense and frameshift) variants in YAP1 cause dominantly inherited optic fissure closure defects. The syndromic form corresponding to this entity segregates the nonsense allele c.1066G\u003eT (p.Glu356*), predicted to trigger nonsense-mediated decay in transcripts from both the canonical and the intron-1 alternative transcription start site.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"YAP1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense variant in YAP1 (c.1066G\u003eT, p.Glu356* in the index syndromic family) introduces a premature termination codon in transcripts from both the canonical and the intron-1 alternative transcription start site, so the mutant transcript is expected to be cleared by nonsense-mediated decay and the affected individual is left with roughly half the normal dose of YAP1 protein. YAP1 is not a structural protein of the eye or palate \\u2014 it is a transcriptional co-activator \\u2014 so the lesion is a dosage lesion in a developmental transcriptional program rather than loss of a tissue-specific product. The mechanism is loss of function, not gain of function or dominant-negative action. Note that NMD of this specific allele is predicted rather than measured \\u2014 no patient-tissue transcript assay has been reported for c.1066G\u003eT \\u2014 which is why the node is PROVISIONAL rather than ESTABLISHED, and why the NMD-escaping YAP1 frameshift reported by Holt et al. is treated as a genuine complication of the model.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nonsense-mediated decay of the mutant YAP1 transcript\"], \"molecular_functions\": [\"YAP1 transcriptional co-activator activity\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the dose of the Hippo-pathway effector reduces the amount of nuclear YAP1 available to co-activate TEAD-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced co-activator dose is imposed simultaneously on every developing tissue that expresses YAP1, which is what converts an ocular lesion into a multisystem syndrome. This edge hangs off the dosage lesion itself rather than off the ocular YAP-TEAD node, because the multi-organ requirement is a property of the germline haploinsufficiency, not a consequence of reduced TEAD output in the eye.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient YAP-TEAD output in optic vesicle/optic cup progenitors compromises RPE specification and the apposition of the optic cup margins that must fuse to close the optic fissure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of Yap/Taz-Tead-dependent retinal pigment epithelium specification\"]}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed ventral fissure is the anatomical substrate of the clinical coloboma; associated tissue deficiency produces the small eye.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced YAP1 dose in the maxillary/lateral palatine process primordium impairs the fusion events that form the primary and secondary palate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether a given nonsense allele produces true haploinsufficiency, and hence whether the phenotype is eye-only or syndromic, is proposed to depend on its position relative to the alternative start site.\", \"hypothesis_groups\": [\"alternative_tss_severity_modulation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"YAP1\", \"target\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"target\": \"YAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A candidate explanation for why one YAP1 nonsense family is syndromic and the other is eye-only. YAP1 has an alternative transcription start site in intron 1, widely used in human and mouse development, whose transcripts initiate at codon Met179. The isolated-coloboma allele c.370C\u003eT (p.Arg124*) falls in the 5\u0027 UTR of those alternative transcripts and so cannot trigger nonsense-mediated decay in them, leaving a partially rescuing pool of protein; the syndromic allele c.1066G\u003eT (p.Glu356*) lies downstream of both start sites and is predicted to cause NMD of transcripts from either. On this model the syndromic multisystem phenotype of this entity reflects the absence of that alternative-transcript rescue. The model is proposed rather than experimentally demonstrated in patient tissue, and other alleles complicate it \\u2014 the c.1160delA frameshift escapes NMD altogether yet was inherited from an asymptomatic father.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"modifier\"}}, {\"id\": \"Chorioretinal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Posterior extension of the coloboma into the choroid and retina, recorded by Orphanet as part of the continuous iris-to-macula defect.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000567\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the upper lip, forming half of the cleft lip and palate element of the syndrome name and present alongside the coloboma in the defining family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0410030\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft of the secondary palate; Orphanet notes the clefting may involve lip, palate, and/or uvula, so a submucous or uvular-only cleft is within the described spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Failure of Optic Fissure Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal coloboma of this syndrome is an optic fissure closure defect. The optic fissure is a transient groove in the ventral optic cup that must fuse between weeks 5 and 7 of human fetal life; failure of that fusion leaves a persistent ventral gap expressed clinically as an inferonasal iris, chorioretinal, and/or optic disc coloboma, and \\u2014 when tissue deficiency is severe \\u2014 as microphthalmia. Williamson et al. framed the entire YAP1 phenotype under this heading, describing both the isolated and the syndromic families as optic fissure closure defects.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"closure of optic fissure\"], \"role\": \"intermediate\", \"locations\": [\"optic fissure\"], \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\"}]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Haematuria, recognised as a manifestation on re-evaluation of the pedigree and subsequently reported in other individuals with YAP1 variants. Its renal basis has not been characterised histologically; YAP1 expression in the renal tubules of the CS22 human embryo is the only available developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the medial nasal, maxillary, and palatal shelf fusion events yields the cleft lip and cleft palate of the syndrome. Orphanet records the clefting as variably involving lip, palate, and/or uvula, which is the pattern expected of a partially penetrant, dosage-dependent perturbation of a fusion program rather than a complete block. This node is deliberately kept thin: the generic orofacial clefting cascade is not reproduced here, because the YAP1-specific evidence extends only to expression in the fusing processes and the resulting clinical cleft.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\", \"face morphogenesis (medial nasal and maxillary prominence fusion)\"], \"role\": \"consequence\", \"locations\": [\"primordium of the lateral palatine process\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability of variable degree, the feature that gives the syndrome the third element of its name. No frequency band is assigned: the only quantified neurodevelopmental figure in the literature (one third) describes learning difficulties requiring remedial teaching, which is curated separately above, and both primary sources state the intellectual disability itself only in hedged or unquantified terms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Iris Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Iris involvement, the most anterior expression of the uveal coloboma and the element named in the entity\u0027s own label.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000612\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eye accompanying the colobomatous defect; part of the complete spectrum of eye involvement seen across the pedigree and reported repeatedly in other YAP1 loss-of-function cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000568\"}}, {\"id\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The cosegregating heterozygous nonsense allele identified in the syndromic family (family 132) that defines this entity. It lies downstream of both the canonical and the intron-1 alternative transcription start sites and is therefore predicted to cause nonsense-mediated decay of transcripts from either, producing true YAP1 haploinsufficiency.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Optic Disc Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involvement of the optic disc, the most posterior extension of the optic fissure closure defect in this entity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000588\"}}, {\"id\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the node that explains why the syndrome is a syndrome, and it carries the shared developmental mechanism the eye and the face have in common. Whole-mount in situ hybridisation in mouse embryos localises Yap1 to the eye, brain, and the fusing facial processes; nonradioactive in situ hybridisation on staged human embryos localises YAP1 to the retina, the otic vesicle (primitive ear), the primordium of the lateral palatine process, the neural tube, and the renal tubules. Optic fissure closure and palatal/facial process fusion are both epithelial fusion events occurring in overlapping embryonic windows, and both depend on the same dosage-sensitive Hippo effector \\u2014 so a single haploinsufficient allele perturbs both. The correspondence of this expression domain to the clinical phenotype is close to one-to-one: retina to coloboma, otic vesicle to sensorineural hearing loss, lateral palatine process to cleft lip/palate, neural tube to the discussed neural tube defect, and renal tubules to the haematuria.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"locations\": [\"optic fissure\", \"primordium of the lateral palatine process\", \"otic vesicle\", \"neural tube\"]}}, {\"id\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"YAP1 is a transcriptional co-activator that, with its paralogue TAZ (WWTR1), acts as the major nuclear effector of the Hippo pathway by binding TEAD1-4 to drive transcription; Hippo activation phosphorylates YAP1 and exports it to the cytoplasm, extinguishing this output. Loss of one YAP1 allele lowers the ceiling of YAP-TEAD transcriptional activity available to developing tissues. Zebrafish work shows this activity is not merely permissive but instructive for ocular fate: Yap/Taz-Tead activity is both necessary and sufficient for optic vesicle progenitors to adopt retinal pigment epithelium identity, and both nuclear localisation and Tead binding are required.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"hippo signaling\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"intermediate\", \"animal_models\": [{\"name\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"species\": \"Danio rerio\", \"genotype\": \"yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\"}]}}, {\"id\": \"Sensorineural Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mid-frequency sensorineural hearing loss, recognised on formal audiological re-evaluation of the pedigree. YAP1 is expressed in the human embryonic otic vesicle, supplying a developmental correlate.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Uveal Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The cardinal feature: a typically bilateral uveal coloboma arising from failure of optic fissure closure, with iris involvement that may extend to the choroid, optic disc, and/or macula.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical ocular endpoint: an inferonasal uveal coloboma that in this entity is typically bilateral and may extend from iris through choroid to the optic disc and macula, with microphthalmia, cataract, and impaired extraocular movement in the fuller expressions. Expression is strikingly variable within the single family, so relatives sharing the allele may range from a minor iris notch to microphthalmia with poor vision \\u2014 uveal coloboma is nonetheless the most constant feature.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"eye\"]}}, {\"id\": \"YAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"presence\": \"PRESENT\", \"association\": \"Heterozygous loss-of-function (nonsense and frameshift) variants in YAP1 cause dominantly inherited optic fissure closure defects. The syndromic form corresponding to this entity segregates the nonsense allele c.1066G\u003eT (p.Glu356*), predicted to trigger nonsense-mediated decay in transcripts from both the canonical and the intron-1 alternative transcription start site.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"YAP1 Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous nonsense variant in YAP1 (c.1066G\u003eT, p.Glu356* in the index syndromic family) introduces a premature termination codon in transcripts from both the canonical and the intron-1 alternative transcription start site, so the mutant transcript is expected to be cleared by nonsense-mediated decay and the affected individual is left with roughly half the normal dose of YAP1 protein. YAP1 is not a structural protein of the eye or palate \\u2014 it is a transcriptional co-activator \\u2014 so the lesion is a dosage lesion in a developmental transcriptional program rather than loss of a tissue-specific product. The mechanism is loss of function, not gain of function or dominant-negative action. Note that NMD of this specific allele is predicted rather than measured \\u2014 no patient-tissue transcript assay has been reported for c.1066G\u003eT \\u2014 which is why the node is PROVISIONAL rather than ESTABLISHED, and why the NMD-escaping YAP1 frameshift reported by Holt et al. is treated as a genuine complication of the model.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nonsense-mediated decay of the mutant YAP1 transcript\"], \"molecular_functions\": [\"YAP1 transcriptional co-activator activity\"], \"genes\": [\"YAP1\"], \"gene_terms\": [{\"label\": \"YAP1\", \"id\": \"hgnc:16262\"}], \"role\": \"trigger\"}}, {\"id\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or develop coloboma, and combined loss of yap and taz abolishes the ability of optic vesicle progenitors to form RPE at all. This is the closest available model of the ocular arm of the syndrome and the source of the instructive (not merely permissive) role of Yap/Taz-Tead in RPE fate. It does not model the clefting, hearing loss, or intellectual disability arms.\"}], \"edges\": [{\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Halving the dose of the Hippo-pathway effector reduces the amount of nuclear YAP1 available to co-activate TEAD-dependent transcription.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reduced co-activator dose is imposed simultaneously on every developing tissue that expresses YAP1, which is what converts an ocular lesion into a multisystem syndrome. This edge hangs off the dosage lesion itself rather than off the ocular YAP-TEAD node, because the multi-organ requirement is a property of the germline haploinsufficiency, not a consequence of reduced TEAD output in the eye.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"YAP1 Haploinsufficiency\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intellectual disability is part of the multisystem phenotype attributed to the heterozygous YAP1 loss-of-function allele, but the intervening neurodevelopmental mechanism is unknown. This edge therefore starts at the upstream dosage lesion rather than at the tissue-expression node; it does not assert that embryonic brain expression explains cognition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient YAP-TEAD output in optic vesicle/optic cup progenitors compromises RPE specification and the apposition of the optic cup margins that must fuse to close the optic fissure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of Yap/Taz-Tead-dependent retinal pigment epithelium specification\"]}, {\"source\": \"Failure of Optic Fissure Closure\", \"target\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed ventral fissure is the anatomical substrate of the clinical coloboma; associated tissue deficiency produces the small eye.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced YAP1 dose in the maxillary/lateral palatine process primordium impairs the fusion events that form the primary and secondary palate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The otic-vesicle arm of the same pleiotropic requirement. The hearing loss cosegregates with the YAP1 allele in the index family, and Holt et al. read their otic-vesicle expression as consistent with that phenotype; the intervening steps are unresolved, and no cochlear phenotype has been assayed at reduced YAP1 dose in any system.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The renal arm of the same pleiotropic requirement. The haematuria cosegregates with the YAP1 allele in the index family, and Holt et al. read their renal expression as consistent with it; the renal lesion itself is uncharacterised \\u2014 see the open knowledge-gap discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of medial nasal and maxillary process fusion yields the cleft of the upper lip.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Fusion of the Facial Processes and Palatal Shelves\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf fusion yields the cleft palate; Orphanet records the clefting as variably involving lip, palate, and/or uvula.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Uveal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical uveal coloboma is the direct expression of the unclosed ventral fissure at the level of the uveal tract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Iris Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior (iris) expression of the same colobomatous defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Chorioretinal Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior extension of the same colobomatous defect into choroid and retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Optic Disc Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most posterior extension of the same defect, at the optic disc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uveal Coloboma and Colobomatous Microphthalmia\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where the colobomatous tissue deficiency is severe enough, the globe is also small \\u2014 colobomatous microphthalmia rather than an isolated cleft.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whether a given nonsense allele produces true haploinsufficiency, and hence whether the phenotype is eye-only or syndromic, is proposed to depend on its position relative to the alternative start site.\", \"hypothesis_groups\": [\"alternative_tss_severity_modulation\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors \\u2014 the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"Homozygous null and double-mutant genotypes model a far deeper loss of output than a human heterozygous nonsense allele, so the model addresses the direction of the lesion rather than its dose.\"}, {\"source\": \"Zebrafish yap1 mutant, alone and with wwtr1 (taz)\", \"target\": \"Failure of Optic Fissure Closure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"yap1 mutants develop coloboma \\u2014 the optic fissure closure defect itself \\u2014 alongside the RPE deficiency proposed to underlie it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The zygosity mismatch bites hardest here, on the stronger claim: the coloboma is scored in homozygous yap1 nulls, whereas the human disorder is caused by a heterozygous nonsense allele, so the model recapitulates the lesion\u0027s direction and not its dose. Zebrafish ocular morphogenesis is also not identical to the human weeks-5-to-7 fissure closure window, and the model does not reproduce the clefting, hearing loss, haematuria, or intellectual disability arms of the syndrome.\"}, {\"source\": \"YAP1\", \"target\": \"Alternative Transcription Start Site Modulation of Phenotype Severity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"YAP1\", \"target\": \"YAP1 Haploinsufficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001130145:c.1066G\u003eT (p.Glu356*)\", \"target\": \"YAP1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5710,14 +6209,23 @@
                         Sensorineural Hearing Loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mid-frequency sensorineural hearing loss, annotated with Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5737,6 +6245,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5759,6 +6268,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5799,17 +6309,22 @@
                     <div class="item-name">
                         Uveal Coloboma
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000589</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveal coloboma, annotated with Coloboma (HP:0000589), qualified as congenital onset. HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5859,6 +6374,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5869,7 +6385,7 @@
                 <div class="evidence-snippet">"Considerable variability in expression of the gene is apparent, uveal colobomata being the most constant feature"</div>
 
 
-                <div class="evidence-explanation">Frequency derivation: the foundational report states uveal colobomata are the most constant feature of the syndrome across the twelve affected subjects. &#34;Most constant feature&#34; is not one of the literature terms in the frequency-evidence mapping table, so this is a documented departure: it is read as a superlative statement of near-universality within the pedigree and mapped to VERY_FREQUENT (80-99%). No numerator/denominator count is published for the coloboma itself, so no more precise band is defensible; OBLIGATE was rejected because the same sentence stresses variable expression.</div>
+                <div class="evidence-explanation">Supports the disease-phenotype association and the variable expressivity it sits within. It does not support any frequency band, and none is assigned: &#34;most constant feature&#34; is a comparative claim about coloboma relative to the syndrome&#39;s other features, not an absolute rate — coloboma in 9 of 12 subjects (75%) would still be the most constant feature while falling in FREQUENT rather than VERY_FREQUENT.</div>
 
 
 
@@ -5881,6 +6397,7 @@
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5891,7 +6408,7 @@
                 <div class="evidence-snippet">"characterized by uveal coloboma (typically bilateral) variably associated with cleft lip, palate and/or uvula, hearing impairment, and intellectual disability"</div>
 
 
-                <div class="evidence-explanation">Orphanet lists uveal coloboma as the defining, non-variable feature of the entity — contrast the variably associated extraocular features.</div>
+                <div class="evidence-explanation">Orphanet builds its definition around uveal coloboma — the entity is &#34;characterized by&#34; it, and every other feature is qualified as &#34;variably associated&#34; — which supports coloboma as the cardinal, diagnostic feature (hence diagnostic: true). It does NOT support a frequency band, and none is assigned. An earlier draft mapped &#34;characterized by&#34; to VERY_FREQUENT as hallmark wording under Pattern C; that was withdrawn on audit, because &#34;characterized by&#34; is the genus-differentia opening of essentially every Orphanet definition rather than one of the frequency terms in the Pattern C table, and because it makes the same comparative contrast (coloboma versus the variably associated features) that made &#34;most constant feature&#34; unusable for a band. No numerator/denominator for the coloboma is published in any cached source, so per docs/frequency-evidence-guidelines.md the frequency is omitted: a missing frequency is honest, a fabricated one is not.</div>
 
 
 
@@ -5912,14 +6429,21 @@
                         Chorioretinal Coloboma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chorioretinal coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000567">HP:0000567</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000567</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorioretinal coloboma (HP:0000567), qualified as congenital onset. HP:0000567 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5969,6 +6493,7 @@
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6000,14 +6525,21 @@
                         Microphthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568), qualified as congenital onset. HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6057,6 +6589,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6078,6 +6611,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6110,14 +6644,21 @@
                         Cataract
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6137,6 +6678,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6169,14 +6711,23 @@
                         Impaired Extraocular Movement
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of eye movement
+
+                        <span class="phenotype-term-label">Abnormality of eye movement</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000496">HP:0000496</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000496</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Extraocular movement impairment, annotated with Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6196,6 +6747,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,14 +6789,21 @@
                         Hematuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,6 +6823,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6286,6 +6846,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6327,14 +6888,21 @@
                         Cleft Lip
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft lip
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410030">HP:0410030</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0410030</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft lip (HP:0410030), qualified as congenital onset. HP:0410030 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6384,6 +6952,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6405,6 +6974,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6437,14 +7007,21 @@
                         Cleft Palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000175</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175), qualified as congenital onset. HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6494,6 +7071,7 @@
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6515,6 +7093,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6556,14 +7135,21 @@
                         Intellectual Disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6583,6 +7169,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6605,6 +7192,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6646,14 +7234,21 @@
                         Iris Coloboma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Iris coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000612">HP:0000612</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000612</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612), qualified as congenital onset. HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6702,6 +7297,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6734,14 +7330,21 @@
                         Optic Disc Coloboma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic disc coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000588">HP:0000588</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000588</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc coloboma (HP:0000588), qualified as congenital onset. HP:0000588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6790,6 +7393,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6824,14 +7428,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Specific learning disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001328">HP:0001328</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001328</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Learning difficulties requiring remedial teaching, annotated with Specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6851,6 +7462,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6883,14 +7495,21 @@
                         Neural Tube Defect
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neural tube defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045005" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045005">HP:0045005</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045005" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0045005</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neural tube defect (HP:0045005). HP:0045005 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6910,6 +7529,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9382148" target="_blank">PMID:9382148</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6932,6 +7552,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7010,13 +7631,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:16262</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7042,6 +7668,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7064,6 +7691,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7080,23 +7708,24 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28801591" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:28801591" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"In addition to the eye anomalies, affected members of one family also exhibited variable extraocular features including hearing loss, intellectual disability, haematuria and orofacial clefting"</div>
 
 
-                <div class="evidence-explanation">Independently corroborates the YAP1 syndromic phenotype attribution.</div>
+                <div class="evidence-explanation">Restates the YAP1 syndromic phenotype attribution. This sentence sits in Holt et al.&#39;s introduction and carries their citations 7 and 8 — it is a secondary citation of Williamson et al., not an observation of their own — so it corroborates the attribution as received knowledge rather than independently, hence PARTIAL and evidence_source OTHER.</div>
 
 
 
@@ -7128,9 +7757,13 @@
     <div class="item-name">
         NM_001130145:c.1066G&gt;T (p.Glu356*)
 
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
     </div>
 
     <div class="item-meta">
+
+
 
 
 
@@ -7138,11 +7771,16 @@
             Gene: YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16262">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:16262</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
 
@@ -7154,12 +7792,38 @@
 
 
 
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">LOSS_OF_FUNCTION</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">A premature termination codon downstream of both transcription start sites, predicted to clear the mutant transcript by nonsense-mediated decay and so to halve the functional YAP1 dose. Loss of function, not dominant-negative or gain of function: the independent de novo YAP1 frameshift case is argued on haploinsufficiency, and no cached source proposes a dominant-negative mechanism for any YAP1 coloboma allele.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7168,6 +7832,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7185,6 +7850,29 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:24462371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24462371" target="_blank">PMID:24462371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"two different cosegregating heterozygous nonsense mutations"</div>
+
+
+                <div class="evidence-explanation">Basis for type: nonsense and for clinical_significance: PATHOGENIC — the allele is a nonsense variant in an established disease gene, cosegregating with the phenotype (the combined LOD of 4.2 is quoted in the inheritance block). Note this is the authors&#39; segregation-based attribution, not a formal ACMG/AMP classification, which no cached source reports.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -7195,6 +7883,9 @@
 
 
         </div>
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7212,7 +7903,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7261,6 +7957,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7154042" target="_blank">PMID:7154042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7282,6 +7979,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7329,7 +8027,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-charge-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="CHARGE_syndrome.html">CHARGE Syndrome</a>
@@ -7350,7 +8048,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-uveal-coloboma-and-the-microphthalmia-anophthalmia-coloboma-spectrum">
                 <div class="item-name">
 
                     Isolated Uveal Coloboma and the Microphthalmia-Anophthalmia-Coloboma Spectrum
@@ -7371,7 +8069,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-branchio-oculo-facial-syndrome">
                 <div class="item-name">
 
                     Branchio-Oculo-Facial Syndrome
@@ -7392,7 +8090,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cat-eye-syndrome">
                 <div class="item-name">
 
                     Cat-Eye Syndrome
@@ -7413,7 +8111,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-renal-coloboma-papillorenal-syndrome">
                 <div class="item-name">
 
                     Renal Coloboma (Papillorenal) Syndrome
@@ -7434,7 +8132,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-kabuki-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Kabuki_Syndrome.html">Kabuki Syndrome</a>
@@ -7455,7 +8153,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-baraitser-winter-cerebrofrontofacial-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Baraitser-Winter_Cerebrofrontofacial_Syndrome.html">Baraitser-Winter Cerebrofrontofacial Syndrome</a>
@@ -7486,6 +8184,431 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-zebrafish-yap1-mutant-alone-and-with-wwtr1-taz" data-dismech-node="Zebrafish yap1 mutant, alone and with wwtr1 (taz)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Zebrafish yap1 mutant, alone and with wwtr1 (taz)
+
+                </div>
+
+                <div class="item-desc">Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or develop coloboma, and combined loss of yap and taz abolishes the ability of optic vesicle progenitors to form RPE at all. This is the closest available model of the ocular arm of the syndrome and the source of the instructive (not merely permissive) role of Yap/Taz-Tead in RPE fate. It does not model the clefting, hearing loss, or intellectual disability arms.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Coloboma</span>
+
+                    <span class="tag tag-phenotype">Loss of retinal pigment epithelium</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:26209646">PMID:26209646</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-yap-tead-transcriptional-output-in-the-hippo-pathway">Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway</a>
+
+                <span class="crosslink-meta">perturbs</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead output in optic vesicle progenitors — the animal counterpart of the reduced co-activator dose imposed by human YAP1 haploinsufficiency.</span>
+
+
+                <div class="mapping-notes">Limitations: Homozygous null and double-mutant genotypes model a far deeper loss of output than a human heterozygous nonsense allele, so the model addresses the direction of the lesion rather than its dose.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Ability of optic vesicle progenitors to form RPE</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ABOLISHED</div>
+
+
+        <div class="mapping-notes">Interpretation: The functional consequence of removing that output: complete loss of RPE-forming capacity when both Yap and Taz are absent establishes the requirement as instructive, not merely permissive. Note this measures the capacity the node&#39;s output confers, not a direct measurement of transcriptional output in the mutant.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"when Yap and Taz are both absent, optic vesicle progenitor cells completely lose their ability to form RPE"</div>
+
+
+                <div class="evidence-explanation">Reports the measured loss of RPE-forming capacity behind this readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mechanism of Yap-dependent RPE cell type determination is reliant on both nuclear localization of Yap and interaction with a Tead co-factor."</div>
+
+
+                <div class="evidence-explanation">Confirms the model reports specifically on YAP-TEAD co-activation, the activity this node describes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-failure-of-optic-fissure-closure">Failure of Optic Fissure Closure</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">yap1 mutants develop coloboma — the optic fissure closure defect itself — alongside the RPE deficiency proposed to underlie it.</span>
+
+
+                <div class="mapping-notes">Limitations: The zygosity mismatch bites hardest here, on the stronger claim: the coloboma is scored in homozygous yap1 nulls, whereas the human disorder is caused by a heterozygous nonsense allele, so the model recapitulates the lesion&#39;s direction and not its dose. Zebrafish ocular morphogenesis is also not identical to the human weeks-5-to-7 fissure closure window, and the model does not reproduce the clefting, hearing loss, haematuria, or intellectual disability arms of the syndrome.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Coloboma incidence in yap1 mutants</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: Coloboma arising on loss of yap1 is the model&#39;s direct correlate of the human optic fissure closure defect.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma."</div>
+
+
+                <div class="evidence-explanation">Reports the coloboma scored in the mutants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Retinal pigment epithelium cell number in yap1 mutants</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: The RPE deficiency that accompanies the coloboma, recorded separately because it moves in the opposite direction from coloboma incidence and cannot share a single direction value with it.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma."</div>
+
+
+                <div class="evidence-explanation">Reports the RPE cell deficiency scored in the mutants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"provides a mechanistic framework for understanding the congenital ocular defects of Sveinsson&#39;s chorioretinal atrophy and congenital retinal coloboma"</div>
+
+
+                <div class="evidence-explanation">The authors position the model as a mechanistic framework for congenital retinal coloboma, which is what this node curates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma."</div>
+
+
+                <div class="evidence-explanation">Establishes the zebrafish yap1 mutant as a model of the coloboma arm of the human phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26209646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of RPE in yap mutants is exacerbated in combination with taz (wwtr1) mutant alleles such that, when Yap and Taz are both absent, optic vesicle progenitor cells completely lose their ability to form RPE."</div>
+
+
+                <div class="evidence-explanation">Demonstrates the dosage-dependent Yap/Taz requirement in ocular development.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -7512,8 +8635,11 @@ description: &gt;-
   dominant coloboma-microphthalmos syndrome that also featured mid-frequency
   sensorineural hearing loss and haematuria. Williamson et al. subsequently
   identified a cosegregating heterozygous nonsense variant in YAP1 (c.1066G&gt;T,
-  p.Glu356*) in this family, establishing YAP1 haploinsufficiency as the
-  molecular cause. YAP1 encodes the Hippo-pathway transcriptional co-activator
+  p.Glu356*) in their syndromic pedigree (family 132), establishing YAP1
+  haploinsufficiency as the molecular cause of that phenotype. That this is the
+  same pedigree as the 1982 and 1997 reports is inferred from author and
+  institutional overlap and is not asserted in any abstract — see the notes
+  block. YAP1 encodes the Hippo-pathway transcriptional co-activator
   Yes-associated protein 1, which is expressed in the developing human retina,
   otic vesicle, palatine process primordium, neural tube, and renal tubules — a
   pleiotropic expression domain that maps closely onto the eye, ear, palate,
@@ -7556,6 +8682,14 @@ references:
   title: &#34;Dominant coloboma-microphthalmos syndrome associated with sensorineural hearing loss, hematuria, and cleft lip/palate.&#34;
 - reference: PMID:24462371
   title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
+- reference: PMID:26209646
+  title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+- reference: PMID:28801591
+  title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
+- reference: PMID:35318877
+  title: &#34;De novo frameshift mutation in YAP1 associated with bilateral uveal coloboma and microphthalmia.&#34;
+- reference: ORPHA:1473
+  title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability&#34;
 inheritance:
 - name: Autosomal Dominant
   inheritance_term:
@@ -7564,6 +8698,7 @@ inheritance:
       id: HP:0000006
       label: Autosomal dominant inheritance
   expressivity: VARIABLE
+  penetrance: INCOMPLETE
   description: &gt;-
     Autosomal dominant transmission through the index family, documented over
     three generations in the 1982 report and across four generations on
@@ -7630,11 +8765,13 @@ prevalence:
   - reference: PMID:9382148
     reference_title: &#34;Dominant coloboma-microphthalmos syndrome associated with sensorineural hearing loss, hematuria, and cleft lip/palate.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Ocular colobomas and microphthalmos, isolated or as part of a syndrome, are usually sporadic and only rarely found in large families.&#34;
     explanation: &gt;-
       Frames the entity as an exceptional familial occurrence rather than a
-      population-characterised disorder.
+      population-characterised disorder. This is Ravine et al.&#39;s opening
+      background sentence about coloboma in general, not a result of their
+      re-evaluation, hence evidence_source OTHER.
   - reference: PMID:28801591
     reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
     supports: PARTIAL
@@ -7689,10 +8826,15 @@ genetic:
       entity — to one of the two YAP1 families.
   - reference: PMID:28801591
     reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    supports: PARTIAL
+    evidence_source: OTHER
     snippet: &#34;In addition to the eye anomalies, affected members of one family also exhibited variable extraocular features including hearing loss, intellectual disability, haematuria and orofacial clefting&#34;
-    explanation: Independently corroborates the YAP1 syndromic phenotype attribution.
+    explanation: &gt;-
+      Restates the YAP1 syndromic phenotype attribution. This sentence sits in
+      Holt et al.&#39;s introduction and carries their citations 7 and 8 — it is a
+      secondary citation of Williamson et al., not an observation of their own —
+      so it corroborates the attribution as received knowledge rather than
+      independently, hence PARTIAL and evidence_source OTHER.
 variants:
 - name: &#34;NM_001130145:c.1066G&gt;T (p.Glu356*)&#34;
   description: &gt;-
@@ -7706,6 +8848,17 @@ variants:
     term:
       id: hgnc:16262
       label: YAP1
+  type: nonsense
+  clinical_significance: PATHOGENIC
+  functional_effects:
+  - function: LOSS_OF_FUNCTION
+    description: &gt;-
+      A premature termination codon downstream of both transcription start
+      sites, predicted to clear the mutant transcript by nonsense-mediated decay
+      and so to halve the functional YAP1 dose. Loss of function, not
+      dominant-negative or gain of function: the independent de novo YAP1
+      frameshift case is argued on haploinsufficiency, and no cached source
+      proposes a dominant-negative mechanism for any YAP1 coloboma allele.
   evidence:
   - reference: PMID:24462371
     reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
@@ -7715,6 +8868,17 @@ variants:
     explanation: &gt;-
       Identifies the allele of the syndromic family and its predicted NMD
       consequence.
+  - reference: PMID:24462371
+    reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;two different cosegregating heterozygous nonsense mutations&#34;
+    explanation: &gt;-
+      Basis for type: nonsense and for clinical_significance: PATHOGENIC — the
+      allele is a nonsense variant in an established disease gene, cosegregating
+      with the phenotype (the combined LOD of 4.2 is quoted in the inheritance
+      block). Note this is the authors&#39; segregation-based attribution, not a
+      formal ACMG/AMP classification, which no cached source reports.
 pathophysiology:
 - name: YAP1 Haploinsufficiency
   role: trigger
@@ -7781,9 +8945,13 @@ pathophysiology:
     - reference: PMID:24462371
       reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &#34;YAP1 encodes an effector of the HIPPO-pathway-induced growth response&#34;
-      explanation: Places the haploinsufficient product in the Hippo signalling pathway.
+      explanation: &gt;-
+        Places the haploinsufficient product in the Hippo signalling pathway.
+        This is a background statement of gene function rather than a clinical
+        result of the study, hence evidence_source OTHER — the same treatment
+        given to the equivalent Holt et al. statement on the node below.
   - target: Pleiotropic YAP1 Requirement Across Eye, Ear, Palate, and Kidney Primordia
     description: &gt;-
       The reduced co-activator dose is imposed simultaneously on every developing
@@ -7804,6 +8972,36 @@ pathophysiology:
         tissues express YAP1 during the relevant window, but it does not itself
         demonstrate that reduced dose causes the multi-organ phenotype, hence
         PARTIAL.
+  - target: Intellectual Disability
+    description: &gt;-
+      Intellectual disability is part of the multisystem phenotype attributed
+      to the heterozygous YAP1 loss-of-function allele, but the intervening
+      neurodevelopmental mechanism is unknown. This edge therefore starts at
+      the upstream dosage lesion rather than at the tissue-expression node;
+      it does not assert that embryonic brain expression explains cognition.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:24462371
+      reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;highly variable multisystem involvement, including hearing loss, intellectual disability, hematuria, and orofacial clefting&#34;
+      explanation: &gt;-
+        Names intellectual disability among the multisystem features of the
+        YAP1-solved syndromic family, supporting disease-level attribution to
+        the dosage lesion while leaving the causal intermediates unresolved.
+    - reference: PMID:28801591
+      reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;such correlations must still be approached with caution&#34;
+      explanation: &gt;-
+        A Discussion caveat rather than an experimental result. Its immediate
+        clinical referent is Asperger syndrome in Holt et al.&#39;s Case 1, set
+        beside intellectual disability in other YAP1 families and embryonic
+        brain expression. It does not independently support this edge; it is
+        retained as a PARTIAL qualification on inferring a neurodevelopmental
+        mechanism from the expression pattern.
 - name: Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway
   role: intermediate
   biological_scale: MOLECULAR
@@ -7910,11 +9108,13 @@ pathophysiology:
   - reference: PMID:35318877
     reference_title: &#34;De novo frameshift mutation in YAP1 associated with bilateral uveal coloboma and microphthalmia.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &#34;Uveal colobomata are eye defects that result from failure of the optic fissure of the neuroectoderm-derived optic cup to close between weeks 5-7 of fetal life.&#34;
     explanation: &gt;-
       States the developmental mechanism and the developmental window for the
-      cardinal ocular feature.
+      cardinal ocular feature. This sentence sits under the literal BACKGROUND
+      heading of DeYoung et al.&#39;s abstract — established developmental biology
+      rather than a result of their case report — hence evidence_source OTHER.
   - reference: PMID:24462371
     reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
     supports: SUPPORT
@@ -8030,6 +9230,62 @@ pathophysiology:
         rationale for the clefting; the intervening steps between reduced YAP1
         dose and failed shelf fusion are not experimentally resolved, hence
         PARTIAL.
+  - target: Sensorineural Hearing Loss
+    description: &gt;-
+      The otic-vesicle arm of the same pleiotropic requirement. The hearing loss
+      cosegregates with the YAP1 allele in the index family, and Holt et al.
+      read their otic-vesicle expression as consistent with that phenotype; the
+      intervening steps are unresolved, and no cochlear phenotype has been
+      assayed at reduced YAP1 dose in any system.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:24462371
+      reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;highly variable multisystem involvement, including hearing loss, intellectual disability, hematuria, and orofacial clefting&#34;
+      explanation: &gt;-
+        Names hearing loss as one of the multisystem features of the
+        YAP1-solved syndromic family. This is the paper&#39;s phenotype-contrast
+        sentence; the words &#34;cosegregating&#34; and &#34;combined LOD score of 4.2&#34;
+        belong to the adjacent sentences and are quoted separately in the
+        inheritance block, so they are not attributed to this snippet.
+    - reference: PMID:28801591
+      reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &#34;we also identified expression within the developing kidney and otic vesicle, consistent with its relevance to these additional phenotypes&#34;
+      explanation: &gt;-
+        The authors themselves read the otic-vesicle expression as consistent
+        with the deafness phenotype. Expression remains a correlate rather than
+        a demonstrated chain, hence PARTIAL.
+  - target: Hematuria
+    description: &gt;-
+      The renal arm of the same pleiotropic requirement. The haematuria
+      cosegregates with the YAP1 allele in the index family, and Holt et al.
+      read their renal expression as consistent with it; the renal lesion itself
+      is uncharacterised — see the open knowledge-gap discussion.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:24462371
+      reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;highly variable multisystem involvement, including hearing loss, intellectual disability, hematuria, and orofacial clefting&#34;
+      explanation: &gt;-
+        Names haematuria as one of the multisystem features of the YAP1-solved
+        syndromic family. This is the paper&#39;s phenotype-contrast sentence; the
+        cosegregation and LOD statements sit in the adjacent sentences and are
+        quoted separately in the inheritance block.
+    - reference: PMID:28801591
+      reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &#34;was also observed in the renal tubules of the developing kidney at CS22&#34;
+      explanation: &gt;-
+        Supplies the developmental correlate; the study examined kidney
+        expression precisely because the renal phenotype was unexplained.
+        Expression alone does not establish the causal chain.
 - name: Impaired Fusion of the Facial Processes and Palatal Shelves
   role: consequence
   biological_scale: TISSUE
@@ -8074,9 +9330,34 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;autosomal dominant uveal coloboma and microphthalmos associated with cleft lip and palate&#34;
     explanation: Documents the clefting as a defining feature of the pedigree.
+  downstream:
+  - target: Cleft Lip
+    description: &gt;-
+      Failure of medial nasal and maxillary process fusion yields the cleft of
+      the upper lip.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:7154042
+      reference_title: &#34;An autosomal dominant syndrome of uveal colobomata, cleft lip and palate, and mental retardation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;uveal colobomata, associated eye defects, and cleft lip and palate&#34;
+      explanation: Documents cleft lip as a feature of the defining pedigree.
+  - target: Cleft Palate
+    description: &gt;-
+      Failure of palatal shelf fusion yields the cleft palate; Orphanet records
+      the clefting as variably involving lip, palate, and/or uvula.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:1473
+      reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;variably associated with cleft lip, palate and/or uvula&#34;
+      explanation: Records palatal and uvular clefting as part of the entity.
 - name: Uveal Coloboma and Colobomatous Microphthalmia
   role: consequence
-  biological_scale: ORGANISM
+  biological_scale: TISSUE
   description: &gt;-
     The clinical ocular endpoint: an inferonasal uveal coloboma that in this
     entity is typically bilateral and may extend from iris through choroid to
@@ -8106,6 +9387,67 @@ pathophysiology:
     explanation: &gt;-
       Establishes the ocular endpoint as the cardinal, most constant expression
       of the allele.
+  downstream:
+  - target: Uveal Coloboma
+    description: &gt;-
+      The clinical uveal coloboma is the direct expression of the unclosed
+      ventral fissure at the level of the uveal tract.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:1473
+      reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;characterized by uveal coloboma (typically bilateral)&#34;
+      explanation: Records uveal coloboma as the defining clinical feature of the entity.
+  - target: Iris Coloboma
+    description: &gt;-
+      Anterior (iris) expression of the same colobomatous defect.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:1473
+      reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;includes iris coloboma extending to the choroid, disc, and/or macula&#34;
+      explanation: Records iris involvement as the anterior pole of the defect.
+  - target: Chorioretinal Coloboma
+    description: &gt;-
+      Posterior extension of the same colobomatous defect into choroid and
+      retina.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:1473
+      reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;iris coloboma extending to the choroid, disc, and/or macula&#34;
+      explanation: Records the continuous iris-to-macula extension of the defect.
+  - target: Optic Disc Coloboma
+    description: &gt;-
+      Most posterior extension of the same defect, at the optic disc.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:1473
+      reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;extending to the choroid, disc, and/or macula&#34;
+      explanation: Records disc involvement within the colobomatous spectrum.
+  - target: Microphthalmia
+    description: &gt;-
+      Where the colobomatous tissue deficiency is severe enough, the globe is
+      also small — colobomatous microphthalmia rather than an isolated cleft.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:9382148
+      reference_title: &#34;Dominant coloboma-microphthalmos syndrome associated with sensorineural hearing loss, hematuria, and cleft lip/palate.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;autosomal dominant uveal coloboma and microphthalmos associated with cleft lip and palate&#34;
+      explanation: &gt;-
+        Documents coloboma and microphthalmos together in the defining pedigree
+        itself, rather than in an out-of-pedigree de novo case.
 - name: Alternative Transcription Start Site Modulation of Phenotype Severity
   role: modifier
   biological_scale: MOLECULAR
@@ -8142,12 +9484,15 @@ pathophysiology:
       transcript measurement, hence COMPUTATIONAL.
   - reference: PMID:24462371
     reference_title: &#34;Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    supports: PARTIAL
+    evidence_source: OTHER
     snippet: &#34;Amelioration of the phenotype by the alternative transcripts provides a plausible explanation for the phenotypic differences between the families.&#34;
     explanation: &gt;-
       The authors present this explicitly as a plausible explanation, i.e. a
-      hypothesis rather than a demonstrated mechanism.
+      hypothesis rather than a demonstrated mechanism. PARTIAL for the same
+      reason this entry marks &#34;should result in NMD&#34; and &#34;likely results in
+      NMD&#34; PARTIAL — the source hedges — and OTHER because the sentence is
+      interpretive discussion rather than a clinical result.
   - reference: PMID:28801591
     reference_title: &#34;New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.&#34;
     supports: PARTIAL
@@ -8221,7 +9566,6 @@ phenotypes:
       label: Coloboma
     onset:
       onset_category: CONGENITAL
-  frequency: VERY_FREQUENT
   diagnostic: true
   evidence:
   - reference: PMID:7154042
@@ -8230,23 +9574,32 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Considerable variability in expression of the gene is apparent, uveal colobomata being the most constant feature&#34;
     explanation: &gt;-
-      Frequency derivation: the foundational report states uveal colobomata are
-      the most constant feature of the syndrome across the twelve affected
-      subjects. &#34;Most constant feature&#34; is not one of the literature terms in the
-      frequency-evidence mapping table, so this is a documented departure: it is
-      read as a superlative statement of near-universality within the pedigree
-      and mapped to VERY_FREQUENT (80-99%). No numerator/denominator count is
-      published for the coloboma itself, so no more precise band is defensible;
-      OBLIGATE was rejected because the same sentence stresses variable
-      expression.
+      Supports the disease-phenotype association and the variable expressivity
+      it sits within. It does not support any frequency band, and none is
+      assigned: &#34;most constant feature&#34; is a comparative claim about coloboma
+      relative to the syndrome&#39;s other features, not an absolute rate — coloboma
+      in 9 of 12 subjects (75%) would still be the most constant feature while
+      falling in FREQUENT rather than VERY_FREQUENT.
   - reference: ORPHA:1473
     reference_title: &#34;Uveal coloboma-cleft lip and palate-intellectual disability (Orphanet structured-database record)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;characterized by uveal coloboma (typically bilateral) variably associated with cleft lip, palate and/or uvula, hearing impairment, and intellectual disability&#34;
     explanation: &gt;-
-      Orphanet lists uveal coloboma as the defining, non-variable feature of the
-      entity — contrast the variably associated extraocular features.
+      Orphanet builds its definition around uveal coloboma — the entity is
+      &#34;characterized by&#34; it, and every other feature is qualified as &#34;variably
+      associated&#34; — which supports coloboma as the cardinal, diagnostic feature
+      (hence diagnostic: true). It does NOT support a frequency band, and none
+      is assigned. An earlier draft mapped &#34;characterized by&#34; to VERY_FREQUENT
+      as hallmark wording under Pattern C; that was withdrawn on audit, because
+      &#34;characterized by&#34; is the genus-differentia opening of essentially every
+      Orphanet definition rather than one of the frequency terms in the Pattern
+      C table, and because it makes the same comparative contrast (coloboma
+      versus the variably associated features) that made &#34;most constant feature&#34;
+      unusable for a band. No numerator/denominator for the coloboma is
+      published in any cached source, so per
+      docs/frequency-evidence-guidelines.md the frequency is omitted: a missing
+      frequency is honest, a fabricated one is not.
 - category: Ocular
   name: Iris Coloboma
   description: &gt;-
@@ -8479,7 +9832,7 @@ phenotypes:
     re-evaluation of the pedigree. YAP1 is expressed in the human embryonic otic
     vesicle, supplying a developmental correlate.
   phenotype_term:
-    preferred_term: Sensorineural hearing impairment
+    preferred_term: Mid-frequency sensorineural hearing loss
     term:
       id: HP:0000407
       label: Sensorineural hearing impairment
@@ -8602,7 +9955,24 @@ treatments:
     been transmitted by clinically unaffected carriers. Cascade testing of
     at-risk relatives should therefore be paired with ophthalmic examination
     rather than relied on alone.
-  therapeutic_modality: BEHAVIORAL
+  therapeutic_modality: OTHER
+  notes: &gt;-
+    Modality decided on the enum definition rather than on precedent.
+    TherapeuticModalityEnum defines BEHAVIORAL as a &#34;non-pharmacologic
+    behavioral, physical, dietary, or lifestyle intervention&#34;; genetic
+    counseling is none of those four — it is a risk-communication and
+    decision-support service — so OTHER (&#34;modality not covered by the above
+    categories&#34;) is the accurate value. The KB is genuinely split on this:
+    measured across kb/disorders/ on 2026-08-11 with this entry already changed,
+    578 treatments bind NCIT:C15240 — 57 tagged BEHAVIORAL, 38 OTHER, and 483
+    carrying no modality at all. (An earlier draft of this note recorded 58/37,
+    which was the split BEFORE this entry was retagged: the note described the
+    KB as it was before its own edit. Corrected, and date-stamped, because these
+    counts drift with every entry that touches this term.) There is therefore no
+    settled convention to defer to, and
+    CLAUDE.md lists NCIT:C15240 among the generic action terms that need a
+    per-entry look rather than an ID-based rule. Flagged here because a
+    KB-wide reconciliation of this term is worth doing on its own.
   treatment_term:
     preferred_term: genetic counseling
     term:
@@ -8782,8 +10152,10 @@ differential_diagnoses:
     as pachygyria or lissencephaly on brain imaging, which are not a feature of
     the YAP1 entity.
 animal_models:
-- species: Danio rerio
+- name: Zebrafish yap1 mutant, alone and with wwtr1 (taz)
+  species: Danio rerio
   genotype: yap1 (yap) loss-of-function mutant, alone and combined with wwtr1 (taz)
+  publication: PMID:26209646
   description: &gt;-
     Zebrafish yap1 mutants lack a subset of retinal pigment epithelium and/or
     develop coloboma, and combined loss of yap and taz abolishes the ability of
@@ -8794,6 +10166,95 @@ animal_models:
   associated_phenotypes:
   - Coloboma
   - Loss of retinal pigment epithelium
+  modeled_mechanisms:
+  - target: Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway
+    relationship: PERTURBS
+    fidelity: MODERATE
+    description: &gt;-
+      Genetic removal of yap1, and of yap1 together with wwtr1, lowers Yap/Taz-Tead
+      output in optic vesicle progenitors — the animal counterpart of the reduced
+      co-activator dose imposed by human YAP1 haploinsufficiency.
+    limitations: &gt;-
+      Homozygous null and double-mutant genotypes model a far deeper loss of
+      output than a human heterozygous nonsense allele, so the model addresses
+      the direction of the lesion rather than its dose.
+    readouts:
+    - name: Ability of optic vesicle progenitors to form RPE
+      target: Reduced YAP-TEAD Transcriptional Output in the Hippo Pathway
+      direction: ABOLISHED
+      interpretation: &gt;-
+        The functional consequence of removing that output: complete loss of
+        RPE-forming capacity when both Yap and Taz are absent establishes the
+        requirement as instructive, not merely permissive. Note this measures
+        the capacity the node&#39;s output confers, not a direct measurement of
+        transcriptional output in the mutant.
+      evidence:
+      - reference: PMID:26209646
+        reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;when Yap and Taz are both absent, optic vesicle progenitor cells completely lose their ability to form RPE&#34;
+        explanation: Reports the measured loss of RPE-forming capacity behind this readout.
+    evidence:
+    - reference: PMID:26209646
+      reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;The mechanism of Yap-dependent RPE cell type determination is reliant on both nuclear localization of Yap and interaction with a Tead co-factor.&#34;
+      explanation: &gt;-
+        Confirms the model reports specifically on YAP-TEAD co-activation, the
+        activity this node describes.
+  - target: Failure of Optic Fissure Closure
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: &gt;-
+      yap1 mutants develop coloboma — the optic fissure closure defect itself —
+      alongside the RPE deficiency proposed to underlie it.
+    limitations: &gt;-
+      The zygosity mismatch bites hardest here, on the stronger claim: the
+      coloboma is scored in homozygous yap1 nulls, whereas the human disorder is
+      caused by a heterozygous nonsense allele, so the model recapitulates the
+      lesion&#39;s direction and not its dose. Zebrafish ocular morphogenesis is
+      also not identical to the human weeks-5-to-7 fissure closure window, and
+      the model does not reproduce the clefting, hearing loss, haematuria, or
+      intellectual disability arms of the syndrome.
+    readouts:
+    - name: Coloboma incidence in yap1 mutants
+      target: Failure of Optic Fissure Closure
+      direction: INCREASED
+      interpretation: &gt;-
+        Coloboma arising on loss of yap1 is the model&#39;s direct correlate of the
+        human optic fissure closure defect.
+      evidence:
+      - reference: PMID:26209646
+        reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma.&#34;
+        explanation: Reports the coloboma scored in the mutants.
+    - name: Retinal pigment epithelium cell number in yap1 mutants
+      target: Failure of Optic Fissure Closure
+      direction: DECREASED
+      interpretation: &gt;-
+        The RPE deficiency that accompanies the coloboma, recorded separately
+        because it moves in the opposite direction from coloboma incidence and
+        cannot share a single direction value with it.
+      evidence:
+      - reference: PMID:26209646
+        reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: &#34;yap (yap1) mutants lack a subset of RPE cells and/or exhibit coloboma.&#34;
+        explanation: Reports the RPE cell deficiency scored in the mutants.
+    evidence:
+    - reference: PMID:26209646
+      reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;provides a mechanistic framework for understanding the congenital ocular defects of Sveinsson&#39;s chorioretinal atrophy and congenital retinal coloboma&#34;
+      explanation: &gt;-
+        The authors position the model as a mechanistic framework for congenital
+        retinal coloboma, which is what this node curates.
   evidence:
   - reference: PMID:26209646
     reference_title: &#34;Yap and Taz regulate retinal pigment epithelial cell fate.&#34;
@@ -8866,12 +10327,73 @@ notes: &gt;-
   microsomia, tubular nose, spina bifida occulta, nystagmus, microcornea) are not
   curated as phenotypes of this entity; they belong to individual YAP1 probands
   and the deep-research report itself flags them as provisional extensions.
+  (7) Four phenotypes are deliberately left unwired to the pathograph, giving a
+  causal-inlink connectivity of 10 of 14 rather than a fuller-looking number
+  bought with unsupported edges. The wiring rule applied is a single one: a
+  phenotype is wired when a source states it is a feature of the disease caused
+  by the YAP1 allele, and not wired when no source does. Cataract and impaired
+  extraocular movement are recorded in the ocular spectrum of the entity, but
+  neither is an optic fissure closure defect and no source explains either from
+  reduced YAP1 dose. Specific learning disability is unwired because it rests on
+  Ravine et al.&#39;s &#34;one third of those affected&#34; observation, which this entry
+  deliberately keeps separate from the intellectual-disability claim; treating
+  the two as one claim is precisely the conflation the phenotype split exists to
+  avoid. Neural tube defect is unwired because the sources do not establish the
+  claim: Kingston et al. write only that &#34;the possibility of association
+  with neural tube defect is discussed&#34;, and Ravine et al. that it &#34;has occurred
+  in one presumed affected member&#34; — a single event in a relative who was never
+  molecularly confirmed. An earlier draft did wire it on YAP1 neural-tube
+  expression alone; that edge was removed on audit, because an expression
+  correlate is not evidence of causation. (The reasoning given at the time — that
+  CausalLinkTypeEnum UNKNOWN, meaning &#34;directness has not yet been determined&#34;,
+  cannot carry a doubt about whether an edge exists — was itself too strong: the
+  alternative-TSS edge in this very entry carries exactly that kind of doubt by
+  pairing UNKNOWN with a hypothesis_groups reference to an EMERGING
+  mechanistic_hypotheses entry. Deletion was a choice, not the only option; it
+  remains the right one here because the sources do not establish the
+  association, not merely its directness.)
+  (7a) Intellectual disability IS wired, and the earlier draft that excluded it
+  was inconsistent. Williamson et al. name hearing loss, intellectual disability,
+  haematuria and orofacial clefting in one sentence as the multisystem features
+  of the YAP1-solved family; three of those four were wired on that sentence
+  while the fourth was excluded on a rationale — Holt et al.&#39;s caution — that
+  addresses only the brain-expression route to a mechanism, not the disease-level
+  attribution the other three edges rest on. The edge is therefore now curated on
+  the same evidential footing as its siblings. The edge is wired directly from
+  YAP1 Haploinsufficiency, not from the pleiotropic tissue-expression node, so
+  it retains the disease-level attribution while leaving the intervening
+  neurodevelopmental mechanism unknown. Holt&#39;s &#34;such correlations must still be
+  approached with caution&#34; is carried on the edge as a PARTIAL qualifying item
+  and no route through brain expression is asserted.
+  (8) The seven differential_diagnoses blocks carry no evidence items, and this
+  is a recorded gap rather than a completeness claim. Their distinguishing
+  features — choanal atresia and semicircular canal hypoplasia in CHARGE, the
+  branchial skin defects of branchio-oculo-facial syndrome, the supernumerary
+  marker chromosome of cat-eye syndrome, PAX2 renal hypodysplasia with
+  vesicoureteral reflux, the Kabuki facies and fetal fingertip pads, the
+  Baraitser-Winter cortical malformations, and the genetic heterogeneity of the
+  MAC spectrum — are standard clinical knowledge, but none of the seven cached
+  references for this entry states any of them, so there is no quotable snippet
+  for any of them here. Citing them would mean adding seven new references whose
+  only role is to support boundary prose, which is a larger and separately
+  reviewable piece of work. Until that is done, no claim is made that the
+  differential blocks are evidence-backed.
 
   Named-entity-confusion preflight. MONDO:0007355 was verified with OAK before any
   content was written: label uveal coloboma-cleft lip and palate-intellectual
   disability, OMIM:120433, Orphanet:1473, gene association HGNC:16262 (YAP1),
   Orphanet definition citing 12 cases from three generations of a single family
-  and autosomal dominant transmission. ORPHA:1473 independently lists OMIM:120433
+  and autosomal dominant transmission. Auditor&#39;s note: that case-count sentence
+  lives in the MONDO:0007355 definition text (attributed to Orphanet:1473) and is
+  NOT present in the Orphadata bulk-snapshot body cached as ORPHA_1473.md. The
+  two are different definition texts of different vintages, not a full text and a
+  truncation of it — MONDO&#39;s runs &#34;is characterized by coloboma of the iris,
+  bilateral cleft lip and palate&#34;, the cache&#39;s &#34;A rare, genetic, multiple
+  congenital anomalies/dysmorphic syndrome characterized by uveal coloboma
+  (typically bilateral)&#34; — so the case count is not recoverable by quoting more
+  of the cached record. It is
+  therefore not quotable as an ORPHA:1473 snippet, which is why the prevalence
+  record cites PMID:7154042 for the count instead. ORPHA:1473 independently lists OMIM:120433
   and MONDO:0007355 as exact matches, and the Kingston 1982 abstract independently
   confirms the twelve-subjects/three-generations count. This is a high-NEC-risk
   entity because coloboma appears in many named syndromes; CHARGE (CHD7), cat-eye
@@ -8899,7 +10421,7 @@ notes: &gt;-
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">3</span>
+                    <span class="card-count">7</span>
                 </div>
 
                 <div class="reference-entry">
@@ -8944,6 +10466,74 @@ notes: &gt;-
                             </div>
 
                             <div class="reference-title">Heterozygous loss-of-function mutations in YAP1 cause both isolated and syndromic optic fissure closure defects.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26209646" target="_blank">PMID:26209646</a>
+                            </div>
+
+                            <div class="reference-title">Yap and Taz regulate retinal pigment epithelial cell fate.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28801591" target="_blank">PMID:28801591</a>
+                            </div>
+
+                            <div class="reference-title">New variant and expression studies provide further insight into the genotype-phenotype correlation in YAP1-related developmental eye disorders.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35318877" target="_blank">PMID:35318877</a>
+                            </div>
+
+                            <div class="reference-title">De novo frameshift mutation in YAP1 associated with bilateral uveal coloboma and microphthalmia.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="https://bioregistry.io/ORPHA:1473" target="_blank">ORPHA:1473</a>
+                            </div>
+
+                            <div class="reference-title">Uveal coloboma-cleft lip and palate-intellectual disability</div>
 
                         </div>
 
@@ -9837,7 +11427,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Uveal Coloboma-Cleft Lip and Palate-Intellectual Disability Syndrome", "mondoId": "MONDO:0007355", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uveal_Coloboma-Cleft_Lip_and_Palate-Intellectual_Disability_Syndrome", "yamlRevision": "51df9ba62050"};
+        const OS_CONFIG = {"diseaseName": "Uveal Coloboma-Cleft Lip and Palate-Intellectual Disability Syndrome", "mondoId": "MONDO:0007355", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uveal_Coloboma-Cleft_Lip_and_Palate-Intellectual_Disability_Syndrome", "yamlRevision": "00a6437a478e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10256,5 +11846,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

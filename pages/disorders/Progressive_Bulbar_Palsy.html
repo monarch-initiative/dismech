@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Progressive Bulbar Palsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Progressive Bulbar Palsy</h1>
             <div class="header-meta">
 
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3716,7 +3920,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3813,16 +4017,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         lower motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008039" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008039">CL:0008039</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008039" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lower motor neuron (CL:0008039). CL:0008039 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3849,16 +4058,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         motor neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097049" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097049">GO:0097049</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097049" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0097049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased motor neuron apoptotic process (GO:0097049). GO:0097049 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3885,19 +4099,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hypoglossal nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002871">UBERON:0002871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002871</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hypoglossal nucleus (UBERON:0002871). UBERON:0002871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3931,6 +4151,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454268" target="_blank">PMID:34454268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3953,6 +4174,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41518742" target="_blank">PMID:41518742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3988,16 +4210,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008048">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4030,6 +4257,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4041,6 +4269,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37647907" target="_blank">PMID:37647907</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4076,16 +4305,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4112,16 +4346,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0070841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4151,6 +4390,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4162,6 +4402,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32799899" target="_blank">PMID:32799899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4197,16 +4438,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4223,6 +4469,7 @@
 
 
                 </div>
+
 
 
 
@@ -4266,6 +4513,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40364643" target="_blank">PMID:40364643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4300,16 +4548,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         lower motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008039" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008039">CL:0008039</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008039" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0008039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lower motor neuron (CL:0008039). CL:0008039 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4326,6 +4579,7 @@
 
 
                 </div>
+
 
 
 
@@ -4354,6 +4608,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816542" target="_blank">PMID:37816542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4376,6 +4631,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41100402" target="_blank">PMID:41100402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4439,7 +4695,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
 
@@ -4451,7 +4707,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4469,14 +4725,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015), qualified as course progressive. HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4514,6 +4777,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454268" target="_blank">PMID:34454268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4555,14 +4819,21 @@
                         Drooling / Sialorrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Drooling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002307">HP:0002307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4582,6 +4853,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816542" target="_blank">PMID:37816542</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4624,14 +4896,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260), qualified as course progressive. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4670,6 +4949,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454268" target="_blank">PMID:34454268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4702,22 +4982,121 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-motor-neuron-degeneration" data-dismech-node="Lower motor neuron degeneration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower motor neuron degeneration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal lower motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002366" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002366</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal lower motor neuron morphology (HP:0002366). HP:0002366 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Motor neuron disease (MND) represents a broad and heterogeneous group of disorders involving the upper or lower motor neurons, represented mainly by amyotrophic lateral sclerosis (ALS), primary lateral sclerosis (PLS), progressive muscular atrophy (PMA) and progressive bulbar palsy (PBP)."</div>
+
+
+                <div class="evidence-explanation">Names progressive bulbar palsy as one of the motor neuron diseases, defined by involvement of the upper or lower motor neurons.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41517538" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41517538" target="_blank">PMID:41517538</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary motor neuronopathies are characterized by progressive degenerative loss of anterior horn cell motoneurons (lower motor neurons) or loss of giant pyramidal Betz cells (upper motor neurons)."</div>
+
+
+                <div class="evidence-explanation">States the lesion shared by the primary motor neuronopathies: loss of anterior horn cell motoneurons (lower motor neurons) or of Betz cells (upper motor neurons).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-atrophy" data-dismech-node="Tongue Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tongue Atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tongue atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012473">HP:0012473</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012473</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4737,6 +5116,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2304745" target="_blank">PMID:2304745</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4769,14 +5149,21 @@
                         Tongue Fasciculations
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tongue fasciculations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001308">HP:0001308</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001308</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue fasciculations (HP:0001308). HP:0001308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4796,6 +5183,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2304745" target="_blank">PMID:2304745</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4829,14 +5217,21 @@
                         Pseudobulbar Affect (Emotional Lability)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pseudobulbar affect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002193" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002193">HP:0002193</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002193</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pseudobulbar affect (HP:0002193). HP:0002193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4856,6 +5251,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37647907" target="_blank">PMID:37647907</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4889,14 +5285,21 @@
                         Dysphonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001618">HP:0001618</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001618</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4947,6 +5350,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4962,7 +5368,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5011,6 +5422,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40364643" target="_blank">PMID:40364643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5041,7 +5453,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5091,6 +5508,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41100402" target="_blank">PMID:41100402</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5121,7 +5539,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5171,6 +5594,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41100402" target="_blank">PMID:41100402</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5201,7 +5625,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5251,6 +5680,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37816542" target="_blank">PMID:37816542</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5281,7 +5711,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5330,6 +5765,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37647907" target="_blank">PMID:37647907</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5377,7 +5813,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-myasthenia-gravis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Myasthenia_Gravis.html">Myasthenia Gravis</a>
@@ -5427,6 +5863,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41194820" target="_blank">PMID:41194820</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5453,7 +5890,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-amyotrophic-lateral-sclerosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Amyotrophic_Lateral_Sclerosis.html">Amyotrophic Lateral Sclerosis</a>
@@ -5501,6 +5938,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40364643" target="_blank">PMID:40364643</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5527,7 +5965,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-brainstem-stroke">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Brainstem Stroke</span>
@@ -5577,6 +6015,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5768,6 +6209,40 @@ pathophysiology:
       In a large ALS cohort, bulbar-onset disease independently predicted shorter survival,
       reflecting the high aspiration/respiratory burden of bulbar involvement.
 phenotypes:
+- name: Lower motor neuron degeneration
+  category: Neurologic
+  description: &gt;-
+    Degeneration of the lower brainstem (CN IX-XII) motor nuclei is the localizing
+    lesion of bulbar-onset disease; lower motor neuron signs predominate early, before
+    generalization to ALS.
+  phenotype_term:
+    preferred_term: Abnormal lower motor neuron morphology
+    term:
+      id: HP:0002366
+      label: Abnormal lower motor neuron morphology
+  evidence:
+  - reference: PMID:41517538
+    reference_title: &#34;Establishing Diagnostic and Differential Diagnostic Criteria for Amyotrophic Lateral Sclerosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Motor neuron disease (MND) represents a broad and heterogeneous group of
+      disorders involving the upper or lower motor neurons, represented mainly by
+      amyotrophic lateral sclerosis (ALS), primary lateral sclerosis (PLS),
+      progressive muscular atrophy (PMA) and progressive bulbar palsy (PBP).&#34;
+    explanation: &gt;-
+      Names progressive bulbar palsy as one of the motor neuron diseases, defined by
+      involvement of the upper or lower motor neurons.
+  - reference: PMID:41517538
+    reference_title: &#34;Establishing Diagnostic and Differential Diagnostic Criteria for Amyotrophic Lateral Sclerosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Primary motor neuronopathies are characterized by progressive degenerative loss
+      of anterior horn cell motoneurons (lower motor neurons) or loss of giant
+      pyramidal Betz cells (upper motor neurons).&#34;
+    explanation: &gt;-
+      States the lesion shared by the primary motor neuronopathies: loss of anterior
+      horn cell motoneurons (lower motor neurons) or of Betz cells (upper motor
+      neurons).
 - name: Dysarthria
   category: Neurologic
   description: Slurred or impaired speech from bulbar muscle weakness (flaccid and/or spastic dysarthria).
@@ -6127,7 +6602,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Progressive Bulbar Palsy", "mondoId": "MONDO:0008890", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Progressive_Bulbar_Palsy", "yamlRevision": "dc695127c95f"};
+        const OS_CONFIG = {"diseaseName": "Progressive Bulbar Palsy", "mondoId": "MONDO:0008890", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Progressive_Bulbar_Palsy", "yamlRevision": "a9fb3e2532c0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6546,5 +7021,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

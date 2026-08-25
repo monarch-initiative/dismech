@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Frontotemporal Dementia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Frontotemporal Dementia</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Frontotemporal%20Dementia"
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3727,7 +3931,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3751,6 +3955,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
 
 
 
@@ -3788,38 +4000,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
 
+
+
+
+
                     <span class="tag tag-mechanistic">tauopathy</span>
+
 
                     <span class="tag tag-mechanistic">proteotoxic disease</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3832,6 +4130,415 @@
 
 
         <!-- Subtypes -->
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-behavioral-variant-ftd">
+
+                    <div class="item-name">
+                        Behavioral Variant Frontotemporal Dementia (bvFTD)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0017160" target="_blank">MONDO:0017160</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MAPT
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6893</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                C9orf72
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:28337</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The most common clinical presentation of FTD, characterized by progressive behavioral and personality change with frontal-lobe-predominant atrophy. Preferentially associated with MAPT mutations, which show earlier onset, prominent disinhibition, stereotyped behaviors, and temporal-predominant atrophy; also a common presentation in C9orf72 carriers, who additionally show psychotic symptoms and paradoxical social warmth.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MAPT patients were younger than other groups, and showed more frequent behavioural disinhibition, repetitive and stereotyped behaviours, semantic impairment and temporal predominance of atrophy."</div>
+
+
+                <div class="evidence-explanation">Confirms MAPT mutations preferentially produce the behavioral-variant clinical phenotype with early disinhibition and temporal-predominant atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-semantic-variant-ppa">
+
+                    <div class="item-name">
+                        Semantic Variant Primary Progressive Aphasia (svPPA / Semantic Dementia)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010857" target="_blank">MONDO:0010857</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A language-predominant FTD syndrome characterized by progressive loss of semantic knowledge (anomia, impaired word comprehension, surface dyslexia) with anterior temporal lobe degeneration. One of the three canonical PPA variants (with nonfluent/agrammatic and logopenic) defined by international consensus criteria. Typically sporadic with underlying TDP-43 type C pathology, showing weaker association with the three major FTD genes than the behavioral or nonfluent variants.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21325651" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21325651" target="_blank">PMID:21325651</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Criteria for the 3 variants of PPA--nonfluent/agrammatic, semantic, and logopenic--were developed by an international group of PPA investigators who convened on 3 occasions to operationalize earlier published clinical descriptions for PPA subtypes."</div>
+
+
+                <div class="evidence-explanation">Establishes semantic variant PPA as one of the three internationally standardized clinical PPA subtypes within the FTD spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-nonfluent-variant-ppa">
+
+                    <div class="item-name">
+                        Nonfluent/Agrammatic Variant Primary Progressive Aphasia (nfvPPA)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0015059" target="_blank">MONDO:0015059</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GRN
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4601" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4601</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GRN (hgnc:4601). hgnc:4601 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A language-predominant FTD syndrome characterized by agrammatism, laborious non-fluent speech, and apraxia of speech, with relatively preserved comprehension. Preferentially associated with GRN mutations (older age at death, TDP-43 type A pathology) and also seen with C9orf72 expansions; non-fluent aphasia links to TDP-43 type A pathology in both groups.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GRN patients were older at death and more likely to present with non-fluent aphasia."</div>
+
+
+                <div class="evidence-explanation">Confirms GRN mutations preferentially produce the nonfluent/agrammatic-aphasia clinical phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B."</div>
+
+
+                <div class="evidence-explanation">Links the nonfluent-aphasia phenotype to TDP-43 type A pathology across both GRN- and C9orf72-associated FTD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-ftd-with-motor-neuron-disease">
+
+                    <div class="item-name">
+                        Frontotemporal Dementia with Motor Neuron Disease (FTD-MND / FTD-ALS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0017161" target="_blank">MONDO:0017161</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                C9orf72
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:28337</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">FTD co-occurring with clinical motor neuron disease/ALS, almost exclusively linked to the C9orf72 hexanucleotide repeat expansion. C9orf72-associated ALS-FTD cases show more psychotic symptoms and paradoxical social warmth than MAPT- or GRN-associated FTD, and ALS co-occurrence links to TDP-43 type B pathology.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"C9orf72 patients alone showed a co-occurrence of ALS."</div>
+
+
+                <div class="evidence-explanation">Confirms that ALS co-occurrence in this FTD cohort was exclusive to C9orf72 mutation carriers.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26473392" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B."</div>
+
+
+                <div class="evidence-explanation">Links ALS co-occurrence in C9orf72-associated FTD to TDP-43 type B pathology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
 
 
         <!-- Comorbidities -->
@@ -3862,16 +4569,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3888,6 +4600,7 @@
 
 
                 </div>
+
 
 
 
@@ -3941,6 +4654,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19664364" target="_blank">PMID:19664364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3972,16 +4686,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3998,6 +4717,7 @@
 
 
                 </div>
+
 
 
 
@@ -4051,6 +4771,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21720721" target="_blank">PMID:21720721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4084,16 +4805,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4110,6 +4836,7 @@
 
 
                 </div>
+
 
 
 
@@ -4163,6 +4890,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21603977" target="_blank">PMID:21603977</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4196,16 +4924,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4222,6 +4955,7 @@
 
 
                 </div>
+
 
 
 
@@ -4269,6 +5003,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4288,6 +5023,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42390534" target="_blank">PMID:42390534</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4322,16 +5058,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4364,6 +5105,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4375,6 +5117,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30711676" target="_blank">PMID:30711676</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4422,7 +5165,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aphasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002381\"}}, {\"id\": \"Behavioral Changes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"FUS Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of FTD cases are tau- and TDP-43-negative. Within that heterogeneous group (which also includes CHMP2B-associated FTLD-UPS), the cases whose inclusions are immunoreactive for FUS (fused in sarcoma) constitute FTLD-FUS, completing the TDP-43 / tau / FUS molecular triad underlying FTD.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Frontal and Temporal Lobe Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive neuronal loss and atrophy predominantly affecting the frontal and temporal lobes, with patterns varying by genetic subtype. MAPT mutations show temporal predominance, while GRN and C9orf72 mutations may show more variable patterns. This structural degeneration underlies the behavioral and language deficits.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of neurons in frontal and temporal cortices due to protein aggregation toxicity, leading to brain atrophy and functional decline. The neurodegeneration progresses over years to decades, with biomarker changes detectable up to 30 years before symptom onset in genetic cases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"TDP-43 Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAR DNA-binding protein of 43 kDa (TDP-43) is the main ubiquitinated protein in tau-negative frontotemporal lobar degeneration (FTLD-TDP), accounting for over 50% of FTD cases. TDP-43 is typically a nuclear protein, and its aggregation and cytoplasmic translocation are thought to represent major pathogenic steps. The abnormal accumulation leads to neuronal dysfunction and death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Tau Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FTLD-tau is characterized by accumulation of hyperphosphorylated tau protein, accounting for approximately 45% of FTD cases. This includes Pick\u0027s disease with characteristic Pick bodies. The tau pathology disrupts microtubule function and causes neuronal degeneration primarily in frontal and temporal regions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}], \"edges\": [{\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frontal and Temporal Lobe Atrophy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frontal and Temporal Lobe Atrophy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aphasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002381\"}}, {\"id\": \"Behavioral Changes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"FUS Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of FTD cases are tau- and TDP-43-negative. Within that heterogeneous group (which also includes CHMP2B-associated FTLD-UPS), the cases whose inclusions are immunoreactive for FUS (fused in sarcoma) constitute FTLD-FUS, completing the TDP-43 / tau / FUS molecular triad underlying FTD.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Frontal and Temporal Lobe Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive neuronal loss and atrophy predominantly affecting the frontal and temporal lobes, with patterns varying by genetic subtype. MAPT mutations show temporal predominance, while GRN and C9orf72 mutations may show more variable patterns. This structural degeneration underlies the behavioral and language deficits.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"NEFL-C1QL2 projection neuron\"], \"presence\": \"Elevated\", \"term_id\": \"NCIT:C97139\", \"term_label\": \"Proteomic Profile\", \"readouts\": [{\"target\": \"Neuronal Death\", \"relationship\": \"PREDICTS\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"An elevated NEFL-C1QL2 projection neuron age gap predicts incident frontotemporal dementia. The NEFL component is an established axonal-injury marker in FTD, which is what anchors the readout to the neurodegeneration arm rather than leaving it an unanchored risk score.\"}, {\"target\": \"Frontal and Temporal Lobe Atrophy\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"C1QL2 is enriched in the temporo-limbic structures that frontotemporal lobar degeneration targets, which is the authors\u0027 basis for reading this signature against the regional atrophy arm. This is a regional-expression argument, not a measured correlation with imaged atrophy.\"}]}}, {\"id\": \"Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of neurons in frontal and temporal cortices due to protein aggregation toxicity, leading to brain atrophy and functional decline. The neurodegeneration progresses over years to decades, with biomarker changes detectable up to 30 years before symptom onset in genetic cases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"TDP-43 Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAR DNA-binding protein of 43 kDa (TDP-43) is the main ubiquitinated protein in tau-negative frontotemporal lobar degeneration (FTLD-TDP), accounting for over 50% of FTD cases. TDP-43 is typically a nuclear protein, and its aggregation and cytoplasmic translocation are thought to represent major pathogenic steps. The abnormal accumulation leads to neuronal dysfunction and death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Tau Proteinopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FTLD-tau is characterized by accumulation of hyperphosphorylated tau protein, accounting for approximately 45% of FTD cases. This includes Pick\u0027s disease with characteristic Pick bodies. The tau pathology disrupts microtubule function and causes neuronal degeneration primarily in frontal and temporal regions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"]}}], \"edges\": [{\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TDP-43 Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tau Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"FUS Proteinopathy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frontal and Temporal Lobe Atrophy\", \"target\": \"Behavioral Changes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Frontal and Temporal Lobe Atrophy\", \"target\": \"Aphasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuronal Death\", \"target\": \"NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"An elevated NEFL-C1QL2 projection neuron age gap predicts incident frontotemporal dementia. The NEFL component is an established axonal-injury marker in FTD, which is what anchors the readout to the neurodegeneration arm rather than leaving it an unanchored risk score.\", \"relationship\": \"PREDICTS\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\"}, {\"source\": \"Frontal and Temporal Lobe Atrophy\", \"target\": \"NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"C1QL2 is enriched in the temporo-limbic structures that frontotemporal lobar degeneration targets, which is the authors\u0027 basis for reading this signature against the regional atrophy arm. This is a regional-expression argument, not a measured correlation with imaged atrophy.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4450,13 +5193,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Behavioral Changes, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4478,6 +5226,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4513,13 +5262,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002381">HP:0002381</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002381</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4541,6 +5295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4576,13 +5331,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000751" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000751">HP:0000751</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000751</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Personality changes (HP:0000751). HP:0000751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4604,6 +5364,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4639,13 +5400,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000726</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4683,6 +5449,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MAPT
+
+
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:6893</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4697,6 +5485,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4728,6 +5517,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GRN
+
+
+    <a href="https://bioregistry.io/hgnc:4601" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:4601</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GRN (hgnc:4601). hgnc:4601 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4742,6 +5553,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4762,6 +5574,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30711676" target="_blank">PMID:30711676</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4793,6 +5606,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: C9orf72
+
+
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:28337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4807,6 +5642,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26473392" target="_blank">PMID:26473392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4827,6 +5663,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30711676" target="_blank">PMID:30711676</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4856,6 +5693,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4871,7 +5711,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Symptomatic Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Symptomatic Therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Symptomatic Therapy (NCIT:C170740). NCIT:C170740 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4916,7 +5761,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -4964,6 +5814,209 @@
 
         <!-- Biochemical Markers -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-nefl-c1ql2-projection-neuron-plasma-proteomic-age-gap" data-dismech-node="NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap" data-dismech-type="biochemical">
+                <div class="item-name">
+                    NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
+
+                </div>
+
+                <div class="item-desc">Context: Blood-based cell-type-specific aging clock. Plasma proteins are mapped to their putative cell of origin using Human Protein Atlas single-cell transcriptomic data, and a machine-learning model estimates that cell type&#39;s biological age; the age gap is the difference between that estimate and chronological age. &#34;Extreme&#34; agers are those in the upper tail of the age-gap distribution.</div>
+
+
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Predicts
+                        </span>
+                        <span class="readout-target">Neuronal Death</span>
+
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+
+
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Prognostic
+                        </span>
+
+
+                        <div class="readout-interpretation">An elevated NEFL-C1QL2 projection neuron age gap predicts incident frontotemporal dementia. The NEFL component is an established axonal-injury marker in FTD, which is what anchors the readout to the neurodegeneration arm rather than leaving it an unanchored risk score.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42297981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42297981" target="_blank">PMID:42297981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"extreme aging in NEFL-C1QL2 projection neurons demonstrated the strongest prognostic value"</div>
+
+
+                <div class="evidence-explanation">Supports treating the age gap as a prognostic readout anticipating clinical frontotemporal dementia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Correlates With
+                        </span>
+                        <span class="readout-target">Frontal and Temporal Lobe Atrophy</span>
+
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+
+
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Prognostic
+                        </span>
+
+
+                        <div class="readout-interpretation">C1QL2 is enriched in the temporo-limbic structures that frontotemporal lobar degeneration targets, which is the authors&#39; basis for reading this signature against the regional atrophy arm. This is a regional-expression argument, not a measured correlation with imaged atrophy.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42297981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42297981" target="_blank">PMID:42297981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"C1QL2 is a synaptic organizer known to be prominent in temporo-limbic structures vulnerable to frontotemporal lobar degeneration"</div>
+
+
+                <div class="evidence-explanation">Gives the regional-vulnerability rationale connecting the signature to the frontal and temporal atrophy node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42297981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42297981" target="_blank">PMID:42297981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"extreme aging in NEFL-C1QL2 projection neurons demonstrated the strongest prognostic value"</div>
+
+
+                <div class="evidence-explanation">Establishes this signature as the leading cellular-aging predictor of incident frontotemporal dementia among the cell types tested.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42297981" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42297981" target="_blank">PMID:42297981</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NEFL is a widely recognized biomarker of axonal injury, often markedly raised in FTD, while C1QL2 is a synaptic organizer known to be prominent in temporo-limbic structures vulnerable to frontotemporal lobar degeneration"</div>
+
+
+                <div class="evidence-explanation">The authors&#39; justification for both the relabelling and the disease relevance: one marker of axonal injury already established in FTD, one synaptic gene enriched in the regions FTLD targets.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Differential Diagnoses -->
 
@@ -4977,7 +6030,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse13162">
                 <div class="item-name">
                     Expression data from postmortem human brain samples with and without FTLD-U
 
@@ -5004,9 +6057,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         brain tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000955</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples brain tissue, annotated with brain (UBERON:0000955). UBERON:0000955 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5043,6 +6110,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5059,7 +6129,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Frontotemporal Dementia
 creation_date: &#39;2025-12-23T16:19:20Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;
   Frontotemporal Dementia (FTD) is a group of neurodegenerative disorders characterized
   by progressive deterioration of the frontal and temporal lobes of the brain. It
@@ -5076,6 +6145,121 @@ disease_term:
 parents:
 - Dementia
 - Neurodegenerative Disease
+has_subtypes:
+- name: Behavioral Variant FTD
+  display_name: Behavioral Variant Frontotemporal Dementia (bvFTD)
+  subtype_term:
+    preferred_term: behavioral variant of frontotemporal dementia
+    term:
+      id: MONDO:0017160
+      label: behavioral variant of frontotemporal dementia
+  description: &gt;
+    The most common clinical presentation of FTD, characterized by progressive
+    behavioral and personality change with frontal-lobe-predominant atrophy.
+    Preferentially associated with MAPT mutations, which show earlier onset,
+    prominent disinhibition, stereotyped behaviors, and temporal-predominant
+    atrophy; also a common presentation in C9orf72 carriers, who additionally
+    show psychotic symptoms and paradoxical social warmth.
+  genes:
+  - preferred_term: MAPT
+    term:
+      id: hgnc:6893
+      label: MAPT
+  - preferred_term: C9orf72
+    term:
+      id: hgnc:28337
+      label: C9orf72
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: MAPT patients were younger than other groups, and showed more frequent behavioural disinhibition, repetitive and stereotyped behaviours, semantic impairment and temporal predominance of atrophy.
+    explanation: Confirms MAPT mutations preferentially produce the behavioral-variant clinical phenotype with early disinhibition and temporal-predominant atrophy.
+- name: Semantic Variant PPA
+  display_name: Semantic Variant Primary Progressive Aphasia (svPPA / Semantic Dementia)
+  subtype_term:
+    preferred_term: semantic dementia
+    term:
+      id: MONDO:0010857
+      label: semantic dementia
+  description: &gt;
+    A language-predominant FTD syndrome characterized by progressive loss of
+    semantic knowledge (anomia, impaired word comprehension, surface dyslexia)
+    with anterior temporal lobe degeneration. One of the three canonical PPA
+    variants (with nonfluent/agrammatic and logopenic) defined by international
+    consensus criteria. Typically sporadic with underlying TDP-43 type C
+    pathology, showing weaker association with the three major FTD genes than
+    the behavioral or nonfluent variants.
+  evidence:
+  - reference: PMID:21325651
+    reference_title: &#34;Classification of primary progressive aphasia and its variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Criteria for the 3 variants of PPA--nonfluent/agrammatic, semantic, and logopenic--were developed by an international group of PPA investigators who convened on 3 occasions to operationalize earlier published clinical descriptions for PPA subtypes.
+    explanation: Establishes semantic variant PPA as one of the three internationally standardized clinical PPA subtypes within the FTD spectrum.
+- name: Nonfluent Variant PPA
+  display_name: Nonfluent/Agrammatic Variant Primary Progressive Aphasia (nfvPPA)
+  subtype_term:
+    preferred_term: progressive non-fluent aphasia
+    term:
+      id: MONDO:0015059
+      label: progressive non-fluent aphasia
+  description: &gt;
+    A language-predominant FTD syndrome characterized by agrammatism, laborious
+    non-fluent speech, and apraxia of speech, with relatively preserved
+    comprehension. Preferentially associated with GRN mutations (older age at
+    death, TDP-43 type A pathology) and also seen with C9orf72 expansions;
+    non-fluent aphasia links to TDP-43 type A pathology in both groups.
+  genes:
+  - preferred_term: GRN
+    term:
+      id: hgnc:4601
+      label: GRN
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: GRN patients were older at death and more likely to present with non-fluent aphasia.
+    explanation: Confirms GRN mutations preferentially produce the nonfluent/agrammatic-aphasia clinical phenotype.
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B.
+    explanation: Links the nonfluent-aphasia phenotype to TDP-43 type A pathology across both GRN- and C9orf72-associated FTD.
+- name: FTD with Motor Neuron Disease
+  display_name: Frontotemporal Dementia with Motor Neuron Disease (FTD-MND / FTD-ALS)
+  subtype_term:
+    preferred_term: frontotemporal dementia with motor neuron disease
+    term:
+      id: MONDO:0017161
+      label: frontotemporal dementia with motor neuron disease
+  description: &gt;
+    FTD co-occurring with clinical motor neuron disease/ALS, almost exclusively
+    linked to the C9orf72 hexanucleotide repeat expansion. C9orf72-associated
+    ALS-FTD cases show more psychotic symptoms and paradoxical social warmth
+    than MAPT- or GRN-associated FTD, and ALS co-occurrence links to TDP-43
+    type B pathology.
+  genes:
+  - preferred_term: C9orf72
+    term:
+      id: hgnc:28337
+      label: C9orf72
+  evidence:
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: C9orf72 patients alone showed a co-occurrence of ALS.
+    explanation: Confirms that ALS co-occurrence in this FTD cohort was exclusive to C9orf72 mutation carriers.
+  - reference: PMID:26473392
+    reference_title: &#34;Distinct clinical and pathological phenotypes in frontotemporal dementia associated with MAPT, PGRN and C9orf72 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Non-fluent aphasia was linked to TDP subtype A in both GRN and C9orf72 cases and ALS with subtype B.
+    explanation: Links ALS co-occurrence in C9orf72-associated FTD to TDP-43 type B pathology.
 pathophysiology:
 - name: TDP-43 Proteinopathy
   description: &gt;
@@ -5247,8 +6431,102 @@ phenotypes:
     term:
       id: HP:0000726
       label: Dementia
+biochemical:
+- name: NEFL-C1QL2 Projection Neuron Plasma Proteomic Age Gap
+  biomarker_term:
+    preferred_term: NEFL-C1QL2 projection neuron plasma proteomic aging clock (age gap)
+    term:
+      id: NCIT:C97139
+      label: Proteomic Profile
+  presence: Elevated
+  context: &gt;-
+    Blood-based cell-type-specific aging clock. Plasma proteins are mapped to
+    their putative cell of origin using Human Protein Atlas single-cell
+    transcriptomic data, and a machine-learning model estimates that cell type&#39;s
+    biological age; the age gap is the difference between that estimate and
+    chronological age. &#34;Extreme&#34; agers are those in the upper tail of the age-gap
+    distribution.
+  cell_types:
+  - preferred_term: NEFL-C1QL2 projection neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  notes: &gt;-
+    Read the cell-type label carefully. The Human Protein Atlas catalogues this
+    population as &#34;horizontal cell&#34;, a retinal interneuron type; the authors
+    renamed it NEFL-C1QL2 projection neuron because the two defining transcripts
+    point at a projection-neuron identity rather than a retinal one. Curated
+    under the authors&#39; relabelling, with CL:0000540 neuron as the only defensible
+    binding - there is no CL term for this population, and binding it to the
+    retinal horizontal cell would import an assignment the authors explicitly
+    rejected. This makes the entry a worked example of the probabilistic
+    protein-to-cell-type mapping being the weakest link in these clocks. It was
+    the strongest cellular-aging predictor of incident frontotemporal dementia
+    (HR 3.03, 95% CI 2.47-3.72), followed by microglia (HR 2.84, 95% CI
+    2.33-3.47), and also the strongest cross-sectional association with
+    prevalent FTD in the GNPC cohort (n = 199 FTD cases).
+  evidence:
+  - reference: PMID:42297981
+    reference_title: &#34;Plasma proteomic signatures of cellular aging predict human disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: extreme aging in NEFL-C1QL2 projection neurons demonstrated the strongest prognostic value
+    explanation: &gt;-
+      Establishes this signature as the leading cellular-aging predictor of
+      incident frontotemporal dementia among the cell types tested.
+  - reference: PMID:42297981
+    reference_title: &#34;Plasma proteomic signatures of cellular aging predict human disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: NEFL is a widely recognized biomarker of axonal injury, often markedly raised in FTD, while C1QL2 is a synaptic organizer known to be prominent in temporo-limbic structures vulnerable to frontotemporal lobar degeneration
+    explanation: &gt;-
+      The authors&#39; justification for both the relabelling and the disease
+      relevance: one marker of axonal injury already established in FTD, one
+      synaptic gene enriched in the regions FTLD targets.
+  readouts:
+  - target: Neuronal Death
+    relationship: PREDICTS
+    direction: POSITIVE
+    endpoint_context: PROGNOSTIC
+    interpretation: &gt;-
+      An elevated NEFL-C1QL2 projection neuron age gap predicts incident
+      frontotemporal dementia. The NEFL component is an established axonal-injury
+      marker in FTD, which is what anchors the readout to the neurodegeneration
+      arm rather than leaving it an unanchored risk score.
+    evidence:
+    - reference: PMID:42297981
+      reference_title: &#34;Plasma proteomic signatures of cellular aging predict human disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: extreme aging in NEFL-C1QL2 projection neurons demonstrated the strongest prognostic value
+      explanation: &gt;-
+        Supports treating the age gap as a prognostic readout anticipating
+        clinical frontotemporal dementia.
+  - target: Frontal and Temporal Lobe Atrophy
+    relationship: CORRELATES_WITH
+    direction: POSITIVE
+    endpoint_context: PROGNOSTIC
+    interpretation: &gt;-
+      C1QL2 is enriched in the temporo-limbic structures that frontotemporal
+      lobar degeneration targets, which is the authors&#39; basis for reading this
+      signature against the regional atrophy arm. This is a regional-expression
+      argument, not a measured correlation with imaged atrophy.
+    evidence:
+    - reference: PMID:42297981
+      reference_title: &#34;Plasma proteomic signatures of cellular aging predict human disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: C1QL2 is a synaptic organizer known to be prominent in temporo-limbic structures vulnerable to frontotemporal lobar degeneration
+      explanation: &gt;-
+        Gives the regional-vulnerability rationale connecting the signature to
+        the frontal and temporal atrophy node.
 genetic:
 - name: MAPT
+  gene_term:
+    preferred_term: MAPT
+    term:
+      id: hgnc:6893
+      label: MAPT
   association: Mutations cause autosomal dominant FTD with tau pathology
   notes: Microtubule-associated protein tau gene on chromosome 17q21. Mutations lead to FTLD-tau pathology. Patients show earlier onset, prominent behavioral disinhibition, stereotyped behaviors, and temporal lobe predominance of atrophy.
   evidence:
@@ -5258,6 +6536,11 @@ genetic:
     snippet: MAPT patients were younger than other groups, and showed more frequent behavioural disinhibition, repetitive and stereotyped behaviours, semantic impairment and temporal predominance of atrophy.
     explanation: This confirms the distinct clinical and anatomical phenotype associated with MAPT mutations in frontotemporal dementia.
 - name: GRN
+  gene_term:
+    preferred_term: GRN
+    term:
+      id: hgnc:4601
+      label: GRN
   association: Mutations cause autosomal dominant FTD with TDP-43 pathology
   notes: Progranulin gene on chromosome 17q21. Haploinsufficiency leads to FTLD-TDP pathology. Patients more likely to present with non-fluent aphasia and are older at symptom onset. GRN and C9orf72 are the most frequent genetic causes.
   evidence:
@@ -5272,6 +6555,11 @@ genetic:
     snippet: Presymptomatic carriers of GRN and C9orf72 mutations, the most frequent genetic causes of frontotemporal lobar degeneration, represent the optimal target population for the development of disease-modifying drugs.
     explanation: This confirms GRN as one of the two most common genetic causes of FTD.
 - name: C9orf72
+  gene_term:
+    preferred_term: C9orf72
+    term:
+      id: hgnc:28337
+      label: C9orf72
   association: Hexanucleotide repeat expansion causes autosomal dominant FTD, often with ALS
   notes: Hexanucleotide (GGGGCC) repeat expansion on chromosome 9p21. Most common genetic cause of FTD. Causes FTLD-TDP pathology. Unique features include co-occurrence with ALS, psychotic symptoms, and paradoxically preserved social warmth.
   evidence:
@@ -5737,7 +7025,7 @@ Frontotemporal dementia (FTD) encompasses frontotemporal lobar degeneration (FTL
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Frontotemporal Dementia", "mondoId": "MONDO:0017276", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontotemporal_Dementia", "yamlRevision": "572596d1894b"};
+        const OS_CONFIG = {"diseaseName": "Frontotemporal Dementia", "mondoId": "MONDO:0017276", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Frontotemporal_Dementia", "yamlRevision": "bfa97010fc6e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6156,5 +7444,73 @@ Frontotemporal dementia (FTD) encompasses frontotemporal lobar degeneration (FTL
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

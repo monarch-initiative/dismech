@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>COG7-congenital disorder of glycosylation</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>COG7-congenital disorder of glycosylation</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 32</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=COG7-congenital%20disorder%20of%20glycosylation"
@@ -3699,6 +3901,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3715,7 +3919,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3725,18 +3929,26 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">32</div>
+                <div class="stat-value">35</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3755,7 +3967,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3805,7 +4017,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3850,6 +4062,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15107842" target="_blank">PMID:15107842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3887,6 +4100,149 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_cog7_glycosylation_immune_dysregulation">
+                <div class="item-name">By what route does a Golgi tethering and glycosylation defect produce recurrent hemophagocytic lymphohistiocytosis?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_cog7_glycosylation_immune_dysregulation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hyperinflammatory-episodes-and-hemophagocytic-lymphohistiocytosis">pathophysiology#Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-combined-n-and-o-glycosylation-defect">pathophysiology#Combined N- and O-glycosylation Defect</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The clinical association is now documented - recurrent HLH in three COG6/COG7 patients and unexplained recurrent fever in about 40% of published COG-deficiency patients - but no mechanism connects the two. HLH is classically driven by defective cytotoxic granule exocytosis in NK and CD8 T cells, and several of the proteins in that pathway are glycosylated and traffic through the Golgi, which makes a hypoglycosylation route plausible; nothing in the reported series tests it. Nor is it known whether the flares are infection-triggered secondary HLH in an infection-susceptible host, which would be a different disease model with different implications for prophylaxis. The authors state the link as a suggestion, and this entry curates it no more strongly than that.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">NK-cell degranulation and cytotoxic-granule trafficking in COG deficiency</div>
+
+            </div>
+
+            <div class="experiment-id">exp_cog7_nk_cytotoxicity_and_granule_trafficking</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Measure CD107a degranulation, perforin and granzyme B content, and cytotoxic killing in NK and CD8 T cells from COG6/COG7-deficient patients against matched controls, alongside glycoproteomic profiling of the granule-exocytosis machinery. A degranulation defect tracking with hypoglycosylation would establish the primary-HLH route; normal degranulation would point to an infection-triggered secondary mechanism.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Prospective inflammatory-flare registry across COG subtypes</div>
+
+            </div>
+
+            <div class="experiment-id">exp_cog_deficiency_flare_registry</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Capture febrile episodes prospectively across COG1-COG8 patients with paired ferritin, soluble CD25, triglycerides, fibrinogen, and infectious workup, to establish which COG subtypes carry the risk, what fraction of flares meet HLH criteria, and whether corticosteroid prophylaxis changes the neurological trajectory that this series reported.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3894,7 +4250,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cog7-loss-destabilizes-the-conserved-oligomeric-golgi-complex" data-dismech-node="COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex" data-dismech-type="pathophysiology">
@@ -3913,15 +4269,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         COG7
 
 
-    <a href="https://bioregistry.io/hgnc:18622" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18622">hgnc:18622</a>
+    <a href="https://bioregistry.io/hgnc:18622" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:18622</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COG7 (hgnc:18622). hgnc:18622 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3949,16 +4312,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Golgi vesicle transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048193">GO:0048193</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048193" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0048193</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Golgi vesicle transport (GO:0048193). GO:0048193 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3967,6 +4335,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -3984,10 +4354,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006891" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006891">GO:0006891</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006891" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006891</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intra-Golgi vesicle-mediated transport (GO:0006891). GO:0006891 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4014,19 +4387,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Golgi apparatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005794">GO:0005794</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4060,6 +4439,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15107842" target="_blank">PMID:15107842</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4092,16 +4472,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4128,16 +4513,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         N-glycan processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006491">GO:0006491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased N-glycan processing (GO:0006491). GO:0006491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4157,16 +4547,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Golgi vesicle transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048193">GO:0048193</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048193" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048193</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Golgi vesicle transport (GO:0048193). GO:0048193 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4186,16 +4581,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         intra-Golgi vesicle-mediated transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006891" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006891">GO:0006891</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006891" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006891</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intra-Golgi vesicle-mediated transport (GO:0006891). GO:0006891 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4222,19 +4622,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Golgi apparatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005794">GO:0005794</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4268,6 +4674,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17904886" target="_blank">PMID:17904886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4289,6 +4696,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17904886" target="_blank">PMID:17904886</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4329,16 +4737,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         N-glycan processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006491">GO:0006491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased N-glycan processing (GO:0006491). GO:0006491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4358,16 +4771,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         protein O-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006493">GO:0006493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein O-linked glycosylation (GO:0006493). GO:0006493 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4395,9 +4813,18 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis</span>
+
+	                            <span class="crosslink-desc">COG-complex deficiency is associated with recurrent hyperinflammatory febrile episodes that can meet HLH criteria, linking the Golgi glycosylation defect to immune dysregulation.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neurodevelopmental and growth involvement</span>
@@ -4536,6 +4963,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17904886" target="_blank">PMID:17904886</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4557,6 +4985,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4585,6 +5014,7 @@
                 <div class="item-name">Neurodevelopmental and growth involvement</div>
 
                 <div class="item-desc">COG7-CDG multisystem disease includes growth retardation, progressive severe microcephaly, hypotonia, and failure to thrive.</div>
+
 
 
 
@@ -4670,6 +5100,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4697,6 +5128,7 @@
                 <div class="item-name">Gastrointestinal dysmotility and feeding involvement</div>
 
                 <div class="item-desc">COG7-CDG patients can have feeding problems caused by gastrointestinal pseudo-obstruction.</div>
+
 
 
 
@@ -4750,6 +5182,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4777,6 +5210,7 @@
                 <div class="item-name">Cardiac and thermoregulatory involvement</div>
 
                 <div class="item-desc">COG7-CDG includes cardiac anomalies and episodes of extreme hyperthermia in reported patients.</div>
+
 
 
 
@@ -4830,6 +5264,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4857,6 +5292,7 @@
                 <div class="item-name">Skin involvement</div>
 
                 <div class="item-desc">Wrinkled skin is reported among characteristic COG7-CDG findings.</div>
+
 
 
 
@@ -4902,6 +5338,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4929,6 +5366,7 @@
                 <div class="item-name">Congenital limb involvement</div>
 
                 <div class="item-desc">Adducted thumbs are reported as part of the COG7-CDG phenotype.</div>
+
 
 
 
@@ -4974,6 +5412,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4985,6 +5424,160 @@
 
 
                 <div class="evidence-explanation">The clinical series directly reports adducted thumbs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperinflammatory-episodes-and-hemophagocytic-lymphohistiocytosis" data-dismech-node="Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis" data-dismech-type="pathophysiology">
+                <div class="item-name">Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis</div>
+
+                <div class="item-desc">COG6- and COG7-deficient patients experience recurrent, poorly tolerated febrile episodes with biological features of hemophagocytic lymphohistiocytosis. In the reported series these flares were followed in two of three patients by neurological deterioration and new-onset epilepsy, so the inflammatory arm is not merely intercurrent illness but a driver of the neurological course. A systematic review found unexplained recurrent fever in roughly 40% of published COG-deficiency patients, with only one further fully documented HLH case, so the syndrome is probably underdiagnosed rather than rare.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        inflammatory response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006954</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        macrophage activation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042116</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased macrophage activation (GO:0042116). GO:0042116 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients experienced recurrent febrile episodes associated with biological features of HLH."</div>
+
+
+                <div class="evidence-explanation">Directly reports the recurrent HLH-associated febrile episodes this node represents in COG6/COG7 deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In two cases, these episodes were followed by neurological deterioration and onset of epilepsy."</div>
+
+
+                <div class="evidence-explanation">Supports the neurological consequence that makes this arm clinically important rather than incidental.</div>
 
 
 
@@ -5022,7 +5615,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Glycosylation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum transferrin isoelectric focusing and apolipoprotein C-III isoelectric focusing show abnormal N-linked and O-linked glycosylation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012345\"}}, {\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphic appearance was reported in the original affected siblings with severe infantile COG7-CDG; no more specific facial gestalt is available in the cached abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Adducted thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001181\"}}, {\"id\": \"Brain Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain atrophy is recorded as a very frequent neurological phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012444\"}}, {\"id\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7 variants impair integrity of the conserved oligomeric Golgi complex, disturbing intra-Golgi trafficking and the localization of glycosylation machinery.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Golgi vesicle transport\", \"intra-Golgi vesicle-mediated transport\"], \"genes\": [\"COG7\"], \"gene_terms\": [{\"label\": \"COG7\", \"id\": \"hgnc:18622\"}], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"COG7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COG7\"], \"gene_terms\": [{\"label\": \"COG7\", \"id\": \"hgnc:18622\"}], \"presence\": \"Pathogenic\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cardiac and thermoregulatory involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG includes cardiac anomalies and episodes of extreme hyperthermia in reported patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined N- and O-glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG produces a type II CDG biochemical pattern with defective N-glycosylation and O-glycosylation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"N-glycan processing\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Congenital limb involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported as part of the COG7-CDG phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cutis laxa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported in COG7-CDG and is represented with the HPO cutis laxa term because its definition includes wrinkled skin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000973\"}}, {\"id\": \"Decreased total plasma sialic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26667\", \"term_label\": \"sialic acid\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased total plasma sialic acid reports defective glycoprotein sialylation in the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Elevated Hepatic Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating hepatic transaminase concentration is recorded as a very frequent biochemical phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fatal Infantile Course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earliest reported affected siblings died within the first weeks of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding problems are reported in COG7-CDG and were attributed to gastrointestinal pseudo-obstruction in the clinical series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrointestinal dysmotility and feeding involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have feeding problems caused by gastrointestinal pseudo-obstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation is reported in COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hyposialylated apolipoprotein C-III isoforms\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased hyposialylated apolipoprotein C-III isoforms report the O-glycosylation component of the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is reported among characteristic COG7-CDG findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased plasma lysosomal enzyme activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased plasma lysosomal enzyme activities are a reported accompanying biochemical abnormality of the multiple Golgi glycosylation defect.\"}]}}, {\"id\": \"Intestinal pseudo-obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal pseudo-obstruction is reported as the cause of feeding problems in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004389\"}}, {\"id\": \"Mislocalized Golgi Glycosylation Machinery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disturbed anterograde and retrograde Golgi trafficking mislocalizes glycosylation enzymes, producing defective glycoprotein maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"N-glycan processing\", \"Golgi vesicle transport\", \"intra-Golgi vesicle-mediated transport\"], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"Neurodevelopmental and growth involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG multisystem disease includes growth retardation, progressive severe microcephaly, hypotonia, and failure to thrive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive severe microcephaly is part of the recurrent COG7-CDG clinical presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections are recorded as a very frequent phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Recurrent hyperthermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodes of extreme hyperthermia are reported in COG7-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are recorded as a frequent neurological phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Liver Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe infantile liver disease was reported in the original clinical and biochemical description of COG7 deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001392\"}}, {\"id\": \"Skin involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported among characteristic COG7-CDG findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II Transferrin Isoform Profile\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Type II transferrin isoform profile is recorded as a very frequent biochemical phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012301\"}}, {\"id\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A type II-like serum sialotransferrin pattern reports the N-glycan processing component of the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular septal defect is named as part of the consistent COG7-CDG phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"target\": \"Mislocalized Golgi Glycosylation Machinery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of COG-complex integrity disrupts Golgi trafficking and enzyme compartmentalization, mislocalizing glycosylation machinery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mislocalized Golgi Glycosylation Machinery\", \"target\": \"Combined N- and O-glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mislocalized Golgi enzymes impair maturation of both N-linked and O-linked glycoproteins.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Neurodevelopmental and growth involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combined Golgi glycosylation defect is associated with progressive microcephaly, hypotonia, growth retardation, and failure to thrive in reported COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Gastrointestinal dysmotility and feeding involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have feeding problems from gastrointestinal pseudo-obstruction, contributing to failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Cardiac and thermoregulatory involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The COG7-CDG multisystem phenotype includes cardiac anomalies and episodes of extreme hyperthermia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Skin involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported as part of the COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Congenital limb involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have adducted thumbs as a congenital limb manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Abnormal Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient N- and O-glycosylation produces abnormal glycoprotein glycosylation profiles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II Transferrin Isoform Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The N-glycosylation component of the combined Golgi defect is reflected by a type II transferrin isoform profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective N-glycan processing is reflected by a type II-like sialotransferrin isoelectric focusing pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Hyposialylated apolipoprotein C-III isoforms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective O-glycosylation is reflected by increased hyposialylated apolipoprotein C-III isoforms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Decreased total plasma sialic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Global Golgi glycosylation disruption is reflected by markedly decreased total plasma sialic acid.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Increased plasma lysosomal enzyme activities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multiple Golgi glycosylation and trafficking defect is accompanied by increased plasma lysosomal enzyme activities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records recurrent infections as part of the multisystem COG7-CDG phenotype spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe multisystem COG7-CDG can include dysmorphic facial appearance as part of the congenital presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Severe Liver Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem glycoprotein biosynthesis defects contribute to severe infantile liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Fatal Infantile Course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe multiple Golgi glycosylation defect produced an early lethal infantile presentation in the original affected siblings.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive severe microcephaly is part of the characteristic COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is reported among characteristic neurologic findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth retardation is reported in affected COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in affected COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records seizure as a frequent neurologic phenotype of COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records brain atrophy as a very frequent neurologic structural phenotype of COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gastrointestinal dysmotility and feeding involvement\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gastrointestinal dysmotility and feeding involvement\", \"target\": \"Intestinal pseudo-obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems are attributed to gastrointestinal pseudo-obstruction in the reported COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and thermoregulatory involvement\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular septal defect is named in the paper title as a consistent COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and thermoregulatory involvement\", \"target\": \"Recurrent hyperthermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Episodes of extreme hyperthermia are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skin involvement\", \"target\": \"Cutis laxa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wrinkled skin is represented using the HPO cutis laxa term, whose definition includes wrinkled skin.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Congenital limb involvement\", \"target\": \"Adducted thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe Liver Disease\", \"target\": \"Elevated Hepatic Transaminases\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hepatocyte injury in severe liver disease releases hepatic transaminases into the circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Liver Disease\", \"target\": \"Fatal Infantile Course\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Severe liver disease in the reported affected siblings was associated with death within the first weeks of life.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A type II-like serum sialotransferrin pattern reports the N-glycan processing component of the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Hyposialylated apolipoprotein C-III isoforms\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased hyposialylated apolipoprotein C-III isoforms report the O-glycosylation component of the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Increased plasma lysosomal enzyme activities\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma lysosomal enzyme activities are a reported accompanying biochemical abnormality of the multiple Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Decreased total plasma sialic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased total plasma sialic acid reports defective glycoprotein sialylation in the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"COG7 pathogenic variants\", \"target\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Glycosylation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum transferrin isoelectric focusing and apolipoprotein C-III isoelectric focusing show abnormal N-linked and O-linked glycosylation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012345\"}}, {\"id\": \"Abnormal facial shape\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysmorphic appearance was reported in the original affected siblings with severe infantile COG7-CDG; no more specific facial gestalt is available in the cached abstract.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Adducted thumb\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001181\"}}, {\"id\": \"Brain Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain atrophy is recorded as a very frequent neurological phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012444\"}}, {\"id\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7 variants impair integrity of the conserved oligomeric Golgi complex, disturbing intra-Golgi trafficking and the localization of glycosylation machinery.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Golgi vesicle transport\", \"intra-Golgi vesicle-mediated transport\"], \"genes\": [\"COG7\"], \"gene_terms\": [{\"label\": \"COG7\", \"id\": \"hgnc:18622\"}], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"COG7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COG7\"], \"gene_terms\": [{\"label\": \"COG7\", \"id\": \"hgnc:18622\"}], \"presence\": \"Pathogenic\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cardiac and thermoregulatory involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG includes cardiac anomalies and episodes of extreme hyperthermia in reported patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined N- and O-glycosylation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG produces a type II CDG biochemical pattern with defective N-glycosylation and O-glycosylation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"N-glycan processing\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Congenital limb involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported as part of the COG7-CDG phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cutis laxa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported in COG7-CDG and is represented with the HPO cutis laxa term because its definition includes wrinkled skin.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000973\"}}, {\"id\": \"Decreased total plasma sialic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:26667\", \"term_label\": \"sialic acid\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased total plasma sialic acid reports defective glycoprotein sialylation in the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Early or prophylactic corticosteroid therapy for febrile episodes\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corticosteroid treatment started early in, or prophylactically before, a febrile episode. In the reported COG6/COG7 series this appeared to reduce both the severity of inflammatory flares and their neurological impact. This is an observation in three patients, not a trial result, and the authors frame it as a recommendation for early recognition and preventive anti-inflammatory strategy rather than an established regimen.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Elevated Hepatic Transaminases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating hepatic transaminase concentration is recorded as a very frequent biochemical phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002910\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fatal Infantile Course\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earliest reported affected siblings died within the first weeks of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding problems are reported in COG7-CDG and were attributed to gastrointestinal pseudo-obstruction in the clinical series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastrointestinal dysmotility and feeding involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have feeding problems caused by gastrointestinal pseudo-obstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation is reported in COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hemophagocytic lymphohistiocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes meeting the biological criteria for hemophagocytic lymphohistiocytosis, reported in COG6- and COG7-deficient patients.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"HLH biology is the diagnostic readout of the hyperinflammatory node.\"}], \"term_id\": \"HP:0012156\"}}, {\"id\": \"Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG6- and COG7-deficient patients experience recurrent, poorly tolerated febrile episodes with biological features of hemophagocytic lymphohistiocytosis. In the reported series these flares were followed in two of three patients by neurological deterioration and new-onset epilepsy, so the inflammatory arm is not merely intercurrent illness but a driver of the neurological course. A systematic review found unexplained recurrent fever in roughly 40% of published COG-deficiency patients, with only one further fully documented HLH case, so the syndrome is probably underdiagnosed rather than rare.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"macrophage activation\"], \"role\": \"consequence\"}}, {\"id\": \"Hyposialylated apolipoprotein C-III isoforms\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased hyposialylated apolipoprotein C-III isoforms report the O-glycosylation component of the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is reported among characteristic COG7-CDG findings.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Increased plasma lysosomal enzyme activities\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased plasma lysosomal enzyme activities are a reported accompanying biochemical abnormality of the multiple Golgi glycosylation defect.\"}]}}, {\"id\": \"Intestinal pseudo-obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal pseudo-obstruction is reported as the cause of feeding problems in affected COG7-CDG patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004389\"}}, {\"id\": \"Mislocalized Golgi Glycosylation Machinery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disturbed anterograde and retrograde Golgi trafficking mislocalizes glycosylation enzymes, producing defective glycoprotein maturation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"N-glycan processing\", \"Golgi vesicle transport\", \"intra-Golgi vesicle-mediated transport\"], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"Neurodevelopmental and growth involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COG7-CDG multisystem disease includes growth retardation, progressive severe microcephaly, hypotonia, and failure to thrive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive severe microcephaly is part of the recurrent COG7-CDG clinical presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Recurrent Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infections are recorded as a very frequent phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Recurrent hyperthermia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodes of extreme hyperthermia are reported in COG7-CDG.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are recorded as a frequent neurological phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe Liver Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe infantile liver disease was reported in the original clinical and biochemical description of COG7 deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001392\"}}, {\"id\": \"Skin involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported among characteristic COG7-CDG findings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Type II Transferrin Isoform Profile\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Type II transferrin isoform profile is recorded as a very frequent biochemical phenotype of COG7-CDG in Orphanet.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012301\"}}, {\"id\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"ABNORMAL\", \"readouts\": [{\"target\": \"Combined N- and O-glycosylation Defect\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A type II-like serum sialotransferrin pattern reports the N-glycan processing component of the combined Golgi glycosylation defect.\"}]}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular septal defect is named as part of the consistent COG7-CDG phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"target\": \"Mislocalized Golgi Glycosylation Machinery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of COG-complex integrity disrupts Golgi trafficking and enzyme compartmentalization, mislocalizing glycosylation machinery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Mislocalized Golgi Glycosylation Machinery\", \"target\": \"Combined N- and O-glycosylation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mislocalized Golgi enzymes impair maturation of both N-linked and O-linked glycoproteins.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COG-complex deficiency is associated with recurrent hyperinflammatory febrile episodes that can meet HLH criteria, linking the Golgi glycosylation defect to immune dysregulation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Neurodevelopmental and growth involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combined Golgi glycosylation defect is associated with progressive microcephaly, hypotonia, growth retardation, and failure to thrive in reported COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Gastrointestinal dysmotility and feeding involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have feeding problems from gastrointestinal pseudo-obstruction, contributing to failure to thrive.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Cardiac and thermoregulatory involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The COG7-CDG multisystem phenotype includes cardiac anomalies and episodes of extreme hyperthermia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Skin involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wrinkled skin is reported as part of the COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Congenital limb involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"COG7-CDG patients can have adducted thumbs as a congenital limb manifestation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Abnormal Glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient N- and O-glycosylation produces abnormal glycoprotein glycosylation profiles.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II Transferrin Isoform Profile\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The N-glycosylation component of the combined Golgi defect is reflected by a type II transferrin isoform profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective N-glycan processing is reflected by a type II-like sialotransferrin isoelectric focusing pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Hyposialylated apolipoprotein C-III isoforms\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective O-glycosylation is reflected by increased hyposialylated apolipoprotein C-III isoforms.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Decreased total plasma sialic acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Global Golgi glycosylation disruption is reflected by markedly decreased total plasma sialic acid.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Increased plasma lysosomal enzyme activities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multiple Golgi glycosylation and trafficking defect is accompanied by increased plasma lysosomal enzyme activities.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Recurrent Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records recurrent infections as part of the multisystem COG7-CDG phenotype spectrum.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Abnormal facial shape\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe multisystem COG7-CDG can include dysmorphic facial appearance as part of the congenital presentation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Severe Liver Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multisystem glycoprotein biosynthesis defects contribute to severe infantile liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Fatal Infantile Course\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The severe multiple Golgi glycosylation defect produced an early lethal infantile presentation in the original affected siblings.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Progressive microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive severe microcephaly is part of the characteristic COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia is reported among characteristic neurologic findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth retardation is reported in affected COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to thrive is reported in affected COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records seizure as a frequent neurologic phenotype of COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and growth involvement\", \"target\": \"Brain Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orphanet records brain atrophy as a very frequent neurologic structural phenotype of COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gastrointestinal dysmotility and feeding involvement\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gastrointestinal dysmotility and feeding involvement\", \"target\": \"Intestinal pseudo-obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding problems are attributed to gastrointestinal pseudo-obstruction in the reported COG7-CDG patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and thermoregulatory involvement\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular septal defect is named in the paper title as a consistent COG7-CDG phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiac and thermoregulatory involvement\", \"target\": \"Recurrent hyperthermia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Episodes of extreme hyperthermia are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Skin involvement\", \"target\": \"Cutis laxa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wrinkled skin is represented using the HPO cutis laxa term, whose definition includes wrinkled skin.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Congenital limb involvement\", \"target\": \"Adducted thumb\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adducted thumbs are reported in COG7-CDG.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Severe Liver Disease\", \"target\": \"Elevated Hepatic Transaminases\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hepatocyte injury in severe liver disease releases hepatic transaminases into the circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Liver Disease\", \"target\": \"Fatal Infantile Course\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Severe liver disease in the reported affected siblings was associated with death within the first weeks of life.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Early or prophylactic corticosteroid therapy for febrile episodes\", \"target\": \"Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Type II-like serum transferrin isoelectric focusing pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A type II-like serum sialotransferrin pattern reports the N-glycan processing component of the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Hyposialylated apolipoprotein C-III isoforms\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased hyposialylated apolipoprotein C-III isoforms report the O-glycosylation component of the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Increased plasma lysosomal enzyme activities\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased plasma lysosomal enzyme activities are a reported accompanying biochemical abnormality of the multiple Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Combined N- and O-glycosylation Defect\", \"target\": \"Decreased total plasma sialic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased total plasma sialic acid reports defective glycoprotein sialylation in the combined Golgi glycosylation defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis\", \"target\": \"Hemophagocytic lymphohistiocytosis\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"HLH biology is the diagnostic readout of the hyperinflammatory node.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"COG7 pathogenic variants\", \"target\": \"COG7 Loss Destabilizes the Conserved Oligomeric Golgi Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5035,7 +5628,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">19</span>
+                <span class="card-count">21</span>
             </div>
 
 
@@ -5051,7 +5644,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(1)</span></button>
 
@@ -5059,7 +5652,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5077,14 +5670,21 @@
                         Ventricular septal defect
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular septal defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001629">HP:0001629</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001629</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5104,6 +5704,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5145,14 +5746,21 @@
                         Feeding difficulties
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5172,6 +5780,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5204,14 +5813,21 @@
                         Intestinal pseudo-obstruction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intestinal pseudo-obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004389" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004389">HP:0004389</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004389</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastrointestinal pseudo-obstruction, annotated with Intestinal pseudo-obstruction (HP:0004389). HP:0004389 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5231,6 +5847,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5272,14 +5889,21 @@
                         Abnormal facial shape
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial shape
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5299,6 +5923,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5331,14 +5956,21 @@
                         Progressive microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive severe microcephaly, annotated with Microcephaly (HP:0000252), qualified as course progressive; severity severe. HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5378,6 +6010,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5421,14 +6054,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5448,6 +6088,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79333" target="_blank">ORPHA:79333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5489,14 +6130,21 @@
                         Cutis laxa
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cutis laxa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000973" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000973">HP:0000973</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000973</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wrinkled skin, annotated with Cutis laxa (HP:0000973). HP:0000973 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5516,6 +6164,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5549,7 +6198,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-hyperthermia" data-dismech-node="Recurrent hyperthermia" data-dismech-type="phenotype">
@@ -5557,14 +6206,23 @@
                         Recurrent hyperthermia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
+
+                        <span class="phenotype-term-label">Fever</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodes of extreme hyperthermia, annotated with Fever (HP:0001945), qualified as temporality recurrent. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5603,6 +6261,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5629,6 +6288,77 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-unexplained-fever" data-dismech-node="Recurrent unexplained fever" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent unexplained fever
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent fever</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001954</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The literature review identified recurrent, unexplained, and poorly tolerated febrile episodes in approximately 40% of reported patients."</div>
+
+
+                <div class="evidence-explanation">A systematic review of published COG-deficiency patients puts recurrent unexplained fever at roughly 40%, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-hepatic-transaminases" data-dismech-node="Elevated Hepatic Transaminases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Hepatic Transaminases
@@ -5636,14 +6366,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5663,6 +6402,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79333" target="_blank">ORPHA:79333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5704,14 +6444,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5731,6 +6478,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5774,14 +6522,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5801,6 +6556,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79333" target="_blank">ORPHA:79333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5842,14 +6598,21 @@
                         Growth delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5869,6 +6632,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5901,14 +6665,21 @@
                         Failure to thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5928,6 +6699,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5961,7 +6733,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-glycosylation" data-dismech-node="Abnormal Glycosylation" data-dismech-type="phenotype">
@@ -5969,14 +6741,21 @@
                         Abnormal Glycosylation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal glycosylation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012345" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012345">HP:0012345</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012345" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012345</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal glycosylation (HP:0012345). HP:0012345 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5996,6 +6775,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6018,6 +6798,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6045,19 +6826,113 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemophagocytic-lymphohistiocytosis" data-dismech-node="Hemophagocytic lymphohistiocytosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hemophagocytic lymphohistiocytosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hemophagocytosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012156</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemophagocytosis (HP:0012156), qualified as temporality recurrent. HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe three patients with COG6 or COG7 deficiency presenting recurrent episodes of hemophagocytic lymphohistiocytosis (HLH)."</div>
+
+
+                <div class="evidence-explanation">Directly reports recurrent HLH in COG7-deficient patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-adducted-thumb" data-dismech-node="Adducted thumb" data-dismech-type="phenotype">
                     <div class="item-name">
                         Adducted thumb
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Adducted thumb
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001181">HP:0001181</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001181</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6077,6 +6952,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17356545" target="_blank">PMID:17356545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6109,14 +6985,23 @@
                         Severe Liver Disease
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the liver
+
+                        <span class="phenotype-term-label">Abnormality of the liver</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001392">HP:0001392</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6145,6 +7030,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6179,14 +7065,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type II transferrin isoform profile
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012301" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012301">HP:0012301</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012301</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type II transferrin isoform profile (HP:0012301). HP:0012301 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6206,6 +7099,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79333" target="_blank">ORPHA:79333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6240,14 +7134,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brain atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012444">HP:0012444</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012444</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6267,6 +7168,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79333" target="_blank">ORPHA:79333</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6316,6 +7218,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6394,13 +7297,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COG7
 
 
-    <a href="https://bioregistry.io/hgnc:18622" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18622">hgnc:18622</a>
+    <a href="https://bioregistry.io/hgnc:18622" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:18622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COG7 (hgnc:18622). hgnc:18622 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6423,6 +7331,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15107842" target="_blank">PMID:15107842</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6454,13 +7363,16 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-supportive-and-symptomatic-care" data-dismech-node="Supportive and Symptomatic Care" data-dismech-type="treatment">
@@ -6469,7 +7381,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6518,6 +7435,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37858231" target="_blank">PMID:37858231</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6529,6 +7447,162 @@
 
 
                 <div class="evidence-explanation">The review supports the absence of established targeted CDG therapies; management of COG7-CDG therefore remains supportive and symptom-directed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-early-or-prophylactic-corticosteroid-therapy-for-febrile-episodes" data-dismech-node="Early or prophylactic corticosteroid therapy for febrile episodes" data-dismech-type="treatment">
+                <div class="item-name">
+                    Early or prophylactic corticosteroid therapy for febrile episodes
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        corticosteroid
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:50858</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Corticosteroid treatment started early in, or prophylactically before, a febrile episode. In the reported COG6/COG7 series this appeared to reduce both the severity of inflammatory flares and their neurological impact. This is an observation in three patients, not a trial result, and the authors frame it as a recommendation for early recognition and preventive anti-inflammatory strategy rather than an established regimen.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Suppresses the hyperinflammatory flare rather than correcting the underlying Golgi glycosylation defect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early or prophylactic corticosteroid therapy during febrile episodes appeared to mitigate both the severity and neurological impact of inflammatory flares."</div>
+
+
+                <div class="evidence-explanation">Uncontrolled observation in three patients; supports the direction of effect but not its magnitude, hence PARTIAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42269412" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42269412" target="_blank">PMID:42269412</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early recognition and preventive anti-inflammatory strategies are recommended."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; explicit management recommendation for COG deficiency.</div>
 
 
 
@@ -6604,6 +7678,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6643,6 +7718,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6715,6 +7791,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6754,6 +7831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6826,6 +7904,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6865,6 +7944,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6937,6 +8017,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6976,6 +8057,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16151902" target="_blank">PMID:16151902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7018,7 +8100,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04199000">
                 <div class="item-name">
                     NCT04199000
 
@@ -7043,6 +8125,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04199000" target="_blank">clinicaltrials:NCT04199000</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7071,6 +8154,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7339,6 +8425,24 @@ pathophysiology:
       This later human series directly supports the combined N- and
       O-glycosylation defect with hyposialylation in COG7-CDG.
   downstream:
+  - target: Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis
+    description: &gt;-
+      COG-complex deficiency is associated with recurrent hyperinflammatory
+      febrile episodes that can meet HLH criteria, linking the Golgi
+      glycosylation defect to immune dysregulation.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:42269412
+      reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        These findings suggest a link between glycosylation defects and immune
+        dysregulation.
+      explanation: &gt;-
+        The case series and systematic review propose the glycosylation-defect
+        to immune-dysregulation link this edge represents, while stating it as
+        a suggested rather than demonstrated mechanism.
   - target: Neurodevelopmental and growth involvement
     description: &gt;-
       The combined Golgi glycosylation defect is associated with progressive
@@ -7859,6 +8963,51 @@ pathophysiology:
         pseudo-obstruction, failure to thrive, cardiac anomalies, wrinkled skin
         and episodes of extreme hyperthermia.
       explanation: The clinical series directly reports adducted thumbs.
+- name: Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis
+  biological_scale: ORGANISM
+  description: &gt;-
+    COG6- and COG7-deficient patients experience recurrent, poorly tolerated
+    febrile episodes with biological features of hemophagocytic
+    lymphohistiocytosis. In the reported series these flares were followed in
+    two of three patients by neurological deterioration and new-onset epilepsy,
+    so the inflammatory arm is not merely intercurrent illness but a driver of
+    the neurological course. A systematic review found unexplained recurrent
+    fever in roughly 40% of published COG-deficiency patients, with only one
+    further fully documented HLH case, so the syndrome is probably
+    underdiagnosed rather than rare.
+  role: consequence
+  biological_processes:
+  - preferred_term: inflammatory response
+    modifier: INCREASED
+    term:
+      id: GO:0006954
+      label: inflammatory response
+  - preferred_term: macrophage activation
+    modifier: INCREASED
+    term:
+      id: GO:0042116
+      label: macrophage activation
+  evidence:
+  - reference: PMID:42269412
+    reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      All three patients experienced recurrent febrile episodes associated with
+      biological features of HLH.
+    explanation: &gt;-
+      Directly reports the recurrent HLH-associated febrile episodes this node
+      represents in COG6/COG7 deficiency.
+  - reference: PMID:42269412
+    reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In two cases, these episodes were followed by neurological deterioration
+      and onset of epilepsy.
+    explanation: &gt;-
+      Supports the neurological consequence that makes this arm clinically
+      important rather than incidental.
 phenotypes:
 - name: Abnormal Glycosylation
   category: Biochemical
@@ -8081,6 +9230,57 @@ phenotypes:
       pseudo-obstruction, failure to thrive, cardiac anomalies, wrinkled skin
       and episodes of extreme hyperthermia.
     explanation: The clinical series directly reports episodes of extreme hyperthermia.
+- name: Hemophagocytic lymphohistiocytosis
+  category: Immunologic
+  description: &gt;-
+    Recurrent episodes meeting the biological criteria for hemophagocytic
+    lymphohistiocytosis, reported in COG6- and COG7-deficient patients.
+  phenotype_term:
+    preferred_term: Hemophagocytosis
+    term:
+      id: HP:0012156
+      label: Hemophagocytosis
+    temporality: RECURRENT
+  reports_on:
+  - target: Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      HLH biology is the diagnostic readout of the hyperinflammatory node.
+  evidence:
+  - reference: PMID:42269412
+    reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We describe three patients with COG6 or COG7 deficiency presenting
+      recurrent episodes of hemophagocytic lymphohistiocytosis (HLH).
+    explanation: &gt;-
+      Directly reports recurrent HLH in COG7-deficient patients.
+- name: Recurrent unexplained fever
+  category: Immunologic
+  description: &gt;-
+    Recurrent, unexplained, and poorly tolerated febrile episodes, distinct from
+    the extreme-hyperthermia episodes of the original COG7 series in that they
+    carry an inflammatory signature rather than a thermoregulatory one.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Recurrent fever
+    term:
+      id: HP:0001954
+      label: Recurrent fever
+  evidence:
+  - reference: PMID:42269412
+    reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The literature review identified recurrent, unexplained, and poorly
+      tolerated febrile episodes in approximately 40% of reported patients.
+    explanation: &gt;-
+      A systematic review of published COG-deficiency patients puts recurrent
+      unexplained fever at roughly 40%, supporting the FREQUENT band.
 - name: Cutis laxa
   category: Dermatologic
   description: &gt;-
@@ -8499,6 +9699,53 @@ treatments:
     explanation: &gt;-
       The review supports the absence of established targeted CDG therapies;
       management of COG7-CDG therefore remains supportive and symptom-directed.
+- name: Early or prophylactic corticosteroid therapy for febrile episodes
+  description: &gt;-
+    Corticosteroid treatment started early in, or prophylactically before, a
+    febrile episode. In the reported COG6/COG7 series this appeared to reduce
+    both the severity of inflammatory flares and their neurological impact.
+    This is an observation in three patients, not a trial result, and the
+    authors frame it as a recommendation for early recognition and preventive
+    anti-inflammatory strategy rather than an established regimen.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: corticosteroid
+      term:
+        id: CHEBI:50858
+        label: corticosteroid
+  target_mechanisms:
+  - target: Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Suppresses the hyperinflammatory flare rather than correcting the
+      underlying Golgi glycosylation defect.
+    evidence:
+    - reference: PMID:42269412
+      reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Early or prophylactic corticosteroid therapy during febrile episodes
+        appeared to mitigate both the severity and neurological impact of
+        inflammatory flares.
+      explanation: &gt;-
+        Uncontrolled observation in three patients; supports the direction of
+        effect but not its magnitude, hence PARTIAL.
+  evidence:
+  - reference: PMID:42269412
+    reference_title: &#34;Recurrent hemophagocytic lymphohistiocytosis in COG deficiency: a case series and systematic review of inflammatory manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Early recognition and preventive anti-inflammatory strategies are
+      recommended.
+    explanation: &gt;-
+      The authors&#39; explicit management recommendation for COG deficiency.
 clinical_trials:
 - name: NCT04199000
   status: RECRUITING
@@ -8516,6 +9763,46 @@ clinical_trials:
     explanation: &gt;-
       The trial is CDG-wide rather than COG7-specific, so it partially supports
       relevance to COG7-CDG.
+discussions:
+- discussion_id: gap_cog7_glycosylation_immune_dysregulation
+  prompt: &gt;-
+    By what route does a Golgi tethering and glycosylation defect produce
+    recurrent hemophagocytic lymphohistiocytosis?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Hyperinflammatory episodes and hemophagocytic lymphohistiocytosis
+  - pathophysiology#Combined N- and O-glycosylation Defect
+  rationale: &gt;-
+    The clinical association is now documented - recurrent HLH in three
+    COG6/COG7 patients and unexplained recurrent fever in about 40% of
+    published COG-deficiency patients - but no mechanism connects the two. HLH
+    is classically driven by defective cytotoxic granule exocytosis in NK and
+    CD8 T cells, and several of the proteins in that pathway are glycosylated
+    and traffic through the Golgi, which makes a hypoglycosylation route
+    plausible; nothing in the reported series tests it. Nor is it known whether
+    the flares are infection-triggered secondary HLH in an
+    infection-susceptible host, which would be a different disease model with
+    different implications for prophylaxis. The authors state the link as a
+    suggestion, and this entry curates it no more strongly than that.
+  proposed_experiments:
+  - experiment_id: exp_cog7_nk_cytotoxicity_and_granule_trafficking
+    name: NK-cell degranulation and cytotoxic-granule trafficking in COG deficiency
+    description: &gt;-
+      Measure CD107a degranulation, perforin and granzyme B content, and
+      cytotoxic killing in NK and CD8 T cells from COG6/COG7-deficient patients
+      against matched controls, alongside glycoproteomic profiling of the
+      granule-exocytosis machinery. A degranulation defect tracking with
+      hypoglycosylation would establish the primary-HLH route; normal
+      degranulation would point to an infection-triggered secondary mechanism.
+  - experiment_id: exp_cog_deficiency_flare_registry
+    name: Prospective inflammatory-flare registry across COG subtypes
+    description: &gt;-
+      Capture febrile episodes prospectively across COG1-COG8 patients with
+      paired ferritin, soluble CD25, triglycerides, fibrinogen, and infectious
+      workup, to establish which COG subtypes carry the risk, what fraction of
+      flares meet HLH criteria, and whether corticosteroid prophylaxis changes
+      the neurological trajectory that this series reported.
 notes: &gt;-
   Falcon deep research completed on 2026-05-09. The YAML intentionally uses
   only claims with PMID or ClinicalTrials.gov cache-backed snippets. Broader
@@ -8985,7 +10272,7 @@ Importantly, <strong>complementation with wild-type COG7 cDNA rescues traffickin
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COG7-congenital disorder of glycosylation", "mondoId": "MONDO:0012118", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COG7-congenital_disorder_of_glycosylation", "yamlRevision": "0ec0537cf072"};
+        const OS_CONFIG = {"diseaseName": "COG7-congenital disorder of glycosylation", "mondoId": "MONDO:0012118", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COG7-congenital_disorder_of_glycosylation", "yamlRevision": "6364f4549b79"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9404,5 +10691,73 @@ Importantly, <strong>complementation with wild-type COG7 cDNA rescues traffickin
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

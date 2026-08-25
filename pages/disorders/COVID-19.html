@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>COVID-19</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>COVID-19</h1>
             <div class="header-meta">
 
@@ -3564,7 +3766,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=COVID-19"
@@ -3693,6 +3895,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3701,7 +3905,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3738,7 +3942,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">23</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3799,29 +4003,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3908,6 +4190,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3929,6 +4212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34358560" target="_blank">PMID:34358560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4050,6 +4334,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33965003" target="_blank">PMID:33965003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4071,6 +4356,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33965003" target="_blank">PMID:33965003</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4168,6 +4454,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4190,6 +4477,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40964377" target="_blank">PMID:40964377</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4211,6 +4499,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40964377" target="_blank">PMID:40964377</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4298,6 +4587,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42362970" target="_blank">PMID:42362970</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4369,6 +4659,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42362970" target="_blank">PMID:42362970</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4447,10 +4738,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         controlled perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type controlled perturbation experiment.</span>
     </span>
 
 
@@ -4493,9 +4790,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4505,10 +4807,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4533,15 +4838,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-location">
 
         lung
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002048</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4569,16 +4881,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         ciliated cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000064">CL:0000064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000064</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -4606,10 +4929,13 @@
         pulmonary alveolar type 2 cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002063">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002063</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4779,15 +5105,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         viral life cycle
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019058">GO:0019058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0019058</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on viral life cycle (GO:0019058). GO:0019058 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4845,15 +5178,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         protein poly-ADP-ribosylation
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070212</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on protein poly-ADP-ribosylation (GO:0070212). GO:0070212 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4929,6 +5269,12 @@
 
 
 
+
+
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4940,6 +5286,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4962,6 +5309,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34358560" target="_blank">PMID:34358560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5048,6 +5396,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42362970" target="_blank">PMID:42362970</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -5080,7 +5429,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sars-cov-2-spike-mediated-entry-via-ace2-and-tmprss2" data-dismech-node="SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2" data-dismech-type="pathophysiology">
@@ -5092,17 +5441,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         ciliated cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000064">CL:0000064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5123,10 +5479,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002063">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5153,16 +5512,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ACE2
 
 
-    <a href="https://bioregistry.io/hgnc:13557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13557">hgnc:13557</a>
+    <a href="https://bioregistry.io/hgnc:13557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:13557</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACE2 (hgnc:13557). hgnc:13557 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5190,10 +5560,13 @@
         TMPRSS2
 
 
-    <a href="https://bioregistry.io/hgnc:11876" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11876">hgnc:11876</a>
+    <a href="https://bioregistry.io/hgnc:11876" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11876</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMPRSS2 (hgnc:11876). hgnc:11876 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5225,9 +5598,18 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)</span>
+
+	                            <span class="crosslink-desc">After spike-mediated entry and genome release, host translation produces the pp1a and pp1ab replicase polyproteins.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">RNA Virus-Induced Interferon and PARP Activation</span>
@@ -5270,6 +5652,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32142651" target="_blank">PMID:32142651</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5281,6 +5664,591 @@
 
 
                 <div class="evidence-explanation">Hoffmann et al. directly establish the ACE2 receptor and TMPRSS2-priming entry mechanism that defines SARS-CoV-2 cell tropism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sars-cov-2-replicase-polyprotein-translation-pp1a-pp1ab" data-dismech-node="SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)" data-dismech-type="pathophysiology">
+                <div class="item-name">SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)</div>
+
+                <div class="item-desc">Following entry and release of the positive-sense RNA genome, host translational machinery produces the overlapping SARS-CoV-2 replicase polyproteins pp1a and pp1ab. These precursors contain the nonstructural proteins that must be released by PLpro and Mpro cleavage before the viral replication machinery is functional.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        ciliated cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000064</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        pulmonary alveolar type 2 cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002063</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Viral Gene Expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0019080</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral Gene Expression (GO:0019080). GO:0019080 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</span>
+
+	                            <span class="crosslink-desc">Mpro cleaves defined junctions in pp1a and pp1ab to release replicase nonstructural proteins.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35380892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35380892" target="_blank">PMID:35380892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After viral entry, two overlapping polyproteins, pp1a (490 kDa) and pp1ab (794 kDa), are translated by the translational machinery of the host."</div>
+
+
+                <div class="evidence-explanation">The structural study explicitly identifies host translation of pp1a and pp1ab as the precursor-producing step after viral entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sars-cov-2-mpro-dependent-processing-of-pp1a-pp1ab" data-dismech-node="SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab" data-dismech-type="pathophysiology">
+                <div class="item-name">SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</div>
+
+                <div class="item-desc">SARS-CoV-2 main protease (Mpro, also called 3CLpro or nsp5) is the viral cysteine protease that cleaves at least 11 sites in the replicase polyproteins pp1a and pp1ab. This releases nonstructural proteins needed for the replication-transcription machinery. Mpro is distinct from the viral papain-like protease PLpro, which performs other cleavage events.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        ciliated cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000064</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        pulmonary alveolar type 2 cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002063</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Viral Protein Processing
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0019082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral Protein Processing (GO:0019082). GO:0019082 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Peptidase Activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0008233</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves Peptidase Activity (GO:0008233). GO:0008233 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication</span>
+
+	                            <span class="crosslink-desc">Mpro-mediated processing releases functional nonstructural proteins that support the replication-transcription complex and viral RNA replication.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35380892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35380892" target="_blank">PMID:35380892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mpro is a cysteine protease that cleaves at no less than 11 sites on the replicase polyproteins"</div>
+
+
+                <div class="evidence-explanation">The structural study directly defines Mpro&#39;s catalytic role and cleavage burden on the SARS-CoV-2 replicase polyproteins.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35380892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35380892" target="_blank">PMID:35380892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mpro of SARS-CoV-2 digests replicase polyproteins, releasing the nonstructural proteins (nsps)"</div>
+
+
+                <div class="evidence-explanation">This directly supports release of nonstructural proteins as the output of the Mpro processing step.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-sars-cov-2-replication-transcription-complex-formation-and-rna-replication" data-dismech-node="SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication" data-dismech-type="pathophysiology">
+                <div class="item-name">SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication</div>
+
+                <div class="item-desc">Processed SARS-CoV-2 nonstructural proteins, including the RNA-dependent RNA polymerase and helicase, form and support the replication-transcription machinery that copies viral RNA. This is the replicase-branch output of polyprotein processing and the downstream process interrupted by nirmatrelvir inhibition of Mpro.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        ciliated cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000064</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        pulmonary alveolar type 2 cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002063</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Viral RNA Genome Replication
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0039694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0039694</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Viral RNA Genome Replication (GO:0039694). GO:0039694 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Enhanced Viral Replication and Tissue Pathology</span>
+
+	                            <span class="crosslink-desc">Replication-transcription complex activity increases viral burden in respiratory epithelium, converging with viral immune evasion on tissue injury and clinical disease.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35380892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35380892" target="_blank">PMID:35380892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"replicase polyproteins essential for viral replication and transcription"</div>
+
+
+                <div class="evidence-explanation">The study ties the Mpro-processed replicase polyproteins to viral replication and transcription.</div>
 
 
 
@@ -5309,16 +6277,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5338,16 +6311,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of defense response to virus by host
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002230" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002230">GO:0002230</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002230" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0002230</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of defense response to virus by host (GO:0002230). GO:0002230 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5368,6 +6346,7 @@
 
 
                 </div>
+
 
 
 
@@ -5403,6 +6382,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34358560" target="_blank">PMID:34358560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5443,16 +6423,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PARP9
 
 
-    <a href="https://bioregistry.io/hgnc:24118" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24118">hgnc:24118</a>
+    <a href="https://bioregistry.io/hgnc:24118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:24118</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PARP9 (hgnc:24118). hgnc:24118 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5480,10 +6471,13 @@
         DTX3L
 
 
-    <a href="https://bioregistry.io/hgnc:30323" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30323">hgnc:30323</a>
+    <a href="https://bioregistry.io/hgnc:30323" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:30323</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DTX3L (hgnc:30323). hgnc:30323 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5511,16 +6505,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein poly-ADP-ribosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070212">GO:0070212</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070212" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0070212</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein poly-ADP-ribosylation (GO:0070212). GO:0070212 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5541,6 +6540,7 @@
 
 
                 </div>
+
 
 
 
@@ -5576,6 +6576,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34358560" target="_blank">PMID:34358560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5616,16 +6617,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein de-ADP-ribosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051725">GO:0051725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0051725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein de-ADP-ribosylation (GO:0051725). GO:0051725 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5645,16 +6651,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of defense response to virus by host
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050689" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050689">GO:0050689</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050689" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0050689</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of defense response to virus by host (GO:0050689). GO:0050689 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5675,6 +6686,7 @@
 
 
                 </div>
+
 
 
 
@@ -5711,6 +6723,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5733,6 +6746,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5754,6 +6768,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34358560" target="_blank">PMID:34358560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5807,16 +6822,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral life cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019058">GO:0019058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0019058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased viral life cycle (GO:0019058). GO:0019058 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5837,6 +6857,7 @@
 
 
                 </div>
+
 
 
 
@@ -5916,6 +6937,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33158944" target="_blank">PMID:33158944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5955,16 +6977,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5985,6 +7012,7 @@
 
 
                 </div>
+
 
 
 
@@ -6037,6 +7065,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6058,6 +7087,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6109,16 +7139,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6139,6 +7174,7 @@
 
 
                 </div>
+
 
 
 
@@ -6186,6 +7222,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33965003" target="_blank">PMID:33965003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6208,6 +7245,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32171076" target="_blank">PMID:32171076</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6229,6 +7267,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42340782" target="_blank">PMID:42340782</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6278,7 +7317,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACE2\"], \"gene_terms\": [{\"label\": \"ACE2\", \"id\": \"hgnc:13557\"}], \"association\": \"Host receptor susceptibility\"}}, {\"id\": \"Acute Respiratory Distress Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients with severe COVID-19 develop hypoxemic respiratory failure meeting Berlin ARDS criteria, requiring high-flow oxygen, non-invasive ventilation, or mechanical ventilation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033677\"}}, {\"id\": \"Ageusia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of taste commonly co-occurs with anosmia in acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0041051\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden-onset loss of smell, often accompanied by loss of taste, is highly associated with SARS-CoV-2 infection and is the single strongest symptom predictor of a positive test in community cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000458\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough is among the most common presenting symptoms of acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients develops severe lower-respiratory disease with elevated inflammatory cytokines, lymphopenia, diffuse alveolar damage, and acute respiratory distress syndrome (ARDS). Markedly elevated IL-6 and other inflammatory mediators identify a hyperinflammatory state amenable to corticosteroid and anti-cytokine therapy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyspnea typically develops several days after symptom onset and marks progression from upper-respiratory illness to viral pneumonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated D-dimer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating D-dimer, reflecting the prothrombotic coagulopathy of COVID-19, is a strong independent predictor of in-hospital mortality. In the Wuhan inpatient cohort, admission D-dimer greater than 1 \\u03bcg/mL carried an 18-fold increase in the odds of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033106\"}}, {\"id\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond direct respiratory epithelial injury, severe COVID-19 is characterized by endothelial activation and a prothrombotic coagulopathy. SARS-CoV-2-driven immuno-inflammatory and endothelial derangements promote micro- and macro-vascular thrombosis \\u2014 reflected clinically in elevated D-dimer \\u2014 and contribute to the multi-organ dysfunction that defines the lethal disease phenotype. This node instantiates the emerging endotheliopathy-centred pathophysiology model at the tissue scale, parallel to the cellular macrodomain immune-evasion arm.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Enhanced Viral Replication and Tissue Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"By neutralizing host PARP9/DTX3L-dependent antiviral ADP-ribosylation, the Nsp3 macrodomain permits sustained viral replication in respiratory epithelium, leading to alveolar epithelial injury, diffuse alveolar damage, and recruitment of innate immune effectors. The interplay of viral cytopathic injury and dysregulated host responses drives the pneumonia, hypoxemia, and acute respiratory distress syndrome that characterize severe COVID-19.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral life cycle\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the dominant presenting symptom of acute COVID-19 and was reported in 98% of hospitalized patients in the initial Wuhan cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The interferon-inducible PARP9 ADP-ribosyltransferase, in complex with the DTX3L E3 ligase, mono-ADP-ribosylates host proteins as a downstream effector of the host antiviral interferon response. This NAD-dependent modification is the substrate that the SARS-CoV-2 Nsp3 macrodomain targets and reverses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein poly-ADP-ribosylation\"], \"genes\": [\"PARP9\", \"DTX3L\"], \"gene_terms\": [{\"label\": \"PARP9\", \"id\": \"hgnc:24118\"}, {\"label\": \"DTX3L\", \"id\": \"hgnc:30323\"}]}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced peripheral lymphocyte counts are commonly observed in moderate- to-severe COVID-19 and track with disease severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000034\"}}, {\"id\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 encodes a conserved macrodomain (Mac1) within nonstructural protein 3 (Nsp3) that binds and hydrolyzes mono-ADP-ribose marks on host proteins. Mac1 reverses the PARP9/DTX3L-dependent antiviral ADP-ribosylation that the host interferon response deposits, neutralizing this branch of innate immunity. The macrodomain is essential for coronavirus pathogenesis in animal models and is the prototypical viral pivot point for this mechanism module. Its conserved fold and druggable ADP-ribose pocket make it an attractive target for both small-molecule inhibitors and PROTAC-style degraders.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein de-ADP-ribosylation\", \"negative regulation of defense response to virus by host\"]}}, {\"id\": \"Peginterferon Lambda\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegylated interferon lambda-1A is an innate-immunity-modulator (a type III interferon) that pharmacologically augments the host interferon-stimulated antiviral state. In the TOGETHER randomized trial, a single subcutaneous dose given early to outpatients significantly reduced COVID-19 hospitalization or emergency-department visits, with benefit consistent across SARS-CoV-2 variants \\u2014 the broad-spectrum, host-directed signature of an interferon-based antiviral.\", \"meta\": {\"therapeutic_agents\": [\"peginterferon lambda-1A\"]}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral viral pneumonia with ground-glass opacities on chest imaging is the canonical lower-respiratory manifestation of moderate-to-severe acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"RNA Virus-Induced Interferon and PARP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 replication is sensed by pattern-recognition receptors that induce type I and type III interferon signaling in infected respiratory epithelium. Interferon signaling drives expression of PARP family members (including PARP9 paired with the DTX3L E3 ligase) that catalyze antiviral ADP-ribosylation as part of the innate antiviral program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to virus\", \"positive regulation of defense response to virus by host\"]}}, {\"id\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 enters host cells via its spike (S) glycoprotein binding the cellular receptor ACE2, followed by S protein priming by the host serine protease TMPRSS2. ACE2 and TMPRSS2 co-expression on nasal, conducting airway, and alveolar epithelial cells (particularly ciliated cells and type II pneumocytes) defines the principal cellular tropism that drives upper- and lower-respiratory disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ciliated cell\", \"pulmonary alveolar type 2 cell\"], \"genes\": [\"ACE2\", \"TMPRSS2\"], \"gene_terms\": [{\"label\": \"ACE2\", \"id\": \"hgnc:13557\"}, {\"label\": \"TMPRSS2\", \"id\": \"hgnc:11876\"}]}}, {\"id\": \"TMPRSS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMPRSS2\"], \"gene_terms\": [{\"label\": \"TMPRSS2\", \"id\": \"hgnc:11876\"}], \"association\": \"Host protease cofactor\"}}], \"edges\": [{\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"RNA Virus-Induced Interferon and PARP Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Productive infection of airway and alveolar epithelium triggers the host antiviral interferon program.\"}, {\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of ACE2-expressing sustentacular support cells of the olfactory epithelium disrupts olfactory function, producing loss of smell.\"}, {\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"Ageusia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACE2-mediated infection of oral/taste-associated epithelium contributes to loss of taste.\"}, {\"source\": \"RNA Virus-Induced Interferon and PARP Activation\", \"target\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IFN-induced PARP9/DTX3L catalyzes mono-ADP-ribosylation of host substrates as an antiviral effector.\"}, {\"source\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"target\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Nsp3 Mac1 macrodomain hydrolyzes the PARP9/DTX3L-deposited mono-ADP-ribose marks on host proteins.\"}, {\"source\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"target\": \"Enhanced Viral Replication and Tissue Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"De-ADP-ribosylation of antiviral host substrates restores conditions permissive for viral replication and downstream tissue damage.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disease is marked by dysregulated cytokine responses and diffuse alveolar damage.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SARS-CoV-2-driven injury of vascular endothelium activates coagulation and thrombo-inflammation beyond the respiratory epithelial compartment.\", \"hypothesis_groups\": [\"endotheliopathy_centred_pathophysiology_model\"]}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral replication and inflammatory injury of the lower respiratory tract produce viral pneumonia.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection and inflammation of the airway epithelium stimulate the cough reflex.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar and interstitial lung injury impairs gas exchange, producing breathlessness.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hyperinflammatory cytokine state with diffuse alveolar damage culminates in clinical acute respiratory distress syndrome.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyrogenic cytokines (IL-1, IL-6, TNF-\\u03b1) elevated during the cytokine storm raise the hypothalamic set-point, producing fever.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven lymphocyte apoptosis and tissue redistribution contribute to the lymphopenia characteristic of acute COVID-19.\"}, {\"source\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"target\": \"Elevated D-dimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury and activation of coagulation elevate circulating D-dimer, a marker of the COVID-19 coagulopathy.\", \"hypothesis_groups\": [\"endotheliopathy_centred_pathophysiology_model\"]}, {\"source\": \"Peginterferon Lambda\", \"target\": \"RNA Virus-Induced Interferon and PARP Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ACE2\", \"target\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMPRSS2\", \"target\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACE2\"], \"gene_terms\": [{\"label\": \"ACE2\", \"id\": \"hgnc:13557\"}], \"association\": \"Host receptor susceptibility\"}}, {\"id\": \"Acute Respiratory Distress Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients with severe COVID-19 develop hypoxemic respiratory failure meeting Berlin ARDS criteria, requiring high-flow oxygen, non-invasive ventilation, or mechanical ventilation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033677\"}}, {\"id\": \"Ageusia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of taste commonly co-occurs with anosmia in acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0041051\"}}, {\"id\": \"Anosmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden-onset loss of smell, often accompanied by loss of taste, is highly associated with SARS-CoV-2 infection and is the single strongest symptom predictor of a positive test in community cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000458\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough is among the most common presenting symptoms of acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of patients develops severe lower-respiratory disease with elevated inflammatory cytokines, lymphopenia, diffuse alveolar damage, and acute respiratory distress syndrome (ARDS). Markedly elevated IL-6 and other inflammatory mediators identify a hyperinflammatory state amenable to corticosteroid and anti-cytokine therapy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dyspnea typically develops several days after symptom onset and marks progression from upper-respiratory illness to viral pneumonia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated D-dimer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating D-dimer, reflecting the prothrombotic coagulopathy of COVID-19, is a strong independent predictor of in-hospital mortality. In the Wuhan inpatient cohort, admission D-dimer greater than 1 \\u03bcg/mL carried an 18-fold increase in the odds of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033106\"}}, {\"id\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond direct respiratory epithelial injury, severe COVID-19 is characterized by endothelial activation and a prothrombotic coagulopathy. SARS-CoV-2-driven immuno-inflammatory and endothelial derangements promote micro- and macro-vascular thrombosis \\u2014 reflected clinically in elevated D-dimer \\u2014 and contribute to the multi-organ dysfunction that defines the lethal disease phenotype. This node instantiates the emerging endotheliopathy-centred pathophysiology model at the tissue scale, parallel to the cellular macrodomain immune-evasion arm.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Enhanced Viral Replication and Tissue Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"By neutralizing host PARP9/DTX3L-dependent antiviral ADP-ribosylation, the Nsp3 macrodomain permits sustained viral replication in respiratory epithelium, leading to alveolar epithelial injury, diffuse alveolar damage, and recruitment of innate immune effectors. The interplay of viral cytopathic injury and dysregulated host responses drives the pneumonia, hypoxemia, and acute respiratory distress syndrome that characterize severe COVID-19.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral life cycle\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is the dominant presenting symptom of acute COVID-19 and was reported in 98% of hospitalized patients in the initial Wuhan cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The interferon-inducible PARP9 ADP-ribosyltransferase, in complex with the DTX3L E3 ligase, mono-ADP-ribosylates host proteins as a downstream effector of the host antiviral interferon response. This NAD-dependent modification is the substrate that the SARS-CoV-2 Nsp3 macrodomain targets and reverses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein poly-ADP-ribosylation\"], \"genes\": [\"PARP9\", \"DTX3L\"], \"gene_terms\": [{\"label\": \"PARP9\", \"id\": \"hgnc:24118\"}, {\"label\": \"DTX3L\", \"id\": \"hgnc:30323\"}]}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced peripheral lymphocyte counts are commonly observed in moderate- to-severe COVID-19 and track with disease severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000034\"}}, {\"id\": \"Nirmatrelvir/Ritonavir (Paxlovid)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral nirmatrelvir directly inhibits SARS-CoV-2 main protease (Mpro/3CLpro), while ritonavir inhibits host CYP3A to increase nirmatrelvir exposure rather than serving as a second SARS-CoV-2 protease inhibitor. The regimen is recommended for outpatients with mild-to-moderate COVID-19 at high risk of progression to severe disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nirmatrelvir\", \"ritonavir\"]}}, {\"id\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 encodes a conserved macrodomain (Mac1) within nonstructural protein 3 (Nsp3) that binds and hydrolyzes mono-ADP-ribose marks on host proteins. Mac1 reverses the PARP9/DTX3L-dependent antiviral ADP-ribosylation that the host interferon response deposits, neutralizing this branch of innate immunity. The macrodomain is essential for coronavirus pathogenesis in animal models and is the prototypical viral pivot point for this mechanism module. Its conserved fold and druggable ADP-ribose pocket make it an attractive target for both small-molecule inhibitors and PROTAC-style degraders.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein de-ADP-ribosylation\", \"negative regulation of defense response to virus by host\"]}}, {\"id\": \"Peginterferon Lambda\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegylated interferon lambda-1A is an innate-immunity-modulator (a type III interferon) that pharmacologically augments the host interferon-stimulated antiviral state. In the TOGETHER randomized trial, a single subcutaneous dose given early to outpatients significantly reduced COVID-19 hospitalization or emergency-department visits, with benefit consistent across SARS-CoV-2 variants \\u2014 the broad-spectrum, host-directed signature of an interferon-based antiviral.\", \"meta\": {\"therapeutic_agents\": [\"peginterferon lambda-1A\"]}}, {\"id\": \"Pneumonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral viral pneumonia with ground-glass opacities on chest imaging is the canonical lower-respiratory manifestation of moderate-to-severe acute COVID-19.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002090\"}}, {\"id\": \"RNA Virus-Induced Interferon and PARP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 replication is sensed by pattern-recognition receptors that induce type I and type III interferon signaling in infected respiratory epithelium. Interferon signaling drives expression of PARP family members (including PARP9 paired with the DTX3L E3 ligase) that catalyze antiviral ADP-ribosylation as part of the innate antiviral program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to virus\", \"positive regulation of defense response to virus by host\"]}}, {\"id\": \"SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 main protease (Mpro, also called 3CLpro or nsp5) is the viral cysteine protease that cleaves at least 11 sites in the replicase polyproteins pp1a and pp1ab. This releases nonstructural proteins needed for the replication-transcription machinery. Mpro is distinct from the viral papain-like protease PLpro, which performs other cleavage events.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated cell\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"Viral Protein Processing\"], \"molecular_functions\": [\"Peptidase Activity\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following entry and release of the positive-sense RNA genome, host translational machinery produces the overlapping SARS-CoV-2 replicase polyproteins pp1a and pp1ab. These precursors contain the nonstructural proteins that must be released by PLpro and Mpro cleavage before the viral replication machinery is functional.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ciliated cell\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"Viral Gene Expression\"], \"role\": \"trigger\"}}, {\"id\": \"SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Processed SARS-CoV-2 nonstructural proteins, including the RNA-dependent RNA polymerase and helicase, form and support the replication-transcription machinery that copies viral RNA. This is the replicase-branch output of polyprotein processing and the downstream process interrupted by nirmatrelvir inhibition of Mpro.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ciliated cell\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"Viral RNA Genome Replication\"], \"role\": \"effector\"}}, {\"id\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SARS-CoV-2 enters host cells via its spike (S) glycoprotein binding the cellular receptor ACE2, followed by S protein priming by the host serine protease TMPRSS2. ACE2 and TMPRSS2 co-expression on nasal, conducting airway, and alveolar epithelial cells (particularly ciliated cells and type II pneumocytes) defines the principal cellular tropism that drives upper- and lower-respiratory disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"ciliated cell\", \"pulmonary alveolar type 2 cell\"], \"genes\": [\"ACE2\", \"TMPRSS2\"], \"gene_terms\": [{\"label\": \"ACE2\", \"id\": \"hgnc:13557\"}, {\"label\": \"TMPRSS2\", \"id\": \"hgnc:11876\"}]}}, {\"id\": \"TMPRSS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMPRSS2\"], \"gene_terms\": [{\"label\": \"TMPRSS2\", \"id\": \"hgnc:11876\"}], \"association\": \"Host protease cofactor\"}}], \"edges\": [{\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"After spike-mediated entry and genome release, host translation produces the pp1a and pp1ab replicase polyproteins.\"}, {\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"RNA Virus-Induced Interferon and PARP Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Productive infection of airway and alveolar epithelium triggers the host antiviral interferon program.\"}, {\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"Anosmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection of ACE2-expressing sustentacular support cells of the olfactory epithelium disrupts olfactory function, producing loss of smell.\"}, {\"source\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"target\": \"Ageusia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACE2-mediated infection of oral/taste-associated epithelium contributes to loss of taste.\"}, {\"source\": \"SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)\", \"target\": \"SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mpro cleaves defined junctions in pp1a and pp1ab to release replicase nonstructural proteins.\"}, {\"source\": \"SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab\", \"target\": \"SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mpro-mediated processing releases functional nonstructural proteins that support the replication-transcription complex and viral RNA replication.\"}, {\"source\": \"SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication\", \"target\": \"Enhanced Viral Replication and Tissue Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Replication-transcription complex activity increases viral burden in respiratory epithelium, converging with viral immune evasion on tissue injury and clinical disease.\"}, {\"source\": \"RNA Virus-Induced Interferon and PARP Activation\", \"target\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IFN-induced PARP9/DTX3L catalyzes mono-ADP-ribosylation of host substrates as an antiviral effector.\"}, {\"source\": \"Host PARP9/DTX3L Antiviral ADP-Ribosylation\", \"target\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The Nsp3 Mac1 macrodomain hydrolyzes the PARP9/DTX3L-deposited mono-ADP-ribose marks on host proteins.\"}, {\"source\": \"Nsp3 Macrodomain De-ADP-Ribosylation Countermeasure\", \"target\": \"Enhanced Viral Replication and Tissue Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"De-ADP-ribosylation of antiviral host substrates restores conditions permissive for viral replication and downstream tissue damage.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disease is marked by dysregulated cytokine responses and diffuse alveolar damage.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SARS-CoV-2-driven injury of vascular endothelium activates coagulation and thrombo-inflammation beyond the respiratory epithelial compartment.\", \"hypothesis_groups\": [\"endotheliopathy_centred_pathophysiology_model\"]}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Pneumonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral replication and inflammatory injury of the lower respiratory tract produce viral pneumonia.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection and inflammation of the airway epithelium stimulate the cough reflex.\"}, {\"source\": \"Enhanced Viral Replication and Tissue Pathology\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar and interstitial lung injury impairs gas exchange, producing breathlessness.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hyperinflammatory cytokine state with diffuse alveolar damage culminates in clinical acute respiratory distress syndrome.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyrogenic cytokines (IL-1, IL-6, TNF-\\u03b1) elevated during the cytokine storm raise the hypothalamic set-point, producing fever.\"}, {\"source\": \"Cytokine-Driven Acute Respiratory Distress Syndrome\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-driven lymphocyte apoptosis and tissue redistribution contribute to the lymphopenia characteristic of acute COVID-19.\"}, {\"source\": \"Endothelial Injury and Prothrombotic Coagulopathy\", \"target\": \"Elevated D-dimer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury and activation of coagulation elevate circulating D-dimer, a marker of the COVID-19 coagulopathy.\", \"hypothesis_groups\": [\"endotheliopathy_centred_pathophysiology_model\"]}, {\"source\": \"Nirmatrelvir/Ritonavir (Paxlovid)\", \"target\": \"SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Peginterferon Lambda\", \"target\": \"RNA Virus-Induced Interferon and PARP Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ACE2\", \"target\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMPRSS2\", \"target\": \"SARS-CoV-2 Spike-Mediated Entry via ACE2 and TMPRSS2\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6325,14 +7364,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anosmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000458">HP:0000458</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000458</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6352,6 +7398,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32393804" target="_blank">PMID:32393804</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6386,14 +7433,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ageusia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0041051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0041051">HP:0041051</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0041051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0041051</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ageusia (HP:0041051). HP:0041051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6413,6 +7467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32393804" target="_blank">PMID:32393804</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6456,14 +7511,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pneumonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002090">HP:0002090</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6483,6 +7545,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6526,14 +7589,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6553,6 +7623,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6596,14 +7667,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6623,6 +7701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6657,14 +7736,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6684,6 +7770,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6718,14 +7805,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute respiratory distress syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033677">HP:0033677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0033677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6745,6 +7839,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6788,14 +7883,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infection-associated lymphopenia
+
+                        <span class="phenotype-term-label">Infection-associated lymphopenia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_4000034" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:4000034">HP:4000034</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:4000034</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infection-associated lymphopenia (HP:4000034). HP:4000034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6815,6 +7919,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986264" target="_blank">PMID:31986264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6847,14 +7952,23 @@
                         Elevated D-dimer
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating D-dimer concentration
+
+                        <span class="phenotype-term-label">Elevated circulating D-dimer concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033106" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033106">HP:0033106</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033106" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0033106</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating D-dimer concentration (HP:0033106). HP:0033106 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6874,6 +7988,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32171076" target="_blank">PMID:32171076</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6952,13 +8067,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACE2
 
 
-    <a href="https://bioregistry.io/hgnc:13557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13557">hgnc:13557</a>
+    <a href="https://bioregistry.io/hgnc:13557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:13557</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACE2 (hgnc:13557). hgnc:13557 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6979,6 +8099,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32142651" target="_blank">PMID:32142651</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7016,13 +8137,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMPRSS2
 
 
-    <a href="https://bioregistry.io/hgnc:11876" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11876">hgnc:11876</a>
+    <a href="https://bioregistry.io/hgnc:11876" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMPRSS2 (hgnc:11876). hgnc:11876 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7043,6 +8169,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32142651" target="_blank">PMID:32142651</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7074,6 +8201,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7089,7 +8219,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7119,17 +8254,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nirmatrelvir
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_170007" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:170007">CHEBI:170007</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_170007" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:170007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nirmatrelvir (CHEBI:170007). CHEBI:170007 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ritonavir
@@ -7137,18 +8279,72 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45409" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45409">CHEBI:45409</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45409" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:45409</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ritonavir (CHEBI:45409). CHEBI:45409 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Oral SARS-CoV-2 main protease (Mpro/3CLpro) inhibitor nirmatrelvir, boosted with ritonavir as a pharmacokinetic enhancer, is recommended for outpatients with mild-to-moderate COVID-19 at high risk of progression to severe disease.</div>
+                <div class="item-desc">Oral nirmatrelvir directly inhibits SARS-CoV-2 main protease (Mpro/3CLpro), while ritonavir inhibits host CYP3A to increase nirmatrelvir exposure rather than serving as a second SARS-CoV-2 protease inhibitor. The regimen is recommended for outpatients with mild-to-moderate COVID-19 at high risk of progression to severe disease.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; The nirmatrelvir component directly inhibits SARS-CoV-2 Mpro and thereby blocks Mpro-dependent processing of pp1a and pp1ab. Ritonavir&#39;s role in this regimen is pharmacokinetic enhancement through host CYP3A inhibition, separate from this viral target edge.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34726479" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34726479" target="_blank">PMID:34726479</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"discovery and characterization of PF-07321332, an orally bioavailable SARS-CoV-2 main protease inhibitor with in vitro pan-human coronavirus antiviral activity"</div>
+
+
+                <div class="evidence-explanation">PF-07321332 is nirmatrelvir; the primary discovery study directly identifies it as a SARS-CoV-2 main-protease inhibitor with antiviral activity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -7165,6 +8361,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41920902" target="_blank">PMID:41920902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7195,7 +8392,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7225,16 +8427,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         remdesivir
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145994" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:145994">CHEBI:145994</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:145994</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses remdesivir (CHEBI:145994). CHEBI:145994 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7259,6 +8466,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41920902" target="_blank">PMID:41920902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7289,7 +8497,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7319,16 +8532,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dexamethasone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:41879">CHEBI:41879</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:41879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7351,7 +8569,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -7397,7 +8620,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7427,16 +8655,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         peginterferon lambda-1A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166435" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C166435">NCIT:C166435</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166435" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C166435</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses peginterferon lambda-1A (NCIT:C166435). NCIT:C166435 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7470,6 +8703,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36780676" target="_blank">PMID:36780676</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7524,7 +8758,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004450">
                 <div class="item-name">
                     Suppressive granulocytes are an indicator of severe disease in COVID-19
 
@@ -7557,7 +8791,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004474">
                 <div class="item-name">
                     Peripheral immunoprofiling of stratifies COVID-19 patients based on disease-specific neutrophil signatures
 
@@ -7590,7 +8824,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004481">
                 <div class="item-name">
                     Single-cell analysis of airway samples identifies immune cell activation correlating with COVID-19 disease severity
 
@@ -7629,7 +8863,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st002477">
                 <div class="item-name">
                     Neutrophil metabolomics in COVID-19
 
@@ -7660,7 +8894,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st002087">
                 <div class="item-name">
                     Profiling metabolites and lipoproteins in COMETA, an Italian cohort of COVID-19 patients
 
@@ -7691,7 +8925,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000085703">
                 <div class="item-name">
                     Large-scale Multi-omic Analysis of COVID-19 Severity
 
@@ -7731,6 +8965,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8031,6 +9268,10 @@ pathophysiology:
       Hoffmann et al. directly establish the ACE2 receptor and TMPRSS2-priming
       entry mechanism that defines SARS-CoV-2 cell tropism.
   downstream:
+  - target: SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)
+    description: &gt;-
+      After spike-mediated entry and genome release, host translation produces
+      the pp1a and pp1ab replicase polyproteins.
   - target: RNA Virus-Induced Interferon and PARP Activation
     description: &gt;-
       Productive infection of airway and alveolar epithelium triggers the
@@ -8043,6 +9284,144 @@ pathophysiology:
     description: &gt;-
       ACE2-mediated infection of oral/taste-associated epithelium contributes
       to loss of taste.
+- name: SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)
+  biological_scale: MOLECULAR
+  conforms_to: &#34;viral_protease_inhibition#Synthesis of the Viral Polyprotein Precursor&#34;
+  role: trigger
+  description: &gt;-
+    Following entry and release of the positive-sense RNA genome, host
+    translational machinery produces the overlapping SARS-CoV-2 replicase
+    polyproteins pp1a and pp1ab. These precursors contain the nonstructural
+    proteins that must be released by PLpro and Mpro cleavage before the viral
+    replication machinery is functional.
+  cell_types:
+  - preferred_term: ciliated cell
+    term:
+      id: CL:0000064
+      label: ciliated cell
+  - preferred_term: pulmonary alveolar type 2 cell
+    term:
+      id: CL:0002063
+      label: pulmonary alveolar type 2 cell
+  biological_processes:
+  - preferred_term: Viral Gene Expression
+    term:
+      id: GO:0019080
+      label: viral gene expression
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:35380892
+    reference_title: &#34;Structural basis for replicase polyprotein cleavage and substrate specificity of main protease from SARS-CoV-2.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      After viral entry, two overlapping polyproteins, pp1a (490 kDa) and pp1ab
+      (794 kDa), are translated by the translational machinery of the host.
+    explanation: &gt;-
+      The structural study explicitly identifies host translation of pp1a and
+      pp1ab as the precursor-producing step after viral entry.
+  downstream:
+  - target: SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab
+    description: &gt;-
+      Mpro cleaves defined junctions in pp1a and pp1ab to release replicase
+      nonstructural proteins.
+- name: SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab
+  biological_scale: MOLECULAR
+  conforms_to: &#34;viral_protease_inhibition#Virus-Encoded Protease-Dependent Polyprotein Processing&#34;
+  role: therapeutic_vulnerability
+  description: &gt;-
+    SARS-CoV-2 main protease (Mpro, also called 3CLpro or nsp5) is the viral
+    cysteine protease that cleaves at least 11 sites in the replicase
+    polyproteins pp1a and pp1ab. This releases nonstructural proteins needed for
+    the replication-transcription machinery. Mpro is distinct from the viral
+    papain-like protease PLpro, which performs other cleavage events.
+  cell_types:
+  - preferred_term: ciliated cell
+    term:
+      id: CL:0000064
+      label: ciliated cell
+  - preferred_term: pulmonary alveolar type 2 cell
+    term:
+      id: CL:0002063
+      label: pulmonary alveolar type 2 cell
+  biological_processes:
+  - preferred_term: Viral Protein Processing
+    term:
+      id: GO:0019082
+      label: viral protein processing
+    modifier: INCREASED
+  molecular_functions:
+  - preferred_term: Peptidase Activity
+    term:
+      id: GO:0008233
+      label: peptidase activity
+  evidence:
+  - reference: PMID:35380892
+    reference_title: &#34;Structural basis for replicase polyprotein cleavage and substrate specificity of main protease from SARS-CoV-2.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mpro is a cysteine protease that cleaves at no less than 11 sites on the
+      replicase polyproteins
+    explanation: &gt;-
+      The structural study directly defines Mpro&#39;s catalytic role and cleavage
+      burden on the SARS-CoV-2 replicase polyproteins.
+  - reference: PMID:35380892
+    reference_title: &#34;Structural basis for replicase polyprotein cleavage and substrate specificity of main protease from SARS-CoV-2.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Mpro of SARS-CoV-2 digests replicase polyproteins, releasing the
+      nonstructural proteins (nsps)
+    explanation: &gt;-
+      This directly supports release of nonstructural proteins as the output of
+      the Mpro processing step.
+  downstream:
+  - target: SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication
+    description: &gt;-
+      Mpro-mediated processing releases functional nonstructural proteins that
+      support the replication-transcription complex and viral RNA replication.
+- name: SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication
+  biological_scale: CELLULAR
+  conforms_to: &#34;viral_protease_inhibition#Replication-Complex Formation and Viral RNA Replication&#34;
+  role: effector
+  description: &gt;-
+    Processed SARS-CoV-2 nonstructural proteins, including the RNA-dependent RNA
+    polymerase and helicase, form and support the replication-transcription
+    machinery that copies viral RNA. This is the replicase-branch output of
+    polyprotein processing and the downstream process interrupted by
+    nirmatrelvir inhibition of Mpro.
+  cell_types:
+  - preferred_term: ciliated cell
+    term:
+      id: CL:0000064
+      label: ciliated cell
+  - preferred_term: pulmonary alveolar type 2 cell
+    term:
+      id: CL:0002063
+      label: pulmonary alveolar type 2 cell
+  biological_processes:
+  - preferred_term: Viral RNA Genome Replication
+    term:
+      id: GO:0039694
+      label: viral RNA genome replication
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:35380892
+    reference_title: &#34;Structural basis for replicase polyprotein cleavage and substrate specificity of main protease from SARS-CoV-2.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      replicase polyproteins essential for viral replication and transcription
+    explanation: &gt;-
+      The study ties the Mpro-processed replicase polyproteins to viral
+      replication and transcription.
+  downstream:
+  - target: Enhanced Viral Replication and Tissue Pathology
+    description: &gt;-
+      Replication-transcription complex activity increases viral burden in
+      respiratory epithelium, converging with viral immune evasion on tissue
+      injury and clinical disease.
 - name: RNA Virus-Induced Interferon and PARP Activation
   conforms_to: &#34;parp_parg_macrodomain_viral_evasion#RNA Virus-Induced Interferon and PARP Activation&#34;
   description: &gt;-
@@ -8601,10 +9980,12 @@ genetic:
 treatments:
 - name: Nirmatrelvir/Ritonavir (Paxlovid)
   description: &gt;-
-    Oral SARS-CoV-2 main protease (Mpro/3CLpro) inhibitor nirmatrelvir, boosted
-    with ritonavir as a pharmacokinetic enhancer, is recommended for
-    outpatients with mild-to-moderate COVID-19 at high risk of progression to
-    severe disease.
+    Oral nirmatrelvir directly inhibits SARS-CoV-2 main protease
+    (Mpro/3CLpro), while ritonavir inhibits host CYP3A to increase nirmatrelvir
+    exposure rather than serving as a second SARS-CoV-2 protease inhibitor.
+    The regimen is recommended for outpatients with mild-to-moderate COVID-19
+    at high risk of progression to severe disease.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -8619,6 +10000,27 @@ treatments:
       term:
         id: CHEBI:45409
         label: ritonavir
+  target_mechanisms:
+  - target: SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab
+    treatment_effect: INHIBITS
+    description: &gt;-
+      The nirmatrelvir component directly inhibits SARS-CoV-2 Mpro and thereby
+      blocks Mpro-dependent processing of pp1a and pp1ab. Ritonavir&#39;s role in
+      this regimen is pharmacokinetic enhancement through host CYP3A
+      inhibition, separate from this viral target edge.
+    evidence:
+    - reference: PMID:34726479
+      reference_title: &#34;An oral SARS-CoV-2 M(pro) inhibitor clinical candidate for the treatment of COVID-19.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        discovery and characterization of PF-07321332, an orally bioavailable
+        SARS-CoV-2 main protease inhibitor with in vitro pan-human coronavirus
+        antiviral activity
+      explanation: &gt;-
+        PF-07321332 is nirmatrelvir; the primary discovery study directly
+        identifies it as a SARS-CoV-2 main-protease inhibitor with antiviral
+        activity.
   evidence:
   - reference: PMID:41920902
     reference_title: &#34;2025 Clinical Practice Guideline Update by the Infectious Diseases Society of America on the Treatment and Management of COVID-19: Antiviral Treatment for Mild to Moderate COVID-19 in Adults.&#34;
@@ -8741,6 +10143,7 @@ discussions:
     later. A prospective multi-timepoint mechanistic study is needed.
   evidence:
   - reference: PMID:42362970
+    reference_title: &#34;SARS-CoV-2 and diabetes: a post-pandemic reappraisal.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8774,6 +10177,7 @@ discussions:
     genetic factors that predict which type develops are largely unknown.
   evidence:
   - reference: PMID:42362970
+    reference_title: &#34;SARS-CoV-2 and diabetes: a post-pandemic reappraisal.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9431,7 +10835,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COVID-19", "mondoId": "MONDO:0100096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COVID-19", "yamlRevision": "6f6578b2d5ef"};
+        const OS_CONFIG = {"diseaseName": "COVID-19", "mondoId": "MONDO:0100096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COVID-19", "yamlRevision": "0ed144eeb782"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9850,5 +11254,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

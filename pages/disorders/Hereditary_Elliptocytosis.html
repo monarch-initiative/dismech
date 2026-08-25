@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Hereditary Elliptocytosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hereditary Elliptocytosis</h1>
             <div class="header-meta">
 
@@ -3672,6 +3874,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3961,7 +4165,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-disease-definition">
                 <div class="item-name">Orphanet disease definition</div>
 
                 <div class="item-desc">Orphanet defines hereditary elliptocytosis as a rare heterogeneous red cell membrane disorder with manifestations ranging from mild or asymptomatic disease to severe transfusion-dependent hemolytic anemia.
@@ -4006,6 +4210,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4042,7 +4247,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4085,6 +4290,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4108,7 +4314,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4150,6 +4356,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4216,7 +4423,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-el1">
 
                     <div class="item-name">
                         Elliptocytosis 1 (EPB41-related)
@@ -4253,6 +4460,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4279,7 +4487,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-el2">
 
                     <div class="item-name">
                         Elliptocytosis 2 (SPTA1-related)
@@ -4316,6 +4524,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4342,7 +4551,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-el3">
 
                     <div class="item-name">
                         Elliptocytosis 3
@@ -4379,6 +4588,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4405,7 +4615,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sao">
 
                     <div class="item-name">
                         Southeast Asian ovalocytosis
@@ -4436,7 +4646,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-thermal-sensitive-he">
 
                     <div class="item-name">
                         Hemolytic anemia with thermal sensitivity of red cells
@@ -4472,6 +4682,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4528,16 +4739,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4564,16 +4780,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         EPB41
 
 
-    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3377">hgnc:3377</a>
+    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3377</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EPB41 (hgnc:3377). hgnc:3377 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4601,11 +4828,18 @@
         GYPC
 
 
-    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4704">hgnc:4704</a>
+    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4704</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GYPC (hgnc:4704). hgnc:4704 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4633,11 +4867,18 @@
         SPTA1
 
 
-    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11272">hgnc:11272</a>
+    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11272</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTA1 (hgnc:11272). hgnc:11272 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4665,10 +4906,13 @@
         SPTB
 
 
-    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11274">hgnc:11274</a>
+    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11274</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTB (hgnc:11274). hgnc:11274 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4695,6 +4939,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         cortical actin cytoskeleton organization
@@ -4702,10 +4948,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030866">GO:0030866</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030866</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cortical actin cytoskeleton organization (GO:0030866). GO:0030866 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4730,16 +4979,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         structural constituent of cytoskeleton
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005200">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0005200</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4760,6 +5014,7 @@
 
 
                 </div>
+
 
 
 
@@ -4796,6 +5051,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4818,6 +5074,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4839,6 +5096,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3748797" target="_blank">PMID:3748797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4873,16 +5131,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4909,16 +5172,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cortical actin cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030866">GO:0030866</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030866" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030866</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cortical actin cytoskeleton organization (GO:0030866). GO:0030866 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4939,6 +5207,7 @@
 
 
                 </div>
+
 
 
 
@@ -4976,6 +5245,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4998,6 +5268,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3748797" target="_blank">PMID:3748797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5019,6 +5290,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3692477" target="_blank">PMID:3692477</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5053,16 +5325,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5089,16 +5366,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         erythrocyte homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034101">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5119,6 +5401,7 @@
 
 
                 </div>
+
 
 
 
@@ -5163,6 +5446,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3748797" target="_blank">PMID:3748797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5184,6 +5468,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5218,16 +5503,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5254,16 +5544,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         erythrocyte homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034101">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0034101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5284,6 +5579,7 @@
 
 
                 </div>
+
 
 
 
@@ -5342,6 +5638,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5375,16 +5672,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5411,16 +5713,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         erythrocyte homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034101">GO:0034101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0034101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal erythrocyte homeostasis (GO:0034101). GO:0034101 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5441,6 +5748,7 @@
 
 
                 </div>
+
 
 
 
@@ -5547,6 +5855,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5568,6 +5877,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30504335" target="_blank">PMID:30504335</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5668,14 +5978,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemolytic anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001878">HP:0001878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5695,6 +6012,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5717,6 +6035,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5751,14 +6070,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reticulocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001923">HP:0001923</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001923</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is reticulocytosis (HP:0001923). HP:0001923 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5778,6 +6104,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5821,14 +6148,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Splenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001744">HP:0001744</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001744</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5848,6 +6182,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5891,14 +6226,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prolonged neonatal jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006579">HP:0006579</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006579</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5918,6 +6260,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5952,14 +6295,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5979,6 +6329,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6013,14 +6364,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cholelithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001081">HP:0001081</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001081</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cholelithiasis (HP:0001081). HP:0001081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6040,6 +6398,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6083,14 +6442,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin ulcer
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0200042</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6110,6 +6476,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6153,14 +6520,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrops fetalis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001789">HP:0001789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6180,6 +6554,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6214,14 +6589,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal hyperbilirubinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003265">HP:0003265</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003265</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is neonatal hyperbilirubinemia (HP:0003265). HP:0003265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6241,6 +6623,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6263,6 +6646,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6306,14 +6690,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6333,6 +6724,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6367,14 +6759,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6394,6 +6793,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6437,14 +6837,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal erythrocyte morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001877" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001877">HP:0001877</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001877</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal erythrocyte morphology (HP:0001877). HP:0001877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6464,6 +6871,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6498,14 +6906,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elliptocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004445" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004445">HP:0004445</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is elliptocytosis (HP:0004445). HP:0004445 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6525,6 +6940,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6547,6 +6963,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6581,14 +6998,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased red cell osmotic fragility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005502" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005502">HP:0005502</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005502</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is increased red cell osmotic fragility (HP:0005502). HP:0005502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6608,6 +7032,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6630,6 +7055,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6664,14 +7090,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital hemolytic anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004804" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004804">HP:0004804</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004804</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is congenital hemolytic anemia (HP:0004804). HP:0004804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6691,6 +7124,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6713,6 +7147,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6747,14 +7182,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poikilocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004447">HP:0004447</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004447</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is poikilocytosis (HP:0004447). HP:0004447 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6774,6 +7216,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6796,6 +7239,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6830,14 +7274,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stomatocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004446">HP:0004446</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004446</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is stomatocytosis (HP:0004446). HP:0004446 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6857,6 +7308,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6891,14 +7343,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperbilirubinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002904">HP:0002904</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002904</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hyperbilirubinemia (HP:0002904). HP:0002904 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,6 +7377,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6996,13 +7456,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EPB41
 
 
-    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3377">hgnc:3377</a>
+    <a href="https://bioregistry.io/hgnc:3377" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:3377</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EPB41 (hgnc:3377). hgnc:3377 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7030,6 +7495,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7051,6 +7517,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7088,13 +7555,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GYPC
 
 
-    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4704">hgnc:4704</a>
+    <a href="https://bioregistry.io/hgnc:4704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:4704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GYPC (hgnc:4704). hgnc:4704 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7115,6 +7587,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7137,6 +7610,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9037349" target="_blank">PMID:9037349</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7174,13 +7648,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPTA1
 
 
-    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11272">hgnc:11272</a>
+    <a href="https://bioregistry.io/hgnc:11272" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11272</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPTA1 (hgnc:11272). hgnc:11272 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7210,6 +7689,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7231,6 +7711,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7268,13 +7749,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPTB
 
 
-    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11274">hgnc:11274</a>
+    <a href="https://bioregistry.io/hgnc:11274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:11274</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPTB (hgnc:11274). hgnc:11274 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7304,6 +7790,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7325,6 +7812,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7356,6 +7844,129 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-hereditary-elliptocytosis-record">
+
+
+    <div class="item-name">Orphanet hereditary elliptocytosis record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">Structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=288" target="_blank" rel="noopener noreferrer" title="Open ORPHA:288">ORPHA:288</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet structured record for hereditary elliptocytosis, including curated cross-references to MONDO, ICD-10, ICD-11, OMIM, MeSH, MedDRA, NIH rare-disease, and UMLS identifiers.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0017319 | Exact"</div>
+
+
+                <div class="evidence-explanation">The Orphanet cross-reference table exactly maps ORPHA:288 to MONDO:0017319.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ICD-10:D58.1 | Exact"</div>
+
+
+                <div class="evidence-explanation">The Orphanet cross-reference table exactly maps ORPHA:288 to ICD-10 D58.1.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"UMLS:C0013902 | Exact"</div>
+
+
+                <div class="evidence-explanation">The Orphanet cross-reference table exactly maps ORPHA:288 to UMLS C0013902.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7371,7 +7982,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">splenectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">splenectomy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is splenectomy (NCIT:C15328). NCIT:C15328 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Splenectomy</span>
 
 
@@ -7439,6 +8055,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30504335" target="_blank">PMID:30504335</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7468,7 +8085,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">blood transfusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Transfusion</span>
 
 
@@ -7506,16 +8128,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         hemolytic anemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001878">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001878</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7534,6 +8161,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7556,6 +8184,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27667160" target="_blank">PMID:27667160</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7622,6 +8251,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7672,6 +8302,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3748797" target="_blank">PMID:3748797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7721,6 +8352,7 @@
                         <a href="https://bioregistry.io/ORPHA:288" target="_blank">ORPHA:288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7759,6 +8391,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7775,7 +8410,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hereditary Elliptocytosis
 creation_date: &#34;2026-05-09T11:51:13Z&#34;
-updated_date: &#34;2026-05-09T23:55:25Z&#34;
 description: &gt;
   Hereditary elliptocytosis is a clinically and genetically heterogeneous
   red-cell membrane disorder in which defects in erythrocyte cytoskeleton
@@ -9202,7 +9836,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Elliptocytosis", "mondoId": "MONDO:0017319", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Elliptocytosis", "yamlRevision": "61cb5ff1ae9b"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Elliptocytosis", "mondoId": "MONDO:0017319", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Elliptocytosis", "yamlRevision": "30f0a2a5b247"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9621,5 +10255,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

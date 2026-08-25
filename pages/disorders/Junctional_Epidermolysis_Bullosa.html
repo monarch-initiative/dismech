@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Junctional Epidermolysis Bullosa</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Junctional Epidermolysis Bullosa</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3827,29 +4031,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3988,7 +4270,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -4012,6 +4294,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4074,7 +4357,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-jeb-severe-herlitz">
 
                     <div class="item-name">
                         JEB Severe (Herlitz)
@@ -4103,7 +4386,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-jeb-intermediate-non-herlitz-generalized-atrophic-benign-eb">
 
                     <div class="item-name">
                         JEB Intermediate (Non-Herlitz / Generalized Atrophic Benign EB)
@@ -4132,7 +4415,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-jeb-with-pyloric-atresia">
 
                     <div class="item-name">
                         JEB with Pyloric Atresia
@@ -4161,7 +4444,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-jeb-late-onset">
 
                     <div class="item-name">
                         JEB Late Onset
@@ -4219,16 +4502,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4255,16 +4543,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         LAMB3
 
 
-    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6490">hgnc:6490</a>
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6490</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4292,11 +4591,18 @@
         LAMA3
 
 
-    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6483">hgnc:6483</a>
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6483</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4324,10 +4630,13 @@
         LAMC2
 
 
-    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6493">hgnc:6493</a>
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6493</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4355,16 +4664,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell-substrate adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031589">GO:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-substrate adhesion (GO:0031589). GO:0031589 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4384,16 +4698,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4414,6 +4733,7 @@
 
 
                 </div>
+
 
 
 
@@ -4451,6 +4771,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23076207" target="_blank">PMID:23076207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4472,6 +4793,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23076207" target="_blank">PMID:23076207</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4506,16 +4828,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4542,15 +4869,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         COL17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2194">hgnc:2194</a>
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2194</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4578,16 +4912,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell-substrate adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031589">GO:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0031589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-substrate adhesion (GO:0031589). GO:0031589 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4608,6 +4947,7 @@
 
 
                 </div>
+
 
 
 
@@ -4645,6 +4985,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4666,6 +5007,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4700,17 +5042,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4731,10 +5080,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4761,16 +5113,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ITGA6
 
 
-    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6142">hgnc:6142</a>
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:6142</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4798,10 +5161,13 @@
         ITGB4
 
 
-    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6158">hgnc:6158</a>
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6158</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4829,16 +5195,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         integrin-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007229">GO:0007229</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007229</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased integrin-mediated signaling pathway (GO:0007229). GO:0007229 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4858,16 +5229,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell-matrix adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007160">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4888,6 +5264,7 @@
 
 
                 </div>
+
 
 
 
@@ -4925,6 +5302,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4958,16 +5336,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         epidermal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000362" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000362">CL:0000362</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000362" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000362</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epidermal cell (CL:0000362). CL:0000362 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4994,16 +5377,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell adhesion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007155">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5024,6 +5412,7 @@
 
 
                 </div>
+
 
 
 
@@ -5061,6 +5450,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5082,6 +5472,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23076207" target="_blank">PMID:23076207</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5116,16 +5507,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5152,16 +5548,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         wound healing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042060">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5191,6 +5592,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5202,6 +5604,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5225,6 +5628,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12915477" target="_blank">PMID:12915477</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5246,6 +5650,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12915477" target="_blank">PMID:12915477</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5280,16 +5685,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         ameloblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000059">CL:0000059</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000059</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ameloblast (CL:0000059). CL:0000059 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5316,16 +5726,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         odontogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042476">GO:0042476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0042476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0042476 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5355,6 +5770,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5366,6 +5782,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23076207" target="_blank">PMID:23076207</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5415,7 +5832,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Causative\"}}, {\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}]}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or defective laminin-332 eliminates anchoring filament function at the lamina lucida, leading to tissue separation between the epidermis and dermis.\\n\"}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type XVII collagen disrupts hemidesmosome transmembrane linkage, leading to separation at the lamina lucida.\\n\"}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin alpha-6-beta-4 impairs hemidesmosome assembly and adhesion to the basement membrane.\\n\"}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wound healing response to persistent tissue separation leads to exuberant granulation tissue, a distinctive feature of JEB.\\n\"}, {\"source\": \"LAMB3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"COL17A1 (BP180) Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}], \"association\": \"Causative\"}}, {\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGA6\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}], \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}], \"association\": \"Causative\"}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}]}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA3\"], \"gene_terms\": [{\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LAMB3\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}], \"association\": \"Causative\"}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or defective laminin-332 eliminates anchoring filament function at the lamina lucida, leading to tissue separation between the epidermis and dermis.\\n\"}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type XVII collagen disrupts hemidesmosome transmembrane linkage, leading to separation at the lamina lucida.\\n\"}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin alpha-6-beta-4 impairs hemidesmosome assembly and adhesion to the basement membrane.\\n\"}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wound healing response to persistent tissue separation leads to exuberant granulation tissue, a distinctive feature of JEB.\\n\"}, {\"source\": \"LAMB3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"COL17A1 (BP180) Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5468,14 +5885,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5495,6 +5919,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5518,6 +5943,7 @@
                         <a href="https://bioregistry.io/ORPHA:79404" target="_blank">ORPHA:79404</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5539,6 +5965,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79402" target="_blank">ORPHA:79402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5582,14 +6009,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital pyloric atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004399" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004399">HP:0004399</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004399</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is congenital pyloric atresia (HP:0004399). HP:0004399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5612,6 +6046,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5633,6 +6068,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79403" target="_blank">ORPHA:79403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5674,14 +6110,23 @@
                         Urethral and Bladder Involvement
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the urethra
+
+                        <span class="phenotype-term-label">Abnormality of the urethra</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000795" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000795">HP:0000795</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000795" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000795</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormality of the urethra (HP:0000795). HP:0000795 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5703,6 +6148,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5744,14 +6190,21 @@
                         Enamel Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enamel hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5774,6 +6227,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5795,6 +6249,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19700011" target="_blank">PMID:19700011</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5827,14 +6282,23 @@
                         Dental Caries
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Carious teeth
+
+                        <span class="phenotype-term-label">Carious teeth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000670">HP:0000670</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000670</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dental caries, annotated with Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5857,6 +6321,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5878,6 +6343,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19700011" target="_blank">PMID:19700011</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5910,14 +6376,23 @@
                         Scarring Alopecia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scarring alopecia of scalp
+
+                        <span class="phenotype-term-label">Scarring alopecia of scalp</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004552">HP:0004552</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004552</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is scarring alopecia, annotated with Scarring alopecia of scalp (HP:0004552). HP:0004552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5939,6 +6414,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5982,14 +6458,23 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal blistering of the skin
+
+                        <span class="phenotype-term-label">Abnormal blistering of the skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008066">HP:0008066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0008066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6009,6 +6494,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6031,6 +6517,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6063,14 +6550,21 @@
                         Exuberant Granulation Tissue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exuberant granulation tissue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000956" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000956">HP:6000956</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000956</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is exuberant granulation tissue (HP:6000956). HP:6000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6092,6 +6586,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6124,14 +6619,21 @@
                         Nail Dystrophy or Absent Nails
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nail dystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008404">HP:0008404</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008404</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6153,6 +6655,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6194,14 +6697,23 @@
                         Respiratory Complications
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency
+
+                        <span class="phenotype-term-label">Respiratory insufficiency</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6224,6 +6736,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6245,6 +6758,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22512697" target="_blank">PMID:22512697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6288,14 +6802,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hoarse voice
+
+                        <span class="phenotype-term-label">Hoarse voice</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001609">HP:0001609</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001609</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hoarse cry, annotated with Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6315,6 +6838,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6337,6 +6861,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79404" target="_blank">ORPHA:79404</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6380,14 +6905,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6410,6 +6942,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6431,6 +6964,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:79404" target="_blank">ORPHA:79404</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6505,6 +7039,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMB3
+
+
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6490</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6525,6 +7081,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23076207" target="_blank">PMID:23076207</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6547,6 +7104,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6580,6 +7138,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMA3
+
+
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:6483</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6600,6 +7180,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6633,6 +7214,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LAMC2
+
+
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:6493</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6653,6 +7256,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6686,6 +7290,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: COL17A1
+
+
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:2194</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6706,6 +7332,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6729,6 +7356,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9038345" target="_blank">PMID:9038345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6750,6 +7378,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9038345" target="_blank">PMID:9038345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6783,6 +7412,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITGA6
+
+
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:6142</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6803,6 +7454,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6836,6 +7488,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITGB4
+
+
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:6158</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6856,6 +7530,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6887,6 +7562,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6902,7 +7580,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">wound care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">wound care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is wound care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6952,6 +7635,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6973,6 +7657,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7003,7 +7688,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Nutritional Support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7052,6 +7742,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7081,7 +7772,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7131,6 +7827,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7160,7 +7857,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -7210,6 +7912,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17115047" target="_blank">PMID:17115047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7232,6 +7935,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17115047" target="_blank">PMID:17115047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7253,6 +7957,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29144448" target="_blank">PMID:29144448</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7285,7 +7990,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">birch triterpenes topical gel</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">birch triterpenes topical gel<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is birch triterpenes topical gel, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7335,6 +8045,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36689495" target="_blank">PMID:36689495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7356,6 +8067,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36689495" target="_blank">PMID:36689495</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7386,7 +8098,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7436,6 +8153,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7465,7 +8183,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7514,6 +8237,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7558,7 +8282,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse75838">
                 <div class="item-name">
                     Absence of integrin α3 modulates the integrin landscape of human keratinocytes
 
@@ -7613,6 +8337,7 @@
                         <a href="https://bioregistry.io/GEO:GSE75838" target="_blank">GEO:GSE75838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7634,6 +8359,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/GEO:GSE75838" target="_blank">GEO:GSE75838</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7670,7 +8396,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05111600">
                 <div class="item-name">
                     NCT05111600
 
@@ -7687,16 +8413,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         skin blistering
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008066">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets skin blistering, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7714,6 +8445,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05111600" target="_blank">clinicaltrials:NCT05111600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7738,7 +8470,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03526159">
                 <div class="item-name">
                     NCT03526159
 
@@ -7755,16 +8487,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Wound healing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001058">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7782,6 +8519,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03526159" target="_blank">clinicaltrials:NCT03526159</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7812,6 +8550,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7828,7 +8569,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Junctional Epidermolysis Bullosa
 creation_date: &#39;2026-03-10T12:00:00Z&#39;
-updated_date: &#39;2026-05-09T20:37:58Z&#39;
 category: Mendelian
 description: &gt;-
   Junctional epidermolysis bullosa (JEB) is caused by mutations in genes
@@ -7956,6 +8696,7 @@ prevalence:
     explanation: Documents the primary causes of death in JEB-Herlitz patients.
 pathophysiology:
 - name: Laminin-332 Deficiency
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
   description: &gt;
     Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of
     the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential
@@ -8012,6 +8753,7 @@ pathophysiology:
     snippet: &#34;Laminin 332 is an essential component of the dermal-epidermal junction, a highly specialized basement membrane zone that attaches the epidermis to the dermis and thereby provides skin integrity and resistance to external mechanical forces&#34;
     explanation: Confirms laminin-332 is essential for dermal-epidermal adhesion.
 - name: COL17A1 (BP180) Deficiency
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
   description: &gt;
     Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane
     hemidesmosome component that links the intracellular cytoskeleton to the
@@ -8052,6 +8794,7 @@ pathophysiology:
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: Confirms EB is caused by mutations in genes encoding adhesion proteins.
 - name: Integrin Alpha-6-Beta-4 Deficiency
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
   description: &gt;
     Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer,
     a critical hemidesmosome receptor that mediates adhesion between basal
@@ -8100,6 +8843,7 @@ pathophysiology:
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms ITGB4 as a causative gene for JEB.
 - name: Loss of Lamina Lucida Adhesion
+  conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Loss of Adhesive Integrity at a Defined Cleavage Plane&#34;
   description: &gt;
     The common downstream consequence of all JEB-causing mutations. Defective
     anchoring filaments and hemidesmosome components lead to tissue separation
@@ -8729,6 +9473,7 @@ clinical_trials:
       label: Abnormal blistering of the skin
   evidence:
   - reference: clinicaltrials:NCT05111600
+    reference_title: &#34;Multicentre, Open-label, Uncontrolled, Pivotal Clinical Trial to Confirm the Efficacy and Safety of Autologous Fibrin-cultured Epidermal Grafts Containing Epidermal Stem Cells Genetically Modified for Restoration of Epidermis in Patients With Junctional Epidermolysis Bullosa&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The purpose of this study is to demonstrate the safety and efficacy after one or more treatments with genetically corrected cultured epidermal autograft (Hologene 5) for restoration of the epidermis in patients with generalized intermediate LAMB3-dependent Junctional Epidermolysis Bullosa.&#34;
@@ -8752,6 +9497,7 @@ clinical_trials:
       label: Poor wound healing
   evidence:
   - reference: clinicaltrials:NCT03526159
+    reference_title: &#34;A Pilot Study of the Restoration of Functional Laminin 332 in JEB Patients With Nonsense Mutations After Topical and Intravenous Gentamicin Treatment&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Herein, the investigators propose the first clinical trial of gentamicin (by topical and intravenous administration) in JEB patients with nonsense mutations. The milestones will include restored laminin 332 and hemidesmosomes at the DEJ, improved wound closure, and the absence of significant gentamicin side effects.&#34;
@@ -8762,6 +9508,11 @@ clinical_trials:
     early safety assessment.
 genetic:
 - name: LAMB3
+  gene_term:
+    preferred_term: LAMB3
+    term:
+      id: hgnc:6490
+      label: LAMB3
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8790,6 +9541,11 @@ genetic:
     snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Confirms LAMB3 as one of the three genes most often mutated in JEB-Herlitz.
 - name: LAMA3
+  gene_term:
+    preferred_term: LAMA3
+    term:
+      id: hgnc:6483
+      label: LAMA3
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8811,6 +9567,11 @@ genetic:
     snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Confirms LAMA3 as a causative gene for JEB-Herlitz.
 - name: LAMC2
+  gene_term:
+    preferred_term: LAMC2
+    term:
+      id: hgnc:6493
+      label: LAMC2
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8832,6 +9593,11 @@ genetic:
     snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
     explanation: Confirms LAMC2 as a causative gene for JEB-Herlitz.
 - name: COL17A1
+  gene_term:
+    preferred_term: COL17A1
+    term:
+      id: hgnc:2194
+      label: COL17A1
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8872,6 +9638,11 @@ genetic:
     snippet: &#34;Revertant mosaicism represents a way of natural gene therapy&#34;
     explanation: Revertant patches represent natural somatic correction but remain localized and do not expand to correct the whole epidermis.
 - name: ITGA6
+  gene_term:
+    preferred_term: ITGA6
+    term:
+      id: hgnc:6142
+      label: ITGA6
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8896,6 +9667,11 @@ genetic:
     snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
     explanation: EB consensus classification recognizes 16+ causative genes including ITGA6 encoding integrin alpha-6, part of the alpha6-beta4 heterodimer critical for hemidesmosome function.
 - name: ITGB4
+  gene_term:
+    preferred_term: ITGB4
+    term:
+      id: hgnc:6158
+      label: ITGB4
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -8936,11 +9712,13 @@ datasets:
   - rescue and knockdown keratinocyte controls
   evidence:
   - reference: GEO:GSE75838
+    reference_title: &#34;Absence of integrin α3 modulates the integrin landscape of human keratinocytes&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Loss-of function mutations of the integrin α3 gene (ITGA3) have been recently disclosed in patients with interstitial lung disease, congenital nephrotic syndrome and junctional epidermolysis bullosa&#34;
     explanation: Establishes the dataset&#39;s direct link to a human JEB-spectrum disorder caused by ITGA3 deficiency.
   - reference: GEO:GSE75838
+    reference_title: &#34;Absence of integrin α3 modulates the integrin landscape of human keratinocytes&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Here we employed authentic human keratinocytes bearing a naturally occurring integrin α3 loss-of-function mutation as a prototype&#34;
@@ -9439,6 +10217,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1111/vde.12972" target="_blank">DOI:10.1111/vde.12972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9545,6 +10324,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0288263" target="_blank">DOI:10.1371/journal.pone.0288263</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9613,6 +10393,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.15690/vsp.v23i5.2808" target="_blank">DOI:10.15690/vsp.v23i5.2808</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9683,6 +10464,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fgene.2021.705019" target="_blank">DOI:10.3389/fgene.2021.705019</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9751,6 +10533,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/cancers17193211" target="_blank">DOI:10.3390/cancers17193211</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9821,6 +10604,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/genes14101835" target="_blank">DOI:10.3390/genes14101835</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9889,6 +10673,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25042243" target="_blank">DOI:10.3390/ijms25042243</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10378,7 +11163,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "b8c3fbd595cc"};
+        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "59b9d49a15ad"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10797,5 +11582,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

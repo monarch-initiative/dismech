@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Anauxetic dysplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Anauxetic dysplasia</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3835,7 +4039,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3880,6 +4084,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3902,6 +4107,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3923,6 +4129,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3981,7 +4188,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ad1">
 
                     <div class="item-name">
                         Anauxetic dysplasia 1 (RMRP-related)
@@ -3995,16 +4202,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 RMRP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10031">hgnc:10031</a>
+    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10031</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RMRP (hgnc:10031). hgnc:10031 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4030,6 +4242,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4057,7 +4270,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ad2">
 
                     <div class="item-name">
                         Anauxetic dysplasia 2 (POP1-related)
@@ -4071,16 +4284,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POP1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30129">hgnc:30129</a>
+    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:30129</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POP1 (hgnc:30129). hgnc:30129 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4106,6 +4324,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067412" target="_blank">PMID:28067412</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4133,7 +4352,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ad3">
 
                     <div class="item-name">
                         Anauxetic dysplasia 3 (NEPRO-related)
@@ -4147,16 +4366,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 NEPRO
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24496">hgnc:24496</a>
+    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:24496</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NEPRO (hgnc:24496). hgnc:24496 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4183,6 +4407,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4204,6 +4429,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4317,35 +4543,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Reduced ribosome output is the effector and the disorder is a true ribosomopathy</li>
 
-
-
-    <span class="entity-ref-chip">Reduced ribosome output is the effector and the disorder is a true ribosomopathy</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>A co-varying RNase MRP activity predicts skeletal severity equally well, so the ribosomopathy label is an artefact of assay choice</li>
 
-
-
-    <span class="entity-ref-chip">A co-varying RNase MRP activity predicts skeletal severity equally well, so the ribosomopathy label is an artefact of assay choice</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4377,6 +4599,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067412" target="_blank">PMID:28067412</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4398,6 +4621,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21396580" target="_blank">PMID:21396580</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4492,35 +4716,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Separable structural elements govern the two activities, so allele-level functional testing can predict immune and cancer risk</li>
 
-
-
-    <span class="entity-ref-chip">Separable structural elements govern the two activities, so allele-level functional testing can predict immune and cancer risk</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Both activities degrade together and the clinical dissociation reflects tissue-specific thresholds instead</li>
 
-
-
-    <span class="entity-ref-chip">Both activities degrade together and the clinical dissociation reflects tissue-specific thresholds instead</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4613,35 +4833,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Growth plate chondrocytes have the highest ribosome demand and fail first on a purely quantitative basis</li>
 
-
-
-    <span class="entity-ref-chip">Growth plate chondrocytes have the highest ribosome demand and fail first on a purely quantitative basis</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Specific chondrocyte transcripts are selectively lost, implicating a targeted client rather than global demand</li>
 
-
-
-    <span class="entity-ref-chip">Specific chondrocyte transcripts are selectively lost, implicating a targeted client rather than global demand</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4672,6 +4888,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4717,21 +4934,21 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Severe short stature</span>
+    <a class="entity-ref-chip" href="#phenotype-severe-short-stature">phenotypes#Severe short stature</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Atlantoaxial dislocation</span>
+    <a class="entity-ref-chip" href="#phenotype-atlantoaxial-dislocation">phenotypes#Atlantoaxial dislocation</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Thoracolumbar kyphoscoliosis</span>
+    <a class="entity-ref-chip" href="#phenotype-thoracolumbar-kyphoscoliosis">phenotypes#Thoracolumbar kyphoscoliosis</a>
 
 
 
@@ -4773,42 +4990,33 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>The recently reported systemic ANXD3 findings are reproducible subtype features</li>
 
+            <li>Defined imaging and functional measures can serve as natural-history and trial endpoints</li>
 
-
-    <span class="entity-ref-chip">The recently reported systemic ANXD3 findings are reproducible subtype features</span>
-
-
-
-
-
-
-    <span class="entity-ref-chip">Defined imaging and functional measures can serve as natural-history and trial endpoints</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>The systemic findings remain confined to single families and are not reproducible ANXD3 associations</li>
 
-
-
-    <span class="entity-ref-chip">The systemic findings remain confined to single families and are not reproducible ANXD3 associations</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4839,6 +5047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4891,16 +5100,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RMRP
 
 
-    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10031">hgnc:10031</a>
+    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:10031</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RMRP (hgnc:10031). hgnc:10031 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4928,11 +5148,18 @@
         POP1
 
 
-    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30129">hgnc:30129</a>
+    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:30129</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves POP1 (hgnc:30129). hgnc:30129 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4960,10 +5187,13 @@
         NEPRO
 
 
-    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24496">hgnc:24496</a>
+    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:24496</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEPRO (hgnc:24496). hgnc:24496 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4983,6 +5213,7 @@
 
 
                 </div>
+
 
 
 
@@ -5032,6 +5263,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5053,6 +5285,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5093,16 +5326,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         rRNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006364" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006364">GO:0006364</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006364" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006364</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased rRNA processing (GO:0006364). GO:0006364 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5157,6 +5395,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5186,6 +5425,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5208,6 +5448,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21396580" target="_blank">PMID:21396580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5229,6 +5470,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28067412" target="_blank">PMID:28067412</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5269,16 +5511,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051726">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5323,6 +5570,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5360,6 +5608,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5382,6 +5631,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21396580" target="_blank">PMID:21396580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5403,6 +5653,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5431,6 +5682,7 @@
                 <div class="item-name">Conditional Immune and Haematopoietic Spectrum Involvement</div>
 
                 <div class="item-desc">Immunodeficiency, defective erythrogenesis, and malignancy risk belong to the CHH-AD spectrum and track the messenger-RNA-cleavage arm. They are retained as conditional overlap risks that require baseline assessment, not as expected manifestations of pure ANXD; the 2026 ANXD3 series explicitly reported no immune involvement.</div>
+
 
 
 
@@ -5492,6 +5744,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5513,6 +5766,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -5546,16 +5800,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5582,16 +5841,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chondrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5600,6 +5864,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5617,10 +5883,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003415" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003415">GO:0003415</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003415" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0003415</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chondrocyte hypertrophy (GO:0003415). GO:0003415 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5640,16 +5909,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5691,6 +5965,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5787,6 +6062,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5809,6 +6085,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5830,6 +6107,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5876,6 +6154,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5887,6 +6166,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5933,6 +6213,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5944,6 +6225,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5993,7 +6275,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: defective erythrogenesis is documented across CHH-AD but is not assumed in pure ANXD. It remains relevant to baseline assessment because the molecular and phenotypic boundaries overlap.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Atlantoaxial Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation may be present in the newborn and is largely specific to the anauxetic end of the spectrum. It is the feature with the most immediate clinical consequence, because it converts routine general anaesthesia into a cervical cord risk and may require surgical fusion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation, present from the newborn period at the anauxetic end of the spectrum, carrying cervical cord risk during anaesthesia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003414\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits with short metacarpals and broad middle phalanges, reported in all individuals of the NEPRO-related series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Cervical spine stabilization and anaesthetic precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where cervical spinal instability is present, special care is required during general anaesthesia and surgical fusion of unstable cervical vertebrae may be needed. This is the highest-stakes management point in anauxetic dysplasia, because the risk is realized during otherwise routine procedures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immunodeficiency, defective erythrogenesis, and malignancy risk belong to the CHH-AD spectrum and track the messenger-RNA-cleavage arm. They are retained as conditional overlap risks that require baseline assessment, not as expected manifestations of pure ANXD; the 2026 ANXD3 series explicitly reported no immune involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Conditional haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recurrent severe infections, SCID, or severely depressed erythropoiesis may warrant transplantation when these CHH-AD spectrum manifestations overlap an ANXD diagnosis. Transplantation addresses the haematopoietic complication and does not correct the skeletal dysplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conditional infection management and immune support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"If clinically significant spectrum-overlap immunodeficiency is identified, manage infections by type and severity, use immediate high-dose intravenous acyclovir for varicella, and consider antibiotic prophylaxis or immunoglobulin replacement. These measures do not apply without immune dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extreme Disproportionate Short-Limb Short Stature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anauxetic dysplasia carries the most pronounced skeletal phenotype of the spectrum. The name itself means without growth, and adult stature is at the extreme end of human short stature.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fine hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fine, silky hair is a CHH-AD spectrum association that tracks the messenger-RNA-cleavage arm. It is retained as a differential clue rather than an assumed feature of pure ANXD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002213\"}}, {\"id\": \"Growth Plate Chondrocyte Differentiation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocytes in the proliferative zone of the growth plate are among the most biosynthetically demanding cells in the developing skeleton, which is why a generalized ribosome assembly defect strikes them hardest. Experimentally the step most affected is hypertrophic differentiation rather than proliferation alone, and RNase MRP is itself expressed in the growth plate with expression tracking chondrocyte hypertrophy. The result is metaphyseal dysplasia and a failure of endochondral bone elongation that is already evident at birth.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"chondrocyte differentiation\", \"chondrocyte hypertrophy\", \"endochondral ossification\"], \"experimental_models\": [{\"name\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures differentiation and hypertrophy after Rmrp interference.\"}]}}, {\"id\": \"Hypoplastic ilia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the iliac bones is a characteristic pelvic radiographic feature of ANXD3.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0000946\"}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: immunodeficiency, including SCID, is established across the CHH-AD spectrum but is not assumed in pure ANXD. Because the consequence of missing overlap is high, baseline immune assessment and conditional safety measures remain appropriate. The latest three-person ANXD3 family reported no immunological involvement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002721\"}}, {\"id\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first of the two substrate arms. RNase MRP participates in ribosomal RNA processing during ribosome assembly, and the magnitude of the rRNA cleavage defect correlates directly with the degree of bone dysplasia. Anauxetic dysplasia sits at the severe end because its allele combinations produce the greatest loss of this specific activity. The ribosomopathy label is the conventional reading of that correlation, but it is contested; see the knowledge gap attached to this node.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"rRNA processing\"], \"experimental_models\": [{\"name\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures pre-rRNA processing and mature rRNA abundance after Rmrp interference.\"}, {\"name\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"model_type\": \"OTHER\", \"description\": \"Quantifies variant-specific loss of rRNA cleavage against bone-dysplasia severity.\"}]}}, {\"id\": \"Kyphoscoliosis and limb deformity surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery may be needed for progressive kyphoscoliosis compromising lung function, and corrective osteotomies for progressive varus deformity of the lower extremities.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Metaphyseal irregularity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular metaphyseal contours reflect the growth-plate and endochondral ossification defect.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0003025\"}}, {\"id\": \"NEPRO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NEPRO\"], \"gene_terms\": [{\"label\": \"NEPRO\", \"id\": \"hgnc:24496\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: malignancy risk is established chiefly in CHH cohorts and tracks the messenger-RNA-cleavage arm. No risk estimate exists for pure ANXD, whose case count is too small to exclude or quantify predisposition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Ovoid vertebral bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovoid vertebral morphology is part of the characteristic radiographic pattern of NEPRO-related anauxetic dysplasia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0003300\"}}, {\"id\": \"POP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"POP1\"], \"gene_terms\": [{\"label\": \"POP1\", \"id\": \"hgnc:30129\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RMRP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RMRP\"], \"gene_terms\": [{\"label\": \"RMRP\", \"id\": \"hgnc:10031\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RNase MRP Complex Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMRP encodes the untranslated RNA component of RNase MRP, a ribonucleoprotein endoribonuclease. Pathogenic variants either alter evolutionarily conserved nucleotides or disrupt the secondary structure by mispairing within stem regions, so the lesion is one of RNA folding and catalysis rather than of a protein coding sequence. The genetically distinct forms hit protein members of the same complex (POP1) or an interacting nucleolar partner (NEPRO), which is why they converge on one phenotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RMRP\", \"POP1\", \"NEPRO\"], \"gene_terms\": [{\"label\": \"RMRP\", \"id\": \"hgnc:10031\"}, {\"label\": \"POP1\", \"id\": \"hgnc:30129\"}, {\"label\": \"NEPRO\", \"id\": \"hgnc:24496\"}]}}, {\"id\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rmrp interference in ATDC5 cells models the growth-plate differentiation defect and couples impaired pre-rRNA processing to a particularly strong defect in chondrocyte hypertrophy. It is a two-dimensional mouse-derived model and does not reproduce the multisite human skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"Rmrp knockdown\", \"Control chondrogenic differentiation\"], \"publication\": \"PMID:28743979\"}}, {\"id\": \"Severe short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme disproportionate short-limb short stature, recognizable in the newborn and sometimes prenatally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003510\"}}, {\"id\": \"Thoracolumbar kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined thoracolumbar kyphosis and scoliosis is shared across previously reported and newly described ANXD3 cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003423\"}}, {\"id\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Variant-specific cleavage assays separate the rRNA activity that tracks skeletal severity from the mRNA activity that tracks CHH-like hair, immune, and haematologic manifestations. The assays support substrate-specific genotype-phenotype correlation but do not model growth-plate architecture.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Thirteen disease-associated RMRP variants\", \"Wild-type RNase MRP activity comparator\"], \"publication\": \"PMID:17701897\"}}, {\"id\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second substrate arm is a modifier of position within the CHH-AD spectrum rather than an obligatory ANXD lesion. Reduced cleavage of RNase MRP messenger-RNA targets impairs cell-cycle regulation, and the degree of that impairment predicts hair hypoplasia, immunodeficiency and haematological abnormality rather than bone severity. Pure ANXD can therefore combine profound skeletal dysplasia with relative preservation of these extraskeletal systems. The concrete substrate is Cyclin B2 mRNA, cleaved at the end of mitosis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell cycle\"], \"experimental_models\": [{\"name\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"model_type\": \"OTHER\", \"description\": \"Quantifies variant-specific mRNA cleavage against extraskeletal spectrum features.\"}]}}], \"edges\": [{\"source\": \"RNase MRP Complex Loss of Function\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RNase MRP activity on its ribosomal RNA substrate compromises ribosome biogenesis.\"}, {\"source\": \"RNase MRP Complex Loss of Function\", \"target\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific impairment of messenger-RNA cleavage determines whether CHH-like hair, immune, and haematologic features overlap the skeletal phenotype; those features are not assumed to be part of pure ANXD.\"}, {\"source\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"target\": \"Growth Plate Chondrocyte Differentiation Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced RNase MRP activity disrupts growth-plate chondrocyte differentiation, with the strongest experimental effect at hypertrophy.\"}, {\"source\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When messenger-RNA cleavage is sufficiently impaired, immune and erythroid progenitor dysfunction can overlap the skeletal phenotype.\"}, {\"source\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"target\": \"Fine hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair hypoplasia tracks the messenger-RNA-cleavage arm across the spectrum.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conditional immune-cell dysfunction manifests clinically as immunodeficiency.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conditional erythroid dysfunction manifests clinically as anemia.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell-cycle and immune arm provides the spectrum-level route to malignancy risk.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Extreme Disproportionate Short-Limb Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of endochondral elongation in the limbs produces disproportionate dwarfism.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Severe short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connects the tissue mechanism to the ontology-bound clinical phenotype.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same dysplastic process affects the upper cervical vertebrae and their ligamentous stabilization.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Atlantoaxial dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connects cervical instability to the ontology-bound clinical phenotype.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal endochondral development shortens the metacarpals and phalanges.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Ovoid vertebral bodies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered vertebral ossification produces the characteristic ovoid vertebral morphology.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Hypoplastic ilia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pelvic endochondral growth failure produces underdeveloped iliac bones.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Metaphyseal irregularity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate disorganization produces irregular metaphyseal contours.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Thoracolumbar kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive vertebral dysplasia produces combined thoracolumbar kyphosis and scoliosis.\"}, {\"source\": \"Cervical spine stabilization and anaesthetic precautions\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kyphoscoliosis and limb deformity surgery\", \"target\": \"Thoracolumbar kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional infection management and immune support\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional haematopoietic stem cell transplantation\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"target\": \"Growth Plate Chondrocyte Differentiation Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"target\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"RMRP\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POP1\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEPRO\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: defective erythrogenesis is documented across CHH-AD but is not assumed in pure ANXD. It remains relevant to baseline assessment because the molecular and phenotypic boundaries overlap.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Atlantoaxial Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation may be present in the newborn and is largely specific to the anauxetic end of the spectrum. It is the feature with the most immediate clinical consequence, because it converts routine general anaesthesia into a cervical cord risk and may require surgical fusion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atlantoaxial subluxation, present from the newborn period at the anauxetic end of the spectrum, carrying cervical cord risk during anaesthesia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003414\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits with short metacarpals and broad middle phalanges, reported in all individuals of the NEPRO-related series.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Cervical spine stabilization and anaesthetic precautions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where cervical spinal instability is present, special care is required during general anaesthesia and surgical fusion of unstable cervical vertebrae may be needed. This is the highest-stakes management point in anauxetic dysplasia, because the risk is realized during otherwise routine procedures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immunodeficiency, defective erythrogenesis, and malignancy risk belong to the CHH-AD spectrum and track the messenger-RNA-cleavage arm. They are retained as conditional overlap risks that require baseline assessment, not as expected manifestations of pure ANXD; the 2026 ANXD3 series explicitly reported no immune involvement.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Conditional haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recurrent severe infections, SCID, or severely depressed erythropoiesis may warrant transplantation when these CHH-AD spectrum manifestations overlap an ANXD diagnosis. Transplantation addresses the haematopoietic complication and does not correct the skeletal dysplasia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Conditional infection management and immune support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"If clinically significant spectrum-overlap immunodeficiency is identified, manage infections by type and severity, use immediate high-dose intravenous acyclovir for varicella, and consider antibiotic prophylaxis or immunoglobulin replacement. These measures do not apply without immune dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Extreme Disproportionate Short-Limb Short Stature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anauxetic dysplasia carries the most pronounced skeletal phenotype of the spectrum. The name itself means without growth, and adult stature is at the extreme end of human short stature.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fine hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fine, silky hair is a CHH-AD spectrum association that tracks the messenger-RNA-cleavage arm. It is retained as a differential clue rather than an assumed feature of pure ANXD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002213\"}}, {\"id\": \"Growth Plate Chondrocyte Differentiation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chondrocytes in the proliferative zone of the growth plate are among the most biosynthetically demanding cells in the developing skeleton, which is why a generalized ribosome assembly defect strikes them hardest. Experimentally the step most affected is hypertrophic differentiation rather than proliferation alone, and RNase MRP is itself expressed in the growth plate with expression tracking chondrocyte hypertrophy. The result is metaphyseal dysplasia and a failure of endochondral bone elongation that is already evident at birth.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"chondrocyte differentiation\", \"chondrocyte hypertrophy\", \"endochondral ossification\"], \"experimental_models\": [{\"name\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures differentiation and hypertrophy after Rmrp interference.\"}]}}, {\"id\": \"Hypoplastic ilia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the iliac bones is a characteristic pelvic radiographic feature of ANXD3.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0000946\"}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: immunodeficiency, including SCID, is established across the CHH-AD spectrum but is not assumed in pure ANXD. Because the consequence of missing overlap is high, baseline immune assessment and conditional safety measures remain appropriate. The latest three-person ANXD3 family reported no immunological involvement.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002721\"}}, {\"id\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The first of the two substrate arms. RNase MRP participates in ribosomal RNA processing during ribosome assembly, and the magnitude of the rRNA cleavage defect correlates directly with the degree of bone dysplasia. Anauxetic dysplasia sits at the severe end because its allele combinations produce the greatest loss of this specific activity. The ribosomopathy label is the conventional reading of that correlation, but it is contested; see the knowledge gap attached to this node.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"rRNA processing\"], \"experimental_models\": [{\"name\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Measures pre-rRNA processing and mature rRNA abundance after Rmrp interference.\"}, {\"name\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"model_type\": \"OTHER\", \"description\": \"Quantifies variant-specific loss of rRNA cleavage against bone-dysplasia severity.\"}]}}, {\"id\": \"Kyphoscoliosis and limb deformity surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery may be needed for progressive kyphoscoliosis compromising lung function, and corrective osteotomies for progressive varus deformity of the lower extremities.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Metaphyseal irregularity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular metaphyseal contours reflect the growth-plate and endochondral ossification defect.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0003025\"}}, {\"id\": \"NEPRO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NEPRO\"], \"gene_terms\": [{\"label\": \"NEPRO\", \"id\": \"hgnc:24496\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SPECTRUM-LEVEL: malignancy risk is established chiefly in CHH cohorts and tracks the messenger-RNA-cleavage arm. No risk estimate exists for pure ANXD, whose case count is too small to exclude or quantify predisposition.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Ovoid vertebral bodies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovoid vertebral morphology is part of the characteristic radiographic pattern of NEPRO-related anauxetic dysplasia.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD3\"], \"term_id\": \"HP:0003300\"}}, {\"id\": \"POP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"POP1\"], \"gene_terms\": [{\"label\": \"POP1\", \"id\": \"hgnc:30129\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RMRP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RMRP\"], \"gene_terms\": [{\"label\": \"RMRP\", \"id\": \"hgnc:10031\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RNase MRP Complex Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RMRP encodes the untranslated RNA component of RNase MRP, a ribonucleoprotein endoribonuclease. Pathogenic variants either alter evolutionarily conserved nucleotides or disrupt the secondary structure by mispairing within stem regions, so the lesion is one of RNA folding and catalysis rather than of a protein coding sequence. The genetically distinct forms hit protein members of the same complex (POP1) or an interacting nucleolar partner (NEPRO), which is why they converge on one phenotype.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"RMRP\", \"POP1\", \"NEPRO\"], \"gene_terms\": [{\"label\": \"RMRP\", \"id\": \"hgnc:10031\"}, {\"label\": \"POP1\", \"id\": \"hgnc:30129\"}, {\"label\": \"NEPRO\", \"id\": \"hgnc:24496\"}]}}, {\"id\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Rmrp interference in ATDC5 cells models the growth-plate differentiation defect and couples impaired pre-rRNA processing to a particularly strong defect in chondrocyte hypertrophy. It is a two-dimensional mouse-derived model and does not reproduce the multisite human skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"Rmrp knockdown\", \"Control chondrogenic differentiation\"], \"publication\": \"PMID:28743979\"}}, {\"id\": \"Severe short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extreme disproportionate short-limb short stature, recognizable in the newborn and sometimes prenatally.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003510\"}}, {\"id\": \"Thoracolumbar kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Combined thoracolumbar kyphosis and scoliosis is shared across previously reported and newly described ANXD3 cases.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003423\"}}, {\"id\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Variant-specific cleavage assays separate the rRNA activity that tracks skeletal severity from the mRNA activity that tracks CHH-like hair, immune, and haematologic manifestations. The assays support substrate-specific genotype-phenotype correlation but do not model growth-plate architecture.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Thirteen disease-associated RMRP variants\", \"Wild-type RNase MRP activity comparator\"], \"publication\": \"PMID:17701897\"}}, {\"id\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The second substrate arm is a modifier of position within the CHH-AD spectrum rather than an obligatory ANXD lesion. Reduced cleavage of RNase MRP messenger-RNA targets impairs cell-cycle regulation, and the degree of that impairment predicts hair hypoplasia, immunodeficiency and haematological abnormality rather than bone severity. Pure ANXD can therefore combine profound skeletal dysplasia with relative preservation of these extraskeletal systems. The concrete substrate is Cyclin B2 mRNA, cleaved at the end of mitosis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell cycle\"], \"experimental_models\": [{\"name\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"model_type\": \"OTHER\", \"description\": \"Quantifies variant-specific mRNA cleavage against extraskeletal spectrum features.\"}]}}], \"edges\": [{\"source\": \"RNase MRP Complex Loss of Function\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RNase MRP activity on its ribosomal RNA substrate compromises ribosome biogenesis.\"}, {\"source\": \"RNase MRP Complex Loss of Function\", \"target\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific impairment of messenger-RNA cleavage determines whether CHH-like hair, immune, and haematologic features overlap the skeletal phenotype; those features are not assumed to be part of pure ANXD.\"}, {\"source\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"target\": \"Growth Plate Chondrocyte Differentiation Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced RNase MRP activity disrupts growth-plate chondrocyte differentiation, with the strongest experimental effect at hypertrophy.\"}, {\"source\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When messenger-RNA cleavage is sufficiently impaired, immune and erythroid progenitor dysfunction can overlap the skeletal phenotype.\"}, {\"source\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"target\": \"Fine hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair hypoplasia tracks the messenger-RNA-cleavage arm across the spectrum.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conditional immune-cell dysfunction manifests clinically as immunodeficiency.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Conditional erythroid dysfunction manifests clinically as anemia.\"}, {\"source\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell-cycle and immune arm provides the spectrum-level route to malignancy risk.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Extreme Disproportionate Short-Limb Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of endochondral elongation in the limbs produces disproportionate dwarfism.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Severe short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connects the tissue mechanism to the ontology-bound clinical phenotype.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same dysplastic process affects the upper cervical vertebrae and their ligamentous stabilization.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Atlantoaxial dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connects cervical instability to the ontology-bound clinical phenotype.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal endochondral development shortens the metacarpals and phalanges.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Ovoid vertebral bodies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered vertebral ossification produces the characteristic ovoid vertebral morphology.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Hypoplastic ilia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pelvic endochondral growth failure produces underdeveloped iliac bones.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Metaphyseal irregularity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth-plate disorganization produces irregular metaphyseal contours.\"}, {\"source\": \"Growth Plate Chondrocyte Differentiation Failure\", \"target\": \"Thoracolumbar kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive vertebral dysplasia produces combined thoracolumbar kyphosis and scoliosis.\"}, {\"source\": \"Cervical spine stabilization and anaesthetic precautions\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kyphoscoliosis and limb deformity surgery\", \"target\": \"Thoracolumbar kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional infection management and immune support\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conditional haematopoietic stem cell transplantation\", \"target\": \"Conditional Immune and Haematopoietic Spectrum Involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures pre-rRNA processing and mature rRNA abundance after Rmrp interference.\"}, {\"source\": \"Rmrp-deficient ATDC5 chondrogenic cell model\", \"target\": \"Growth Plate Chondrocyte Differentiation Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures differentiation and hypertrophy after Rmrp interference.\"}, {\"source\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"target\": \"Impaired rRNA Cleavage in Ribosome Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Quantifies variant-specific loss of rRNA cleavage against bone-dysplasia severity.\"}, {\"source\": \"Variant-specific RNase MRP substrate-cleavage assay\", \"target\": \"mRNA Cleavage-Dependent Spectrum Modulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Quantifies variant-specific mRNA cleavage against extraskeletal spectrum features.\"}, {\"source\": \"RMRP\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POP1\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEPRO\", \"target\": \"RNase MRP Complex Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6054,14 +6336,21 @@
                         Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6081,6 +6370,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6122,14 +6412,21 @@
                         Malabsorption
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Malabsorption
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002024">HP:0002024</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6149,6 +6446,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21396580" target="_blank">PMID:21396580</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6171,6 +6469,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6212,14 +6511,21 @@
                         Hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6239,6 +6545,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6280,14 +6587,21 @@
                         Cataract
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6307,6 +6621,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6348,14 +6663,23 @@
                         Dental anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the dentition
+
+                        <span class="phenotype-term-label">Abnormality of the dentition</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000164">HP:0000164</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000164</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6375,6 +6699,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63316" target="_blank">DOI:10.1002/ajmg.a.63316</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6397,6 +6722,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63316" target="_blank">DOI:10.1002/ajmg.a.63316</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6429,14 +6755,21 @@
                         Craniosynostosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Craniosynostosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001363">HP:0001363</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001363</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6456,6 +6789,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63316" target="_blank">DOI:10.1002/ajmg.a.63316</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6488,14 +6822,21 @@
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6515,6 +6856,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6556,14 +6898,21 @@
                         Immunodeficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Immunodeficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002721">HP:0002721</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002721</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Immunodeficiency (HP:0002721). HP:0002721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6583,6 +6932,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6605,6 +6955,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6646,14 +6997,21 @@
                         Hyperextensible skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperextensible skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000974">HP:0000974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperextensible skin (HP:0000974). HP:0000974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6673,6 +7031,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6714,14 +7073,21 @@
                         Brachydactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brachydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6741,6 +7107,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6773,14 +7140,21 @@
                         Metaphyseal irregularity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Metaphyseal irregularity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003025" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003025">HP:0003025</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003025</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metaphyseal irregularity (HP:0003025). HP:0003025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6800,6 +7174,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6832,14 +7207,21 @@
                         Talipes equinovarus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Talipes equinovarus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6859,6 +7241,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6891,14 +7274,21 @@
                         Coxa vara
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coxa vara
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002812">HP:0002812</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002812</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,6 +7308,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22528854" target="_blank">PMID:22528854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6950,14 +7341,21 @@
                         Genu valgum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Genu valgum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002857">HP:0002857</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002857</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6977,6 +7375,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22528854" target="_blank">PMID:22528854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7018,14 +7417,21 @@
                         Joint hypermobility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7045,6 +7451,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7067,6 +7474,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7099,14 +7507,21 @@
                         Hypoplastic ilia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplastic ilia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000946" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000946">HP:0000946</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000946</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic ilia (HP:0000946). HP:0000946 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7126,6 +7541,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7167,14 +7583,21 @@
                         Intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7194,6 +7617,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7237,14 +7661,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Severe short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003510">HP:0003510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe short stature (HP:0003510). HP:0003510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7264,6 +7695,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7305,14 +7737,21 @@
                         Neoplasm
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7332,6 +7771,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7373,14 +7813,21 @@
                         Atlantoaxial dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atlantoaxial dislocation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003414" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003414">HP:0003414</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003414</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atlantoaxial dislocation (HP:0003414). HP:0003414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7400,6 +7847,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7422,6 +7870,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.63316" target="_blank">DOI:10.1002/ajmg.a.63316</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7454,14 +7903,21 @@
                         Fine hair
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fine hair
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002213" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002213">HP:0002213</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002213</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fine hair (HP:0002213). HP:0002213 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7481,6 +7937,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7513,14 +7970,21 @@
                         Ovoid vertebral bodies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovoid vertebral bodies
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003300">HP:0003300</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003300</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovoid vertebral bodies (HP:0003300). HP:0003300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7540,6 +8004,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7572,14 +8037,21 @@
                         Thoracolumbar kyphoscoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thoracolumbar kyphoscoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003423" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003423">HP:0003423</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003423" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003423</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thoracolumbar kyphoscoliosis (HP:0003423). HP:0003423 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7599,6 +8071,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7631,14 +8104,21 @@
                         Urolithiasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Urolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034368" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034368">HP:0034368</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0034368</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urolithiasis (HP:0034368). HP:0034368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7658,6 +8138,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7690,14 +8171,21 @@
                         Aganglionic megacolon
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aganglionic megacolon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002251">HP:0002251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aganglionic megacolon (HP:0002251). HP:0002251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7717,6 +8205,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21396580" target="_blank">PMID:21396580</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7795,13 +8284,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RMRP
 
 
-    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10031">hgnc:10031</a>
+    <a href="https://bioregistry.io/hgnc:10031" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:10031</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RMRP (hgnc:10031). hgnc:10031 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7824,6 +8318,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7861,13 +8356,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POP1
 
 
-    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30129">hgnc:30129</a>
+    <a href="https://bioregistry.io/hgnc:30129" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:30129</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POP1 (hgnc:30129). hgnc:30129 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7890,6 +8390,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7927,13 +8428,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEPRO
 
 
-    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24496">hgnc:24496</a>
+    <a href="https://bioregistry.io/hgnc:24496" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:24496</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEPRO (hgnc:24496). hgnc:24496 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7957,6 +8463,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7979,6 +8486,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31250547" target="_blank">PMID:31250547</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8000,6 +8508,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41982866" target="_blank">PMID:41982866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8031,6 +8540,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8046,7 +8558,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">orthopedic surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
@@ -8113,6 +8630,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8142,7 +8660,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">orthopedic surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
@@ -8209,6 +8732,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8230,6 +8754,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22528854" target="_blank">PMID:22528854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8260,7 +8785,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8309,6 +8839,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8338,7 +8869,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8387,6 +8923,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8416,7 +8953,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8465,6 +9007,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8494,7 +9037,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8560,6 +9108,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8589,7 +9138,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">haematopoietic cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">haematopoietic cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is haematopoietic cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -8656,6 +9210,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22420014" target="_blank">PMID:22420014</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8702,15 +9257,14 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cartilage-hair-hypoplasia">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Cartilage-hair hypoplasia</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Cartilage-hair_hypoplasia.html">Cartilage-hair hypoplasia</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0009595" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0009595" target="_blank">
                             MONDO:0009595
                         </a>
                     </span>
@@ -8750,6 +9304,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8771,6 +9326,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8797,7 +9353,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-metaphyseal-dysplasia-without-hypotrichosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Metaphyseal dysplasia without hypotrichosis</span>
@@ -8846,6 +9402,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8912,15 +9469,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         chondrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8930,15 +9492,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-49">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-49">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8971,14 +9538,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-rrna-cleavage-in-ribosome-assembly">Impaired rRNA Cleavage in Ribosome Assembly</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Measures pre-rRNA processing and mature rRNA abundance after Rmrp interference.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-rrna-cleavage-in-ribosome-assembly">Impaired rRNA Cleavage in Ribosome Assembly</a>
+
+
+
+                <span class="crosslink-desc">Measures pre-rRNA processing and mature rRNA abundance after Rmrp interference.</span>
+
+
 
 
 
@@ -8993,6 +9565,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9015,12 +9588,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-growth-plate-chondrocyte-differentiation-failure">Growth Plate Chondrocyte Differentiation Failure</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-growth-plate-chondrocyte-differentiation-failure">Growth Plate Chondrocyte Differentiation Failure</a>
 
-                            <span class="crosslink-desc">Measures differentiation and hypertrophy after Rmrp interference.</span>
+
+
+                <span class="crosslink-desc">Measures differentiation and hypertrophy after Rmrp interference.</span>
+
+
 
 
 
@@ -9035,6 +9612,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9057,10 +9635,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9087,6 +9666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9128,6 +9708,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28743979" target="_blank">PMID:28743979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9178,15 +9759,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-50">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-50">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -9219,14 +9805,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-rrna-cleavage-in-ribosome-assembly">Impaired rRNA Cleavage in Ribosome Assembly</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Quantifies variant-specific loss of rRNA cleavage against bone-dysplasia severity.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-rrna-cleavage-in-ribosome-assembly">Impaired rRNA Cleavage in Ribosome Assembly</a>
+
+
+
+                <span class="crosslink-desc">Quantifies variant-specific loss of rRNA cleavage against bone-dysplasia severity.</span>
+
+
 
 
 
@@ -9241,6 +9832,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9263,12 +9855,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mrna-cleavage-dependent-spectrum-modulation">mRNA Cleavage-Dependent Spectrum Modulation</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mrna-cleavage-dependent-spectrum-modulation">mRNA Cleavage-Dependent Spectrum Modulation</a>
 
-                            <span class="crosslink-desc">Quantifies variant-specific mRNA cleavage against extraskeletal spectrum features.</span>
+
+
+                <span class="crosslink-desc">Quantifies variant-specific mRNA cleavage against extraskeletal spectrum features.</span>
+
+
 
 
 
@@ -9283,6 +9879,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9305,10 +9902,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9327,6 +9925,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17701897" target="_blank">PMID:17701897</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9352,6 +9951,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10920,9 +11522,9 @@ discussions:
       If ribosome output predicts skeletal severity better than the other
       activities do, the ribosomopathy label is earned; if a co-varying activity
       predicts it as well or better, it is not.
-    would_support:
+    supporting_outcome:
     - Reduced ribosome output is the effector and the disorder is a true ribosomopathy
-    would_refute:
+    refuting_outcome:
     - A co-varying RNase MRP activity predicts skeletal severity equally well, so the ribosomopathy label is an artefact of assay choice
   evidence:
   - reference: PMID:28067412
@@ -10973,9 +11575,9 @@ discussions:
     decision_criterion: &gt;-
       Identification of distinct structural determinants for the two substrates
       that predict the clinical dissociation would establish a prognostic assay.
-    would_support:
+    supporting_outcome:
     - Separable structural elements govern the two activities, so allele-level functional testing can predict immune and cancer risk
-    would_refute:
+    refuting_outcome:
     - Both activities degrade together and the clinical dissociation reflects tissue-specific thresholds instead
 - discussion_id: gap_anauxetic_chondrocyte_selectivity
   kind: KNOWLEDGE_GAP
@@ -11019,9 +11621,9 @@ discussions:
     decision_criterion: &gt;-
       Disproportionate global translational collapse in chondrocytes supports a
       demand model; selective transcript loss supports a client-specific model.
-    would_support:
+    supporting_outcome:
     - Growth plate chondrocytes have the highest ribosome demand and fail first on a purely quantitative basis
-    would_refute:
+    refuting_outcome:
     - Specific chondrocyte transcripts are selectively lost, implicating a targeted client rather than global demand
 - discussion_id: gap_anauxetic_natural_history_and_therapy
   kind: KNOWLEDGE_GAP
@@ -11064,10 +11666,10 @@ discussions:
       Replication of each manifestation in unrelated families and stable
       subtype-specific incidence estimates would distinguish core findings from
       family-specific observations and provide endpoints for future trials.
-    would_support:
+    supporting_outcome:
     - The recently reported systemic ANXD3 findings are reproducible subtype features
     - Defined imaging and functional measures can serve as natural-history and trial endpoints
-    would_refute:
+    refuting_outcome:
     - The systemic findings remain confined to single families and are not reproducible ANXD3 associations
 references:
 - reference: PMID:22420014
@@ -11719,7 +12321,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anauxetic dysplasia", "mondoId": "MONDO:0011773", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anauxetic_dysplasia", "yamlRevision": "fb0f3e7ba76d"};
+        const OS_CONFIG = {"diseaseName": "Anauxetic dysplasia", "mondoId": "MONDO:0011773", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anauxetic_dysplasia", "yamlRevision": "c760ee087740"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12138,5 +12740,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

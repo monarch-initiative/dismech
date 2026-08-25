@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Shprintzen-Goldberg Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Shprintzen-Goldberg Syndrome</h1>
             <div class="header-meta">
 
@@ -3696,6 +3898,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3794,6 +3998,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3803,9 +4077,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 33 &#34;Craniosynostosis syndromes&#34;; listed as &#34;Shprintzen-Goldberg syndrome&#34;.">craniosynostosis syndromes</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3823,7 +4113,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3850,6 +4140,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3906,16 +4197,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3942,16 +4238,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         TGF-beta Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TGF-beta Signaling, annotated with transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3971,16 +4272,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Cranial Suture Closure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060363">GO:0060363</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060363" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cranial Suture Closure, annotated with cranial suture morphogenesis (GO:0060363). GO:0060363 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4004,6 +4310,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4017,7 +4324,7 @@
 	                        </div>
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Aortic Aneurysm</span>
+	                            <span class="crosslink-meta">Aortic Root Dilatation</span>
 
 	                            <span class="crosslink-desc">Enhanced TGF-beta signaling in the aortic wall drives aortic root dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related aortic aneurysm syndromes alongside Marfan and Loeys-Dietz syndromes.</span>
 
@@ -4041,6 +4348,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23023332" target="_blank">PMID:23023332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4061,6 +4369,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23023332" target="_blank">PMID:23023332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4080,6 +4389,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4121,17 +4431,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Skeletal System Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001501">GO:0001501</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Skeletal System Development (GO:0001501). GO:0001501 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4152,10 +4469,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4172,6 +4492,7 @@
 
 
                 </div>
+
 
 
 
@@ -4232,6 +4553,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736733" target="_blank">PMID:24736733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4278,7 +4600,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic root dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related aortic aneurysm syndromes alongside MFS and LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004942\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long, slender fingers characteristic of connective tissue disorders.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001166\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis is a distinguishing feature of SGS compared to Marfan and Loeys-Dietz syndromes. Sagittal and lambdoid sutures are most commonly affected.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001363\"}}, {\"id\": \"Enhanced TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SKI is a transcriptional co-repressor that normally inhibits TGF-beta signaling by binding to SMAD proteins and recruiting transcriptional repression complexes. Loss-of-function mutations in SKI lead to enhanced TGF-beta signaling, similar to the paradoxical TGF-beta hyperactivation seen in Loeys-Dietz and Marfan syndromes. This drives abnormal connective tissue development.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"TGF-beta Signaling\", \"Cranial Suture Closure\"]}}, {\"id\": \"Joint Contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Camptodactyly and other flexion contractures are common, particularly of the fingers and elbows.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001371\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis is common and may be severe.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling disrupts normal skeletal patterning and growth, leading to dolichostenomelia, arachnodactyly, scoliosis, and joint contractures similar to Marfan syndrome. Craniosynostosis results from premature fusion of cranial sutures.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Skeletal System Development\", \"Ossification\"]}}], \"edges\": [{\"source\": \"Enhanced TGF-beta Signaling\", \"target\": \"Skeletal Development Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased TGF-beta signaling perturbs craniofacial and skeletal development, producing the marfanoid-craniosynostosis skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced TGF-beta Signaling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling in the aortic wall drives aortic root dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related aortic aneurysm syndromes alongside Marfan and Loeys-Dietz syndromes.\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal skeletal patterning and cranial suture morphogenesis produce craniosynostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-development disruption manifests as spinal curvature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted skeletal and connective-tissue development produces digital flexion contractures such as camptodactyly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The marfanoid skeletal habitus includes arachnodactyly.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Root Dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic root dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related aortic aneurysm syndromes alongside MFS and LDS. The cardiovascular involvement is generally milder and less consistent than in Marfan or Loeys-Dietz syndrome, so this is curated without a frequency band.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long, slender fingers characteristic of connective tissue disorders.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001166\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Craniosynostosis is a distinguishing feature of SGS compared to Marfan and Loeys-Dietz syndromes. Sagittal and lambdoid sutures are most commonly affected.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001363\"}}, {\"id\": \"Enhanced TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SKI is a transcriptional co-repressor that normally inhibits TGF-beta signaling by binding to SMAD proteins and recruiting transcriptional repression complexes. Loss-of-function mutations in SKI lead to enhanced TGF-beta signaling, similar to the paradoxical TGF-beta hyperactivation seen in Loeys-Dietz and Marfan syndromes. This drives abnormal connective tissue development.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"TGF-beta Signaling\", \"Cranial Suture Closure\"]}}, {\"id\": \"Joint Contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Camptodactyly and other flexion contractures are common, particularly of the fingers and elbows.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001371\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis is common and may be severe.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling disrupts normal skeletal patterning and growth, leading to dolichostenomelia, arachnodactyly, scoliosis, and joint contractures similar to Marfan syndrome. Craniosynostosis results from premature fusion of cranial sutures.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Skeletal System Development\", \"Ossification\"]}}], \"edges\": [{\"source\": \"Enhanced TGF-beta Signaling\", \"target\": \"Skeletal Development Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased TGF-beta signaling perturbs craniofacial and skeletal development, producing the marfanoid-craniosynostosis skeletal phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Enhanced TGF-beta Signaling\", \"target\": \"Aortic Root Dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling in the aortic wall drives aortic root dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related aortic aneurysm syndromes alongside Marfan and Loeys-Dietz syndromes.\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal skeletal patterning and cranial suture morphogenesis produce craniosynostosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-development disruption manifests as spinal curvature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted skeletal and connective-tissue development produces digital flexion contractures such as camptodactyly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The marfanoid skeletal habitus includes arachnodactyly.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4322,19 +4644,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-aneurysm" data-dismech-node="Aortic Aneurysm" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-root-dilatation" data-dismech-node="Aortic Root Dilatation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Aortic Aneurysm
+                        Aortic Root Dilatation
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Aortic aneurysm
+
+                        <span class="phenotype-term-label">Aortic root aneurysm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004942">HP:0004942</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002616</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic root dilatation, annotated with Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4345,15 +4676,39 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301454" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301454" target="_blank">PMID:20301454</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiovascular anomalies may include mitral valve prolapse, secundum atrial septal defect, and aortic root dilatation."</div>
+
+
+                <div class="evidence-explanation">GeneReviews localizes the aortic involvement to the aortic root. HPO carries &#34;Aortic root dilatation&#34; as a broad synonym of HP:0002616, whose definition is an abnormal localized widening (dilatation) of the aortic root.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:23023332" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23023332" target="_blank">PMID:23023332</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4363,7 +4718,7 @@
                 <div class="evidence-snippet">"Shprintzen-Goldberg syndrome (SGS) has considerable phenotypic overlap with MFS and LDS, including aortic aneurysm."</div>
 
 
-                <div class="evidence-explanation">Identifies aortic aneurysm as a feature shared with MFS and LDS.</div>
+                <div class="evidence-explanation">Establishes aortic aneurysm as a feature shared with MFS and LDS. Supports the aneurysm claim at the level of the aorta generally; the root-specific localization comes from the GeneReviews citation above.</div>
 
 
 
@@ -4384,14 +4739,21 @@
                         Mitral Valve Prolapse
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001634</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4411,6 +4773,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2462" target="_blank">ORPHA:2462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4452,14 +4815,21 @@
                         Inguinal Hernia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Inguinal hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000023">HP:0000023</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000023</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inguinal hernia (HP:0000023). HP:0000023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4479,6 +4849,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2462" target="_blank">ORPHA:2462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4520,14 +4891,21 @@
                         Craniosynostosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Craniosynostosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001363">HP:0001363</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001363</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4547,6 +4925,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4568,6 +4947,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508238" target="_blank">PMID:9508238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4587,6 +4967,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2462" target="_blank">ORPHA:2462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4628,14 +5009,21 @@
                         Arachnodactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arachnodactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001166">HP:0001166</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001166</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4655,6 +5043,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2462" target="_blank">ORPHA:2462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4696,14 +5085,21 @@
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4723,6 +5119,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2462" target="_blank">ORPHA:2462</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,14 +5152,23 @@
                         Joint Contractures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flexion contracture
+
+                        <span class="phenotype-term-label">Flexion contracture</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001371">HP:0001371</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001371</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4782,6 +5188,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4812,14 +5219,23 @@
                         Cervical Vertebral Anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the cervical spine
+
+                        <span class="phenotype-term-label">Abnormality of the cervical spine</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003319">HP:0003319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the cervical spine (HP:0003319). HP:0003319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4839,6 +5255,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508238" target="_blank">PMID:9508238</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4878,14 +5295,21 @@
                         Intellectual Disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4906,6 +5330,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736733" target="_blank">PMID:24736733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4925,6 +5350,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4964,14 +5390,21 @@
                         Disproportionate Tall Stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disproportionate tall stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001519">HP:0001519</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001519</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate tall stature (HP:0001519). HP:0001519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4991,6 +5424,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5078,6 +5512,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23023332" target="_blank">PMID:23023332</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5098,6 +5533,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23103230" target="_blank">PMID:23103230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5117,6 +5553,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736733" target="_blank">PMID:24736733</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5152,13 +5589,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SKI
 
 
-    <a href="https://bioregistry.io/hgnc:10896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10896">hgnc:10896</a>
+    <a href="https://bioregistry.io/hgnc:10896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:10896</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SKI (hgnc:10896). hgnc:10896 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5179,6 +5621,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_019ffb7a-be5f-482d-9adf-e28d5aadaede-2024-07-23T160000.000Z" target="_blank">CGGV:assertion_019ffb7a-be5f-482d-9adf-e28d5aadaede-2024-07-23T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5208,6 +5651,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5300,7 +5746,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004908">
                 <div class="item-name">
                     Mutations in SKI in Shprintzen-Goldberg syndrome lead to attenuated TGFB responses through SKI stabilization
 
@@ -5342,6 +5788,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5360,7 +5809,6 @@
 synonyms:
 - Shprintzen-Goldberg syndrome, SKI-related
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Mendelian
 description: &gt;
   Shprintzen-Goldberg syndrome (SGS) is a rare autosomal dominant connective tissue
@@ -5407,16 +5855,19 @@ prevalence:
     syndrome was first described in 1982.
   evidence:
   - reference: PMID:38186910
+    reference_title: &#34;A Rare Case of Shprintzen-Goldberg craniosynostosis syndrome with Hirschsprung disorder: Dental characteristics and its Clinical Management&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Shprintzen-Goldberg syndrome (SGS) is an autosomal dominant syndrome caused by de novo gene mutations. It is characterized by a number of congenital defects such as craniofacial, skeletal, neurological, and connective tissue abnormalities. It is characterized by craniosynostosis and marfanoid features. To our knowledge, approximately 75 shprintzen-goldberg syndrome cases have been documented since it was first described in 1982.&#34;
     explanation: This recent PubMed-indexed case report provides an updated count-based estimate of the number of documented SGS cases.
   - reference: PMID:9508238
+    reference_title: &#34;Shprintzen-Goldberg syndrome: a clinical analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Shprintzen-Goldberg syndrome is one of a group of disorders characterized by craniosynostosis and marfanoid habitus. Eleven cases were reported previously. We present 4 new patients&#34;
     explanation: This early clinical analysis explicitly documented 15 recognized cases.
   - reference: PMID:24736733
+    reference_title: &#34;The SMAD-binding domain of SKI: a hotspot for de novo mutations causing Shprintzen-Goldberg syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Adding our new findings to the existing data clearly reveals a mutational hotspot, with 73% (24 out of 33) of the hitherto described unrelated patients having mutations in a stretch of five SKI residues&#34;
@@ -5463,7 +5914,7 @@ pathophysiology:
       explanation: &gt;-
         This supports skeletal and craniofacial manifestations downstream of
         the SKI/TGF-beta connective-tissue mechanism.
-  - target: Aortic Aneurysm
+  - target: Aortic Root Dilatation
     description: &gt;-
       Enhanced TGF-beta signaling in the aortic wall drives aortic root
       dilation and aneurysm, placing SGS in the spectrum of TGF-beta-related
@@ -5535,6 +5986,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2462
+      reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001363 | Craniosynostosis | Frequent (79-30%)&#34;
@@ -5545,6 +5997,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2462
+      reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002650 | Scoliosis | Frequent (79-30%)&#34;
@@ -5570,6 +6023,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2462
+      reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001166 | Arachnodactyly | Very frequent (99-80%)&#34;
@@ -5605,6 +6059,7 @@ phenotypes:
       Identifies craniosynostosis as a defining feature distinguishing SGS
       from other marfanoid conditions.
   - reference: ORPHA:2462
+    reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001363 | Craniosynostosis | Frequent (79-30%)&#34;
@@ -5666,6 +6121,7 @@ phenotypes:
       label: Scoliosis
   evidence:
   - reference: ORPHA:2462
+    reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002650 | Scoliosis | Frequent (79-30%)&#34;
@@ -5699,20 +6155,33 @@ phenotypes:
       label: Arachnodactyly
   evidence:
   - reference: ORPHA:2462
+    reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001166 | Arachnodactyly | Very frequent (99-80%)&#34;
     explanation: Orphadata lists arachnodactyly as a very frequent SGS phenotype.
-- name: Aortic Aneurysm
+- name: Aortic Root Dilatation
   description: &gt;
     Aortic root dilation and aneurysm, placing SGS in the spectrum of
-    TGF-beta-related aortic aneurysm syndromes alongside MFS and LDS.
+    TGF-beta-related aortic aneurysm syndromes alongside MFS and LDS. The
+    cardiovascular involvement is generally milder and less consistent than in
+    Marfan or Loeys-Dietz syndrome, so this is curated without a frequency band.
   phenotype_term:
-    preferred_term: Aortic aneurysm
+    preferred_term: Aortic root dilatation
     term:
-      id: HP:0004942
-      label: Aortic aneurysm
+      id: HP:0002616
+      label: Aortic root aneurysm
   evidence:
+  - reference: PMID:20301454
+    reference_title: &#34;Shprintzen-Goldberg Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cardiovascular anomalies may include mitral valve prolapse, secundum atrial septal defect, and aortic root dilatation.&#34;
+    explanation: &gt;-
+      GeneReviews localizes the aortic involvement to the aortic root. HPO
+      carries &#34;Aortic root dilatation&#34; as a broad synonym of HP:0002616, whose
+      definition is an abnormal localized widening (dilatation) of the aortic
+      root.
   - reference: PMID:23023332
     reference_title: &#34;Mutations in the TGF-β repressor SKI cause Shprintzen-Goldberg syndrome with aortic aneurysm.&#34;
     supports: SUPPORT
@@ -5720,7 +6189,9 @@ phenotypes:
       Shprintzen-Goldberg syndrome (SGS) has considerable phenotypic overlap
       with MFS and LDS, including aortic aneurysm.
     explanation: &gt;-
-      Identifies aortic aneurysm as a feature shared with MFS and LDS.
+      Establishes aortic aneurysm as a feature shared with MFS and LDS. Supports
+      the aneurysm claim at the level of the aorta generally; the root-specific
+      localization comes from the GeneReviews citation above.
 - name: Mitral Valve Prolapse
   description: &gt;
     Mitral valve prolapse occurs in some patients. Cardiovascular
@@ -5732,6 +6203,7 @@ phenotypes:
       label: Mitral valve prolapse
   evidence:
   - reference: ORPHA:2462
+    reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001634 | Mitral valve prolapse | Frequent (79-30%)&#34;
@@ -5746,6 +6218,7 @@ phenotypes:
       label: Inguinal hernia
   evidence:
   - reference: ORPHA:2462
+    reference_title: &#34;Shprintzen-Goldberg syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000023 | Inguinal hernia | Frequent (79-30%)&#34;
@@ -6217,7 +6690,7 @@ Shprintzen-Goldberg syndrome is caused by heterozygous de novo mutations in SKI,
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Shprintzen-Goldberg Syndrome", "mondoId": "MONDO:0008426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shprintzen-Goldberg_Syndrome", "yamlRevision": "0421a5bc8b52"};
+        const OS_CONFIG = {"diseaseName": "Shprintzen-Goldberg Syndrome", "mondoId": "MONDO:0008426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Shprintzen-Goldberg_Syndrome", "yamlRevision": "4333dc17908c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6636,5 +7109,73 @@ Shprintzen-Goldberg syndrome is caused by heterozygous de novo mutations in SKI,
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

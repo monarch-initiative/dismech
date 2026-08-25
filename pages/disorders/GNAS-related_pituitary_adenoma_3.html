@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,12 +3754,18 @@
             <span>GNAS-related pituitary adenoma 3</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>GNAS-related pituitary adenoma 3</h1>
             <div class="header-meta">
 
                 <span class="badge badge-category">Neoplastic</span>
 
+
+                <span class="badge badge-mondo">
+                    <a href="http://purl.obolibrary.org/obo/MONDO_0054665" target="_blank">
+                        MONDO:0054665
+                    </a>
+                </span>
 
 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
@@ -3693,6 +3901,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3792,6 +4002,108 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="The entity itself is a neoplasm — a somatotroph adenoma driven by a somatic oncogenic mutation (gsp), with an explicit proliferation node in the pathograph. Per the dismech disease-classification guidance, neoplastic entries take this Part.">ONCOLOGY HEMATOLOGY</span>
+
+
+                    <span class="tag tag-classification" title="The organ-system Part is retained here rather than omitted as it usually is for cancers, because the disease presents, is diagnosed and is monitored endocrinologically: it is a hormone-secreting tumor of the pituitary whose clinical syndrome is acromegaly, whose diagnostic node is GH/IGF-I biochemistry, and whose treatment endpoint is biochemical control. Both curated diagnosis nodes and both treatments in this entry are endocrine.">ENDOCRINOLOGY METABOLISM</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -3831,7 +4143,7 @@
                     </div>
                     <div class="tag-list">
 
-                        <span class="tag tag-classification">skos:closeMatch</span>
+                        <span class="tag tag-classification">skos:broadMatch</span>
 
 
                         <span class="tag tag-parent">MONDO</span>
@@ -3839,7 +4151,7 @@
 
                     </div>
 
-                    <div class="mapping-notes">Closest available MONDO grouping term for somatic GNAS-driven pituitary adenoma; a gene-specific PITA3 term is not represented in the local ontology snapshot.</div>
+                    <div class="mapping-notes">Parent grouping term. Retained as a broad cross-reference now that the gene-specific PITA3 term (MONDO:0054665) is bound as this entry&#39;s disease_term. An earlier version of this block asserted that no PITA3 term existed in the local ontology snapshot and used skos:closeMatch on that basis; the term does exist (OMIM:617686, RO:0004003 to HGNC:4392 GNAS, is_a familial isolated pituitary adenoma), so the claim was wrong and the predicate is corrected to broadMatch rather than left implying near-equivalence to the whole pituitary-adenoma class.</div>
 
                 </div>
 
@@ -3925,6 +4237,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31673695" target="_blank">PMID:31673695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3947,6 +4260,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31673695" target="_blank">PMID:31673695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3968,6 +4282,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18489744" target="_blank">PMID:18489744</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4020,7 +4335,7 @@
 
 
 
-    <span class="entity-ref-chip">treatment#First-generation somatostatin receptor ligand therapy</span>
+    <a class="entity-ref-chip" href="#treatment-first-generation-somatostatin-receptor-ligand-therapy">treatment#First-generation somatostatin receptor ligand therapy</a>
 
 
 
@@ -4047,6 +4362,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34638340" target="_blank">PMID:34638340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4097,15 +4413,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4140,15 +4463,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4194,16 +4524,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         GNAS intrinsic GTPase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003924">GO:0003924</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased GNAS intrinsic GTPase activity, annotated with GTPase activity (GO:0003924). GO:0003924 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4229,19 +4564,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000007">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0000007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4275,6 +4616,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4307,16 +4649,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4336,6 +4683,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4346,10 +4697,13 @@
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4380,6 +4734,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         cAMP biosynthetic process
@@ -4387,10 +4743,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006171" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006171">GO:0006171</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006171" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cAMP biosynthetic process (GO:0006171). GO:0006171 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4415,16 +4774,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adenylate cyclase activator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010856" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010856">GO:0010856</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010856" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0010856</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased adenylate cyclase activator activity (GO:0010856). GO:0010856 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4445,6 +4809,7 @@
 
 
                 </div>
+
 
 
 
@@ -4480,6 +4845,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4512,16 +4878,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4548,16 +4919,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0141156">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4578,6 +4954,7 @@
 
 
                 </div>
+
 
 
 
@@ -4622,6 +4999,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4654,16 +5032,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4690,16 +5073,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         growth hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030252">GO:0030252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4729,6 +5117,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4740,6 +5129,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4773,16 +5163,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4809,16 +5204,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4845,19 +5245,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000007">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4875,6 +5281,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4948,13 +5355,18 @@
 
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000845">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000845</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4974,6 +5386,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5007,13 +5420,18 @@
 
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002893" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002893">HP:0002893</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002893" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002893</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pituitary adenoma (HP:0002893). HP:0002893 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5033,6 +5451,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5066,13 +5485,18 @@
 
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033794" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033794">HP:0033794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033794</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acral overgrowth (HP:0033794). HP:0033794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5092,6 +5516,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27812777" target="_blank">PMID:27812777</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5144,13 +5569,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:4392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5175,6 +5605,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5206,6 +5637,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5221,7 +5655,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
@@ -5267,6 +5706,39 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33079318" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33079318" target="_blank">PMID:33079318</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biochemical control remains the strongest predictor of patient outcomes, reflecting improvements in glucose metabolism, OSA, cardiovascular disease, and VFs."</div>
+
+
+                <div class="evidence-explanation">Evidence for the mechanism link rather than the treatment as a whole: biochemical control is control of the GH/IGF-1 output node this link targets, and it is what the outcome benefit tracks — so the multimodal algorithm is correctly modeled as acting on that node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -5276,16 +5748,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Growth hormone excess
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000845">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5304,6 +5781,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33079318" target="_blank">PMID:33079318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5327,6 +5805,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33079318" target="_blank">PMID:33079318</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5348,6 +5827,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33079318" target="_blank">PMID:33079318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5380,7 +5860,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Somatostatin Analog Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Somatostatin Analog Therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Somatostatin Analog Therapy (NCIT:C15449). NCIT:C15449 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5425,6 +5910,39 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34638340" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34638340" target="_blank">PMID:34638340</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biochemical control with fg-SRL treatment was similar in gsp+ and gsp- patients (37% vs. 25%, p = 0.219)."</div>
+
+
+                <div class="evidence-explanation">Evidence for the mechanism link, and deliberately partial. Biochemical control is achieved on fg-SRL, so the drug does act on the GH-secretion node; but control is statistically indistinguishable between gsp+ and gsp- tumors, so the link must not be modeled as GNAS-specific. This is the same result recorded in the gap_gnas_srl_response_prediction knowledge gap, and MODULATES rather than INHIBITS is the right effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -5434,16 +5952,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Growth hormone excess
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000845">HP:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Growth hormone excess, annotated with Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5462,6 +5985,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34638340" target="_blank">PMID:34638340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5484,6 +6008,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34638340" target="_blank">PMID:34638340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5529,6 +6054,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5553,8 +6081,12 @@ parents:
 - pituitary gland adenoma
 disease_term:
   preferred_term: GNAS-related pituitary adenoma 3
+  term:
+    id: MONDO:0054665
+    label: pituitary adenoma 3, multiple types
 synonyms:
 - Pituitary adenoma 3
+- PITA3
 - gsp-positive somatotroph adenoma
 - GNAS-mutant growth hormone-secreting pituitary tumor
 mappings:
@@ -5562,12 +6094,17 @@ mappings:
   - term:
       id: MONDO:0006373
       label: pituitary gland adenoma
-    mapping_predicate: skos:closeMatch
+    mapping_predicate: skos:broadMatch
     mapping_source: MONDO
     mapping_justification: &gt;-
-      Closest available MONDO grouping term for somatic GNAS-driven pituitary
-      adenoma; a gene-specific PITA3 term is not represented in the local
-      ontology snapshot.
+      Parent grouping term. Retained as a broad cross-reference now that the
+      gene-specific PITA3 term (MONDO:0054665) is bound as this entry&#39;s
+      disease_term. An earlier version of this block asserted that no PITA3
+      term existed in the local ontology snapshot and used skos:closeMatch on
+      that basis; the term does exist (OMIM:617686, RO:0004003 to HGNC:4392
+      GNAS, is_a familial isolated pituitary adenoma), so the claim was wrong
+      and the predicate is corrected to broadMatch rather than left implying
+      near-equivalence to the whole pituitary-adenoma class.
 description: &gt;-
   GNAS-related pituitary adenoma 3 represents growth hormone-secreting
   pituitary tumors driven by somatic activating GNAS mutations. Mechanistically,
@@ -5583,24 +6120,91 @@ references:
       intrinsic GTPase activity, stabilize Gs-alpha in an active conformation,
       and associate with elevated GH secretion, cAMP, and adenylyl cyclase
       activity.
+    evidence:
+    - reference: PMID:2124121
+      reference_title: &#34;GTPase-inhibiting mutations activate the alpha-chain of Gs in human tumours.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        A subset of human growth hormone (GH)-secreting pituitary tumours,
+        characterized by elevated GH secretion, cyclic AMP levels, and adenylyl
+        cyclase activity, carries mutations in the gene that encodes the
+        alpha-chain of Gs.
+      explanation: &gt;-
+        Grounds every clause of this finding in the source sentence: the tumor
+        type, the three elevated biochemical readouts, and the GNAS mutation.
 - reference: PMID:25356808
   title: &#34;Acromegaly: an endocrine society clinical practice guideline.&#34;
   findings:
   - statement: &gt;-
       Acromegaly management uses biochemical assessment and multimodal therapy,
       including medical monotherapy or combination therapy.
+    evidence:
+    - reference: PMID:25356808
+      reference_title: &#34;Acromegaly: an endocrine society clinical practice guideline.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        including the appropriate biochemical assessment, a therapeutic algorithm,
+        including use of medical monotherapy or combination therapy, and
+        management during pregnancy.
+      explanation: &gt;-
+        Partial, and for a specific reason: this sentence enumerates what the
+        guideline covers rather than reporting a result, so it establishes that
+        biochemical assessment and mono/combination therapy are the components
+        of guideline-directed care without stating any efficacy claim.
 - reference: PMID:27812777
   title: &#34;Acromegaly: clinical features at diagnosis.&#34;
   findings:
   - statement: &gt;-
       Acromegaly produces somatic overgrowth and typical facial and acral
       overgrowth phenotypes downstream of GH/IGF-1 excess.
+    evidence:
+    - reference: PMID:27812777
+      reference_title: &#34;Acromegaly: clinical features at diagnosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Excessive growth of hands and feet (predominantly due to soft tissue
+        swelling) is present in the vast majority of acromegalic patients.
+      explanation: &gt;-
+        Supports the acral arm of the finding, with a frequency statement.
+    - reference: PMID:27812777
+      reference_title: &#34;Acromegaly: clinical features at diagnosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The typical coarsening of facial features include furrowing of fronthead,
+        pronounced brow protrusion, enlargement of the nose and the ears
+      explanation: &gt;-
+        Supports the facial arm of the finding, which the acral quote does not
+        cover.
 - reference: PMID:34638340
   title: &#34;gsp Mutation Is Not a Molecular Biomarker of Long-Term Response to First-Generation Somatostatin Receptor Ligands in Acromegaly.&#34;
   findings:
   - statement: &gt;-
       In a 136-patient series, gsp/GNAS status was not a reliable biomarker of
       long-term first-generation somatostatin receptor ligand response.
+    evidence:
+    - reference: PMID:34638340
+      reference_title: &#34;gsp Mutation Is Not a Molecular Biomarker of Long-Term Response to First-Generation Somatostatin Receptor Ligands in Acromegaly.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        In this largest series available in the literature, we concluded that gsp
+        is not a molecular biomarker of response to fg-SRL treatment in
+        acromegaly.
+      explanation: &gt;-
+        States the negative result this finding records. Note this is a negative
+        finding curated as such, not an omission.
+    - reference: PMID:34638340
+      reference_title: &#34;gsp Mutation Is Not a Molecular Biomarker of Long-Term Response to First-Generation Somatostatin Receptor Ligands in Acromegaly.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        gsp mutation was found in 54 out of 136 patients evaluated.
+      explanation: &gt;-
+        Supports the 136-patient denominator named in the finding statement.
 - reference: PMID:31673695
   title: &#34;Fibrous Dysplasia/McCune-Albright Syndrome: A Rare, Mosaic Disease of Gα s Activation.&#34;
   findings:
@@ -5608,12 +6212,35 @@ references:
       McCune-Albright syndrome/fibrous dysplasia is a somatic mosaic
       gain-of-function GNAS disorder, distinct from the usual sporadic
       tumor-somatic GNAS context modeled here.
+    evidence:
+    - reference: PMID:31673695
+      reference_title: &#34;Fibrous Dysplasia/McCune-Albright Syndrome: A Rare, Mosaic Disease of Gα s Activation.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        This review presents FD/MAS in the context of a mosaic disorder
+      explanation: &gt;-
+        Supports the mosaic framing that distinguishes FD/MAS from the isolated
+        sporadic somatotroph tumor this entry models. The distinctness claim in
+        the finding is this entry&#39;s scoping judgement, not the source&#39;s.
 - reference: PMID:18489744
   title: &#34;McCune-Albright syndrome.&#34;
   findings:
   - statement: &gt;-
       McCune-Albright syndrome can include growth hormone excess among its
       hyperfunctioning endocrinopathies.
+    evidence:
+    - reference: PMID:18489744
+      reference_title: &#34;McCune-Albright syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        other hyperfunctioning endocrinopathies may be involved including
+        hyperthyroidism, growth hormone excess, Cushing syndrome, and renal
+        phosphate wasting.
+      explanation: &gt;-
+        Names growth hormone excess among the hyperfunctioning endocrinopathies
+        of McCune-Albright syndrome, which is the overlap with this entry.
 genetic:
 - name: GNAS
   gene_term:
@@ -5692,6 +6319,18 @@ pathophysiology:
     description: &gt;-
       Active Gs-alpha stimulates adenylyl cyclase and increases cAMP production.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2124121
+      reference_title: &#34;GTPase-inhibiting mutations activate the alpha-chain of Gs in human tumours.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        these mutations inhibit the intrinsic GTPase activity of alpha s, thus
+        stabilizing the protein in its active conformation.
+      explanation: &gt;-
+        Edge-level support: the constitutively active conformation is the direct
+        biochemical consequence of the GTPase-inhibiting substitution, so this
+        edge is a single biochemical step rather than an inferred association.
 
 - name: Constitutive Gs-alpha adenylate cyclase activation
   description: &gt;-
@@ -5740,6 +6379,18 @@ pathophysiology:
       Increased cAMP availability activates the shared somatotroph cAMP/PKA
       module.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2124121
+      reference_title: &#34;GTPase-inhibiting mutations activate the alpha-chain of Gs in human tumours.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        characterized by elevated GH secretion, cyclic AMP levels, and adenylyl
+        cyclase activity
+      explanation: &gt;-
+        Edge-level support: raised adenylyl cyclase activity and raised cAMP are
+        measured together in the same tumors, which is what licenses the step
+        from cyclase activation to cAMP/PKA module activation.
 
 - name: Increased cAMP/PKA signaling in somatotrophs
   conforms_to: somatotroph_camp_pka_overactivation#Increased cAMP/PKA signaling in somatotrophs
@@ -5776,11 +6427,35 @@ pathophysiology:
     description: &gt;-
       cAMP/PKA signaling drives excess GH secretion.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2124121
+      reference_title: &#34;GTPase-inhibiting mutations activate the alpha-chain of Gs in human tumours.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        characterized by elevated GH secretion, cyclic AMP levels, and adenylyl
+        cyclase activity
+      explanation: &gt;-
+        Edge-level support: the elevated GH secretion is reported as a property
+        of the same cAMP-elevated tumors, tying the hormone output to the
+        signaling state rather than to the mutation independently.
   - target: Somatotroph adenoma growth
     description: &gt;-
       cAMP-responsive somatotroph cells proliferate in the presence of
       oncogenic Gs-alpha signaling.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:2124121
+      reference_title: &#34;GTPase-inhibiting mutations activate the alpha-chain of Gs in human tumours.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        the alpha s gene can be converted into an oncogene, called gsp, in cells
+        that proliferate in response to cyclic AMP.
+      explanation: &gt;-
+        Edge-level support: the proliferative arm is explicitly conditioned on
+        cAMP responsiveness of the cell, which is exactly the dependence of this
+        edge on the upstream cAMP/PKA node.
 
 - name: Increased growth hormone secretion
   conforms_to: somatotroph_camp_pka_overactivation#Increased growth hormone secretion
@@ -6018,6 +6693,20 @@ treatments:
     description: &gt;-
       Multimodal treatment aims to reduce GH/IGF-1 excess and tumor burden
       downstream of GNAS-driven cAMP/PKA activation.
+    evidence:
+    - reference: PMID:33079318
+      reference_title: &#34;A Pituitary Society update to acromegaly management guidelines.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Biochemical control remains the strongest predictor of patient outcomes,
+        reflecting improvements in glucose metabolism, OSA, cardiovascular
+        disease, and VFs.
+      explanation: &gt;-
+        Evidence for the mechanism link rather than the treatment as a whole:
+        biochemical control is control of the GH/IGF-1 output node this link
+        targets, and it is what the outcome benefit tracks — so the multimodal
+        algorithm is correctly modeled as acting on that node.
   evidence:
   - reference: PMID:33079318
     reference_title: &#34;A Pituitary Society update to acromegaly management guidelines.&#34;
@@ -6086,6 +6775,21 @@ treatments:
       Somatostatin receptor ligands suppress GH secretion downstream of the
       GNAS-driven somatotroph state, but response is not determined by GNAS
       status alone.
+    evidence:
+    - reference: PMID:34638340
+      reference_title: &#34;gsp Mutation Is Not a Molecular Biomarker of Long-Term Response to First-Generation Somatostatin Receptor Ligands in Acromegaly.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Biochemical control with fg-SRL treatment was similar in gsp+ and gsp-
+        patients (37% vs. 25%, p = 0.219).
+      explanation: &gt;-
+        Evidence for the mechanism link, and deliberately partial. Biochemical
+        control is achieved on fg-SRL, so the drug does act on the GH-secretion
+        node; but control is statistically indistinguishable between gsp+ and
+        gsp- tumors, so the link must not be modeled as GNAS-specific. This is
+        the same result recorded in the gap_gnas_srl_response_prediction
+        knowledge gap, and MODULATES rather than INHIBITS is the right effect.
   evidence:
   - reference: PMID:34638340
     reference_title: &#34;gsp Mutation Is Not a Molecular Biomarker of Long-Term Response to First-Generation Somatostatin Receptor Ligands in Acromegaly.&#34;
@@ -6124,6 +6828,7 @@ discussions:
     disorder rather than the usual isolated somatotroph tumor context.
   evidence:
   - reference: PMID:31673695
+    reference_title: &#34;Fibrous Dysplasia/McCune-Albright Syndrome: A Rare, Mosaic Disease of Gα s Activation.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6132,6 +6837,7 @@ discussions:
       This supports the somatic gain-of-function GNAS basis of
       McCune-Albright/fibrous dysplasia syndrome.
   - reference: PMID:31673695
+    reference_title: &#34;Fibrous Dysplasia/McCune-Albright Syndrome: A Rare, Mosaic Disease of Gα s Activation.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6140,6 +6846,7 @@ discussions:
       This supports distinguishing the FD/MAS setting as mosaic rather than a
       typical isolated sporadic tumor.
   - reference: PMID:18489744
+    reference_title: &#34;McCune-Albright syndrome.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -6174,6 +6881,34 @@ discussions:
       acromegaly.
     explanation: &gt;-
       This motivates retaining GNAS/SRL response prediction as a knowledge gap.
+classifications:
+  harrisons_chapter:
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      The entity itself is a neoplasm — a somatotroph adenoma driven by a
+      somatic oncogenic mutation (gsp), with an explicit proliferation node in
+      the pathograph. Per the dismech disease-classification guidance,
+      neoplastic entries take this Part.
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      The organ-system Part is retained here rather than omitted as it usually
+      is for cancers, because the disease presents, is diagnosed and is
+      monitored endocrinologically: it is a hormone-secreting tumor of the
+      pituitary whose clinical syndrome is acromegaly, whose diagnostic node is
+      GH/IGF-I biochemistry, and whose treatment endpoint is biochemical
+      control. Both curated diagnosis nodes and both treatments in this entry
+      are endocrine.
+notes: &gt;-
+  Classification note. `icdo_morphology` is deliberately left empty.
+  `ICDOMorphologyEnum` offers only malignant morphology classes (Carcinoma,
+  Adenocarcinoma, Squamous Cell Carcinoma, Sarcoma, Leukemia, Lymphoma,
+  Multiple Myeloma, Melanoma, Glioma, Embryonal Neoplasm) and a pituitary
+  adenoma / PitNET is not one of them; assigning Adenocarcinoma to a benign
+  adenoma would be a substantive error, not a rounding. An &#34;Adenoma&#34; (or
+  benign-neoplasm) value would be needed before this slot could be filled.
+  `mechanistic_category` is likewise empty: the disorder is a G-protein
+  (Gs-alpha/cAMP) signalling oncogenesis, and the enum has no corresponding
+  value.
 </pre>
             </div>
         </div>
@@ -6218,6 +6953,39 @@ discussions:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2124121" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2124121" target="_blank">PMID:2124121</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A subset of human growth hormone (GH)-secreting pituitary tumours, characterized by elevated GH secretion, cyclic AMP levels, and adenylyl cyclase activity, carries mutations in the gene that encodes the alpha-chain of Gs."</div>
+
+
+                <div class="evidence-explanation">Grounds every clause of this finding in the source sentence: the tumor type, the three elevated biochemical readouts, and the GNAS mutation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
         </div>
 
@@ -6252,6 +7020,39 @@ discussions:
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25356808" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25356808" target="_blank">PMID:25356808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"including the appropriate biochemical assessment, a therapeutic algorithm, including use of medical monotherapy or combination therapy, and management during pregnancy."</div>
+
+
+                <div class="evidence-explanation">Partial, and for a specific reason: this sentence enumerates what the guideline covers rather than reporting a result, so it establishes that biochemical assessment and mono/combination therapy are the components of guideline-directed care without stating any efficacy claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
         </div>
@@ -6288,6 +7089,41 @@ discussions:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27812777" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27812777" target="_blank">PMID:27812777</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Excessive growth of hands and feet (predominantly due to soft tissue swelling) is present in the vast majority of acromegalic patients."</div>
+
+
+                <div class="evidence-explanation">Supports the acral arm of the finding, with a frequency statement.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
 
         </div>
 
@@ -6322,6 +7158,41 @@ discussions:
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34638340" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34638340" target="_blank">PMID:34638340</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this largest series available in the literature, we concluded that gsp is not a molecular biomarker of response to fg-SRL treatment in acromegaly."</div>
+
+
+                <div class="evidence-explanation">States the negative result this finding records. Note this is a negative finding curated as such, not an omission.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
         </div>
@@ -6358,6 +7229,39 @@ discussions:
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31673695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31673695" target="_blank">PMID:31673695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This review presents FD/MAS in the context of a mosaic disorder"</div>
+
+
+                <div class="evidence-explanation">Supports the mosaic framing that distinguishes FD/MAS from the isolated sporadic somatotroph tumor this entry models. The distinctness claim in the finding is this entry&#39;s scoping judgement, not the source&#39;s.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
         </div>
 
@@ -6392,6 +7296,39 @@ discussions:
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18489744" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18489744" target="_blank">PMID:18489744</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"other hyperfunctioning endocrinopathies may be involved including hyperthyroidism, growth hormone excess, Cushing syndrome, and renal phosphate wasting."</div>
+
+
+                <div class="evidence-explanation">Names growth hormone excess among the hyperfunctioning endocrinopathies of McCune-Albright syndrome, which is the overlap with this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
         </div>
@@ -6723,7 +7660,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GNAS-related pituitary adenoma 3", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNAS-related_pituitary_adenoma_3", "yamlRevision": "0c238d7d0973"};
+        const OS_CONFIG = {"diseaseName": "GNAS-related pituitary adenoma 3", "mondoId": "MONDO:0054665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GNAS-related_pituitary_adenoma_3", "yamlRevision": "79bec9b5a06b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7142,5 +8079,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

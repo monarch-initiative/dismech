@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Vitiligo</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Vitiligo</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Vitiligo"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3946,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3811,29 +4015,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3851,7 +4133,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-multifactorial-polygenic">
                 <div class="item-name">
                     Multifactorial/polygenic
 
@@ -3878,6 +4160,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317533" target="_blank">PMID:28317533</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3899,6 +4182,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317533" target="_blank">PMID:28317533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3957,7 +4241,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-non-segmental-vitiligo-nsv">
 
                     <div class="item-name">
                         Non-Segmental Vitiligo (NSV)
@@ -3991,6 +4275,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20540698" target="_blank">PMID:20540698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4013,6 +4298,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22237197" target="_blank">PMID:22237197</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4034,6 +4320,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33431938" target="_blank">PMID:33431938</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4063,7 +4350,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-segmental-vitiligo-sv">
 
                     <div class="item-name">
                         Segmental Vitiligo (SV)
@@ -4097,6 +4384,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317524" target="_blank">PMID:28317524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4118,6 +4406,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35094387" target="_blank">PMID:35094387</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4145,7 +4434,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mixed-vitiligo">
 
                     <div class="item-name">
                         Mixed Vitiligo
@@ -4179,6 +4468,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17241584" target="_blank">PMID:17241584</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4200,6 +4490,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34780118" target="_blank">PMID:34780118</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4338,10 +4629,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         prospective longitudinal multimodal cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal multimodal cohort study.</span>
     </span>
 
 
@@ -4513,6 +4810,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4527,10 +4830,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
 
         human cell-specific causal perturbation and rescue study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+This experiment is of type human cell-specific causal perturbation and rescue study.</span>
     </span>
 
 
@@ -4775,6 +5084,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4798,6 +5113,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30528503" target="_blank">PMID:30528503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4820,6 +5136,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42418414" target="_blank">PMID:42418414</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4841,6 +5158,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42418414" target="_blank">PMID:42418414</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4888,17 +5206,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4919,10 +5244,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8+ T Lymphocyte, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4939,6 +5267,7 @@
 
 
                 </div>
+
 
 
 
@@ -4967,6 +5296,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33200838" target="_blank">PMID:33200838</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4989,6 +5319,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31209143" target="_blank">PMID:31209143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5010,6 +5341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25184918" target="_blank">PMID:25184918</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5058,6 +5390,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5069,6 +5402,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317533" target="_blank">PMID:28317533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5092,6 +5426,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28206724" target="_blank">PMID:28206724</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5113,6 +5448,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29704874" target="_blank">PMID:29704874</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5161,6 +5497,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -5172,6 +5509,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25838868" target="_blank">PMID:25838868</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5195,6 +5533,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26769615" target="_blank">PMID:26769615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5216,6 +5555,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26724277" target="_blank">PMID:26724277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5264,6 +5604,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5275,6 +5616,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980277" target="_blank">PMID:36980277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5298,6 +5640,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33098225" target="_blank">PMID:33098225</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5319,6 +5662,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33346939" target="_blank">PMID:33346939</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5354,17 +5698,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5385,10 +5736,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8+ T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5415,17 +5769,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to type II interferon
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034341" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034341">GO:0034341</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034341" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0034341</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to type II interferon (GO:0034341). GO:0034341 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5446,10 +5807,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030595" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030595">GO:0030595</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030595" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030595</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves leukocyte chemotaxis (GO:0030595). GO:0030595 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5472,19 +5836,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5503,16 +5873,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8+ tissue-resident memory T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8+ tissue-resident memory T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5542,19 +5917,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5573,17 +5954,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5604,10 +5992,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5637,19 +6028,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5684,7 +6081,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Depigmented Patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001053\"}}, {\"id\": \"Increased Sensitivity To Sunlight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}, {\"id\": \"Skin depigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vitiligo produces acquired, progressive cutaneous depigmentation from loss of functional melanocytes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001045\"}}, {\"id\": \"UV Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Promotes the repigmentation process in some cases, but can exacerbate the contrast in others.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Depigmented Patches\", \"target\": \"Increased Sensitivity To Sunlight\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"UV Exposure\", \"target\": \"Skin depigmentation\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"Therapeutic ultraviolet phototherapy opposes the depigmented phenotype by driving repigmentation, stimulating melanocyte precursors out of the follicular reservoir to repopulate lesional skin. The target is the depigmentation phenotype rather than the melanocyte-destruction process, because repopulation after destruction is what the cited evidence measures; phototherapy\u0027s separate immunomodulatory action on the autoreactive attack is not evidenced here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chemical Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Certain phenolic compounds and other chemicals can induce or exacerbate vitiligo.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Depigmented Patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001053\"}}, {\"id\": \"Increased Sensitivity To Sunlight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}, {\"id\": \"Melanocyte Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoimmune-mediated destruction where the immune system targets melanocytes, leading to loss of skin pigment.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Melanocyte\", \"CD8+ T Lymphocyte\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased oxidative stress in the skin may contribute to melanocyte vulnerability and destruction.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Skin depigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vitiligo produces acquired, progressive cutaneous depigmentation from loss of functional melanocytes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001045\"}}, {\"id\": \"Stress\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Psychological stress is implicated in the exacerbation or onset of the disease.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"UV Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Promotes the repigmentation process in some cases, but can exacerbate the contrast in others.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Depigmented Patches\", \"target\": \"Increased Sensitivity To Sunlight\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"UV Exposure\", \"target\": \"Skin depigmentation\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"Therapeutic ultraviolet phototherapy opposes the depigmented phenotype by driving repigmentation, stimulating melanocyte precursors out of the follicular reservoir to repopulate lesional skin. The target is the depigmentation phenotype rather than the melanocyte-destruction process, because repopulation after destruction is what the cited evidence measures; phototherapy\u0027s separate immunomodulatory action on the autoreactive attack is not evidenced here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Stress\", \"target\": \"Oxidative Stress\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Pointed at the oxidative stress node rather than at melanocyte destruction, because that is the step this entry models as making melanocytes vulnerable and it is the plausible entry point for a systemic stressor. The animal item is what gives that target choice any molecular purchase: restraint stress lowers cutaneous OGG1, the glycosylase that repairs oxidative guanine damage, which is this node\u0027s own currency. The intermediates are still recorded as unknown, because that chain was traced in mice whose depigmentation was chemically induced, and no human sentence here follows stress to any molecular step. Both human items are graded partial for the same reason from opposite directions: one is a recommendation from a study with no comparison group, the other a cross-sectional difference.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chemical Exposure\", \"target\": \"Melanocyte Destruction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The best-evidenced exposure in this tranche, and the only one with a quantified effect: phenol and catechol derivatives carry a three- to fourfold increase in a case-control study. The intervening step is recorded as known because one cited sentence names it, describing these chemicals as appearing to induce melanocyte autoimmunity, which is the route to the destruction this node holds. That sentence also carries the resemblance claim, so a third item asserting only resemblance would have added a citation without adding a claim and was left on the exposure rather than the link.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5731,14 +6128,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratoconjunctivitis sicca
+
+                        <span class="phenotype-term-label">Keratoconjunctivitis sicca</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001097">HP:0001097</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dry eye disease, annotated with Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5758,6 +6164,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37919864" target="_blank">PMID:37919864</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5801,14 +6208,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5828,6 +6244,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35274365" target="_blank">PMID:35274365</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5851,6 +6268,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37062442" target="_blank">PMID:37062442</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5872,6 +6290,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37062442" target="_blank">PMID:37062442</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5917,14 +6336,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Uveitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000554">HP:0000554</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000554</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5946,6 +6372,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37919864" target="_blank">PMID:37919864</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5989,14 +6416,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cutaneous photosensitivity
+
+                        <span class="phenotype-term-label">Cutaneous photosensitivity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000992">HP:0000992</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000992</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased Sensitivity To Sunlight, annotated with Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6027,14 +6463,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypopigmented skin patches
+
+                        <span class="phenotype-term-label">Hypopigmented skin patches</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001053">HP:0001053</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001053</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depigmented patches, annotated with Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6064,6 +6509,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25572727" target="_blank">PMID:25572727</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6086,6 +6532,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35166101" target="_blank">PMID:35166101</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6107,6 +6554,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17250545" target="_blank">PMID:17250545</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6143,14 +6591,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poliosis
+
+                        <span class="phenotype-term-label">Poliosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002290">HP:0002290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poliosis (HP:0002290). HP:0002290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,6 +6629,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26769615" target="_blank">PMID:26769615</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6226,6 +6684,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34104234" target="_blank">PMID:34104234</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6248,6 +6707,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35637045" target="_blank">PMID:35637045</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6269,6 +6729,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37405428" target="_blank">PMID:37405428</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6325,6 +6786,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33170870" target="_blank">PMID:33170870</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6347,6 +6809,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32013982" target="_blank">PMID:32013982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6368,6 +6831,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16405601" target="_blank">PMID:16405601</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6402,14 +6866,21 @@
                         Koebner Phenomenon
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Koebner Phenomenon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000933" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000933">HP:6000933</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000933" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:6000933</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Koebner Phenomenon (HP:6000933). HP:6000933 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6429,6 +6900,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39606817" target="_blank">PMID:39606817</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6452,6 +6924,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38768496" target="_blank">PMID:38768496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6473,6 +6946,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37992390" target="_blank">PMID:37992390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6525,6 +6999,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26724277" target="_blank">PMID:26724277</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6546,6 +7021,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38768496" target="_blank">PMID:38768496</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6578,14 +7054,23 @@
                         Skin depigmentation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vitiligo
+
+                        <span class="phenotype-term-label">Vitiligo</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001045">HP:0001045</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001045" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001045</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin depigmentation, annotated with Vitiligo (HP:0001045). HP:0001045 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6605,6 +7090,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30911977" target="_blank">PMID:30911977</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6637,14 +7123,23 @@
                         Leukotrichia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        White hair
+
+                        <span class="phenotype-term-label">White hair</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011364" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011364">HP:0011364</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011364" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011364</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukotrichia, annotated with White hair (HP:0011364). HP:0011364 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6664,6 +7159,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19911140" target="_blank">PMID:19911140</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6753,6 +7249,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17637824" target="_blank">PMID:17637824</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6774,6 +7271,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317533" target="_blank">PMID:28317533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6807,6 +7305,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TYR
+
+
+    <a href="https://bioregistry.io/hgnc:12442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:12442</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TYR (hgnc:12442). hgnc:12442 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6821,6 +7341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20410501" target="_blank">PMID:20410501</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6844,6 +7365,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32838589" target="_blank">PMID:32838589</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6865,6 +7387,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317533" target="_blank">PMID:28317533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6898,6 +7421,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PTPN22
+
+
+    <a href="https://bioregistry.io/hgnc:9652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:9652</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6912,6 +7457,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21515266" target="_blank">PMID:21515266</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6934,6 +7480,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28164884" target="_blank">PMID:28164884</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6967,6 +7514,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MC1R
+
+
+    <a href="https://bioregistry.io/hgnc:6929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6929</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MC1R (hgnc:6929). hgnc:6929 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6981,6 +7550,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20197744" target="_blank">PMID:20197744</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7003,6 +7573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33757175" target="_blank">PMID:33757175</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7036,6 +7607,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HLA-A
+
+
+    <a href="https://bioregistry.io/hgnc:4931" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:4931</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-A (hgnc:4931). hgnc:4931 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7050,6 +7643,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17243956" target="_blank">PMID:17243956</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7083,6 +7677,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HLA-DRB1
+
+
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:4948</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7097,6 +7713,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34686989" target="_blank">PMID:34686989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7119,6 +7736,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20526339" target="_blank">PMID:20526339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7152,6 +7770,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IFIH1
+
+
+    <a href="https://bioregistry.io/hgnc:18873" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:18873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFIH1 (hgnc:18873). hgnc:18873 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7166,6 +7806,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22561518" target="_blank">PMID:22561518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7199,6 +7840,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BACH2
+
+
+    <a href="https://bioregistry.io/hgnc:14078" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:14078</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7213,6 +7876,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22561518" target="_blank">PMID:22561518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7246,6 +7910,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IRF4
+
+
+    <a href="https://bioregistry.io/hgnc:6119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF4 (hgnc:6119). hgnc:6119 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7260,6 +7946,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27723757" target="_blank">PMID:27723757</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7293,6 +7980,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FOXP3
+
+
+    <a href="https://bioregistry.io/hgnc:6106" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6106</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXP3 (hgnc:6106). hgnc:6106 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7307,6 +8016,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33181260" target="_blank">PMID:33181260</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7338,6 +8048,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7353,7 +8066,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
@@ -7402,6 +8120,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19178066" target="_blank">PMID:19178066</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7424,6 +8143,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38477910" target="_blank">PMID:38477910</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7445,6 +8165,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33350506" target="_blank">PMID:33350506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7477,7 +8198,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">JAK inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">JAK inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is JAK inhibitor therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
@@ -7508,16 +8234,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ruxolitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:66919">CHEBI:66919</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:66919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7540,7 +8271,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -7589,6 +8325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27638438" target="_blank">PMID:27638438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7611,6 +8348,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317529" target="_blank">PMID:28317529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7632,6 +8370,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20149899" target="_blank">PMID:20149899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7664,7 +8403,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7713,6 +8457,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38038734" target="_blank">PMID:38038734</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7735,6 +8480,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37000977" target="_blank">PMID:37000977</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7756,6 +8502,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34169570" target="_blank">PMID:34169570</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7788,7 +8535,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -7837,6 +8589,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12709002" target="_blank">PMID:12709002</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7859,6 +8612,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28445194" target="_blank">PMID:28445194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7880,6 +8634,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35457678" target="_blank">PMID:35457678</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7910,7 +8665,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7940,16 +8700,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         monobenzone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_34380" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:34380">CHEBI:34380</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_34380" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:34380</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monobenzone (CHEBI:34380). CHEBI:34380 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7975,6 +8740,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3168334" target="_blank">PMID:3168334</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7996,6 +8762,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21054565" target="_blank">PMID:21054565</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8037,21 +8804,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         UV light exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000006">ECTO:0000006</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:0000006</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is UV light exposure, annotated with exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Curation note: the evidence collected under this entry is entirely therapeutic ultraviolet phototherapy rather than an environmental exposure, so this arguably belongs under treatments rather than environmental. Kept here pending a curator decision; its pathograph link is modelled as protective accordingly.</div>
@@ -8072,6 +8848,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29124690" target="_blank">PMID:29124690</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8095,6 +8872,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34245476" target="_blank">PMID:34245476</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8116,6 +8894,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34806278" target="_blank">PMID:34806278</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8166,6 +8945,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34245476" target="_blank">PMID:34245476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8198,14 +8978,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Psychological stress exposure
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-42">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is Psychological stress exposure, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8224,6 +9020,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26057504" target="_blank">PMID:26057504</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8247,6 +9044,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37481827" target="_blank">PMID:37481827</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8268,6 +9066,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986193" target="_blank">PMID:31986193</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8291,6 +9090,105 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Oxidative Stress</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the oxidative stress node rather than at melanocyte destruction, because that is the step this entry models as making melanocytes vulnerable and it is the plausible entry point for a systemic stressor. The animal item is what gives that target choice any molecular purchase: restraint stress lowers cutaneous OGG1, the glycosylase that repairs oxidative guanine damage, which is this node&#39;s own currency. The intermediates are still recorded as unknown, because that chain was traced in mice whose depigmentation was chemically induced, and no human sentence here follows stress to any molecular step. Both human items are graded partial for the same reason from opposite directions: one is a recommendation from a study with no comparison group, the other a cross-sectional difference.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26057504" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26057504" target="_blank">PMID:26057504</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Psychological stressors should be considered as potential disease triggers in vitiligo patients."</div>
+
+
+                <div class="evidence-explanation">Concludes that psychological stressors should be considered as potential disease triggers in affected patients. A recommendation about what to consider, from a questionnaire study without a comparison group, which is why it is partial rather than support.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31986193" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31986193" target="_blank">PMID:31986193</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Perceived stress was significantly higher among vitiligo individuals compared to those without vitiligo."</div>
+
+
+                <div class="evidence-explanation">Reports significantly higher perceived stress in affected individuals than in those without the disease. A cross-sectional difference, which cannot separate stress as cause from stress as consequence of a visible skin disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37481827" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37481827" target="_blank">PMID:37481827</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"restraint stress aggravated anxiety-like behaviors and increased levels of macrophage migration inhibitory factor (MIF) and corticosterone in the circulation, accompanied with decreasing the expression of cutaneous 8-oxoguanine DNA glycosylase (OGG1) in depigmentation mice"</div>
+
+
+                <div class="evidence-explanation">The only sentence in this link that reaches a molecule: restraint stress lowers cutaneous OGG1, the glycosylase that excises oxidised guanine, which is a step in the oxidative handling this node holds. Partial because the model is a mouse whose depigmentation was induced chemically, so the finding converges on the human claim without establishing it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-chemical-exposure" data-dismech-node="Chemical Exposure" data-dismech-type="environmental">
@@ -8298,21 +9196,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Chemical exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000231">ECTO:0000231</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:0000231</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Chemical exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8331,6 +9238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36433836" target="_blank">PMID:36433836</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8354,6 +9262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33039241" target="_blank">PMID:33039241</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8376,6 +9285,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317525" target="_blank">PMID:28317525</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8397,6 +9307,82 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Melanocyte Destruction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The best-evidenced exposure in this tranche, and the only one with a quantified effect: phenol and catechol derivatives carry a three- to fourfold increase in a case-control study. The intervening step is recorded as known because one cited sentence names it, describing these chemicals as appearing to induce melanocyte autoimmunity, which is the route to the destruction this node holds. That sentence also carries the resemblance claim, so a third item asserting only resemblance would have added a citation without adding a claim and was left on the exposure rather than the link.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36433836" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36433836" target="_blank">PMID:36433836</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the binary logistic regression model, household chemicals/colored toothpaste use...and an occupational exposure to phenol/catechol derivatives were significantly associated with vitiligo (three to fourfold increase)."</div>
+
+
+                <div class="evidence-explanation">Case-control study finding household chemicals and occupational exposure to phenol and catechol derivatives significantly associated with the disease, at a three- to fourfold increase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28317525" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28317525" target="_blank">PMID:28317525</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because chemical-induced depigmentation is clinically and histologically indistinguishable from nonchemically induced vitiligo, and because these chemicals appear to induce melanocyte autoimmunity"</div>
+
+
+                <div class="evidence-explanation">One continuous clause carrying both halves of the claim: that chemically induced depigmentation cannot be told apart from the disease, and that these chemicals appear to induce melanocyte autoimmunity, which is the intervening step between the exposure and the destruction at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8435,6 +9421,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17289548" target="_blank">PMID:17289548</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8485,6 +9472,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35096274" target="_blank">PMID:35096274</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8506,6 +9494,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22099450" target="_blank">PMID:22099450</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8545,7 +9534,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse298871">
                 <div class="item-name">
                     Transcriptomic profiling of vitiligo patients shows polar immune dysregulation in involved and uninvolved skin
 
@@ -8588,7 +9577,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse231794">
                 <div class="item-name">
                     Single-Cell Transcriptomics Reveals Peripheral Immune Responses in Non-Segmental Vitiligo
 
@@ -8631,7 +9620,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse205751">
                 <div class="item-name">
                     Increased expression of LOC100506314 in T cells from patients with vitiligo and contributed to the pathogenesis of vitiligo
 
@@ -8674,7 +9663,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003831">
                 <div class="item-name">
                     Exome sequencing data for 40 cases of alopecia areata and vitiligo
 
@@ -8709,7 +9698,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000001317">
                 <div class="item-name">
                     Immune control of functional memory CD8 T cells in normal-appearing vitiligo skin
 
@@ -8755,6 +9744,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8771,7 +9763,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Vitiligo
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-30T12:00:00Z&#39;
 description: An autoimmune skin disorder characterized by the loss of skin pigmentation due to the destruction of melanocytes.
 category: Complex
 parents:
@@ -9442,6 +10433,11 @@ genetic:
       activation of interleukin-1 beta
     explanation: Fine-mapping of the NLRP1 (NALP1) locus shows the causal vitiligo-associated missense SNPs produce constitutive gain of NLRP1 inflammasome function driving IL-1 beta activation, giving a functional mechanism for the NALP1 genetic association.
 - name: TYR
+  gene_term:
+    preferred_term: TYR
+    term:
+      id: hgnc:12442
+      label: TYR
   association: Associated
   evidence:
   - reference: PMID:20410501
@@ -9465,6 +10461,11 @@ genetic:
       vitiligo autoimmune antigen, the vitiligo-associated SNPs are protective
     explanation: TYR encodes tyrosinase, the major vitiligo autoimmune antigen; its vitiligo-associated coding SNPs are protective, explaining the inverse TYR genetic relationship between vitiligo and melanoma risk.
 - name: PTPN22
+  gene_term:
+    preferred_term: PTPN22
+    term:
+      id: hgnc:9652
+      label: PTPN22
   association: Associated
   evidence:
   - reference: PMID:21515266
@@ -9480,6 +10481,11 @@ genetic:
     snippet: Several studies have demonstrated the association of protein tyrosine phosphatase, non-receptor type 22 +1858C--&gt;T polymorphism with vitiligo... limited ethnic-based studies... In conclusion, protein tyrosine phosphatase, non-receptor type 22 +1858 T allele predisposes European individuals to vitiligo.
     explanation: This source confirms the association but notes that the genetic association is specific to the European population and not found in the Asian population, suggesting partial support.
 - name: MC1R
+  gene_term:
+    preferred_term: MC1R
+    term:
+      id: hgnc:6929
+      label: MC1R
   association: Associated
   evidence:
   - reference: PMID:20197744
@@ -9495,6 +10501,11 @@ genetic:
     snippet: MC1R was found as a key gene in vitiligo and involved in the melanogenesis.
     explanation: This reference identifies MC1R as a key gene involved in vitiligo, providing further support for its genetic association.
 - name: HLA-A
+  gene_term:
+    preferred_term: HLA-A
+    term:
+      id: hgnc:4931
+      label: HLA-A
   association: Associated
   evidence:
   - reference: PMID:17243956
@@ -9504,6 +10515,11 @@ genetic:
     snippet: Meta-analysis showed a significantly increased frequency of HLA-A2 in vitiligo among cases [OR = 2.07, 95% confidence interval (CI) 1.67-2.58].
     explanation: The meta-analysis strongly suggests an association between HLA-A2, a specific allele of HLA-A, and vitiligo.
 - name: HLA-DRB1
+  gene_term:
+    preferred_term: HLA-DRB1
+    term:
+      id: hgnc:4948
+      label: HLA-DRB1
   association: Associated
   evidence:
   - reference: PMID:34686989
@@ -9519,6 +10535,11 @@ genetic:
     snippet: Further analyses suggested that the strong association at rs11966200 might reflect the reported association of the HLA-A*3001, HLA-B*1302, HLA-C*0602 and HLA-DRB1*0701 alleles...
     explanation: The findings of the genome-wide association study indicate an association of HLA-DRB1 alleles with vitiligo.
 - name: IFIH1
+  gene_term:
+    preferred_term: IFIH1
+    term:
+      id: hgnc:18873
+      label: IFIH1
   association: Associated
   notes: MDA5 (melanoma differentiation-associated gene 5), involved in innate immune sensing and type I interferon signaling. Associated with vitiligo susceptibility in GWAS studies.
   evidence:
@@ -9529,6 +10550,11 @@ genetic:
     snippet: IFIH1 (P = 4.91 × 10(-15))
     explanation: Large-scale GWAS meta-analysis identified IFIH1 as a vitiligo susceptibility locus at genome-wide significance, encoding an immunoregulatory protein involved in innate immune sensing.
 - name: BACH2
+  gene_term:
+    preferred_term: BACH2
+    term:
+      id: hgnc:14078
+      label: BACH2
   association: Associated
   notes: BTB and CNC homology 2, transcription regulator involved in immune cell development and function. GWAS-identified risk locus for vitiligo and other autoimmune diseases.
   evidence:
@@ -9539,6 +10565,11 @@ genetic:
     snippet: BACH2 (P = 2.53 × 10(-8))
     explanation: GWAS meta-analysis identified BACH2 as a vitiligo susceptibility locus at genome-wide significance. BACH2 encodes an immunoregulatory transcription factor involved in immune cell development.
 - name: IRF4
+  gene_term:
+    preferred_term: IRF4
+    term:
+      id: hgnc:6119
+      label: IRF4
   association: Associated
   notes: Interferon regulatory factor 4, involved in immune regulation and pigmentation. Associated with vitiligo susceptibility.
   evidence:
@@ -9549,6 +10580,11 @@ genetic:
     snippet: Twenty-three new loci achieved genome-wide significance (P &lt; 5 × 10−8) for association with vitiligo and demonstrated subsequent replication; of these, 21 are completely novel (FASLG, PTPRC, PPP4R3B, BCL2L11, FARP2-STK25, UBE2E2, FBXO45-NRROS, PPP3CA, IRF4, SERPINB9, CPVL, NEK6, ARID5B
     explanation: GWAS meta-analysis names IRF4 among the 23 new vitiligo risk loci reaching genome-wide significance with replication.
 - name: FOXP3
+  gene_term:
+    preferred_term: FOXP3
+    term:
+      id: hgnc:6106
+      label: FOXP3
   association: Associated
   notes: Forkhead box P3, master regulator of regulatory T cells. Implicated in vitiligo pathogenesis through impaired immune regulation.
   evidence:
@@ -9613,6 +10649,56 @@ environmental:
       id: ECTO:0000006
       label: exposure to ultraviolet radiation
 - name: Stress
+  influences_mechanisms:
+  - target: Oxidative Stress
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the oxidative stress node rather than at melanocyte
+      destruction, because that is the step this entry models as making
+      melanocytes vulnerable and it is the plausible entry point for a
+      systemic stressor. The animal item is what gives that target choice
+      any molecular purchase: restraint stress lowers cutaneous OGG1, the
+      glycosylase that repairs oxidative guanine damage, which is this node&#39;s
+      own currency. The intermediates are still recorded as unknown, because
+      that chain was traced in mice whose depigmentation was chemically
+      induced, and no human sentence here follows stress to any molecular
+      step. Both human items are graded partial for the same reason from
+      opposite directions: one is a recommendation from a study with no
+      comparison group, the other a cross-sectional difference.
+    evidence:
+    - reference: PMID:26057504
+      reference_title: &#34;Vitiligo disease triggers: psychological stressors preceding the onset of disease.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Psychological stressors should be considered as potential disease triggers in vitiligo patients.&#34;
+      explanation: &gt;-
+        Concludes that psychological stressors should be considered as
+        potential disease triggers in affected patients. A recommendation
+        about what to consider, from a questionnaire study without a
+        comparison group, which is why it is partial rather than support.
+    - reference: PMID:31986193
+      reference_title: &#34;The relationship between stress and vitiligo: Evaluating perceived stress and electronic medical record data.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Perceived stress was significantly higher among vitiligo individuals compared to those without vitiligo.&#34;
+      explanation: &gt;-
+        Reports significantly higher perceived stress in affected individuals
+        than in those without the disease. A cross-sectional difference, which
+        cannot separate stress as cause from stress as consequence of a
+        visible skin disease.
+    - reference: PMID:37481827
+      reference_title: &#34;Restraint stress promotes monobenzone-induced depigmentation in mice via the activation of glucocorticoid receptor/macrophage migration inhibitory factor signaling pathway.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;restraint stress aggravated anxiety-like behaviors and increased levels of macrophage migration inhibitory factor (MIF) and corticosterone in the circulation, accompanied with decreasing the expression of cutaneous 8-oxoguanine DNA glycosylase (OGG1) in depigmentation mice&#34;
+      explanation: &gt;-
+        The only sentence in this link that reaches a molecule: restraint
+        stress lowers cutaneous OGG1, the glycosylase that excises oxidised
+        guanine, which is a step in the oxidative handling this node holds.
+        Partial because the model is a mouse whose depigmentation was induced
+        chemically, so the finding converges on the human claim without
+        establishing it.
   description: Psychological stress is implicated in the exacerbation or onset of the disease.
   evidence:
   - reference: PMID:26057504
@@ -9635,7 +10721,45 @@ environmental:
     explanation: The data supports the notion that stress is a precipitating factor in vitiligo development.
   exposure_term:
     preferred_term: Psychological stress exposure
+    term:
+      id: XCO:0001265
+      label: stress
 - name: Chemical Exposure
+  influences_mechanisms:
+  - target: Melanocyte Destruction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The best-evidenced exposure in this tranche, and the only one with a
+      quantified effect: phenol and catechol derivatives carry a three- to
+      fourfold increase in a case-control study. The intervening step is
+      recorded as known because one cited sentence names it, describing these
+      chemicals as appearing to induce melanocyte autoimmunity, which is the
+      route to the destruction this node holds. That sentence also carries
+      the resemblance claim, so a third item asserting only resemblance would
+      have added a citation without adding a claim and was left on the
+      exposure rather than the link.
+    evidence:
+    - reference: PMID:36433836
+      reference_title: &#34;Role of chemical exposure in the incidence of vitiligo: a case-control study in Tunisia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In the binary logistic regression model, household chemicals/colored toothpaste use...and an occupational exposure to phenol/catechol derivatives were significantly associated with vitiligo (three to fourfold increase).&#34;
+      explanation: &gt;-
+        Case-control study finding household chemicals and occupational
+        exposure to phenol and catechol derivatives significantly associated
+        with the disease, at a three- to fourfold increase.
+    - reference: PMID:28317525
+      reference_title: &#34;Chemical-Induced Vitiligo.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Because chemical-induced depigmentation is clinically and histologically indistinguishable from nonchemically induced vitiligo, and because these chemicals appear to induce melanocyte autoimmunity&#34;
+      explanation: &gt;-
+        One continuous clause carrying both halves of the claim: that
+        chemically induced depigmentation cannot be told apart from the
+        disease, and that these chemicals appear to induce melanocyte
+        autoimmunity, which is the intervening step between the exposure and
+        the destruction at this node.
   description: Certain phenolic compounds and other chemicals can induce or exacerbate vitiligo.
   chemicals:
   - Phenol
@@ -11089,7 +12213,7 @@ Tissue-resident memory T cells (TRM) → chronicity &amp; relapse
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vitiligo", "mondoId": "MONDO:0008661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vitiligo", "yamlRevision": "4d5f37296a32"};
+        const OS_CONFIG = {"diseaseName": "Vitiligo", "mondoId": "MONDO:0008661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vitiligo", "yamlRevision": "cbe6dc442260"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11508,5 +12632,73 @@ Tissue-resident memory T cells (TRM) → chronicity &amp; relapse
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

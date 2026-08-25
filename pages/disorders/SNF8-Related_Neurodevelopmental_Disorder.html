@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>SNF8-Related Neurodevelopmental Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SNF8-Related Neurodevelopmental Disorder</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3777,6 +3981,14 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3801,27 +4013,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="The entire reported morbidity is neurological and neuro-ophthalmological: impaired intellectual development in 4/4, optic atrophy in 3/4, speech and language delay, mild global developmental delay, and in one individual congenital ataxia, with brain and cerebellar atrophy on MRI. The optic neuropathy is a lesion of the anterior visual pathway - central nervous system tissue - rather than an ophthalmological disease of the globe, so NEUROLOGIC rather than an ophthalmology assignment is the correct single chapter. No systemic, cardiac, renal, hepatic, haematological or skeletal involvement has been reported at either end of the SNF8 spectrum.">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3839,7 +4128,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3887,6 +4176,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3908,6 +4198,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4020,6 +4311,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4036,6 +4333,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Measure residual ESCRT-II function in cells engineered to carry p.Val102Ile homozygously versus p.Val102Ile in trans to a null allele, to test the threshold model directly against the modifier model.</div>
+
+
+
+
+
+
 
 
 
@@ -4091,7 +4394,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <span class="entity-ref-chip">genetic#SNF8</span>
+    <a class="entity-ref-chip" href="#genetic-snf8">genetic#SNF8</a>
 
 
 
@@ -4119,6 +4422,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Sequence patient-derived transcripts to determine whether c.423-1G&gt;C causes exon skipping, activation of a cryptic acceptor, or intron retention, and whether the product escapes nonsense-mediated decay.</div>
+
+
+
+
+
+
 
 
 
@@ -4225,6 +4534,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4259,6 +4574,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4275,6 +4596,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Derive neurons and retinal organoids from mild-pole individuals to measure autophagic flux and ESCRT-II function in the cell types the disease actually affects, rather than in fibroblasts. The same approach was applied to the allied ESCRT disorder caused by VPS4A variants, so it is tractable.</div>
+
+
+
+
+
+
 
 
 
@@ -4337,15 +4664,22 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNF8
 
 
-    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17028">hgnc:17028</a>
+    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:17028</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4365,6 +4699,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
                 </div>
+
 
 
 
@@ -4414,6 +4749,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4435,6 +4771,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4468,16 +4805,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4504,15 +4846,22 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNF8
 
 
-    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17028">hgnc:17028</a>
+    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:17028</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4539,16 +4888,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         ESCRT II complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000814" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000814">GO:0000814</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000814" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased ESCRT II complex (GO:0000814). GO:0000814 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4558,19 +4912,25 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         endosome membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010008" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010008">GO:0010008</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010008" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0010008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endosome membrane (GO:0010008). GO:0010008 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4605,6 +4965,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4627,6 +4988,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4648,6 +5010,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4690,15 +5053,22 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNF8
 
 
-    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17028">hgnc:17028</a>
+    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:17028</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4725,19 +5095,25 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         ESCRT II complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000814" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000814">GO:0000814</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000814" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0000814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves abnormal ESCRT II complex (GO:0000814). GO:0000814 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4775,16 +5151,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4811,16 +5192,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         multivesicular body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036258" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036258">GO:0036258</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036258" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0036258</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased multivesicular body assembly (GO:0036258). GO:0036258 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4840,16 +5226,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
                     <span class="tag tag-bio">
                         endosomal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016197" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016197">GO:0016197</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016197" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0016197</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal endosomal transport (GO:0016197). GO:0016197 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4869,16 +5260,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
                     <span class="tag tag-bio">
                         ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043328" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043328">GO:0043328</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043328" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0043328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway, annotated with protein transport to vacuole involved in ubiquitin-dependent protein catabolic process via the multivesicular body sorting pathway (GO:0043328). GO:0043328 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4904,19 +5300,25 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         multivesicular body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005771">GO:0005771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves multivesicular body (GO:0005771). GO:0005771 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4951,6 +5353,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15469844" target="_blank">PMID:15469844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4973,6 +5376,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15469844" target="_blank">PMID:15469844</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4994,6 +5398,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18539118" target="_blank">PMID:18539118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5029,17 +5434,24 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         patient-derived dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves patient-derived dermal fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5060,11 +5472,16 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical pyramidal neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5085,11 +5502,16 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves reactive astrocyte, annotated with astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5110,10 +5532,13 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves activated microglial cell, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5140,16 +5565,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macroautophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016236">GO:0016236</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0016236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased macroautophagy (GO:0016236). GO:0016236 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5158,6 +5588,8 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5175,10 +5607,13 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097352" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097352">GO:0097352</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097352" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0097352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased autophagosome maturation (GO:0097352). GO:0097352 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5204,19 +5639,25 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         autolysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044754" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044754">GO:0044754</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0044754</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves autolysosome (GO:0044754). GO:0044754 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5251,6 +5692,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5272,6 +5714,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5305,16 +5748,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5344,17 +5792,24 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         optic nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000941">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic nerve, annotated with cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         forebrain
@@ -5362,13 +5817,17 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001890">UBERON:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:0001890 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5386,6 +5845,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5480,14 +5940,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Conductive hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5518,14 +5985,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Optic atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5548,6 +6022,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5569,6 +6044,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5601,14 +6077,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Nystagmus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5630,14 +6113,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Reduced visual acuity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5668,14 +6158,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5706,14 +6203,23 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Impaired intellectual development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
+
+                        <span class="phenotype-term-label">Intellectual disability</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5735,6 +6241,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5767,14 +6274,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5796,6 +6310,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5828,14 +6343,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Delayed speech and language development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5866,14 +6388,23 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mild global developmental delay
+
+                        <span class="phenotype-term-label">Mild global developmental delay</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011342" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011342">HP:0011342</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011342</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mild global developmental delay (HP:0011342). HP:0011342 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5895,6 +6426,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5927,14 +6459,23 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Abnormal visual evoked potentials
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of visual evoked potentials
+
+                        <span class="phenotype-term-label">Abnormality of visual evoked potentials</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000649">HP:0000649</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000649</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of visual evoked potentials (HP:0000649). HP:0000649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,14 +6497,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Global brain atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global brain atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002283">HP:0002283</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002283</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5985,14 +6533,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Cerebellar cortical atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar cortical atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008278" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008278">HP:0008278</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008278" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008278</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar cortical atrophy (HP:0008278). HP:0008278 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6014,14 +6569,21 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         Dysplastic corpus callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysplastic corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006989">HP:0006989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysplastic corpus callosum (HP:0006989). HP:0006989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6089,13 +6651,18 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SNF8
 
 
-    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17028">hgnc:17028</a>
+    <a href="https://bioregistry.io/hgnc:17028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:17028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6119,6 +6686,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6140,6 +6708,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6171,6 +6740,9 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6186,7 +6758,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6232,7 +6809,12 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -6295,7 +6877,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-developmental-and-epileptic-encephalopathy-115">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Developmental and epileptic encephalopathy 115</span>
@@ -6349,6 +6931,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6374,7 +6957,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-behr-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Behr_Syndrome.html">Behr syndrome</a>
@@ -6418,7 +7001,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bosch-boonstra-schaaf-optic-atrophy-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Bosch-Boonstra-Schaaf_Optic_Atrophy_Syndrome.html">Bosch-Boonstra-Schaaf optic atrophy syndrome</a>
@@ -6460,7 +7043,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-optic-atrophy-plus-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Autosomal_Dominant_Optic_Atrophy_Plus.html">Autosomal dominant optic atrophy plus syndrome</a>
@@ -6502,7 +7085,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cimdag-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="VPS4A-Related_Neurodevelopmental_Syndrome.html">CIMDAG syndrome</a>
@@ -6554,6 +7137,179 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-snf8-antisense-morpholino-knockdown-morphant-no-stable-mutant-line-reported-danio-rerio" data-dismech-node="snf8 antisense morpholino knockdown (morphant; no stable mutant line reported) Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    snf8 antisense morpholino knockdown (morphant; no stable mutant line reported) Danio rerio
+
+                    <span class="tag tag-exp-model-type">Transient loss-of-function knockdown model</span>
+
+                </div>
+
+                <div class="item-desc">Zebrafish snf8 knockdown is the only reported in vivo model of this disorder, and it is a transient antisense morpholino knockdown rather than a stable germline mutant - a distinction that changes how heavily the result should be weighted. It reproduces the two organ-level features that matter for this entity, impaired optic nerve development and reduced forebrain size, alongside global developmental delay and altered embryo morphology. The model was also used to test individual human SNF8 alleles, and the alleles differed in their impact on embryonic development, which is the experimental basis for attributing the clinical spectrum to allele severity.
+Model-type disclosure, added because the abstract&#39;s phrase &#34;Snf8 loss of function in zebrafish&#34; reads as a stable mutant and is not one. The full text of PMID:38423010 describes morpholino injection with co-injection rescue (&#34;rescued in fish co-injected with snf8 MO and WT SNF8&#34;), so the model is a transient knockdown. Morpholinos carry well-documented off-target and p53-mediated toxicity artefacts, and morphant phenotypes have repeatedly failed to reproduce in germline mutants; the WT-mRNA rescue reported here mitigates that concern but does not remove it. The full text also records reduced penetrance among morphants and variable phenotypes. None of this is in the cached abstract, so it is a note rather than a snippet; it was surfaced by the deep research pass (section 15). The model additionally does not address seizures, corpus callosum morphology (zebrafish have no corpus callosum), leukoencephalopathy, or intellectual disability.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Impaired optic nerve development</span>
+
+                    <span class="tag tag-phenotype">Reduced forebrain size</span>
+
+                    <span class="tag tag-phenotype">Global developmental delay</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">snf8 antisense morpholino knockdown (morphant; no stable mutant line reported)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Snf8 loss of function in zebrafish results in global developmental delay and altered embryo morphology, impaired optic nerve development, and reduced forebrain size."</div>
+
+
+                <div class="evidence-explanation">Describes the zebrafish phenotype, which recapitulates the optic nerve and forebrain involvement of the human disorder.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38423010" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38423010" target="_blank">PMID:38423010</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo experiments corroborated the pathogenicity of the tested SNF8 variants and their variable impact on embryo development, validating the observed clinical heterogeneity."</div>
+
+
+                <div class="evidence-explanation">Establishes that the model was used for allele-specific functional testing, not only for gene knockout, which is what links it to the genotype-phenotype correlation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-snf8-knockout-impc-allele-homozygous-and-heterozygous-mus-musculus" data-dismech-node="Snf8 knockout (IMPC allele; homozygous and heterozygous) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Snf8 knockout (IMPC allele; homozygous and heterozygous) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">The IMPC Snf8 knockout is an orthogonal, non-literature line of evidence that the gene is essential. Homozygous null mice show preweaning lethality with complete penetrance, which is concordant with the severity of the human bi-allelic-null genotypes at the other end of this spectrum and with the inference that the mild pole exists only because p.Val102Ile is hypomorphic rather than null. Its practical limitation is the same fact: because the homozygous null does not survive, the mouse cannot be used to phenotype the postnatal neurological course, and no hypomorphic knock-in equivalent to p.Val102Ile - the allele that actually defines this disorder - has been made. The reported heterozygous findings have no human counterpart, since the heterozygous parents in all six families are unaffected.
+Provenance, verified independently rather than taken from the research report. Queried live on 2026-08-01 against the IMPC genotype-phenotype API, https://www.ebi.ac.uk/mi/impc/solr/genotype-phenotype/select?q=marker_symbol:Snf8 which returned exactly three records: homozygote &#34;preweaning lethality, complete penetrance&#34; (parameter Outcome, p = 0.0); heterozygote &#34;abnormal tail movements&#34; (Tail elevation, p = 4.17e-5); heterozygote &#34;increased lactate dehydrogenase level&#34; (p = 2.57e-5). These figures match what the deep research pass reported, which is why they are recorded here rather than only flagged. No evidence item is attached because IMPC is not a snippet-validated reference source in this repository and no publication reporting this knockout was cited or cached; the API URL and retrieval date above are the provenance. The MGI accession for Snf8 was deliberately not asserted - the research pass warned that its own first lookup landed on Cyb5b, and it was not re-verified here.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Preweaning lethality, complete penetrance (homozygote)</span>
+
+                    <span class="tag tag-phenotype">Abnormal tail movements (heterozygote)</span>
+
+                    <span class="tag tag-phenotype">Increased lactate dehydrogenase level (heterozygote)</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Snf8 knockout (IMPC allele; homozygous and heterozygous)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -10276,5 +11032,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Achondroplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Achondroplasia</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3723,7 +3927,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">44</div>
+                <div class="stat-value">43</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3787,6 +3991,14 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3819,6 +4031,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3828,9 +4110,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 1 &#34;FGFR3 chondrodysplasia group&#34;; listed as &#34;Achondroplasia&#34;.">fgfr3 chondrodysplasia</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3848,7 +4146,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3899,6 +4197,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8078586" target="_blank">PMID:8078586</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3921,6 +4220,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8078586" target="_blank">PMID:8078586</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3942,6 +4242,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4441,6 +4742,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10611230" target="_blank">PMID:10611230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4463,6 +4765,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10611230" target="_blank">PMID:10611230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4484,6 +4787,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41574-021-00595-x" target="_blank">DOI:10.1038/s41574-021-00595-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4548,15 +4852,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3690">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3690</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4583,6 +4894,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         fibroblast growth factor receptor signaling pathway
@@ -4590,10 +4903,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4618,16 +4934,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transmembrane receptor protein tyrosine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004714" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004714">GO:0004714</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004714" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004714</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased transmembrane receptor protein tyrosine kinase activity (GO:0004714). GO:0004714 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4648,6 +4969,7 @@
 
 
                 </div>
+
 
 
 
@@ -4694,6 +5016,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7847369" target="_blank">PMID:7847369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4716,6 +5039,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10611230" target="_blank">PMID:10611230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4737,6 +5061,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z" target="_blank">CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4781,16 +5106,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         growth plate cartilage chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4817,16 +5147,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4835,6 +5170,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4852,10 +5189,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0070371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4875,16 +5215,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell surface receptor signaling pathway via STAT
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097696" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097696">GO:0097696</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097696" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0097696</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell surface receptor signaling pathway via STAT (GO:0097696). GO:0097696 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4905,6 +5250,7 @@
 
 
                 </div>
+
 
 
 
@@ -4952,6 +5298,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10611230" target="_blank">PMID:10611230</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4995,17 +5342,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         growth plate cartilage chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5026,10 +5380,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0020022" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0020022">CL:0020022</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0020022" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0020022</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves prehypertrophic chondrocyte (CL:0020022). CL:0020022 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5056,16 +5413,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5085,16 +5447,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         chondrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5114,16 +5481,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5144,6 +5516,7 @@
 
 
                 </div>
+
 
 
 
@@ -5191,6 +5564,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5212,6 +5586,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14751560" target="_blank">PMID:14751560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5256,17 +5631,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hypertrophic chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000743">CL:0000743</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000743" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hypertrophic chondrocyte (CL:0000743). CL:0000743 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5287,10 +5669,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000744" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000744">CL:0000744</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000744" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000744</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves columnar chondrocyte (CL:0000744). CL:0000744 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5317,16 +5702,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         endochondral ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5346,16 +5736,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         growth plate cartilage development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003417">GO:0003417</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003417" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0003417</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated growth plate cartilage development (GO:0003417). GO:0003417 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5376,6 +5771,7 @@
 
 
                 </div>
+
 
 
 
@@ -5499,6 +5895,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41574-021-00595-x" target="_blank">DOI:10.1038/s41574-021-00595-x</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5538,6 +5935,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5669,6 +6067,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5712,16 +6111,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         growth plate cartilage chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5738,6 +6142,7 @@
 
 
                 </div>
+
 
 
 
@@ -5849,6 +6254,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18923003" target="_blank">PMID:18923003</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5870,6 +6276,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072824" target="_blank">PMID:37072824</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5925,6 +6332,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5965,6 +6373,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33579320" target="_blank">PMID:33579320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6004,6 +6413,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6078,6 +6488,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072824" target="_blank">PMID:37072824</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6117,6 +6528,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6191,6 +6603,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32170149" target="_blank">PMID:32170149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6223,16 +6636,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         growth plate cartilage chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6259,17 +6677,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         receptor guanylyl cyclase signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007168">GO:0007168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves receptor guanylyl cyclase signaling pathway (GO:0007168). GO:0007168 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6290,10 +6715,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6323,6 +6751,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6334,6 +6763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6356,6 +6786,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6395,6 +6826,16 @@
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
 
+            <div class="graph-warning">
+                <strong>Referential integrity issues (1):</strong>
+                <ul>
+
+                    <li>Target &#39;Genu varum&#39; (from &#39;Impaired endochondral ossification and chondrodysplasia&#39;) not found in named elements</li>
+
+
+                </ul>
+            </div>
+
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -6405,7 +6846,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bowing of the legs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb bowing is a very frequent orthopedic feature and overlaps clinically with genu varum in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002979\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short fingers are a characteristic hand phenotype in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNP signaling through NPR2/GC-B counteracts FGFR3-MAPK activity. CNP corrected matrix synthesis and bone shortening in a mouse model without correcting the STAT1 branch.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"receptor guanylyl cyclase signaling pathway\", \"MAPK cascade\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Caudal interpedicular narrowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Caudal narrowing of lumbar interpedicular distance is a characteristic radiographic finding in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008457\"}}, {\"id\": \"Cervical spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical canal stenosis is a more specific spinal stenosis manifestation that can occur in childhood and contributes to craniocervical risk.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008445\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common and is usually conductive or mixed rather than purely sensorineural.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered vertebral geometry constrains the canal; disc degeneration and sagittal deformity add to adult upper-lumbar narrowing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3-MAPK activation promotes premature closure in models and severe human FGFR3 dysplasias. CT in heterozygous achondroplasia documents skull-base fusion and age-associated craniofacial severity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\"]}}, {\"id\": \"Craniofacial and upper-airway restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Midface and maxillomandibular retrusion reduce upper-airway dimensions; lymphoid hypertrophy, airway malacia, and hypotonia can add obstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disproportionate short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short-limb short stature is a defining skeletal manifestation of achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008873\"}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nearly all individuals have one of two substitutions producing p.Gly380Arg. The receptor is gain of function, but experiments show predominantly ligand-dependent activation with delayed down-regulation and resistance to ligand-mediated internalization.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"], \"molecular_functions\": [\"transmembrane receptor protein tyrosine kinase activity\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"role\": \"trigger\"}}, {\"id\": \"Foramen magnum decompression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experienced neurosurgical teams may perform suboccipital or cervicomedullary decompression when clinical, respiratory, and imaging findings indicate significant craniocervical compression. The procedure is not equated with lumbar laminectomy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Foramen magnum stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foramen magnum stenosis is a major infant complication that can cause cervical cord compression.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002677\"}}, {\"id\": \"Genu varum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genu varum is a common lower-limb deformity and is typically recognized during childhood.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002970\"}}, {\"id\": \"Growth-plate chondrocyte dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAPK inhibits hypertrophic differentiation in models. Human fetal growth plates support altered FGFR3/STAT/p21 expression and premature cell-cycle exit. STAT1 is not treated as sufficient to explain all growth inhibition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\", \"prehypertrophic chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"chondrocyte differentiation\", \"cell population proliferation\"], \"role\": \"effector\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus is a rare but clinically important neurosurgical complication in childhood. It is typically communicating and attributed to endochondral hypoplasia of the skull base, which narrows the jugular foramina and obstructs cerebral venous outflow, raising intracranial venous pressure and impairing CSF resorption.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired endochondral ossification and chondrodysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation reduces the hypertrophic zone and impairs endochondral ossification. Anatomical consequences are represented through calibrated branches rather than an unsupported all-phenotype fan-out.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hypertrophic chondrocyte\", \"columnar chondrocyte\"], \"biological_processes\": [\"endochondral ossification\", \"growth plate cartilage development\"], \"role\": \"consequence\"}}, {\"id\": \"Jugular-foramen venous outflow impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Narrow jugular foramina can obstruct cerebral venous drainage, increasing venous pressure and impairing cerebrospinal-fluid resorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Limb undergrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb undergrowth is the core skeletal manifestation of achondroplasia, reflecting impaired endochondral ossification of the appendicular skeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009826\"}}, {\"id\": \"Middle-ear and hearing management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recurrent effusion and hearing impairment require hearing surveillance and individualized ENT management, including pressure-equalizing tubes when indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midface retrusion contributes to the characteristic craniofacial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Navepegritide (Yuviwel)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-weekly CNP analogue indicated in the United States to increase linear growth in patients aged two years and older with achondroplasia and open epiphyses. The 2026 accelerated approval is based on annualized growth velocity; continued approval may be contingent on verification and description of clinical benefit in confirmatory trials.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"navepegritide\"]}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a major respiratory complication in children and can recur later in life. Polysomnography can reveal sleep-disordered breathing even when children have no prior symptoms.\\n\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Obstructive sleep apnea management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment is individualized and may include adenotonsillar surgery, positive airway pressure, or rarely tracheostomy after appropriate sleep and airway assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Otitis media with effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otitis media with effusion is a common otologic complication and often leads to repeated ventilation-tube placement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031353\"}}, {\"id\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed internalization expands mutant FGFR3 immunoreactivity in epiphyseal growth plates, where signal kinetics regulate chondrocyte maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"ERK1 and ERK2 cascade\", \"cell surface receptor signaling pathway via STAT\"], \"role\": \"central_effector\"}}, {\"id\": \"Reduced longitudinal growth of endochondral bones\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced long-bone growth produces disproportionate short stature, rhizomelic limb shortening, and characteristic hand shortening.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening is most pronounced in the proximal long bones. Orphanet codes the strict HPO term HP:0008905 (Rhizomelia) as Occasional; the broader rhizomelic shortening pattern is characteristic but captured under Disproportionate short stature and Limb undergrowth.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical and lumbar spinal canal stenosis occur across the lifespan and symptomatic lumbar disease is especially important in adults.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003416\"}}, {\"id\": \"Surgery for symptomatic spinal stenosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adults with symptomatic spinal stenosis may require decompressive spinal surgery. Selection depends on neurologic symptoms and specialist assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Trident hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trident hand is a characteristic hand configuration in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004060\"}}, {\"id\": \"Vosoritide (Voxzogo)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daily CNP analogue indicated in the United States to increase linear growth in pediatric patients with achondroplasia and open epiphyses. Accelerated approval is based on annualized growth velocity; final adult height and prevention of non-growth complications are not established by the approval. A three-year external-control comparison estimated 5.75 cm additional height, explicitly not a three-year randomized comparison.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"vosoritide\"]}}, {\"id\": \"c.1138G\u003eA (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant recurrent allele; 150 of 153 p.Gly380Arg-positive cases in one 154-person series carried c.1138G\u003eA.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1138G\u003eC (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A less common nucleotide substitution producing the same p.Gly380Arg protein change; three cases were observed in the same series.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"target\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed down-regulation expands mutant-receptor signaling in growth plate.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"target\": \"Growth-plate chondrocyte dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged signaling engages MAPK and STAT-p21 growth-inhibitory programs.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth-plate chondrocyte dysregulation\", \"target\": \"Impaired endochondral ossification and chondrodysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated growth-plate maturation impairs endochondral bone growth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Reduced longitudinal growth of endochondral bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired hypertrophic differentiation reduces longitudinal growth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The endochondral process affects synchondroses, but ordinary-heterozygous causal evidence is incomplete.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired vertebral growth plausibly contributes to congenital constraint; adult degeneration adds a second component.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Genu varum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genu varum is observed during childhood in the chondrodysplasia; the specific growth-plate route is not established by the cited source.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Bowing of the legs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-limb bowing overlaps clinically with genu varum; the specific growth-plate route is not established by the cited source.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Disproportionate short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced longitudinal growth produces disproportionate stature.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proximal long-bone undergrowth produces rhizomelia.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Preferential undergrowth of proximal long-bone segments\"]}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Limb undergrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced longitudinal growth is expressed as limb undergrowth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening of endochondral hand bones produces brachydactyly.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced longitudinal growth of metacarpals and phalanges\"]}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Trident hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hand-bone shortening contributes to the trident configuration.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Phalangeal shortening and separation of the third and fourth digits\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base growth restriction contributes to narrowing.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Restricted endochondral growth of the skull base\", \"Reduced bony dimensions of the foramen magnum\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Jugular-foramen venous outflow impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base undergrowth can narrow jugular foramina.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced skull-base dimensions\", \"Jugular-foramen narrowing\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Craniofacial and upper-airway restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base fusion co-occurs with retrusion; direction remains incompletely resolved.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Caudal interpedicular narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral dysplasia is associated with the caudal interpedicular pattern.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Jugular-foramen venous outflow impairment\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Venous hypertension and impaired CSF resorption can produce hydrocephalus.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Raised intracranial venous pressure\", \"Impaired cerebrospinal-fluid resorption\"]}, {\"source\": \"Craniofacial and upper-airway restriction\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface retrusion is an anatomical component of restriction.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Craniofacial and upper-airway restriction\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retrusion contributes to, but does not solely determine, obstruction.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital constraint and degeneration produce recognized stenosis.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"target\": \"Cervical spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital component can affect the cervical canal.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"Limb undergrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Navepegritide (Yuviwel)\", \"target\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Navepegritide (Yuviwel)\", \"target\": \"Limb undergrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Foramen magnum decompression\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgery for symptomatic spinal stenosis\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Middle-ear and hearing management\", \"target\": \"Otitis media with effusion\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Middle-ear and hearing management\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Obstructive sleep apnea management\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eA (p.Gly380Arg)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eC (p.Gly380Arg)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bowing of the legs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower-limb bowing is a very frequent orthopedic feature in achondroplasia, comprising genu varum (outward bowing at the knees, bow-legs) and a complex deformity involving lateral bowing, differential tibial and fibular growth, internal tibial torsion, and dynamic knee instability. It is typically recognized during childhood.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002979\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short fingers are a characteristic hand phenotype in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001156\"}}, {\"id\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNP signaling through NPR2/GC-B counteracts FGFR3-MAPK activity. CNP corrected matrix synthesis and bone shortening in a mouse model without correcting the STAT1 branch.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"receptor guanylyl cyclase signaling pathway\", \"MAPK cascade\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Caudal interpedicular narrowing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Caudal narrowing of lumbar interpedicular distance is a characteristic radiographic finding in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008457\"}}, {\"id\": \"Cervical spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical canal stenosis is a more specific spinal stenosis manifestation that can occur in childhood and contributes to craniocervical risk.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008445\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common and is usually conductive or mixed rather than purely sensorineural.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered vertebral geometry constrains the canal; disc degeneration and sagittal deformity add to adult upper-lumbar narrowing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGFR3-MAPK activation promotes premature closure in models and severe human FGFR3 dysplasias. CT in heterozygous achondroplasia documents skull-base fusion and age-associated craniofacial severity.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\"]}}, {\"id\": \"Craniofacial and upper-airway restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Midface and maxillomandibular retrusion reduce upper-airway dimensions; lymphoid hypertrophy, airway malacia, and hypotonia can add obstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Disproportionate short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short-limb short stature is a defining skeletal manifestation of achondroplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008873\"}}, {\"id\": \"FGFR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 2}}, {\"id\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nearly all individuals have one of two substitutions producing p.Gly380Arg. The receptor is gain of function, but experiments show predominantly ligand-dependent activation with delayed down-regulation and resistance to ligand-mediated internalization.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"], \"molecular_functions\": [\"transmembrane receptor protein tyrosine kinase activity\"], \"genes\": [\"FGFR3\"], \"gene_terms\": [{\"label\": \"FGFR3\", \"id\": \"hgnc:3690\"}], \"role\": \"trigger\"}}, {\"id\": \"Foramen magnum decompression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Experienced neurosurgical teams may perform suboccipital or cervicomedullary decompression when clinical, respiratory, and imaging findings indicate significant craniocervical compression. The procedure is not equated with lumbar laminectomy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Foramen magnum stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foramen magnum stenosis is a major infant complication that can cause cervical cord compression.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002677\"}}, {\"id\": \"Genu varum\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Growth-plate chondrocyte dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MAPK inhibits hypertrophic differentiation in models. Human fetal growth plates support altered FGFR3/STAT/p21 expression and premature cell-cycle exit. STAT1 is not treated as sufficient to explain all growth inhibition.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"growth plate cartilage chondrocyte\", \"prehypertrophic chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"chondrocyte differentiation\", \"cell population proliferation\"], \"role\": \"effector\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus is a rare but clinically important neurosurgical complication in childhood. It is typically communicating and attributed to endochondral hypoplasia of the skull base, which narrows the jugular foramina and obstructs cerebral venous outflow, raising intracranial venous pressure and impairing CSF resorption.\\n\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired endochondral ossification and chondrodysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered growth-plate maturation reduces the hypertrophic zone and impairs endochondral ossification. Anatomical consequences are represented through calibrated branches rather than an unsupported all-phenotype fan-out.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hypertrophic chondrocyte\", \"columnar chondrocyte\"], \"biological_processes\": [\"endochondral ossification\", \"growth plate cartilage development\"], \"role\": \"consequence\"}}, {\"id\": \"Jugular-foramen venous outflow impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Narrow jugular foramina can obstruct cerebral venous drainage, increasing venous pressure and impairing cerebrospinal-fluid resorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Limb undergrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb undergrowth is the core skeletal manifestation of achondroplasia, reflecting impaired endochondral ossification of the appendicular skeleton.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009826\"}}, {\"id\": \"Middle-ear and hearing management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recurrent effusion and hearing impairment require hearing surveillance and individualized ENT management, including pressure-equalizing tubes when indicated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midface retrusion contributes to the characteristic craniofacial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Navepegritide (Yuviwel)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-weekly CNP analogue indicated in the United States to increase linear growth in patients aged two years and older with achondroplasia and open epiphyses. The 2026 accelerated approval is based on annualized growth velocity; continued approval may be contingent on verification and description of clinical benefit in confirmatory trials.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"navepegritide\"]}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive sleep apnea is a major respiratory complication in children and can recur later in life. Polysomnography can reveal sleep-disordered breathing even when children have no prior symptoms.\\n\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Obstructive sleep apnea management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment is individualized and may include adenotonsillar surgery, positive airway pressure, or rarely tracheostomy after appropriate sleep and airway assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Otitis media with effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Otitis media with effusion is a common otologic complication and often leads to repeated ventilation-tube placement.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031353\"}}, {\"id\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delayed internalization expands mutant FGFR3 immunoreactivity in epiphyseal growth plates, where signal kinetics regulate chondrocyte maturation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate cartilage chondrocyte\"], \"biological_processes\": [\"MAPK cascade\", \"ERK1 and ERK2 cascade\", \"cell surface receptor signaling pathway via STAT\"], \"role\": \"central_effector\"}}, {\"id\": \"Reduced longitudinal growth of endochondral bones\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced long-bone growth produces disproportionate short stature, rhizomelic limb shortening, and characteristic hand shortening.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rhizomelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Shortening is most pronounced in the proximal long bones. Orphanet codes the strict HPO term HP:0008905 (Rhizomelia) as Occasional; the broader rhizomelic shortening pattern is characteristic but captured under Disproportionate short stature and Limb undergrowth.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008905\"}}, {\"id\": \"Spinal canal stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical and lumbar spinal canal stenosis occur across the lifespan and symptomatic lumbar disease is especially important in adults.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003416\"}}, {\"id\": \"Surgery for symptomatic spinal stenosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adults with symptomatic spinal stenosis may require decompressive spinal surgery. Selection depends on neurologic symptoms and specialist assessment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Trident hand\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Trident hand is a characteristic hand configuration in achondroplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004060\"}}, {\"id\": \"Vosoritide (Voxzogo)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Daily CNP analogue indicated in the United States to increase linear growth in pediatric patients with achondroplasia and open epiphyses. Accelerated approval is based on annualized growth velocity; final adult height and prevention of non-growth complications are not established by the approval. A three-year external-control comparison estimated 5.75 cm additional height, explicitly not a three-year randomized comparison.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"vosoritide\"]}}, {\"id\": \"c.1138G\u003eA (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant recurrent allele; 150 of 153 p.Gly380Arg-positive cases in one 154-person series carried c.1138G\u003eA.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"c.1138G\u003eC (p.Gly380Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A less common nucleotide substitution producing the same p.Gly380Arg protein change; three cases were observed in the same series.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"target\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed down-regulation expands mutant-receptor signaling in growth plate.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged FGFR3 signaling in growth-plate chondrocytes\", \"target\": \"Growth-plate chondrocyte dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged signaling engages MAPK and STAT-p21 growth-inhibitory programs.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth-plate chondrocyte dysregulation\", \"target\": \"Impaired endochondral ossification and chondrodysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated growth-plate maturation impairs endochondral bone growth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Reduced longitudinal growth of endochondral bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired hypertrophic differentiation reduces longitudinal growth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The endochondral process affects synchondroses, but ordinary-heterozygous causal evidence is incomplete.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired vertebral growth plausibly contributes to congenital constraint; adult degeneration adds a second component.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Genu varum\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Genu varum is observed during childhood in the chondrodysplasia; the specific growth-plate route is not established by the cited source.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Impaired endochondral ossification and chondrodysplasia\", \"target\": \"Bowing of the legs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-limb bowing overlaps clinically with genu varum; the specific growth-plate route is not established by the cited source.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Disproportionate short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced longitudinal growth produces disproportionate stature.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Rhizomelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proximal long-bone undergrowth produces rhizomelia.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Preferential undergrowth of proximal long-bone segments\"]}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Limb undergrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced longitudinal growth is expressed as limb undergrowth.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shortening of endochondral hand bones produces brachydactyly.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced longitudinal growth of metacarpals and phalanges\"]}, {\"source\": \"Reduced longitudinal growth of endochondral bones\", \"target\": \"Trident hand\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hand-bone shortening contributes to the trident configuration.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Phalangeal shortening and separation of the third and fourth digits\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base growth restriction contributes to narrowing.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Restricted endochondral growth of the skull base\", \"Reduced bony dimensions of the foramen magnum\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Jugular-foramen venous outflow impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base undergrowth can narrow jugular foramina.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced skull-base dimensions\", \"Jugular-foramen narrowing\"]}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Craniofacial and upper-airway restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base fusion co-occurs with retrusion; direction remains incompletely resolved.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Cranial-base and vertebral synchondrosis dysplasia\", \"target\": \"Caudal interpedicular narrowing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vertebral dysplasia is associated with the caudal interpedicular pattern.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Jugular-foramen venous outflow impairment\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Venous hypertension and impaired CSF resorption can produce hydrocephalus.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Raised intracranial venous pressure\", \"Impaired cerebrospinal-fluid resorption\"]}, {\"source\": \"Craniofacial and upper-airway restriction\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface retrusion is an anatomical component of restriction.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Craniofacial and upper-airway restriction\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retrusion contributes to, but does not solely determine, obstruction.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital constraint and degeneration produce recognized stenosis.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Congenital spinal-canal constraint with superimposed degeneration\", \"target\": \"Cervical spinal canal stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The congenital component can affect the cervical canal.\", \"hypothesis_groups\": [\"canonical_fgfr3_gain_of_function_chondrocyte_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vosoritide (Voxzogo)\", \"target\": \"Limb undergrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Navepegritide (Yuviwel)\", \"target\": \"CNP-NPR2 counter-regulation of FGFR3-MAPK signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Navepegritide (Yuviwel)\", \"target\": \"Limb undergrowth\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Foramen magnum decompression\", \"target\": \"Foramen magnum stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgery for symptomatic spinal stenosis\", \"target\": \"Spinal canal stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Middle-ear and hearing management\", \"target\": \"Otitis media with effusion\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Middle-ear and hearing management\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Obstructive sleep apnea management\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGFR3\", \"target\": \"FGFR3 p.Gly380Arg gain-of-function with impaired receptor down-regulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eA (p.Gly380Arg)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1138G\u003eC (p.Gly380Arg)\", \"target\": \"FGFR3\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": [\"Genu varum\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6418,7 +6859,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">44</span>
+                <span class="card-count">43</span>
             </div>
 
 
@@ -6430,7 +6871,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(6)</span></button>
 
@@ -6460,14 +6901,21 @@
                         Conductive hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6487,6 +6935,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39660705" target="_blank">PMID:39660705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6510,6 +6959,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34736503" target="_blank">PMID:34736503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6531,6 +6981,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6574,14 +7025,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000256">HP:0000256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6601,6 +7059,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6623,6 +7082,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6655,14 +7115,21 @@
                         Prominent forehead
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011220">HP:0011220</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011220</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent forehead (HP:0011220). HP:0011220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6682,6 +7149,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072824" target="_blank">PMID:37072824</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6714,14 +7182,21 @@
                         Midface retrusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6741,6 +7216,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37072824" target="_blank">PMID:37072824</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6775,14 +7251,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anteverted nares
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000463">HP:0000463</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000463</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6802,6 +7285,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6834,14 +7318,23 @@
                         Foramen magnum stenosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Small foramen magnum
+
+                        <span class="phenotype-term-label">Small foramen magnum</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002677">HP:0002677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small foramen magnum (HP:0002677). HP:0002677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6861,6 +7354,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32883660" target="_blank">PMID:32883660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6883,6 +7377,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38554024" target="_blank">PMID:38554024</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6917,14 +7412,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depressed nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0005280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6944,6 +7446,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6978,14 +7481,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Frontal bossing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002007">HP:0002007</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002007</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7005,6 +7515,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7048,14 +7559,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acanthosis nigricans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000956">HP:0000956</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000956</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7075,6 +7593,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7097,6 +7616,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7130,7 +7650,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-trident-hand" data-dismech-node="Trident hand" data-dismech-type="phenotype">
@@ -7140,14 +7660,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Trident hand
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004060" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004060">HP:0004060</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004060" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004060</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Trident hand (HP:0004060). HP:0004060 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7167,6 +7694,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7189,6 +7717,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7216,65 +7745,6 @@
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-genu-varum" data-dismech-node="Genu varum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Genu varum
-
-
-                    <span class="phenotype-id">
-                        Genu varum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002970" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002970">HP:0002970</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29972438" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most prevalent clinical findings were short stature, high forehead, trident hands, genu varum and macrocephaly."</div>
-
-
-                <div class="evidence-explanation">Clinical cohort data identify genu varum as one of the most prevalent physical findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Brachydactyly
@@ -7282,14 +7752,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brachydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7309,6 +7786,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7343,14 +7821,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short middle phalanx of finger
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005819">HP:0005819</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0005819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short middle phalanx of finger (HP:0005819). HP:0005819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7370,6 +7855,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7404,14 +7890,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limited elbow extension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001377" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001377">HP:0001377</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001377</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limited elbow extension (HP:0001377). HP:0001377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7431,6 +7924,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7465,14 +7959,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb undergrowth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009826">HP:0009826</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0009826</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7492,6 +7993,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7535,14 +8037,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thoracolumbar kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005619">HP:0005619</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005619" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005619</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thoracolumbar kyphosis (HP:0005619). HP:0005619 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7562,6 +8071,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37493935" target="_blank">PMID:37493935</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7585,6 +8095,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27927547" target="_blank">PMID:27927547</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7606,6 +8117,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7638,14 +8150,21 @@
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7665,6 +8184,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27927547" target="_blank">PMID:27927547</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7699,14 +8219,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spinal canal stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003416">HP:0003416</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003416</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spinal canal stenosis (HP:0003416). HP:0003416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7726,6 +8253,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7749,6 +8277,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32170149" target="_blank">PMID:32170149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7770,6 +8299,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7804,14 +8334,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lumbar hyperlordosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002938">HP:0002938</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7831,6 +8368,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7865,14 +8403,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Floppy infant
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008947">HP:0008947</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0008947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7892,6 +8437,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7926,14 +8472,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thoracic hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005257">HP:0005257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thoracic hypoplasia (HP:0005257). HP:0005257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7953,6 +8506,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7996,14 +8550,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obstructive sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8023,6 +8584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40675782" target="_blank">PMID:40675782</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8046,6 +8608,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40675782" target="_blank">PMID:40675782</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8067,6 +8630,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8103,14 +8667,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8130,6 +8701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33579320" target="_blank">PMID:33579320</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8153,6 +8725,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8174,6 +8747,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8208,14 +8782,21 @@
                         Delayed gross motor development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed gross motor development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002194">HP:0002194</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8235,6 +8816,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22409389" target="_blank">PMID:22409389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8257,6 +8839,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8289,14 +8872,21 @@
                         Delayed speech and language development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8316,6 +8906,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8338,6 +8929,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22409389" target="_blank">PMID:22409389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8381,14 +8973,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Restrictive ventilatory defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002091">HP:0002091</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002091" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002091</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive ventilatory defect (HP:0002091). HP:0002091 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8408,6 +9007,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8449,14 +9049,21 @@
                         Limb pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009763">HP:0009763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0009763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb pain (HP:0009763). HP:0009763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8476,6 +9083,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8517,14 +9125,23 @@
                         Disproportionate short stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disproportionate short-limb short stature
+
+                        <span class="phenotype-term-label">Disproportionate short-limb short stature</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008873">HP:0008873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate short-limb short stature (HP:0008873). HP:0008873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8544,6 +9161,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32803853" target="_blank">PMID:32803853</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8576,14 +9194,21 @@
                         Rhizomelia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rhizomelia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008905">HP:0008905</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0008905</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8603,6 +9228,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8625,6 +9251,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8657,14 +9284,21 @@
                         Obesity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8684,6 +9318,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3228140" target="_blank">PMID:3228140</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8727,14 +9362,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Parietal bossing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000242" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000242">HP:0000242</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000242" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000242</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parietal bossing (HP:0000242). HP:0000242 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8754,6 +9396,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8788,14 +9431,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wide anterior fontanel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000260">HP:0000260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8815,6 +9465,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8849,15 +9500,51 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bowing of the legs
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002979">HP:0002979</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002979</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bowing of the legs (HP:0002979), qualified as childhood onset. HP:0002979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CHILDHOOD</span>
+
+
+
+
+
 
                     </div>
 
@@ -8867,15 +9554,39 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29972438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most prevalent clinical findings were short stature, high forehead, trident hands, genu varum and macrocephaly."</div>
+
+
+                <div class="evidence-explanation">Clinical cohort data identify lower-limb deformity (including genu varum) as one of the most prevalent physical findings.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="ORPHA:15" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8893,6 +9604,31 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:32864841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genu varum, elbow contractures, and radial head dislocations were identified during childhood"</div>
+
+
+                <div class="evidence-explanation">Chart-review cohort places recognition of genu varum in childhood, preserving the onset nuance of the merged entry.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -8910,14 +9646,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cervical spinal canal stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008445" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008445">HP:0008445</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0008445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cervical spinal canal stenosis (HP:0008445). HP:0008445 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8937,6 +9680,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8959,6 +9703,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8991,14 +9736,21 @@
                         Central sleep apnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010536">HP:0010536</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0010536</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central sleep apnea (HP:0010536). HP:0010536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9018,6 +9770,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9040,6 +9793,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40675782" target="_blank">PMID:40675782</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9074,14 +9828,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Functional abnormality of the middle ear
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011452" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011452">HP:0011452</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0011452</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Functional abnormality of the middle ear (HP:0011452). HP:0011452 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9101,6 +9862,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9123,6 +9885,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9155,14 +9918,21 @@
                         Otitis media with effusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Otitis media with effusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031353">HP:0031353</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0031353</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Otitis media with effusion (HP:0031353). HP:0031353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9182,6 +9952,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39660705" target="_blank">PMID:39660705</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9214,14 +9985,21 @@
                         Elbow contracture
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elbow contracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034391" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034391">HP:0034391</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034391" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0034391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elbow contracture (HP:0034391). HP:0034391 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9241,6 +10019,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9273,14 +10052,23 @@
                         Radial head dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proximal radial head dislocation
+
+                        <span class="phenotype-term-label">Proximal radial head dislocation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005070" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005070">HP:0005070</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0005070</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Radial head dislocation, annotated with Proximal radial head dislocation (HP:0005070). HP:0005070 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9300,6 +10088,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32864841" target="_blank">PMID:32864841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9334,14 +10123,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short proximal phalanx of finger
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010241" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010241">HP:0010241</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0010241</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short proximal phalanx of finger (HP:0010241). HP:0010241 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9361,6 +10157,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9395,14 +10192,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Knee joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045086" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045086">HP:0045086</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0045086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Knee joint hypermobility (HP:0045086). HP:0045086 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9422,6 +10226,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9456,14 +10261,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hip joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045087" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045087">HP:0045087</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045087" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0045087</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip joint hypermobility (HP:0045087). HP:0045087 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9483,6 +10295,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9515,14 +10328,21 @@
                         Cervical myelopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cervical myelopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002318" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002318">HP:0002318</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002318" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cervical myelopathy (HP:0002318). HP:0002318 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9542,6 +10362,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33579320" target="_blank">PMID:33579320</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9574,14 +10395,21 @@
                         Caudal interpedicular narrowing
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Caudal interpedicular narrowing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008457" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008457">HP:0008457</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008457" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0008457</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Caudal interpedicular narrowing (HP:0008457). HP:0008457 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9601,6 +10429,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29972438" target="_blank">PMID:29972438</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9679,13 +10508,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FGFR3
 
 
-    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3690">hgnc:3690</a>
+    <a href="https://bioregistry.io/hgnc:3690" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:3690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9711,6 +10545,7 @@
                         <a href="https://bioregistry.io/CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z" target="_blank">CGGV:assertion_0adafa1b-e609-4b99-8e90-f73473b70771-2023-09-28T040000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9732,6 +10567,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:15" target="_blank">ORPHA:15</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9775,6 +10611,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9786,6 +10624,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7847369" target="_blank">PMID:7847369</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9829,6 +10668,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9840,6 +10681,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7847369" target="_blank">PMID:7847369</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9876,6 +10718,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9893,7 +10738,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9923,16 +10773,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vosoritide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152918" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152918">NCIT:C152918</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152918" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C152918</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vosoritide (NCIT:C152918). NCIT:C152918 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9967,6 +10822,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31269546" target="_blank">PMID:31269546</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9988,6 +10844,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10018,16 +10875,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb undergrowth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009826">HP:0009826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0009826</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10046,6 +10908,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/214938s004lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/214938s004lbl.pdf</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10069,6 +10932,7 @@
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/214938s004lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/214938s004lbl.pdf</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10090,6 +10954,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740666" target="_blank">PMID:39740666</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10124,7 +10989,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10154,9 +11024,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">
                         navepegritide
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Relation: this treatment uses this therapeutic agent
+This treatment uses navepegritide.</span>
                     </span>
 
                 </div>
@@ -10191,6 +11065,7 @@
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10220,16 +11095,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb undergrowth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009826">HP:0009826</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0009826</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10248,6 +11128,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10271,6 +11152,7 @@
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10292,6 +11174,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf" target="_blank">url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/219164Orig1s000lbl.pdf</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10326,7 +11209,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Limb lengthening surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">Limb lengthening surgery<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Limb lengthening surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10375,6 +11263,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10406,7 +11295,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Foramen magnum decompression</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-72">Foramen magnum decompression<span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Foramen magnum decompression, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10443,16 +11337,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Small foramen magnum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002677">HP:0002677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Small foramen magnum (HP:0002677). HP:0002677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10471,6 +11370,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10503,7 +11403,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">spinal decompression surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">spinal decompression surgery<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is spinal decompression surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10540,16 +11445,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Spinal canal stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003416">HP:0003416</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0003416</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Spinal canal stenosis (HP:0003416). HP:0003416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10568,6 +11478,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10600,7 +11511,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">clinical monitoring</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
@@ -10649,6 +11565,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10671,6 +11588,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32457214" target="_blank">PMID:32457214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10692,6 +11610,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10724,7 +11643,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10761,17 +11685,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Otitis media with effusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031353">HP:0031353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0031353</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Otitis media with effusion (HP:0031353). HP:0031353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Conductive hearing impairment
@@ -10779,10 +11710,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0000405</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10801,6 +11735,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10833,7 +11768,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10870,16 +11810,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obstructive sleep apnea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0002870</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10898,6 +11843,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10930,7 +11876,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -10979,6 +11930,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11025,7 +11977,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hypochondroplasia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hypochondroplasia.html">Hypochondroplasia</a>
@@ -11070,6 +12022,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11095,7 +12048,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pseudoachondroplasia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Pseudoachondroplasia</span>
@@ -11143,6 +12096,7 @@
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK1152/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK1152/</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11168,7 +12122,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thanatophoric-dysplasia-type-2">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Thanatophoric_Dysplasia_Type_2.html">Thanatophoric dysplasia type 2</a>
@@ -11213,6 +12167,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25800480" target="_blank">PMID:25800480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11238,7 +12193,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-saddan">
                 <div class="item-name">
 
                     <a class="item-name-link" href="SADDAN.html">SADDAN</a>
@@ -11285,6 +12240,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11306,6 +12262,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24352917" target="_blank">PMID:24352917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11342,6 +12299,295 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-human-fgfr3-g380r-transgene-under-mouse-fgfr3-transcriptional-control-mouse" data-dismech-node="Human FGFR3 G380R transgene under mouse Fgfr3 transcriptional control Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Human FGFR3 G380R transgene under mouse Fgfr3 transcriptional control Mouse
+
+                </div>
+
+                <div class="item-desc">Mutant-receptor immunoreactivity extends across a larger growth-plate area, supporting impaired in vivo receptor down-regulation. This record does not claim an unsupported full phenotypic inventory.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Human FGFR3 G380R transgene under mouse Fgfr3 transcriptional control</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10611230" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10611230" target="_blank">PMID:10611230</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"transgenic mice expressing the human G380R mutant receptor under the mouse receptor transcriptional control demonstrated a markedly expanded area of FGFR3 immunoreactivity within their epiphyseal growth plates, compatible with an in vivo defect in receptor down-regulation."</div>
+
+
+                <div class="evidence-explanation">The experiment directly supports the modeled receptor-persistence phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-activated-fgfr3-achondroplasia-model-with-chondrocyte-cnp-overexpression-mouse" data-dismech-node="Activated Fgfr3 achondroplasia model with chondrocyte CNP overexpression Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Activated Fgfr3 achondroplasia model with chondrocyte CNP overexpression Mouse
+
+                </div>
+
+                <div class="item-desc">Targeted CNP overexpression counteracted dwarfism and corrected reduced matrix synthesis through MAPK inhibition, providing proof of concept for CNP analogues.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Rescue of bone shortening</span>
+
+                    <span class="tag tag-phenotype">Restored extracellular matrix synthesis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Activated Fgfr3 achondroplasia model with chondrocyte CNP overexpression</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14702637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"targeted overexpression of CNP in chondrocytes counteracts dwarfism in a mouse model of achondroplasia with activated fibroblast growth factor receptor 3 (FGFR-3) in the cartilage."</div>
+
+
+                <div class="evidence-explanation">The intervention directly demonstrates rescue of dwarfism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14702637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14702637" target="_blank">PMID:14702637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CNP prevented the shortening of achondroplastic bones by correcting the decreased extracellular matrix synthesis in the growth plate through inhibition of the MAPK pathway of FGF signaling."</div>
+
+
+                <div class="evidence-explanation">The experiment supplies the matrix and MAPK mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-constitutively-active-mek1-driven-by-col2a1-in-chondrocytes-mouse" data-dismech-node="Constitutively active MEK1 driven by Col2a1 in chondrocytes Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Constitutively active MEK1 driven by Col2a1 in chondrocytes Mouse
+
+                </div>
+
+                <div class="item-desc">Chondrocyte MEK1 activation produces achondroplasia-like dwarfism and inhibits skeletal overgrowth in Fgfr3-deficient mice, supporting MAPK as a downstream effector.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Achondroplasia-like dwarfism</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Constitutively active MEK1 driven by Col2a1 in chondrocytes</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14871928" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We generated transgenic mice that express a constitutively active mutant of MEK1 in chondrocytes. These mice showed a dwarf phenotype similar to achondroplasia, the most common human dwarfism, caused by activating mutations in FGFR3."</div>
+
+
+                <div class="evidence-explanation">Directly demonstrates sufficiency of chondrocyte MAPK activation for an achondroplasia-like phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14871928" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14871928" target="_blank">PMID:14871928</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Expression of a constitutively active mutant of MEK1 in chondrocytes of Fgfr3-deficient mice inhibited skeletal overgrowth, strongly suggesting that regulation of bone growth by FGFR3 is mediated at least in part by the MAPK pathway."</div>
+
+
+                <div class="evidence-explanation">The epistasis experiment positions MAPK downstream of FGFR3.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -11360,7 +12606,6 @@
 synonyms:
 - Achondroplasia, FGFR3-related
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-07-17T00:00:00Z&#39;
 category: Mendelian
 description: &gt;-
   Achondroplasia is the most common cause of disproportionate short stature. It is
@@ -12311,38 +13556,46 @@ phenotypes:
     evidence_source: OTHER
     snippet: &#34;HP:0004060 | Trident hand | Frequent (79-30%)&#34;
     explanation: Orphanet classifies trident hand as frequent in achondroplasia.
-- name: Genu varum
+- name: Bowing of the legs
+  frequency: VERY_FREQUENT
   description: &gt;
-    Genu varum is a common lower-limb deformity and is typically recognized during childhood.
+    Lower-limb bowing is a very frequent orthopedic feature in achondroplasia,
+    comprising genu varum (outward bowing at the knees, bow-legs) and a complex
+    deformity involving lateral bowing, differential tibial and fibular growth,
+    internal tibial torsion, and dynamic knee instability. It is typically
+    recognized during childhood.
   phenotype_term:
-    preferred_term: Genu varum
+    preferred_term: Bowing of the legs
     term:
-      id: HP:0002970
-      label: Genu varum
+      id: HP:0002979
+      label: Bowing of the legs
+    onset:
+      onset_category: CHILDHOOD
   evidence:
   - reference: PMID:29972438
     reference_title: &#34;Natural history of 39 patients with Achondroplasia.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most prevalent clinical findings were short stature, high forehead, trident hands, genu varum and macrocephaly.&#34;
-    explanation: Clinical cohort data identify genu varum as one of the most prevalent physical findings.
-- name: Bowing of the legs
-  frequency: VERY_FREQUENT
-  description: &gt;
-    Lower-limb bowing is a very frequent orthopedic feature and overlaps
-    clinically with genu varum in achondroplasia.
-  phenotype_term:
-    preferred_term: Bowing of the legs
-    term:
-      id: HP:0002979
-      label: Bowing of the legs
-  evidence:
+    explanation: Clinical cohort data identify lower-limb deformity (including genu varum) as one of the most prevalent physical findings.
   - reference: ORPHA:15
     reference_title: Achondroplasia
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002979 | Bowing of the legs | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies bowing of the legs as very frequent in achondroplasia.
+  - reference: PMID:32864841
+    reference_title: &#34;Natural history of achondroplasia: A retrospective review of longitudinal clinical data.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;genu varum, elbow contractures, and radial head dislocations were identified during childhood&#34;
+    explanation: Chart-review cohort places recognition of genu varum in childhood, preserving the onset nuance of the merged entry.
+  - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK1152/
+    reference_title: Achondroplasia - GeneReviews® - NCBI Bookshelf
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#39;&#34;Bowing&#34; is actually a complex deformity arising from a combination of lateral bowing, differential growth between the tibia and fibula, internal tibial torsion, and dynamic instability of the knee&#39;
+    explanation: Sources the complex-deformity clause of the description (lateral bowing, differential tibia-fibula growth, internal tibial torsion, dynamic knee instability).
 - name: Thoracolumbar kyphosis
   frequency: VERY_FREQUENT
   description: &gt;
@@ -14684,7 +15937,7 @@ Achondroplasia is caused by germline gain-of-function variants in FGFR3 that inc
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Achondroplasia", "mondoId": "MONDO:0007037", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondroplasia", "yamlRevision": "911bc91e6259"};
+        const OS_CONFIG = {"diseaseName": "Achondroplasia", "mondoId": "MONDO:0007037", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achondroplasia", "yamlRevision": "ae24c95a7d2a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15103,5 +16356,73 @@ Achondroplasia is caused by germline gain-of-function variants in FGFR3 that inc
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

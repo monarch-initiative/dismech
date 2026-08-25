@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Papillary Thyroid Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Papillary Thyroid Carcinoma</h1>
             <div class="header-meta">
 
@@ -3701,6 +3903,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3765,7 +3969,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3790,6 +3994,14 @@
             </a>
 
 
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
+
 
 
 
@@ -3807,34 +4019,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4039,7 +4338,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-classical-papillary-thyroid-carcinoma">
 
                     <div class="item-name">
                         Classical Papillary Thyroid Carcinoma
@@ -4067,7 +4366,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-follicular-variant-papillary-thyroid-carcinoma">
 
                     <div class="item-name">
                         Follicular Variant Papillary Thyroid Carcinoma
@@ -4095,7 +4394,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-tall-cell-variant-papillary-thyroid-carcinoma">
 
                     <div class="item-name">
                         Tall Cell Variant Papillary Thyroid Carcinoma
@@ -4151,16 +4450,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         thyroid follicular cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002258">CL:0002258</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002258</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thyroid follicular cell (CL:0002258). CL:0002258 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4190,19 +4494,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         thyroid gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0002046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0002046 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4236,6 +4546,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4257,6 +4568,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4297,16 +4609,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4327,6 +4644,7 @@
 
 
                 </div>
+
 
 
 
@@ -4363,6 +4681,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4384,6 +4703,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41368991" target="_blank">PMID:41368991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4424,16 +4744,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphatidylinositol 3-kinase/protein kinase B signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4453,16 +4778,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030154">GO:0030154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4492,6 +4822,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4503,6 +4834,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4539,7 +4871,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-papillary-thyroid-carcinoma">
                 <div class="item-name">
                     Papillary Thyroid Carcinoma
 
@@ -4562,6 +4894,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4586,7 +4919,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-papillary-type-nuclear-features">
                 <div class="item-name">
                     Papillary-Type Nuclear Features
 
@@ -4609,6 +4942,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26271724" target="_blank">PMID:26271724</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4633,7 +4967,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-psammoma-bodies">
                 <div class="item-name">
                     Psammoma Bodies
 
@@ -4654,6 +4988,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37181946" target="_blank">PMID:37181946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4739,14 +5074,21 @@
                         Cervical Lymphadenopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4766,6 +5108,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29329789" target="_blank">PMID:29329789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4807,14 +5150,21 @@
                         Thyroid Nodule
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thyroid nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025388">HP:0025388</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0025388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4834,6 +5184,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24276450" target="_blank">PMID:24276450</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4908,6 +5259,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4922,6 +5295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41368991" target="_blank">PMID:41368991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4945,6 +5319,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41419184" target="_blank">PMID:41419184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4966,6 +5341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41419184" target="_blank">PMID:41419184</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4999,6 +5375,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RET
+
+
+    <a href="https://bioregistry.io/hgnc:9967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9967</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5013,6 +5411,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5061,6 +5460,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5082,6 +5482,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5115,6 +5516,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TERT
+
+
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11730</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5129,6 +5552,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175860" target="_blank">PMID:41175860</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5160,13 +5584,16 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-thyroidectomy" data-dismech-node="Thyroidectomy" data-dismech-type="treatment">
@@ -5175,7 +5602,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Thyroidectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Thyroidectomy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Thyroidectomy (NCIT:C51648). NCIT:C51648 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5220,7 +5652,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radioactive Iodine Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Radioactive Iodine Therapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radioactive Iodine Therapy (NCIT:C157968). NCIT:C157968 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5265,7 +5702,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5311,7 +5753,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5342,17 +5789,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         lenvatinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85994">CHEBI:85994</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:85994</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         sorafenib
@@ -5360,10 +5814,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50924">CHEBI:50924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:50924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5376,6 +5833,160 @@
 
 
 
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-cabozantinib" data-dismech-node="Cabozantinib" data-dismech-type="treatment">
+                <div class="item-name">
+                    Cabozantinib
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        cabozantinib
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72317" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:72317</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Cabozantinib is a multi-kinase inhibitor (VEGFR2, MET, AXL, RET) used in the second-line setting for radioiodine-refractory differentiated thyroid cancer that has progressed during or after lenvatinib or sorafenib. This VEGFR-TKI-refractory population previously had no standard of care; the randomised placebo-controlled COSMIC-311 trial met its progression-free survival endpoint at interim analysis, at the cost of substantially more grade 3-4 toxicity (palmar-plantar erythrodysaesthesia, hypertension, fatigue).</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34237250" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34237250" target="_blank">PMID:34237250</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients must have received previous lenvatinib or sorafenib and progressed during or after treatment with up to two VEGFR tyrosine kinase inhibitors."</div>
+
+
+                <div class="evidence-explanation">Defines the second-line, VEGFR-TKI-refractory population in which cabozantinib was evaluated, downstream of the lenvatinib/sorafenib option already curated here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34237250" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34237250" target="_blank">PMID:34237250</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cabozantinib showed significant improvement in progression-free survival over placebo: median not reached ... versus 1·9 months (1·8-3·6); hazard ratio 0·22 (96% CI 0·13-0·36; p&lt;0·0001)"</div>
+
+
+                <div class="evidence-explanation">Reports the randomised progression-free survival benefit that supports cabozantinib as an active option after VEGFR-TKI failure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34237250" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34237250" target="_blank">PMID:34237250</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade 3 or 4 adverse events occurred in 71 (57%) of 125 patients receiving cabozantinib and 16 (26%) of 62 receiving placebo"</div>
+
+
+                <div class="evidence-explanation">Quantifies the grade 3-4 toxicity burden stated in the description, so the efficacy claim is not curated without its safety cost.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
             </div>
@@ -5395,6 +6006,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-ionizing-radiation-exposure" data-dismech-node="Ionizing Radiation Exposure" data-dismech-type="environmental">
                 <div class="item-name">Ionizing Radiation Exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ionizing radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000047" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-19">ECTO:7000047</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO:7000047 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Ionizing radiation is the strongest established environmental risk factor for papillary thyroid carcinoma, especially after childhood or adolescent exposure.</div>
 
@@ -5412,6 +6050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5461,6 +6100,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5523,6 +6163,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5544,6 +6185,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26462967" target="_blank">PMID:26462967</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5590,6 +6232,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39502057" target="_blank">PMID:39502057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5628,7 +6271,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001268">
                 <div class="item-name">
                     Whole exome sequencing of papillary thyroid carcinoma in the Chinese population
 
@@ -5663,7 +6306,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004101">
                 <div class="item-name">
                     The genomic landscape of metastatic papillary thyroid carcinoma and novel biomarkers for predicting distant metastasis
 
@@ -5698,7 +6341,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001005182">
                 <div class="item-name">
                     Pediatric Papillary Thyroid Carcinoma RNA-Seq
 
@@ -5738,8 +6381,72 @@
 
         <!-- Clinical Trials -->
 
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03690388">
+                <div class="item-name">
+                    NCT03690388
+
+                    <span class="tag tag-phase">PHASE_III</span>
+
+
+                    <span class="tag tag-status">ACTIVE_NOT_RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">COSMIC-311: randomised, double-blind, placebo-controlled phase 3 trial of cabozantinib in radioiodine-refractory differentiated thyroid cancer (papillary or follicular and their variants) progressing after prior VEGFR-targeted therapy. Primary endpoints were objective response rate and progression-free survival.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT03690388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT03690388" target="_blank">clinicaltrials:NCT03690388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"evaluate the effect of cabozantinib compared with placebo on progression free survival (PFS) and objective response rate (ORR) in subjects with Radioiodine-Refractory Differentiated Thyroid Cancer (DTC) who have progressed after prior vascular endothelial growth factor receptor (VEGFR)-Targeted therapy"</div>
+
+
+                <div class="evidence-explanation">The registered trial objective matches the second-line indication curated in the Cabozantinib treatment entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5758,7 +6465,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Papillary Thyroid Carcinoma
 creation_date: &#39;2026-04-12T05:10:03Z&#39;
-updated_date: &#39;2026-04-28T20:00:00Z&#39;
 description: &gt;-
   Papillary thyroid carcinoma is the most common differentiated thyroid cancer
   arising from thyroid follicular cells. It comprises the majority of thyroid
@@ -6011,6 +6717,11 @@ biochemical:
     explanation: Supports routine clinical relevance of molecular and pathologic stratification in papillary thyroid carcinoma.
 genetic:
 - name: BRAF
+  gene_term:
+    preferred_term: BRAF
+    term:
+      id: hgnc:1097
+      label: BRAF
   association: Somatic Activating Mutations
   notes: &gt;-
     BRAF V600E is the most common single driver alteration in conventional
@@ -6039,6 +6750,11 @@ genetic:
     snippet: &#34;However, its lack of impact on distant metastases and disease-specific mortality limits its role as an independent prognostic marker in clinical decision-making.&#34;
     explanation: The same meta-analysis found no significant association with distant metastases or disease-specific mortality, qualifying BRAF V600E as an incomplete independent prognostic marker.
 - name: RET
+  gene_term:
+    preferred_term: RET
+    term:
+      id: hgnc:9967
+      label: RET
   association: Somatic Gene Fusions
   notes: &gt;-
     RET/PTC rearrangements define an important papillary thyroid carcinoma subset,
@@ -6071,6 +6787,11 @@ genetic:
     snippet: &#34;In most tumors of follicular cell origin, the primary molecular events are RAS or RAS-like (follicular-patterned tumors) and BRAF p.V600E or BRAF V600E-like (conventional papillary carcinomas) alterations.&#34;
     explanation: Supports the distinction between RAS-like follicular-patterned tumors and BRAF-like conventional papillary carcinomas.
 - name: TERT
+  gene_term:
+    preferred_term: TERT
+    term:
+      id: hgnc:11730
+      label: TERT
   association: Somatic Promoter Mutations
   notes: &gt;-
     TERT promoter mutations are progression-associated events linked to aggressive,
@@ -6084,6 +6805,11 @@ genetic:
     explanation: Supports TERT promoter mutation as a late progression event in aggressive thyroid carcinoma biology.
 environmental:
 - name: Ionizing Radiation Exposure
+  exposure_term:
+    preferred_term: exposure to ionizing radiation
+    term:
+      id: ECTO:7000047
+      label: exposure to ionizing radiation
   influences_mechanisms:
   - target: Driver Alterations in Thyroid Follicular Cells
     environmental_effect: TRIGGERS
@@ -6161,6 +6887,82 @@ treatments:
       term:
         id: CHEBI:50924
         label: sorafenib
+- name: Cabozantinib
+  description: &gt;-
+    Cabozantinib is a multi-kinase inhibitor (VEGFR2, MET, AXL, RET) used in the
+    second-line setting for radioiodine-refractory differentiated thyroid cancer
+    that has progressed during or after lenvatinib or sorafenib. This
+    VEGFR-TKI-refractory population previously had no standard of care; the
+    randomised placebo-controlled COSMIC-311 trial met its progression-free
+    survival endpoint at interim analysis, at the cost of substantially more
+    grade 3-4 toxicity (palmar-plantar erythrodysaesthesia, hypertension,
+    fatigue).
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: targeted therapy
+    term:
+      id: NCIT:C93352
+      label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: cabozantinib
+      term:
+        id: CHEBI:72317
+        label: cabozantinib
+  evidence:
+  - reference: PMID:34237250
+    reference_title: &#34;Cabozantinib for radioiodine-refractory differentiated thyroid cancer (COSMIC-311): a randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Patients must have received previous lenvatinib or sorafenib and progressed during or after treatment with up to two VEGFR tyrosine kinase inhibitors.&#34;
+    explanation: Defines the second-line, VEGFR-TKI-refractory population in which cabozantinib was evaluated, downstream of the lenvatinib/sorafenib option already curated here.
+  - reference: PMID:34237250
+    reference_title: &#34;Cabozantinib for radioiodine-refractory differentiated thyroid cancer (COSMIC-311): a randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;cabozantinib showed significant improvement in progression-free survival over placebo: median not reached ... versus 1·9 months (1·8-3·6); hazard ratio 0·22 (96% CI 0·13-0·36; p&lt;0·0001)&#34;
+    explanation: Reports the randomised progression-free survival benefit that supports cabozantinib as an active option after VEGFR-TKI failure.
+  - reference: PMID:34237250
+    reference_title: &#34;Cabozantinib for radioiodine-refractory differentiated thyroid cancer (COSMIC-311): a randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Grade 3 or 4 adverse events occurred in 71 (57%) of 125 patients receiving cabozantinib and 16 (26%) of 62 receiving placebo&#34;
+    explanation: Quantifies the grade 3-4 toxicity burden stated in the description, so the efficacy claim is not curated without its safety cost.
+  - reference: PPR:PPR1274359
+    reference_title: &#34;Efficacy, Safety, and Certainty of Evidence for Systemic Antineoplastic Therapies in Treatment-resistant Adult Malignancies: A Systematic Review, Exploratory Meta-analysis, and Grade Assessment&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cabozantinib contributed high-certainty evidence for progression-free survival in radioiodine-refractory differentiated thyroid cancer after previous VEGFR-targeted therapy&#34;
+    explanation: &gt;-
+      GRADE certainty rating from a 2026 systematic review of treatment-resistant
+      malignancies, corroborating (not solely supporting) the COSMIC-311 result
+      above. Non-peer-reviewed preprint; cited only alongside the peer-reviewed
+      trial report.
+clinical_trials:
+- name: NCT03690388
+  phase: PHASE_III
+  status: ACTIVE_NOT_RECRUITING
+  description: &gt;-
+    COSMIC-311: randomised, double-blind, placebo-controlled phase 3 trial of
+    cabozantinib in radioiodine-refractory differentiated thyroid cancer
+    (papillary or follicular and their variants) progressing after prior
+    VEGFR-targeted therapy. Primary endpoints were objective response rate and
+    progression-free survival.
+  evidence:
+  - reference: clinicaltrials:NCT03690388
+    reference_title: &#34;A Phase 3, Randomized, Double-Blind, Placebo-Controlled Study of Cabozantinib (XL184) in Subjects With Radioiodine-Refractory Differentiated Thyroid Cancer Who Have Progressed After Prior Vascular Endothelial Growth Factor Receptor (VEGFR) -Targeted Therapy&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      evaluate the effect of cabozantinib compared with placebo on progression
+      free survival (PFS) and objective response rate (ORR) in subjects with
+      Radioiodine-Refractory Differentiated Thyroid Cancer (DTC) who have
+      progressed after prior vascular endothelial growth factor receptor
+      (VEGFR)-Targeted therapy
+    explanation: The registered trial objective matches the second-line indication curated in the Cabozantinib treatment entry.
+  notes: &gt;-
+    ClinicalTrials.gov API status checked 2026-08-16 reported
+    ACTIVE_NOT_RECRUITING. Primary results are reported in PMID:34237250, cited
+    on the Cabozantinib treatment entry.
 prevalence:
 - population: Worldwide
   measure_type: ANNUAL_INCIDENCE
@@ -6665,7 +7467,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Papillary Thyroid Carcinoma", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Papillary_Thyroid_Carcinoma", "yamlRevision": "41a262f6d0a3"};
+        const OS_CONFIG = {"diseaseName": "Papillary Thyroid Carcinoma", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Papillary_Thyroid_Carcinoma", "yamlRevision": "78600d8cf072"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7084,5 +7886,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

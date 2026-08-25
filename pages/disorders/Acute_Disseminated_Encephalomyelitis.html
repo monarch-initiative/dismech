@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Acute Disseminated Encephalomyelitis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Disseminated Encephalomyelitis</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Acute%20Disseminated%20Encephalomyelitis"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3758,7 +3962,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3832,7 +4036,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-ipmssg-pediatric-clinical-definition">
                 <div class="item-name">IPMSSG pediatric clinical definition</div>
 
                 <div class="item-desc">The IPMSSG definition applies to pediatric ADEM: a first polyfocal clinical CNS event of presumed inflammatory demyelinating cause, encephalopathy not explained by fever or a postictal state, and an abnormal brain MRI during the acute phase. Symptoms or MRI changes during the first three months may represent evolution or treatment-related fluctuation of the same event. Infectious, inflammatory, neoplastic, metabolic, genetic, and other mimics must be excluded. There is no equivalently accepted international adult case definition, so adult diagnosis is an extrapolation supported by compatible clinical and radiologic findings and exclusion of alternatives.</div>
@@ -3923,6 +4127,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3962,6 +4167,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3984,6 +4190,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33830467" target="_blank">PMID:33830467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4005,6 +4212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23572237" target="_blank">PMID:23572237</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4065,7 +4273,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-monophasic-adem">
 
                     <div class="item-name">
                         Monophasic ADEM
@@ -4099,6 +4307,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4120,6 +4329,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40340642" target="_blank">PMID:40340642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4147,7 +4357,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-multiphasic-adem">
 
                     <div class="item-name">
                         Multiphasic ADEM
@@ -4181,6 +4391,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4202,6 +4413,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36706773" target="_blank">PMID:36706773</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4323,6 +4535,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4427,6 +4640,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4483,21 +4697,21 @@
 
 
 
-    <span class="entity-ref-chip">treatments#High-Dose Corticosteroids</span>
+    <a class="entity-ref-chip" href="#treatment-high-dose-corticosteroids">treatments#High-Dose Corticosteroids</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Intravenous Immunoglobulin</span>
+    <a class="entity-ref-chip" href="#treatment-intravenous-immunoglobulin">treatments#Intravenous Immunoglobulin</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#Plasma Exchange</span>
+    <a class="entity-ref-chip" href="#treatment-plasma-exchange">treatments#Plasma Exchange</a>
 
 
 
@@ -4532,6 +4746,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4602,16 +4817,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4631,16 +4851,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4661,6 +4886,7 @@
 
 
                 </div>
+
 
 
 
@@ -4727,6 +4953,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4748,6 +4975,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41750202" target="_blank">PMID:41750202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4799,17 +5027,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         defense response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051607">GO:0051607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0051607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4830,10 +5065,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4854,6 +5092,7 @@
 
 
                 </div>
+
 
 
 
@@ -4901,6 +5140,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4922,6 +5162,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41750202" target="_blank">PMID:41750202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4973,16 +5214,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5009,19 +5255,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         blood brain barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000120">UBERON:0000120</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000120" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000120</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in abnormal blood brain barrier (UBERON:0000120). UBERON:0000120 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5066,6 +5318,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5087,6 +5340,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41750202" target="_blank">PMID:41750202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5120,17 +5374,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5151,11 +5412,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000542">CL:0000542</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000542</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lymphocyte (CL:0000542). CL:0000542 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5176,10 +5442,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5206,16 +5475,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5242,19 +5516,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001017">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5392,6 +5672,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5424,17 +5705,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5455,11 +5743,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000542">CL:0000542</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000542</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lymphocyte (CL:0000542). CL:0000542 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5480,10 +5773,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5510,16 +5806,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5539,16 +5840,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5574,19 +5880,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         myelin sheath
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043209">GO:0043209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0043209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased myelin sheath (GO:0043209). GO:0043209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5629,6 +5941,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20129932" target="_blank">PMID:20129932</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5650,6 +5963,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5686,7 +6000,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-perivenous-demyelination">
                 <div class="item-name">
                     Perivenous demyelination
 
@@ -5707,6 +6021,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20129932" target="_blank">PMID:20129932</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5731,7 +6046,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cortical-microglial-activation-without-cortical-demyelination">
                 <div class="item-name">
                     Cortical microglial activation without cortical demyelination
 
@@ -5752,6 +6067,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20129932" target="_blank">PMID:20129932</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5798,7 +6114,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia can occur with cerebellar, brainstem, or multifocal CNS involvement during the acute demyelinating episode.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"BBB Disruption and Antigen Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection-associated CNS injury may disrupt the blood-brain barrier, allowing CNS-confined myelin antigens to leak into peripheral immune compartments and break immune tolerance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"blood brain barrier\"]}}, {\"id\": \"Basal Ganglia Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADEM MRI lesions can involve the basal ganglia as part of the frequent deep gray matter involvement reported in clinical reviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"CNS Demyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI evidence of multifocal CNS demyelination is central to diagnosis and typically affects brain white matter, with gray matter, brainstem, and spinal cord involvement in some patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007305\"}}, {\"id\": \"CNS-Directed Autoimmune Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of self-tolerance is the shared proposed convergence point of the postinfectious hypotheses. Activated lymphocytes, macrophages, microglia, cytokines, and in some presentations antibodies generate multifocal CNS inflammation; the dominant effector pathway varies and is incompletely defined in non-MOGAD ADEM.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\", \"lymphocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"CSF Pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid may show mild inflammatory pleocytosis, though CSF findings are nonspecific and mainly help exclude mimics.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive, behavioral, academic, and other neuropsychological sequelae can persist even after apparent neurologic recovery.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Diffuse White Matter Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, bilateral, asymmetric, poorly demarcated T2/FLAIR lesions involving white matter are typical ADEM MRI findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007204\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Altered mental status, behavioral change, irritability, reduced consciousness, or coma is obligatory in pediatric ADEM definitions and helps separate ADEM from isolated optic neuritis, myelitis, or nonencephalopathic first demyelinating events.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever can occur during acute ADEM and can make early presentations resemble infectious encephalitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache can occur during acute ADEM, often in the same meningoencephalitic presentation as fever and altered consciousness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"High-Dose Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose intravenous methylprednisolone is the usual first-line acute immunotherapy for suspected ADEM once infectious mimics are being addressed or excluded. This practice is derived from observational evidence and expert opinion rather than an ADEM-specific randomized trial.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin is used as second-line therapy for steroid-unresponsive ADEM or when steroid use is limited by clinical context; the evidence base is observational and expert-derived.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Molecular mimicry is a proposed mechanism in which pathogen antigens share structural conformations or peptide sequences with CNS proteins, generating cross-reactive antiviral immune responses that later target myelin.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\", \"immune response\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor deficits and pyramidal signs can occur during the polyfocal ADEM attack and may persist at discharge in some patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal cord inflammation can occur as part of the multifocal CNS demyelinating attack, causing motor, sensory, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012486\"}}, {\"id\": \"Optic Neuritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve inflammation can occur during the polyfocal ADEM attack. Optic neuritis after the index event, especially if recurrent or MOG-IgG-positive, should prompt MOGAD or another relapsing-disease classification rather than be treated as an ordinary feature of monophasic ADEM.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100653\"}}, {\"id\": \"Perivenous Inflammatory Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The classic microscopic lesion pattern in ADEM is perivenous inflammatory demyelination, with macrophage, lymphocyte, and microglial inflammatory cells surrounding small veins and clearing myelin. This pattern helps distinguish ADEM from typical confluent multiple-sclerosis plaques, although mixed or overlapping pathology can occur.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"lymphocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"myelination\"]}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange is used for severe or steroid/IVIG-refractory ADEM, especially when rapid removal of circulating inflammatory mediators or pathogenic autoantibodies is clinically urgent. ADEM-specific evidence is limited, and randomized evidence comes from mixed inflammatory demyelinating attacks rather than a dedicated ADEM population.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Preceding Immune Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection or, much less securely, another immune exposure precedes many pediatric ADEM events by days to weeks. The association supports an immune-triggered syndrome but does not establish a specific pathogen or immune route in most patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"immune response\", \"inflammatory response\"]}}, {\"id\": \"Reduced Consciousness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced consciousness and coma can occur during acute ADEM and correlate with the meningoencephalopathic perivenous lesion phenotype in pathology cohorts.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004372\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures can occur during acute ADEM and may also persist as a long-term complication in a subset of children.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Thalamic Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADEM MRI lesions can involve the thalami, a deep gray matter pattern that helps distinguish ADEM from some other acquired demyelinating syndromes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010663\"}}], \"edges\": [{\"source\": \"Preceding Immune Trigger\", \"target\": \"Molecular Mimicry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated immune activation may generate cross-reactive antiviral immune responses.\", \"hypothesis_groups\": [\"postinfectious_molecular_mimicry_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Preceding Immune Trigger\", \"target\": \"BBB Disruption and Antigen Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated CNS injury may expose normally sequestered CNS antigens to the immune system.\", \"hypothesis_groups\": [\"bbb_disruption_antigen_release_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Molecular Mimicry\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Putative pathogen-cross-reactive lymphocytes may initiate CNS-directed inflammation, but this route has not been demonstrated in most patients.\", \"hypothesis_groups\": [\"postinfectious_molecular_mimicry_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BBB Disruption and Antigen Release\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS antigen release and tolerance breakdown may generate autoreactive immune responses, but the route is based mainly on mechanistic models.\", \"hypothesis_groups\": [\"bbb_disruption_antigen_release_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Perivenous Inflammatory Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS-directed inflammation converges on the characteristic perivenous demyelinating lesion pattern.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory cells and soluble mediators concentrated around CNS venules\"]}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Reduced Consciousness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multifocal CNS inflammation can disrupt arousal networks and produce reduced consciousness; lesion location and edema likely mediate the link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Thalamic Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multifocal inflammatory lesion distribution can extend into the thalami.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Basal Ganglia Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multifocal inflammatory lesion distribution can extend into the basal ganglia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Diffuse White Matter Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS-directed inflammation produces the characteristic large, poorly demarcated white-matter lesion pattern through incompletely resolved cellular injury pathways.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Myelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of multifocal CNS inflammation to the spinal cord produces the myelitis component of some attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Optic Neuritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of inflammatory demyelination to the optic nerve can produce optic neuritis during the index attack.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar, brainstem, or connected-tract inflammation can manifest as ataxia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical or network-level inflammatory dysfunction can lower seizure threshold during the acute attack.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever can accompany the acute inflammatory syndrome, although infection and other mimics must be excluded and the causal source may be systemic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meningeal irritation, cytokine signaling, or raised intracranial pressure may mediate headache during acute CNS inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation affecting corticospinal tracts, brainstem, or spinal cord can produce pyramidal motor weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"CSF Pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS immune-cell recruitment can be reflected by a mild, variable increase in CSF leukocytes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inflammatory injury and network disruption may leave persistent cognitive or academic sequelae even after motor recovery.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Perivenous Inflammatory Demyelination\", \"target\": \"CNS Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perivenous loss of CNS myelin is the tissue lesion represented by the clinical and MRI demyelination phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perivenous Inflammatory Demyelination\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multifocal inflammatory lesions and associated cortical network dysfunction are associated with the obligatory encephalopathy phenotype, although the exact route is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"High-Dose Corticosteroids\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia can occur with cerebellar, brainstem, or multifocal CNS involvement during the acute demyelinating episode.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001251\"}}, {\"id\": \"BBB Disruption and Antigen Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection-associated CNS injury may disrupt the blood-brain barrier, allowing CNS-confined myelin antigens to leak into peripheral immune compartments and break immune tolerance.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"blood brain barrier\"]}}, {\"id\": \"Basal Ganglia Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADEM MRI lesions can involve the basal ganglia as part of the frequent deep gray matter involvement reported in clinical reviews.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"CNS Demyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI evidence of multifocal CNS demyelination is central to diagnosis and typically affects brain white matter, with gray matter, brainstem, and spinal cord involvement in some patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007305\"}}, {\"id\": \"CNS-Directed Autoimmune Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of self-tolerance is the shared proposed convergence point of the postinfectious hypotheses. Activated lymphocytes, macrophages, microglia, cytokines, and in some presentations antibodies generate multifocal CNS inflammation; the dominant effector pathway varies and is incompletely defined in non-MOGAD ADEM.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\", \"lymphocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"central nervous system\"]}}, {\"id\": \"CSF Pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid may show mild inflammatory pleocytosis, though CSF findings are nonspecific and mainly help exclude mimics.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cognitive Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive, behavioral, academic, and other neuropsychological sequelae can persist even after apparent neurologic recovery.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Diffuse White Matter Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large, bilateral, asymmetric, poorly demarcated T2/FLAIR lesions involving white matter are typical ADEM MRI findings.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007204\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Altered mental status, behavioral change, irritability, reduced consciousness, or coma is obligatory in pediatric ADEM definitions and helps separate ADEM from isolated optic neuritis, myelitis, or nonencephalopathic first demyelinating events.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever can occur during acute ADEM and can make early presentations resemble infectious encephalitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache can occur during acute ADEM, often in the same meningoencephalitic presentation as fever and altered consciousness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"High-Dose Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose intravenous methylprednisolone is the usual first-line acute immunotherapy for suspected ADEM once infectious mimics are being addressed or excluded. This practice is derived from observational evidence and expert opinion rather than an ADEM-specific randomized trial.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin is used as second-line therapy for steroid-unresponsive ADEM or when steroid use is limited by clinical context; the evidence base is observational and expert-derived.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Molecular mimicry is a proposed mechanism in which pathogen antigens share structural conformations or peptide sequences with CNS proteins, generating cross-reactive antiviral immune responses that later target myelin.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"defense response to virus\", \"immune response\"]}}, {\"id\": \"Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor deficits and pyramidal signs can occur during the polyfocal ADEM attack and may persist at discharge in some patients.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myelitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal cord inflammation can occur as part of the multifocal CNS demyelinating attack, causing motor, sensory, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012486\"}}, {\"id\": \"Optic Neuritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve inflammation can occur during the polyfocal ADEM attack. Optic neuritis after the index event, especially if recurrent or MOG-IgG-positive, should prompt MOGAD or another relapsing-disease classification rather than be treated as an ordinary feature of monophasic ADEM.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100653\"}}, {\"id\": \"Perivenous Inflammatory Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The classic microscopic lesion pattern in ADEM is perivenous inflammatory demyelination, with macrophage, lymphocyte, and microglial inflammatory cells surrounding small veins and clearing myelin. This pattern helps distinguish ADEM from typical confluent multiple-sclerosis plaques, although mixed or overlapping pathology can occur.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"lymphocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"myelination\"]}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange is used for severe or steroid/IVIG-refractory ADEM, especially when rapid removal of circulating inflammatory mediators or pathogenic autoantibodies is clinically urgent. ADEM-specific evidence is limited, and randomized evidence comes from mixed inflammatory demyelinating attacks rather than a dedicated ADEM population.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Preceding Immune Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection or, much less securely, another immune exposure precedes many pediatric ADEM events by days to weeks. The association supports an immune-triggered syndrome but does not establish a specific pathogen or immune route in most patients.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"immune response\", \"inflammatory response\"]}}, {\"id\": \"Preceding infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recent immunization\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Consciousness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced consciousness and coma can occur during acute ADEM and correlate with the meningoencephalopathic perivenous lesion phenotype in pathology cohorts.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004372\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures can occur during acute ADEM and may also persist as a long-term complication in a subset of children.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Thalamic Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ADEM MRI lesions can involve the thalami, a deep gray matter pattern that helps distinguish ADEM from some other acquired demyelinating syndromes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010663\"}}], \"edges\": [{\"source\": \"Preceding Immune Trigger\", \"target\": \"Molecular Mimicry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated immune activation may generate cross-reactive antiviral immune responses.\", \"hypothesis_groups\": [\"postinfectious_molecular_mimicry_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Preceding Immune Trigger\", \"target\": \"BBB Disruption and Antigen Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated CNS injury may expose normally sequestered CNS antigens to the immune system.\", \"hypothesis_groups\": [\"bbb_disruption_antigen_release_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Molecular Mimicry\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Putative pathogen-cross-reactive lymphocytes may initiate CNS-directed inflammation, but this route has not been demonstrated in most patients.\", \"hypothesis_groups\": [\"postinfectious_molecular_mimicry_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BBB Disruption and Antigen Release\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS antigen release and tolerance breakdown may generate autoreactive immune responses, but the route is based mainly on mechanistic models.\", \"hypothesis_groups\": [\"bbb_disruption_antigen_release_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Perivenous Inflammatory Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS-directed inflammation converges on the characteristic perivenous demyelinating lesion pattern.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory cells and soluble mediators concentrated around CNS venules\"]}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Reduced Consciousness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multifocal CNS inflammation can disrupt arousal networks and produce reduced consciousness; lesion location and edema likely mediate the link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Thalamic Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multifocal inflammatory lesion distribution can extend into the thalami.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Basal Ganglia Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The multifocal inflammatory lesion distribution can extend into the basal ganglia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Diffuse White Matter Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS-directed inflammation produces the characteristic large, poorly demarcated white-matter lesion pattern through incompletely resolved cellular injury pathways.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Myelitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of multifocal CNS inflammation to the spinal cord produces the myelitis component of some attacks.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Optic Neuritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extension of inflammatory demyelination to the optic nerve can produce optic neuritis during the index attack.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar, brainstem, or connected-tract inflammation can manifest as ataxia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical or network-level inflammatory dysfunction can lower seizure threshold during the acute attack.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fever can accompany the acute inflammatory syndrome, although infection and other mimics must be excluded and the causal source may be systemic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meningeal irritation, cytokine signaling, or raised intracranial pressure may mediate headache during acute CNS inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammation affecting corticospinal tracts, brainstem, or spinal cord can produce pyramidal motor weakness.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"CSF Pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS immune-cell recruitment can be reflected by a mild, variable increase in CSF leukocytes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CNS-Directed Autoimmune Inflammation\", \"target\": \"Cognitive Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute inflammatory injury and network disruption may leave persistent cognitive or academic sequelae even after motor recovery.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Perivenous Inflammatory Demyelination\", \"target\": \"CNS Demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perivenous loss of CNS myelin is the tissue lesion represented by the clinical and MRI demyelination phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perivenous Inflammatory Demyelination\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Multifocal inflammatory lesions and associated cortical network dysfunction are associated with the obligatory encephalopathy phenotype, although the exact route is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Preceding infection\", \"target\": \"Preceding Immune Trigger\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Most events follow a respiratory or gastrointestinal illness by days to weeks. Recorded as direct because this node is the antecedent itself rather than a downstream consequence of it; what the antecedent then does is modelled by the mimicry and barrier nodes further along.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recent immunization\", \"target\": \"Preceding Immune Trigger\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Reported after immunisation but not established as a general cause, and the cited source argues against reading it as one. Graded well below the preceding-infection link into this same node, and worded so that adding the link does not quietly convert a contested temporal report into a mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"High-Dose Corticosteroids\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"CNS-Directed Autoimmune Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5845,14 +6161,21 @@
                         Optic Neuritis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic neuritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100653">HP:0100653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5872,6 +6195,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5894,6 +6218,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5935,14 +6260,21 @@
                         Myelitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myelitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012486">HP:0012486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is myelitis (HP:0012486). HP:0012486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,6 +6294,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5984,6 +6317,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6025,14 +6359,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6052,6 +6393,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6093,14 +6435,21 @@
                         Muscle Weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is motor deficit, annotated with Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6120,6 +6469,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6142,6 +6492,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35757742" target="_blank">PMID:35757742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6183,14 +6534,21 @@
                         Encephalopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Encephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001298">HP:0001298</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001298</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6210,6 +6568,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6232,6 +6591,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6264,14 +6624,21 @@
                         CNS Demyelination
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CNS demyelination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007305">HP:0007305</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007305</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS demyelination (HP:0007305). HP:0007305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6291,6 +6658,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6313,6 +6681,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6345,14 +6714,23 @@
                         Basal Ganglia Involvement
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal basal ganglia morphology
+
+                        <span class="phenotype-term-label">Abnormal basal ganglia morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002134">HP:0002134</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002134</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is basal ganglia involvement, annotated with Abnormal basal ganglia morphology (HP:0002134). HP:0002134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6372,6 +6750,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6404,14 +6783,21 @@
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6431,6 +6817,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6453,6 +6840,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40340642" target="_blank">PMID:40340642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6485,14 +6873,21 @@
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6512,6 +6907,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6534,6 +6930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40340642" target="_blank">PMID:40340642</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6566,14 +6963,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6593,6 +6997,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6625,14 +7030,21 @@
                         Cognitive Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6652,6 +7064,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6674,6 +7087,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6715,14 +7129,21 @@
                         Reduced Consciousness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced consciousness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004372">HP:0004372</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004372</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6742,6 +7163,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20129932" target="_blank">PMID:20129932</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6764,6 +7186,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6796,14 +7219,23 @@
                         Thalamic Involvement
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal thalamus morphology
+
+                        <span class="phenotype-term-label">Abnormal thalamus morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010663">HP:0010663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0010663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is thalamic involvement, annotated with Abnormal thalamus morphology (HP:0010663). HP:0010663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6823,6 +7255,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6855,14 +7288,21 @@
                         Diffuse White Matter Abnormalities
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diffuse white matter abnormalities
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007204">HP:0007204</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0007204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is diffuse white matter abnormalities (HP:0007204). HP:0007204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6882,6 +7322,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6904,6 +7345,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6936,14 +7378,21 @@
                         CSF Pleocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CSF pleocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012229">HP:0012229</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012229</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6963,6 +7412,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27572859" target="_blank">PMID:27572859</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6985,6 +7435,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7048,6 +7499,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7063,7 +7517,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7093,16 +7552,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7136,6 +7600,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7178,6 +7643,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7200,6 +7666,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7221,6 +7688,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39092058" target="_blank">PMID:39092058</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7251,7 +7719,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">intravenous immunoglobulin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Intravenous Immunoglobulin Therapy</span>
 
 
@@ -7309,6 +7782,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7350,6 +7824,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7371,6 +7846,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33830467" target="_blank">PMID:33830467</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7401,7 +7877,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">plasmapheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
@@ -7459,6 +7940,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7500,6 +7982,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7521,6 +8004,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39130917" target="_blank">PMID:39130917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7551,7 +8035,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7600,6 +8089,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7639,6 +8129,10 @@
                 <div class="item-name">Preceding infection</div>
 
 
+
+
+
+
                 <div class="item-desc">A respiratory, gastrointestinal, or other infection commonly precedes ADEM, but a trigger is not required by diagnostic criteria and temporal association does not identify the causal immune pathway in an individual.</div>
 
 
@@ -7655,6 +8149,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7678,10 +8173,67 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Preceding Immune Trigger</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Most events follow a respiratory or gastrointestinal illness by days to weeks. Recorded as direct because this node is the antecedent itself rather than a downstream consequence of it; what the antecedent then does is modelled by the mimicry and barrier nodes further along.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33153097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A preceding infection or illness is observed in 70–80% of cases"</div>
+
+
+                <div class="evidence-explanation">Places a preceding infection or illness in 70 to 80 percent of cases, which is the observation this node records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-recent-immunization" data-dismech-node="Recent immunization" data-dismech-type="environmental">
                 <div class="item-name">Recent immunization</div>
+
+
+
+
 
 
                 <div class="item-desc">ADEM has rarely been reported after immunization, but epidemiologic and mechanistic evidence does not establish vaccination as a general cause and the postinfection incidence is higher.</div>
@@ -7700,6 +8252,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7722,6 +8275,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Preceding Immune Trigger</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Reported after immunisation but not established as a general cause, and the cited source argues against reading it as one. Graded well below the preceding-infection link into this same node, and worded so that adding the link does not quietly convert a contested temporal report into a mechanism.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33153097" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although vaccinations have also been implicated as a cause of ADEM, no clear pathogenetic correlation exists and the incidence of ADS following infection is higher than that induced by immunization itself"</div>
+
+
+                <div class="evidence-explanation">States that no clear pathogenetic correlation exists for vaccination and that incidence after infection exceeds incidence after immunisation. The source supports the association being weak, which is what this grade records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7762,6 +8368,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7812,6 +8419,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7861,6 +8469,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7901,7 +8510,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-multiple-sclerosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Multiple_Sclerosis.html">Multiple sclerosis</a>
@@ -7950,6 +8559,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7975,7 +8585,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-myelin-oligodendrocyte-glycoprotein-antibody-associated-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="MOGAD.html">Myelin oligodendrocyte glycoprotein antibody-associated disease</a>
@@ -8022,6 +8632,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36706773" target="_blank">PMID:36706773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8047,7 +8658,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-neuromyelitis-optica-spectrum-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Neuromyelitis_Optica_Spectrum_Disorder.html">Neuromyelitis optica spectrum disorder</a>
@@ -8094,6 +8705,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8119,7 +8731,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-infectious-meningoencephalitis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Infectious meningoencephalitis</span>
@@ -8167,6 +8779,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8192,7 +8805,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autoimmune-encephalitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Autoimmune_Encephalitis.html">Autoimmune encephalitis</a>
@@ -8239,6 +8852,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8264,7 +8878,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-vascular-metabolic-genetic-and-neoplastic-mimics">
                 <div class="item-name">
 
                     Vascular, metabolic, genetic, and neoplastic mimics
@@ -8307,6 +8921,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33153097" target="_blank">PMID:33153097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8345,7 +8960,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00004645">
                 <div class="item-name">
                     NCT00004645
 
@@ -8362,16 +8977,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         CNS demyelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007305">HP:0007305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007305</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets CNS demyelination (HP:0007305). HP:0007305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8389,6 +9009,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00004645" target="_blank">clinicaltrials:NCT00004645</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8413,7 +9034,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03284801">
                 <div class="item-name">
                     NCT03284801
 
@@ -8430,17 +9051,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         encephalopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001298">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         CNS demyelination
@@ -8448,10 +9076,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007305">HP:0007305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007305</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets CNS demyelination (HP:0007305). HP:0007305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8469,6 +9100,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03284801" target="_blank">clinicaltrials:NCT03284801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8493,7 +9125,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05154370">
                 <div class="item-name">
                     NCT05154370
 
@@ -8510,16 +9142,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         CNS demyelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007305">HP:0007305</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0007305</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets CNS demyelination (HP:0007305). HP:0007305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8537,6 +9174,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05154370" target="_blank">clinicaltrials:NCT05154370</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8567,6 +9205,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8583,7 +9224,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Disseminated Encephalomyelitis
 creation_date: &#34;2026-05-16T04:09:27Z&#34;
-updated_date: &#34;2026-05-16T05:45:20Z&#34;
 category: Neurological Disorder
 parents:
 - Autoimmune Disorder
@@ -8803,6 +9443,24 @@ mechanistic_hypotheses:
       postinfectious hypothesis.
 environmental:
 - name: Preceding infection
+  influences_mechanisms:
+  - target: Preceding Immune Trigger
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Most events follow a respiratory or gastrointestinal illness by days to
+      weeks. Recorded as direct because this node is the antecedent itself
+      rather than a downstream consequence of it; what the antecedent then
+      does is modelled by the mimicry and barrier nodes further along.
+    evidence:
+    - reference: PMID:33153097
+      reference_title: &#34;Acute Disseminated Encephalomyelitis: Current Perspectives.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;A preceding infection or illness is observed in 70–80% of cases&#34;
+      explanation: &gt;-
+        Places a preceding infection or illness in 70 to 80 percent of cases,
+        which is the observation this node records.
   notes: &gt;-
     A respiratory, gastrointestinal, or other infection commonly precedes ADEM,
     but a trigger is not required by diagnostic criteria and temporal
@@ -8816,6 +9474,27 @@ environmental:
     explanation: &gt;-
       The review summarizes the common temporal association with infection.
 - name: Recent immunization
+  influences_mechanisms:
+  - target: Preceding Immune Trigger
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Reported after immunisation but not established as a general cause, and
+      the cited source argues against reading it as one. Graded well below the
+      preceding-infection link into this same node, and worded so that adding
+      the link does not quietly convert a contested temporal report into a
+      mechanism.
+    evidence:
+    - reference: PMID:33153097
+      reference_title: &#34;Acute Disseminated Encephalomyelitis: Current Perspectives.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Although vaccinations have also been implicated as a cause of ADEM, no clear pathogenetic correlation exists and the incidence of ADS following infection is higher than that induced by immunization itself&#34;
+      explanation: &gt;-
+        States that no clear pathogenetic correlation exists for vaccination
+        and that incidence after infection exceeds incidence after
+        immunisation. The source supports the association being weak, which is
+        what this grade records.
   notes: &gt;-
     ADEM has rarely been reported after immunization, but epidemiologic and
     mechanistic evidence does not establish vaccination as a general cause and
@@ -11411,7 +12090,7 @@ and typical MRI lesions described as “diffuse, poorly demarcated, large (&gt;1
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Disseminated Encephalomyelitis", "mondoId": "MONDO:0019383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Disseminated_Encephalomyelitis", "yamlRevision": "1164222bd64b"};
+        const OS_CONFIG = {"diseaseName": "Acute Disseminated Encephalomyelitis", "mondoId": "MONDO:0019383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Disseminated_Encephalomyelitis", "yamlRevision": "642503c2117a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11830,5 +12509,73 @@ and typical MRI lesions described as “diffuse, poorly demarcated, large (&gt;1
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

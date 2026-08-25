@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>POLR-Related Leukodystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>POLR-Related Leukodystrophy</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3785,6 +3989,14 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3825,7 +4037,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3871,6 +4083,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3933,7 +4146,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polr3a">
 
                     <div class="item-name">
                         POLR3A-related POLR3-HLD (HLD7)
@@ -3947,16 +4160,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POLR3A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30074">hgnc:30074</a>
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:30074</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POLR3A (hgnc:30074). hgnc:30074 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3983,6 +4201,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21855841" target="_blank">PMID:21855841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4004,6 +4223,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4031,7 +4251,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polr3b">
 
                     <div class="item-name">
                         POLR3B-related POLR3-HLD (HLD8)
@@ -4045,16 +4265,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POLR3B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30348">hgnc:30348</a>
+    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:30348</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POLR3B (hgnc:30348). hgnc:30348 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4081,6 +4306,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036172" target="_blank">PMID:22036172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4102,6 +4328,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4129,7 +4356,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polr1c">
 
                     <div class="item-name">
                         POLR1C-related POLR3-HLD (HLD11)
@@ -4143,16 +4370,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POLR1C
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:20194" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20194">hgnc:20194</a>
+    <a href="https://bioregistry.io/hgnc:20194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:20194</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POLR1C (hgnc:20194). hgnc:20194 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4178,6 +4410,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26151409" target="_blank">PMID:26151409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4205,7 +4438,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polr3k">
 
                     <div class="item-name">
                         POLR3K-related POLR3-HLD
@@ -4217,16 +4450,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POLR3K
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14121">hgnc:14121</a>
+    <a href="https://bioregistry.io/hgnc:14121" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:14121</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POLR3K (hgnc:14121). hgnc:14121 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4253,6 +4491,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40225923" target="_blank">PMID:40225923</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4274,6 +4513,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4391,6 +4631,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4413,6 +4659,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4518,6 +4765,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4541,6 +4794,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4562,6 +4816,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4660,6 +4915,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4683,6 +4944,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407788" target="_blank">PMID:28407788</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4704,6 +4966,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4777,6 +5040,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36917474" target="_blank">PMID:36917474</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4821,7 +5085,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Cerebral Hypomyelination</span>
+    <a class="entity-ref-chip" href="#phenotype-cerebral-hypomyelination">phenotypes#Cerebral Hypomyelination</a>
 
 
 
@@ -4874,6 +5138,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4897,6 +5167,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27029625" target="_blank">PMID:27029625</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4918,6 +5189,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28459997" target="_blank">PMID:28459997</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5016,6 +5288,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5032,6 +5310,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Administer ibuprofen to the conditional Polr3b delta-10 mouse during postnatal myelinogenesis and measure oligodendrocyte maturation and myelin thickness, to establish whether the in vitro rescue has any in vivo counterpart.</div>
+
+
+
+
+
+
 
 
 
@@ -5072,6 +5356,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21855841" target="_blank">PMID:21855841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5163,6 +5448,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5186,6 +5477,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28783042" target="_blank">PMID:28783042</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5207,6 +5499,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28783042" target="_blank">PMID:28783042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5252,7 +5545,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotypes#Dystonia</span>
+    <a class="entity-ref-chip" href="#phenotype-dystonia">phenotypes#Dystonia</a>
 
 
 
@@ -5280,6 +5573,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Retrieve the full GeneReviews POLR3-Related Leukodystrophy chapter (NBK99167) and check its Agents/Circumstances to Avoid section, and search case-level literature for reported dystonia exacerbation after D2-blocker exposure in molecularly confirmed patients.</div>
+
+
+
+
+
+
 
 
 
@@ -5361,6 +5660,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5400,6 +5700,7 @@
                 <div class="item-name">Biallelic Hypomorphic Pol III Subunit Variant</div>
 
                 <div class="item-desc">The proximal molecular lesion is a pair of hypomorphic (not complete-null) variants in a gene encoding a subunit of RNA polymerase III — POLR3A, POLR3B, POLR1C, or POLR3K. No individual has been reported carrying two nonsense POLR3A alleles, consistent with a requirement for residual Pol III activity. Because Pol III is essential and ubiquitously expressed, disease arises from partial quantitative reduction of enzyme function rather than from its abolition.</div>
+
 
 
 
@@ -5461,6 +5762,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21855841" target="_blank">PMID:21855841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5482,6 +5784,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036172" target="_blank">PMID:22036172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5522,16 +5825,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein-containing complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0065003" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0065003">GO:0065003</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0065003" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0065003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein-containing complex assembly (GO:0065003). GO:0065003 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5551,16 +5859,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         protein import into nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006606" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006606">GO:0006606</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006606" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006606</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein import into nucleus (GO:0006606). GO:0006606 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5581,6 +5894,7 @@
 
 
                 </div>
+
 
 
 
@@ -5616,6 +5930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26151409" target="_blank">PMID:26151409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5659,19 +5974,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5704,6 +6025,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21855841" target="_blank">PMID:21855841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5744,16 +6066,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transcription by RNA polymerase III
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006383" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006383">GO:0006383</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006383" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006383</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased transcription by RNA polymerase III (GO:0006383). GO:0006383 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5774,6 +6101,7 @@
 
 
                 </div>
+
 
 
 
@@ -5809,6 +6137,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26151409" target="_blank">PMID:26151409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5849,16 +6178,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tRNA transcription by RNA polymerase III
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042797" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042797">GO:0042797</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042797" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042797</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA transcription by RNA polymerase III (GO:0042797). GO:0042797 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5879,6 +6213,7 @@
 
 
                 </div>
+
 
 
 
@@ -5955,6 +6290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5976,6 +6312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036171" target="_blank">PMID:22036171</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6009,16 +6346,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte precursor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6047,19 +6389,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005764">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6094,6 +6442,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35076634" target="_blank">PMID:35076634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6115,6 +6464,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35225888" target="_blank">PMID:35225888</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6143,6 +6493,7 @@
                 <div class="item-name">mTOR Signaling Suppression</div>
 
                 <div class="item-desc">Expression of lysosomally mislocalized mutant Pol III subunits reduces signaling through the mechanistic target of rapamycin, the lysosome-anchored hub controlling anabolic growth. This is the node the ibuprofen rescue acts on, and the reason that lead is mechanistically framed as mTOR reactivation rather than as an anti-inflammatory effect.</div>
+
 
 
 
@@ -6188,6 +6539,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35076634" target="_blank">PMID:35076634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6209,6 +6561,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35225888" target="_blank">PMID:35225888</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,6 +6590,7 @@
                 <div class="item-name">Reduced Mature tRNA Pool</div>
 
                 <div class="item-desc">The mature tRNA pool shrinks and shifts in composition. In a postnatal whole-body Polr3a mutant mouse, tRNA sequencing early in disease showed a global reduction and altered profile of mature tRNAs at a stage when no other Pol III transcript class had changed and stress programmes were not yet induced, placing this deficit upstream as a disease-initiating event.</div>
+
 
 
 
@@ -6282,6 +6636,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6321,16 +6676,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6351,6 +6711,7 @@
 
 
                 </div>
+
 
 
 
@@ -6387,6 +6748,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036171" target="_blank">PMID:22036171</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6408,6 +6770,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6436,6 +6799,7 @@
                 <div class="item-name">Integrated Stress and Innate Immune Response Induction</div>
 
                 <div class="item-desc">As disease progresses in a Polr3a mutant mouse, cerebral transcriptomes show induction of innate immune and integrated stress response programmes alongside microglial activation. This is a secondary amplification arm rather than a disease-initiating event, since it is minimally induced at the stage when the tRNA deficit is already present.</div>
+
 
 
 
@@ -6481,6 +6845,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6513,17 +6878,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte precursor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6544,10 +6916,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6574,16 +6949,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         oligodendrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048709">GO:0048709</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0048709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oligodendrocyte differentiation (GO:0048709). GO:0048709 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6604,6 +6984,7 @@
 
 
                 </div>
+
 
 
 
@@ -6640,6 +7021,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635302" target="_blank">PMID:37635302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6661,6 +7043,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6701,16 +7084,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         central nervous system myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022010">GO:0022010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0022010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased central nervous system myelination (GO:0022010). GO:0022010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6737,19 +7125,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6799,6 +7193,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6820,6 +7215,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6863,19 +7259,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6909,6 +7311,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6941,16 +7344,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6967,6 +7375,7 @@
 
 
                 </div>
+
 
 
 
@@ -7010,6 +7419,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7031,6 +7441,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39499645" target="_blank">PMID:39499645</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7077,6 +7488,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7088,6 +7500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7110,6 +7523,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7156,6 +7570,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7167,6 +7582,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7189,6 +7605,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7229,16 +7646,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         odontogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042476">GO:0042476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0042476 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7268,6 +7690,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7279,6 +7702,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635302" target="_blank">PMID:37635302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7301,6 +7725,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7344,19 +7769,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         adenohypophysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002196" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002196">UBERON:0002196</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002196" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002196</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adenohypophysis (UBERON:0002196). UBERON:0002196 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7374,6 +7805,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7420,6 +7852,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7431,6 +7864,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7531,14 +7965,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015), qualified as course progressive. HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7576,6 +8017,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7617,14 +8059,21 @@
                         Hypogonadotropic Hypogonadism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypogonadotropic hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000044">HP:0000044</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000044</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7644,6 +8093,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7678,14 +8128,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7705,6 +8162,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7727,6 +8185,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005949" target="_blank">PMID:33005949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7770,14 +8229,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000545">HP:0000545</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000545</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopia (HP:0000545), qualified as course progressive. HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7816,6 +8282,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7837,6 +8304,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7878,14 +8346,21 @@
                         Hypodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000668">HP:0000668</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000668</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7905,6 +8380,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7937,14 +8413,21 @@
                         Oligodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oligodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000677">HP:0000677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7964,6 +8447,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036172" target="_blank">PMID:22036172</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7996,14 +8480,21 @@
                         Delayed Eruption of Teeth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed eruption of teeth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000684">HP:0000684</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000684</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed eruption of teeth (HP:0000684). HP:0000684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8023,6 +8514,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8064,14 +8556,21 @@
                         Spasticity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8091,6 +8590,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8134,14 +8634,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral hypomyelination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006808">HP:0006808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0006808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral hypomyelination (HP:0006808), qualified as childhood onset. HP:0006808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8191,6 +8698,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8213,6 +8721,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8234,6 +8743,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27029625" target="_blank">PMID:27029625</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8268,14 +8778,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8314,6 +8831,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036172" target="_blank">PMID:22036172</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8347,14 +8865,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270), qualified as childhood onset. HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8404,6 +8929,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8425,6 +8951,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8457,14 +8984,21 @@
                         Developmental Regression
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8484,6 +9018,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8516,14 +9051,21 @@
                         Dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8543,6 +9085,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8575,14 +9118,21 @@
                         Tremor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8602,6 +9152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21855841" target="_blank">PMID:21855841</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8634,14 +9185,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8661,6 +9219,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8693,14 +9252,23 @@
                         Cognitive Decline
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mental deterioration
+
+                        <span class="phenotype-term-label">Mental deterioration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001268">HP:0001268</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001268</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mental deterioration (HP:0001268). HP:0001268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8720,6 +9288,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8742,6 +9311,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30584594" target="_blank">PMID:30584594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8774,14 +9344,21 @@
                         Cerebellar Atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001272</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course progressive. HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8820,6 +9397,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8851,14 +9429,21 @@
                         Hypoplasia of the Corpus Callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002079</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8878,6 +9463,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22036171" target="_blank">PMID:22036171</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8921,14 +9507,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8948,6 +9541,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8970,6 +9564,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005949" target="_blank">PMID:33005949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9013,14 +9608,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of thyroid physiology
+
+                        <span class="phenotype-term-label">Abnormality of thyroid physiology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002926">HP:0002926</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002926</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of thyroid physiology (HP:0002926). HP:0002926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9040,6 +9644,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005949" target="_blank">PMID:33005949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9118,13 +9723,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLR3A
 
 
-    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30074">hgnc:30074</a>
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:30074</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLR3A (hgnc:30074). hgnc:30074 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9149,6 +9759,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23355746" target="_blank">PMID:23355746</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9186,13 +9797,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLR3B
 
 
-    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30348">hgnc:30348</a>
+    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:30348</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLR3B (hgnc:30348). hgnc:30348 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9218,6 +9834,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26045207" target="_blank">PMID:26045207</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9239,6 +9856,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339210" target="_blank">PMID:25339210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9276,13 +9894,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLR1C
 
 
-    <a href="https://bioregistry.io/hgnc:20194" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20194">hgnc:20194</a>
+    <a href="https://bioregistry.io/hgnc:20194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:20194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLR1C (hgnc:20194). hgnc:20194 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9307,6 +9930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26151409" target="_blank">PMID:26151409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9344,13 +9968,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLR3K
 
 
-    <a href="https://bioregistry.io/hgnc:14121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14121">hgnc:14121</a>
+    <a href="https://bioregistry.io/hgnc:14121" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:14121</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLR3K (hgnc:14121). hgnc:14121 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9375,6 +10004,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40225923" target="_blank">PMID:40225923</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9406,6 +10036,166 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-polr-related-leukodystrophy-record">
+
+
+    <div class="item-name">Orphanet POLR-related leukodystrophy record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/Orphanet:289494" target="_blank" class="curie-chip curie-chip-orphanet" title="Open Orphanet:289494">Orphanet:289494</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">Orphanet record for 4H leukodystrophy, the source of the MONDO:0100605 definition and of its scoping across POLR1C, POLR3A and POLR3B.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-hypomyelinating-leukodystrophy-7-polr3a">
+
+
+    <div class="item-name">OMIM hypomyelinating leukodystrophy 7 (POLR3A)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:607694" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:607694">OMIM:607694</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype record for the POLR3A-related subtype (HLD7).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-hypomyelinating-leukodystrophy-8-polr3b">
+
+
+    <div class="item-name">OMIM hypomyelinating leukodystrophy 8 (POLR3B)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:614381" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:614381">OMIM:614381</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype record for the POLR3B-related subtype (HLD8).</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-genereviews-polr3-related-leukodystrophy-chapter">
+
+
+    <div class="item-name">GeneReviews POLR3-Related Leukodystrophy chapter</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">GeneReviews</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">clinical synopsis</span>
+
+
+
+
+
+
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:22855961">PMID:22855961</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">Expert-curated GeneReviews chapter (Bernard &amp; Vanderver) used as the phenotype and management baseline for this entry.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9421,7 +10211,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9470,6 +10265,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9499,7 +10295,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -9536,16 +10337,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001251</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9564,6 +10370,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9594,7 +10401,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9631,16 +10443,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dysphagia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9659,6 +10476,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9689,7 +10507,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9726,16 +10549,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dystonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9754,6 +10582,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9784,7 +10613,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9820,17 +10654,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dystonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Tremor
@@ -9838,10 +10679,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9860,6 +10704,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38700104" target="_blank">PMID:38700104</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9890,7 +10735,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9927,17 +10777,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypogonadotropic hypogonadism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000044">HP:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed puberty
@@ -9945,11 +10802,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
@@ -9957,10 +10819,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9979,6 +10844,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33005949" target="_blank">PMID:33005949</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10001,6 +10867,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10031,7 +10898,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -10080,6 +10952,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22855961" target="_blank">PMID:22855961</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10109,7 +10982,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10139,16 +11017,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ibuprofen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5855" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5855">CHEBI:5855</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5855" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-62">CHEBI:5855</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ibuprofen (CHEBI:5855). CHEBI:5855 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10192,6 +11075,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35225888" target="_blank">PMID:35225888</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10213,6 +11097,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35076634" target="_blank">PMID:35076634</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10260,7 +11145,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pelizaeus-merzbacher-disease-and-pelizaeus-merzbacher-like-disease-1">
                 <div class="item-name">
 
                     Pelizaeus-Merzbacher disease and Pelizaeus-Merzbacher-like disease 1
@@ -10303,6 +11188,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22422208" target="_blank">PMID:22422208</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10324,6 +11210,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29179231" target="_blank">PMID:29179231</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10350,7 +11237,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-polr3a-related-hereditary-spastic-ataxia-deep-intronic-c-1909-22g-a">
                 <div class="item-name">
 
                     POLR3A-related hereditary spastic ataxia (deep-intronic c.1909+22G&gt;A)
@@ -10393,6 +11280,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28459997" target="_blank">PMID:28459997</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10418,7 +11306,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-wiedemann-rautenstrauch-neonatal-progeroid-syndrome">
                 <div class="item-name">
 
                     Wiedemann-Rautenstrauch (neonatal progeroid) syndrome
@@ -10459,6 +11347,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30414627" target="_blank">PMID:30414627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10484,7 +11373,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-polr1c-related-treacher-collins-syndrome">
                 <div class="item-name">
 
                     POLR1C-related Treacher Collins syndrome
@@ -10525,6 +11414,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26151409" target="_blank">PMID:26151409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10550,7 +11440,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-de-novo-polr3b-related-ataxia-spasticity-and-demyelinating-neuropathy">
                 <div class="item-name">
 
                     De novo POLR3B-related ataxia, spasticity and demyelinating neuropathy
@@ -10591,6 +11481,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417887" target="_blank">PMID:33417887</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10616,7 +11507,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-polr1a-related-hypomyelinating-leukodystrophy">
                 <div class="item-name">
 
                     POLR1A-related hypomyelinating leukodystrophy
@@ -10657,6 +11548,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36917474" target="_blank">PMID:36917474</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10690,6 +11582,391 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-olig2-cre-driven-expression-of-pathogenic-polr3a-variants-mus-musculus" data-dismech-node="Olig2-Cre-driven expression of pathogenic Polr3a variants Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Olig2-Cre-driven expression of pathogenic Polr3a variants Mus musculus
+
+                    <span class="tag tag-exp-model-type">Conditional oligodendrocyte-lineage mouse model</span>
+
+                </div>
+
+                <div class="item-desc">Restricting expression of pathogenic Polr3a mutations to Olig2-expressing (oligodendrocyte-lineage) cells is sufficient to cause hypomyelination in cerebrum and spinal cord together with growth, cognitive, sensory and fine sensorimotor deficits, establishing a cell-autonomous oligodendroglial requirement for Pol III. Gross motor deficits and cerebellar hypomyelination, common in severely affected patients, are absent, so the model reproduces only part of the human phenotype.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Olig2-Cre-driven expression of pathogenic Polr3a variants</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3A
+
+
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:30074</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns POLR3A (hgnc:30074). hgnc:30074 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34583988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34583988" target="_blank">PMID:34583988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast, the gross motor defects and cerebellar hypomyelination that are common features of severely affected patients are absent in the mice, suggesting a relatively mild form of the disease in this conditional model."</div>
+
+
+                <div class="evidence-explanation">The authors themselves scope the model&#39;s fidelity, which is why it is recorded here with its limitation rather than as a full phenocopy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-polr3b-delta-10-conditional-hypomorph-pdgfra-cre-ert-r26-stopfl-eyfp-polr3bfl-mus-musculus" data-dismech-node="Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl) Mus musculus
+
+                    <span class="tag tag-exp-model-type">Inducible conditional mouse model</span>
+
+                </div>
+
+                <div class="item-desc">The most complete published murine phenocopy: postnatally induced expression of the orthologous Polr3b delta-10 hypomorph reproduces hypomyelination, hypodontia and craniofacial abnormalities, and lineage tracing identified defective oligodendrocyte precursor proliferation and differentiation as the mechanism.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Polr3b delta-10 conditional hypomorph (Pdgfra-Cre/ERT; R26-Stopfl-EYFP; Polr3bfl)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3B
+
+
+    <a href="https://bioregistry.io/hgnc:30348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:30348</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns POLR3B (hgnc:30348). hgnc:30348 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37635302" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635302" target="_blank">PMID:37635302</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we characterized the Polr3bΔ10 mutation and developed an animal model that recapitulates features of POLR3-HLD caused by POLR3B mutations, shedding light on disease pathogenesis, and opening the door to the development of therapeutic interventions."</div>
+
+
+                <div class="evidence-explanation">Establishes the model as a partial phenocopy spanning CNS and dental features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-polr3a-c-2015g-a-p-g672e-knock-in-homozygous-and-compound-heterozygous-with-a-null-allele-mus-musculus" data-dismech-node="Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele Mus musculus
+
+                    <span class="tag tag-exp-model-type">Constitutive knock-in mouse model (negative result)</span>
+
+                </div>
+
+                <div class="item-desc">Introducing the French-Canadian founder Polr3a mutation into mice produced no motor phenotype, no detectable myelination deficit, and no significant change in brain Pol III transcript levels — a negative result that contrasts with the oligodendrocyte-lineage conditional models and is a key caveat when interpreting mouse data for this disease.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Polr3a c.2015G&gt;A (p.G672E) knock-in, homozygous and compound heterozygous with a null allele</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POLR3A
+
+
+    <a href="https://bioregistry.io/hgnc:30074" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:30074</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns POLR3A (hgnc:30074). hgnc:30074 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28407788" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28407788" target="_blank">PMID:28407788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that the first transgenic mice with a leukodystrophy-causing Polr3a mutation do not recapitulate the childhood-onset HLD observed in the majority of human patients"</div>
+
+
+                <div class="evidence-explanation">Recorded as REFUTE with respect to the claim that this knock-in models human POLR3-HLD; it is a genuine negative model result, not a supporting one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -14295,5 +15572,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

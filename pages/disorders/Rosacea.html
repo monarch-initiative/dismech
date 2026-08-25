@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Rosacea</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Rosacea</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3864,7 +4068,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-erythematotelangiectatic-rosacea">
 
                     <div class="item-name">
                         Erythematotelangiectatic Rosacea
@@ -3898,6 +4102,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3919,6 +4124,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27718519" target="_blank">PMID:27718519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3946,7 +4152,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-papulopustular-rosacea">
 
                     <div class="item-name">
                         Papulopustular Rosacea
@@ -3980,6 +4186,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4001,6 +4208,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4028,7 +4236,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-phymatous-rosacea">
 
                     <div class="item-name">
                         Phymatous Rosacea
@@ -4062,6 +4270,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4083,6 +4292,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41918801" target="_blank">PMID:41918801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4110,7 +4320,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ocular-rosacea">
 
                     <div class="item-name">
                         Ocular Rosacea
@@ -4144,6 +4354,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4165,6 +4376,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40522449" target="_blank">PMID:40522449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4220,16 +4432,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4256,16 +4473,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         establishment of skin barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061436">GO:0061436</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0061436</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4282,6 +4504,7 @@
 
 
                 </div>
+
 
 
 
@@ -4326,6 +4549,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35392024" target="_blank">PMID:35392024</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4358,16 +4582,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4384,6 +4613,7 @@
 
 
                 </div>
+
 
 
 
@@ -4427,6 +4657,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4459,16 +4690,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4485,6 +4721,7 @@
 
 
                 </div>
+
 
 
 
@@ -4528,6 +4765,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39823143" target="_blank">PMID:39823143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4555,6 +4793,7 @@
                 <div class="item-name">KLK5/KLK7 activation</div>
 
                 <div class="item-desc">Kallikrein-family serine proteases are activated downstream of TLR2 and participate in cathelicidin processing.</div>
+
 
 
 
@@ -4600,6 +4839,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4639,17 +4879,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4670,10 +4917,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4690,6 +4940,7 @@
 
 
                 </div>
+
 
 
 
@@ -4742,6 +4993,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4764,6 +5016,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835085" target="_blank">PMID:40835085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4785,6 +5038,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41087666" target="_blank">PMID:41087666</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4818,16 +5072,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4844,6 +5103,7 @@
 
 
                 </div>
+
 
 
 
@@ -4887,6 +5147,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4919,16 +5180,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4955,16 +5221,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cytokine-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4981,6 +5252,7 @@
 
 
                 </div>
+
 
 
 
@@ -5017,6 +5289,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35392024" target="_blank">PMID:35392024</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5044,6 +5317,7 @@
                 <div class="item-name">Immune cell infiltration</div>
 
                 <div class="item-desc">Rosacea lesions show increased immune-cell infiltration that reinforces inflammatory lesion formation.</div>
+
 
 
 
@@ -5089,6 +5363,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35392024" target="_blank">PMID:35392024</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5128,16 +5403,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5154,6 +5434,7 @@
 
 
                 </div>
+
 
 
 
@@ -5190,6 +5471,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5211,6 +5493,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40835085" target="_blank">PMID:40835085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5251,16 +5534,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuropeptide signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007218" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007218">GO:0007218</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007218</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neuropeptide signaling pathway (GO:0007218). GO:0007218 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5277,6 +5565,7 @@
 
 
                 </div>
+
 
 
 
@@ -5313,6 +5602,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5340,6 +5630,7 @@
                 <div class="item-name">Neurovascular vasodilation</div>
 
                 <div class="item-desc">Exaggerated vasodilation is a proximal vascular event that drives flushing and contributes to persistent background erythema.</div>
+
 
 
 
@@ -5393,6 +5684,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5432,16 +5724,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5458,6 +5755,7 @@
 
 
                 </div>
+
 
 
 
@@ -5502,6 +5800,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5523,6 +5822,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40567003" target="_blank">PMID:40567003</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5563,16 +5863,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5589,6 +5894,7 @@
 
 
                 </div>
+
 
 
 
@@ -5633,6 +5939,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39823143" target="_blank">PMID:39823143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5660,6 +5967,7 @@
                 <div class="item-name">Sebaceous gland dysfunction</div>
 
                 <div class="item-desc">Dysfunction of cutaneous sebaceous glands is recognized as part of the multifactorial tissue biology of rosacea.</div>
+
 
 
 
@@ -5705,6 +6013,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5732,6 +6041,7 @@
                 <div class="item-name">Meibomian gland dysfunction</div>
 
                 <div class="item-desc">Ocular rosacea includes meibomian gland dysfunction as part of its site-specific pathophysiology.</div>
+
 
 
 
@@ -5777,6 +6087,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5816,16 +6127,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5842,6 +6158,7 @@
 
 
                 </div>
+
 
 
 
@@ -5878,6 +6195,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40522449" target="_blank">PMID:40522449</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5905,6 +6223,7 @@
                 <div class="item-name">Fibrotic dermal remodeling</div>
 
                 <div class="item-desc">Advanced rosacea can shift toward a fibrotic remodeling program in which vascular changes are coupled to connective-tissue fibrosis.</div>
+
 
 
 
@@ -5950,6 +6269,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25151931" target="_blank">PMID:25151931</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5971,6 +6291,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41139274" target="_blank">PMID:41139274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5999,6 +6320,7 @@
                 <div class="item-name">Sebaceous gland and soft tissue hyperplasia/fibrosis</div>
 
                 <div class="item-desc">Rhinophyma reflects progressive hypertrophic remodeling of sebaceous glands and adjacent soft tissue in the nose.</div>
+
 
 
 
@@ -6044,6 +6366,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19428039" target="_blank">PMID:19428039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6079,7 +6402,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-dermal-vascular-endothelial-angiopoietin-2-and-tie2-overexpression">
                 <div class="item-name">
                     Dermal vascular endothelial Angiopoietin 2 and Tie2 overexpression
 
@@ -6100,6 +6423,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41562711" target="_blank">PMID:41562711</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6124,7 +6448,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-early-dermal-fibrotic-remodeling">
                 <div class="item-name">
                     Early dermal fibrotic remodeling
 
@@ -6145,6 +6469,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41800255" target="_blank">PMID:41800255</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6169,7 +6494,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-sebaceous-gland-and-surrounding-soft-tissue-hyperplasia-with-fibrosis">
                 <div class="item-name">
                     Sebaceous gland and surrounding soft tissue hyperplasia with fibrosis
 
@@ -6190,6 +6515,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19428039" target="_blank">PMID:19428039</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6214,7 +6540,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-leaky-vascular-architecture-in-rhinophyma-tissue">
                 <div class="item-name">
                     Leaky vascular architecture in rhinophyma tissue
 
@@ -6235,6 +6561,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41909715" target="_blank">PMID:41909715</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6259,7 +6586,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-immune-cell-rich-rhinophyma-tissue">
                 <div class="item-name">
                     Immune-cell-rich rhinophyma tissue
 
@@ -6280,6 +6607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41909715" target="_blank">PMID:41909715</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6304,7 +6632,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-eyelid-tissue-lymphoedema-in-ocular-rosacea">
                 <div class="item-name">
                     Eyelid tissue lymphoedema in ocular rosacea
 
@@ -6325,6 +6653,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41058755" target="_blank">PMID:41058755</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6418,14 +6747,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial erythema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001041">HP:0001041</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001041</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is persistent centrofacial erythema, annotated with Facial erythema (HP:0001041). HP:0001041 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6447,6 +6783,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27718519" target="_blank">PMID:27718519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6481,14 +6818,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial telangiectasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007380" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007380">HP:0007380</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007380</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is facial telangiectasia (HP:0007380). HP:0007380 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6508,6 +6852,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626650" target="_blank">PMID:37626650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6551,14 +6896,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Blepharitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000498" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000498">HP:0000498</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000498" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000498</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is blepharitis (HP:0000498). HP:0000498 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6580,6 +6932,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40522449" target="_blank">PMID:40522449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6623,14 +6976,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bulbous nose
+
+                        <span class="phenotype-term-label">Bulbous nose</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000414">HP:0000414</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000414</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is rhinophyma, annotated with Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6652,6 +7014,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27718519" target="_blank">PMID:27718519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6686,14 +7049,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000282">HP:0000282</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000282</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is facial edema (HP:0000282). HP:0000282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6715,6 +7085,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41426892" target="_blank">PMID:41426892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6747,14 +7118,21 @@
                         Upper eyelid edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Upper eyelid edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012724" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012724">HP:0012724</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012724" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012724</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is upper eyelid edema (HP:0012724). HP:0012724 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6776,6 +7154,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41058755" target="_blank">PMID:41058755</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6819,14 +7198,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pustule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200039">HP:0200039</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0200039</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6846,6 +7232,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6889,14 +7276,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flushing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031284">HP:0031284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is flushing (HP:0031284). HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,6 +7312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6952,14 +7347,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erythematous papule
+
+                        <span class="phenotype-term-label">Erythematous papule</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030350">HP:0030350</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030350</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is erythematous papule (HP:0030350). HP:0030350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6979,6 +7383,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7057,13 +7462,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IRF1
 
 
-    <a href="https://bioregistry.io/hgnc:6116" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6116">hgnc:6116</a>
+    <a href="https://bioregistry.io/hgnc:6116" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6116</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF1 (hgnc:6116). hgnc:6116 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7084,6 +7494,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40635520" target="_blank">PMID:40635520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7121,13 +7532,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC22A5
 
 
-    <a href="https://bioregistry.io/hgnc:10969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10969">hgnc:10969</a>
+    <a href="https://bioregistry.io/hgnc:10969" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:10969</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC22A5 (hgnc:10969). hgnc:10969 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7148,6 +7564,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40635520" target="_blank">PMID:40635520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7185,13 +7602,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GZMK
 
 
-    <a href="https://bioregistry.io/hgnc:4711" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4711">hgnc:4711</a>
+    <a href="https://bioregistry.io/hgnc:4711" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:4711</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GZMK (hgnc:4711). hgnc:4711 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7212,6 +7634,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41139274" target="_blank">PMID:41139274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7249,13 +7672,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MSR1
 
 
-    <a href="https://bioregistry.io/hgnc:7376" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7376">hgnc:7376</a>
+    <a href="https://bioregistry.io/hgnc:7376" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MSR1 (hgnc:7376). hgnc:7376 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7276,6 +7704,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890957" target="_blank">PMID:40890957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7313,13 +7742,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABHD14B
 
 
-    <a href="https://bioregistry.io/hgnc:28235" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28235">hgnc:28235</a>
+    <a href="https://bioregistry.io/hgnc:28235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:28235</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABHD14B (hgnc:28235). hgnc:28235 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7340,6 +7774,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890957" target="_blank">PMID:40890957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7377,13 +7812,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHMP6
 
 
-    <a href="https://bioregistry.io/hgnc:25675" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25675">hgnc:25675</a>
+    <a href="https://bioregistry.io/hgnc:25675" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:25675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHMP6 (hgnc:25675). hgnc:25675 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7404,6 +7844,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890957" target="_blank">PMID:40890957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7441,13 +7882,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DBNL
 
 
-    <a href="https://bioregistry.io/hgnc:2696" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2696">hgnc:2696</a>
+    <a href="https://bioregistry.io/hgnc:2696" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2696</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DBNL (hgnc:2696). hgnc:2696 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7468,6 +7914,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890957" target="_blank">PMID:40890957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7505,13 +7952,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MCFD2
 
 
-    <a href="https://bioregistry.io/hgnc:18451" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18451">hgnc:18451</a>
+    <a href="https://bioregistry.io/hgnc:18451" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:18451</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MCFD2 (hgnc:18451). hgnc:18451 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7532,6 +7984,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40890957" target="_blank">PMID:40890957</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7561,6 +8014,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7600,6 +8056,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7629,7 +8086,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7659,17 +8121,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metronidazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6909">CHEBI:6909</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:6909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         azelaic acid
@@ -7677,11 +8146,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47407" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47407">NCIT:C47407</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47407" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C47407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azelaic acid (NCIT:C47407). NCIT:C47407 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ivermectin
@@ -7689,11 +8163,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6078" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6078">CHEBI:6078</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6078" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:6078</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ivermectin (CHEBI:6078). CHEBI:6078 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         doxycycline
@@ -7701,11 +8180,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50845">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         isotretinoin
@@ -7713,10 +8197,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C603">NCIT:C603</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7741,6 +8228,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7771,7 +8259,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">topical pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7802,16 +8295,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         brimonidine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3175" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3175">CHEBI:3175</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3175" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:3175</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses brimonidine (CHEBI:3175). CHEBI:3175 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7836,6 +8334,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7866,7 +8365,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vascular light-based therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">vascular light-based therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vascular light-based therapy, annotated with Phototherapy (NCIT:C15301), qualified as therapeutic procedure phototherapy. NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Phototherapy</span>
 
 
@@ -7915,6 +8419,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7944,7 +8449,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7974,16 +8484,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclosporine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporine, annotated with cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8008,6 +8523,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28150107" target="_blank">PMID:28150107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8038,7 +8554,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8068,17 +8589,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         isotretinoin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C603">NCIT:C603</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C603" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isotretinoin (NCIT:C603). NCIT:C603 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         triamcinolone
@@ -8086,11 +8614,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C901" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C901">NCIT:C901</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C901" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C901</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses triamcinolone (NCIT:C901). NCIT:C901 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ketotifen
@@ -8098,10 +8631,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_92511" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:92511">CHEBI:92511</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_92511" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:92511</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ketotifen (CHEBI:92511). CHEBI:92511 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8115,16 +8651,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         facial edema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000282">HP:0000282</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000282</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets facial edema (HP:0000282). HP:0000282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8143,6 +8684,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41426892" target="_blank">PMID:41426892</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8165,6 +8707,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41222206" target="_blank">PMID:41222206</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8195,7 +8738,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">laser surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">laser surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is laser surgical procedure, annotated with Laser Therapy (NCIT:C15466). NCIT:C15466 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Therapy</span>
 
 
@@ -8232,16 +8780,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         rhinophyma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000414">HP:0000414</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000414</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets rhinophyma, annotated with Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8260,6 +8813,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41918801" target="_blank">PMID:41918801</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8282,6 +8836,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40791837" target="_blank">PMID:40791837</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8312,7 +8867,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329), qualified as therapeutic procedure skin graft; therapeutic procedure reconstructive surgery. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8349,16 +8909,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         rhinophyma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000414">HP:0000414</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000414</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets rhinophyma, annotated with Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8377,6 +8942,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40860281" target="_blank">PMID:40860281</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8416,6 +8982,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-b-radiation" data-dismech-node="Ultraviolet B radiation" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet B radiation</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-52">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Ultraviolet B exposure is a recognized favoring factor that can worsen rosacea activity and amplify inflammatory and vascular responses.</div>
@@ -8433,6 +9026,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8483,6 +9077,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8513,6 +9108,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-corticosteroid-treatment" data-dismech-node="Corticosteroid treatment" data-dismech-type="environmental">
                 <div class="item-name">Corticosteroid treatment</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to glucocorticoid
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000259" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-53">ECTO:0000259</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to glucocorticoid (ECTO:0000259). ECTO:0000259 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Corticosteroid exposure can favor rosacea expression and is a recognized exacerbating factor in susceptible patients.</div>
@@ -8530,6 +9152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8580,6 +9203,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035646" target="_blank">PMID:34035646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8627,7 +9251,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acne">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Acne_Vulgaris.html">Acne</a>
@@ -8674,6 +9298,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11582639" target="_blank">PMID:11582639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8699,7 +9324,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-seborrheic-dermatitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Seborrheic_Dermatitis.html">Seborrheic dermatitis</a>
@@ -8746,6 +9371,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11582639" target="_blank">PMID:11582639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8771,7 +9397,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lupus-erythematosus">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Lupus erythematosus</span>
@@ -8819,6 +9445,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11582639" target="_blank">PMID:11582639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8840,6 +9467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41695827" target="_blank">PMID:41695827</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8866,7 +9494,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-systemic-sclerosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Systemic_Sclerosis.html">Systemic sclerosis</a>
@@ -8913,6 +9541,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41694889" target="_blank">PMID:41694889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8938,7 +9567,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-coccidioidomycosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Coccidioidomycosis.html">Coccidioidomycosis</a>
@@ -8985,6 +9614,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41017054" target="_blank">PMID:41017054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9010,7 +9640,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lymphomatoid-papulosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Lymphomatoid papulosis</span>
@@ -9058,6 +9688,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40827152" target="_blank">PMID:40827152</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9093,7 +9724,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse65914">
                 <div class="item-name">
                     Th1/Th17 Immune Response in Rosacea
 
@@ -9152,6 +9783,7 @@
                         <a href="https://bioregistry.io/GEO:GSE65914" target="_blank">GEO:GSE65914</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9175,7 +9807,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse155141">
                 <div class="item-name">
                     Paired transcriptomic and proteomic analysis implicates IL-1β in the pathogenesis of papulopustular rosacea explants [RNA-seq]
 
@@ -9232,6 +9864,7 @@
                         <a href="https://bioregistry.io/GEO:GSE155141" target="_blank">GEO:GSE155141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9255,7 +9888,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse303282">
                 <div class="item-name">
                     Cathelicidin LL-37-induced transcriptome of human keratinocyte identifies chemokine CXCL10 link to T cell-mediated rosacea pathogenesis via JAK-1/STAT-1 pathway
 
@@ -9310,6 +9943,7 @@
                         <a href="https://bioregistry.io/GEO:GSE303282" target="_blank">GEO:GSE303282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9333,7 +9967,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse277020">
                 <div class="item-name">
                     Effect of eyelid UVB irradiation on gene expression of rat meibomian gland
 
@@ -9388,6 +10022,7 @@
                         <a href="https://bioregistry.io/GEO:GSE277020" target="_blank">GEO:GSE277020</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9423,7 +10058,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01493947">
                 <div class="item-name">
                     NCT01493947
 
@@ -9440,17 +10075,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         erythematous papule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030350">HP:0030350</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0030350</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets erythematous papule (HP:0030350). HP:0030350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         pustule
@@ -9458,10 +10100,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200039">HP:0200039</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0200039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9479,6 +10124,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01493947" target="_blank">clinicaltrials:NCT01493947</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9503,7 +10149,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00126399">
                 <div class="item-name">
                     NCT00126399
 
@@ -9520,17 +10166,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         erythematous papule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030350">HP:0030350</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030350" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0030350</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets erythematous papule (HP:0030350). HP:0030350 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         pustule
@@ -9538,10 +10191,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200039">HP:0200039</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0200039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9559,6 +10215,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00126399" target="_blank">clinicaltrials:NCT00126399</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9583,7 +10240,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03380390">
                 <div class="item-name">
                     NCT03380390
 
@@ -9600,16 +10257,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         persistent centrofacial erythema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001041">HP:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets persistent centrofacial erythema, annotated with Facial erythema (HP:0001041). HP:0001041 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9627,6 +10289,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03380390" target="_blank">clinicaltrials:NCT03380390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9651,7 +10314,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05616923">
                 <div class="item-name">
                     NCT05616923
 
@@ -9668,17 +10331,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         persistent centrofacial erythema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001041">HP:0001041</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets persistent centrofacial erythema, annotated with Facial erythema (HP:0001041). HP:0001041 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         flushing
@@ -9686,10 +10356,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031284">HP:0031284</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0031284</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets flushing (HP:0031284). HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9707,6 +10380,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05616923" target="_blank">clinicaltrials:NCT05616923</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9737,6 +10411,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -9753,7 +10430,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Rosacea
 creation_date: &#34;2026-04-05T12:00:00Z&#34;
-updated_date: &#34;2026-04-22T20:13:21Z&#34;
 category: Complex
 description: &gt;-
   Rosacea is a chronic relapsing inflammatory facial dermatosis centered on
@@ -11003,6 +11679,11 @@ genetic:
       associated with lower rosacea risk.
 environmental:
 - name: Ultraviolet B radiation
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
   influences_mechanisms:
   - target: Skin barrier dysfunction
     environmental_effect: EXACERBATES
@@ -11035,6 +11716,11 @@ environmental:
       This review explicitly identifies UVB radiation as an important
       rosacea-promoting exposure.
 - name: Corticosteroid treatment
+  exposure_term:
+    preferred_term: exposure to glucocorticoid
+    term:
+      id: ECTO:0000259
+      label: exposure to glucocorticoid
   influences_mechanisms:
   - target: Skin barrier dysfunction
     environmental_effect: EXACERBATES
@@ -11350,6 +12036,7 @@ clinical_trials:
       label: Pustule
   evidence:
   - reference: clinicaltrials:NCT01493947
+    reference_title: &#34;Efficacy and Safety of CD5024 1% Cream Versus Metronidazole 0.75% Cream in Subjects With Papulopustular Rosacea Over 16 Weeks Treatment, Followed by a 36-week Extension Period.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;To compare efficacy and safety of Ivermectin 1% cream versus metronidazole 0.75% cream in subjects with papulopustular rosacea after 16-week topical treatment.&#34;
@@ -11373,6 +12060,7 @@ clinical_trials:
       label: Pustule
   evidence:
   - reference: clinicaltrials:NCT00126399
+    reference_title: &#34;A Clinical Trial to Determine the Effects of 40 Mg Doxycycline Versus a Placebo Control for the Treatment of Rosacea&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The objective of this study is to evaluate the safety and efficacy of 40 mg doxycycline controlled-release capsules administered once daily for the treatment of rosacea compared with a placebo.&#34;
@@ -11392,6 +12080,7 @@ clinical_trials:
       label: Facial erythema
   evidence:
   - reference: clinicaltrials:NCT03380390
+    reference_title: &#34;Multicenter, Open-Label, Interventional Study on the Safety and Tolerability of Oxymetazoline and Energy-Based Therapy in Subjects With Rosacea&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This study will evaluate the safety and tolerability of oxymetazoline HCl cream 1.0% when used as an adjunctive treatment to energy-based therapy for participants with moderate to severe persistent facial erythema associated with rosacea.&#34;
@@ -11415,6 +12104,7 @@ clinical_trials:
       label: Flushing
   evidence:
   - reference: clinicaltrials:NCT05616923
+    reference_title: &#34;Topical Mitogenic-Activated Protein Kinase (MAPK) Inhibition in Rosacea&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This is a prospective, vehicle controlled, double blinded study to evaluate the safety and potential efficacy of a topical formulation of a MEK inhibitor in patients with erythematotelangiectatic rosacea&#34;
@@ -11443,6 +12133,7 @@ datasets:
   - healthy control facial skin
   evidence:
   - reference: GEO:GSE65914
+    reference_title: &#34;Th1/Th17 Immune Response in Rosacea&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The T cell response is dominated by Th1/Th17-polarized immune cells, as demonstrated by significant upregulation of IFNγ or IL-17, for example.&#34;
@@ -11468,6 +12159,7 @@ datasets:
   - IL-1beta-treated non-lesional rosacea skin
   evidence:
   - reference: GEO:GSE155141
+    reference_title: &#34;Paired transcriptomic and proteomic analysis implicates IL-1β in the pathogenesis of papulopustular rosacea explants [RNA-seq]&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our study suggests that MAPK and TNF signaling pathways are the most significantly upregulated pathways in lesional papulopustular rosacea human skins, highlighting IL-1β as a potential central mediator.&#34;
@@ -11492,6 +12184,7 @@ datasets:
   - untreated primary keratinocytes
   evidence:
   - reference: GEO:GSE303282
+    reference_title: &#34;Cathelicidin LL-37-induced transcriptome of human keratinocyte identifies chemokine CXCL10 link to T cell-mediated rosacea pathogenesis via JAK-1/STAT-1 pathway&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Mechanistically, LL-37 induced CXCL10 production relied on JAK-1/STAT-1 signaling pathway.&#34;
@@ -11516,6 +12209,7 @@ datasets:
   - non-irradiated rat controls
   evidence:
   - reference: GEO:GSE277020
+    reference_title: &#34;Effect of eyelid UVB irradiation on gene expression of rat meibomian gland&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We have developed a rat model of UVB-induced ocular surface and eyelid damages mimicking ocular rosacea, a common chronic inflammatory and neurovascular ocular surface disease associated with meibomian gland dysfunction.&#34;
@@ -12671,7 +13365,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rosacea", "mondoId": "MONDO:0006604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rosacea", "yamlRevision": "7a844c09b3a6"};
+        const OS_CONFIG = {"diseaseName": "Rosacea", "mondoId": "MONDO:0006604", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rosacea", "yamlRevision": "372ba9958bbb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13090,5 +13784,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

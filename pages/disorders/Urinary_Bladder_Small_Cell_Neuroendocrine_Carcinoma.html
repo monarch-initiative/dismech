@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Urinary Bladder Small Cell Neuroendocrine Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Urinary Bladder Small Cell Neuroendocrine Carcinoma</h1>
             <div class="header-meta">
 
@@ -3564,7 +3766,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Urinary%20Bladder%20Small%20Cell%20Neuroendocrine%20Carcinoma"
@@ -3693,6 +3895,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3701,7 +3905,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3730,7 +3934,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3758,8 +3962,24 @@
 
 
 
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
 
 
+
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#literature-summaries">
@@ -3803,17 +4023,19 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">3</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-small-cell-genomic-alterations" data-dismech-node="Recurrent Small Cell Genomic Alterations" data-dismech-type="pathophysiology">
-                <div class="item-name">Recurrent Small Cell Genomic Alterations</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-tp53-and-rb1-tumor-suppressor-alterations" data-dismech-node="Recurrent TP53 and RB1 Tumor-Suppressor Alterations" data-dismech-type="pathophysiology">
+                <div class="item-name">Recurrent TP53 and RB1 Tumor-Suppressor Alterations</div>
 
-                <div class="item-desc">Small cell bladder carcinoma tumor cells frequently carry TP53, TERT, and RB1 alterations, placing tumor-suppressor loss and telomerase activation upstream of cell-cycle disruption and aggressive tumor behavior.</div>
+                <div class="item-desc">Small cell bladder carcinomas frequently carry somatic alterations in TP53 and RB1. The downstream edge is limited to the established cell-cycle role of RB1 and does not imply that both alterations are universally required.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         neuroendocrine tumor cell
@@ -3821,11 +4043,98 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000165">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11998</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RB1
+
+
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9884</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
 
 
 
@@ -3854,7 +4163,6 @@
 
 
 
-
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -3862,15 +4170,7 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Cell-Cycle Checkpoint Loss</span>
 
-	                            <span class="crosslink-desc">TP53 and RB1 alterations disrupt tumor-suppressor control of the cell cycle.</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Neuroendocrine Tumor Differentiation</span>
-
-	                            <span class="crosslink-desc">Genomically altered tumor cells co-occur with a small cell neuroendocrine phenotype.</span>
+	                            <span class="crosslink-desc">RB1 inactivation removes a tumor-suppressor regulator of cell-cycle control.</span>
 
 
 	                        </div>
@@ -3891,6 +4191,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40209138" target="_blank">PMID:40209138</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3918,11 +4219,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-cycle-checkpoint-loss" data-dismech-node="Cell-Cycle Checkpoint Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-Cycle Checkpoint Loss</div>
 
-                <div class="item-desc">TP53 and RB1 pathway disruption weakens cell-cycle checkpoint control in small cell bladder carcinoma tumor cells.</div>
+                <div class="item-desc">RB1 inactivation weakens normal cell-cycle checkpoint control in small cell bladder carcinoma tumor cells.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         neuroendocrine tumor cell
@@ -3930,10 +4233,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000165">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3960,16 +4266,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051726">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3997,14 +4308,15 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">High-Grade Tumor Proliferation</span>
+	                            <span class="crosslink-meta">Aggressive Bladder Neoplasm</span>
 
-	                            <span class="crosslink-desc">Checkpoint loss permits expansion of malignant neuroendocrine tumor cells.</span>
+	                            <span class="crosslink-desc">Loss of RB1-linked cell-cycle control contributes to bladder small cell oncogenesis, although the human evidence does not establish this as the sole or universal route to the tumor phenotype.</span>
 
 
 	                        </div>
@@ -4020,13 +4332,14 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4036,7 +4349,7 @@
                 <div class="evidence-snippet">"Inactivation of the RB1 gene may be implicated in the oncogenesis of bladder SmCC."</div>
 
 
-                <div class="evidence-explanation">The clinicopathologic series directly supports RB1 inactivation as an oncogenic alteration in bladder small cell carcinoma.</div>
+                <div class="evidence-explanation">The clinicopathologic series proposes RB1 inactivation as an oncogenic contributor; PARTIAL preserves the source&#39;s qualified &#34;may be implicated&#34; wording.</div>
 
 
 
@@ -4049,14 +4362,16 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroendocrine-tumor-differentiation" data-dismech-node="Neuroendocrine Tumor Differentiation" data-dismech-type="pathophysiology">
-                <div class="item-name">Neuroendocrine Tumor Differentiation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroendocrine-differentiation-state" data-dismech-node="Neuroendocrine Differentiation State" data-dismech-type="pathophysiology">
+                <div class="item-name">Neuroendocrine Differentiation State</div>
 
-                <div class="item-desc">Tumor cells show small cell neuroendocrine differentiation in the bladder, with high-grade cytology and expression of neuroendocrine-lineage markers.</div>
+                <div class="item-desc">Tumor cells exhibit a neuroendocrine differentiation state defined by expression of synaptophysin, chromogranin, CD56, or neuron-specific enolase. The node is intentionally unwired because marker expression establishes the state but not its causal position relative to TP53/RB1 alterations.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         neuroendocrine tumor cell
@@ -4064,127 +4379,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000165">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000165</a>
 
 
 
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-location">
-                        urinary bladder
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001255">UBERON:0001255</a>
-
-
-
-                    </span>
-
-                </div>
-
-
-
-
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">High-Grade Tumor Proliferation</span>
-
-	                            <span class="crosslink-desc">Neuroendocrine carcinoma phenotype co-occurs with clinically aggressive growth.</span>
-
-
-	                        </div>
-
-	                    </div>
-	                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most SmCC expressed at least one neuroendocrine markers, including synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B), CD56 (95%, 39/41), and NSE (100%, 4/4)."</div>
-
-
-                <div class="evidence-explanation">Immunohistochemical data from 81 bladder small cell carcinoma cases support neuroendocrine-marker expression as a defining tumor differentiation pattern.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-grade-tumor-proliferation" data-dismech-node="High-Grade Tumor Proliferation" data-dismech-type="pathophysiology">
-                <div class="item-name">High-Grade Tumor Proliferation</div>
-
-                <div class="item-desc">Malignant neuroendocrine tumor cells proliferate rapidly, contributing to aggressive local growth.</div>
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-cell">
-                        neuroendocrine tumor cell
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000165">CL:0000165</a>
-
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4210,24 +4411,29 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
-                        cell population proliferation
+                        cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ↑ INCREASED
+        ⚠ ABNORMAL
     </span>
 
 
@@ -4245,79 +4451,9 @@
 
 
 
-
-
-
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Muscle-Invasive Bladder Cancer</span>
-
-	                            <span class="crosslink-desc">Proliferation supports local invasion through the bladder wall.</span>
-
-
-	                        </div>
-
-	                    </div>
-	                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bladder SmCC is an aggressive disease that is frequently present at an advanced stage."</div>
-
-
-                <div class="evidence-explanation">The 81-case series supports aggressive biology and frequent advanced-stage presentation in bladder small cell carcinoma.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-muscle-invasive-bladder-cancer" data-dismech-node="Muscle-Invasive Bladder Cancer" data-dismech-type="pathophysiology">
-                <div class="item-name">Muscle-Invasive Bladder Cancer</div>
-
-                <div class="item-desc">Local invasion through the bladder wall produces advanced bladder cancer and increases the risk of nodal or distant spread.</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-location">
                         urinary bladder
@@ -4325,13 +4461,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001255">UBERON:0001255</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON:0001255 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4350,6 +4490,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4357,10 +4498,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"At presentation, over 90% bladder SmCC were at advanced stages with tumors invading the muscularis propria and beyond, and about 1/3 developed metastases to lymph nodes and other organs."</div>
+                <div class="evidence-snippet">"Most SmCC expressed at least one neuroendocrine markers, including synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B), CD56 (95%, 39/41), and NSE (100%, 4/4)."</div>
 
 
-                <div class="evidence-explanation">The clinicopathologic series supports advanced presentation, muscle invasion, and metastatic potential as downstream disease behavior.</div>
+                <div class="evidence-explanation">The 81-case cohort demonstrates the neuroendocrine-marker expression that defines this differentiation state.</div>
 
 
 
@@ -4385,19 +4526,19 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-small-cell-neuroendocrine-carcinoma">
                 <div class="item-name">
                     Small Cell Neuroendocrine Carcinoma
 
                 </div>
 
-                <div class="item-desc">Histology shows high-grade small cell neuroendocrine carcinoma, often requiring immunohistochemical confirmation of neuroendocrine differentiation.</div>
+                <div class="item-desc">Histology shows high-grade small cell neuroendocrine carcinoma, often requiring immunohistochemical confirmation of neuroendocrine differentiation. The small cell component is commonly admixed with urothelial carcinoma.</div>
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4406,6 +4547,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32381384" target="_blank">PMID:32381384</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4418,6 +4560,52 @@
 
 
                 <div class="evidence-explanation">Immunohistochemistry study supports the diagnostic role of marker staining for genitourinary high-grade neuroendocrine carcinomas.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only 1/3 of SmCC were pure (n=27), and the majority was mixed with other histologic types (n=54)."</div>
+
+
+                <div class="evidence-explanation">The 81-case clinicopathologic cohort directly supports mixed urothelial and small cell histology as the most common presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29763719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most SmCC expressed at least one neuroendocrine markers, including synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B), CD56 (95%, 39/41), and NSE (100%, 4/4)."</div>
+
+
+                <div class="evidence-explanation">The 81-case series quantifies expression of the principal neuroendocrine immunohistochemical markers.</div>
 
 
 
@@ -4452,7 +4640,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cell-Cycle Checkpoint Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TP53 and RB1 pathway disruption weakens cell-cycle checkpoint control in small cell bladder carcinoma tumor cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"], \"biological_processes\": [\"regulation of cell cycle\"]}}, {\"id\": \"High-Grade Tumor Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant neuroendocrine tumor cells proliferate rapidly, contributing to aggressive local growth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Muscle-Invasive Bladder Cancer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Local invasion through the bladder wall produces advanced bladder cancer and increases the risk of nodal or distant spread.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"urinary bladder\"]}}, {\"id\": \"Neuroendocrine Tumor Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor cells show small cell neuroendocrine differentiation in the bladder, with high-grade cytology and expression of neuroendocrine-lineage markers.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"], \"locations\": [\"urinary bladder\"]}}, {\"id\": \"Recurrent Small Cell Genomic Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small cell bladder carcinoma tumor cells frequently carry TP53, TERT, and RB1 alterations, placing tumor-suppressor loss and telomerase activation upstream of cell-cycle disruption and aggressive tumor behavior.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"]}}], \"edges\": [{\"source\": \"Recurrent Small Cell Genomic Alterations\", \"target\": \"Cell-Cycle Checkpoint Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TP53 and RB1 alterations disrupt tumor-suppressor control of the cell cycle.\"}, {\"source\": \"Recurrent Small Cell Genomic Alterations\", \"target\": \"Neuroendocrine Tumor Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomically altered tumor cells co-occur with a small cell neuroendocrine phenotype.\"}, {\"source\": \"Cell-Cycle Checkpoint Loss\", \"target\": \"High-Grade Tumor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Checkpoint loss permits expansion of malignant neuroendocrine tumor cells.\"}, {\"source\": \"Neuroendocrine Tumor Differentiation\", \"target\": \"High-Grade Tumor Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroendocrine carcinoma phenotype co-occurs with clinically aggressive growth.\"}, {\"source\": \"High-Grade Tumor Proliferation\", \"target\": \"Muscle-Invasive Bladder Cancer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferation supports local invasion through the bladder wall.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Bladder Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining manifestation is a malignant urinary bladder tumor with small cell neuroendocrine histology and aggressive clinical behavior.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002862\"}}, {\"id\": \"Cell-Cycle Checkpoint Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RB1 inactivation weakens normal cell-cycle checkpoint control in small cell bladder carcinoma tumor cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"], \"biological_processes\": [\"regulation of cell cycle\"]}}, {\"id\": \"RB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}], \"frequency\": \"FREQUENT\", \"association\": \"Somatic Mutations\"}}, {\"id\": \"Recurrent TP53 and RB1 Tumor-Suppressor Alterations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small cell bladder carcinomas frequently carry somatic alterations in TP53 and RB1. The downstream edge is limited to the established cell-cycle role of RB1 and does not imply that both alterations are universally required.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroendocrine tumor cell\"], \"genes\": [\"TP53\", \"RB1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"RB1\", \"id\": \"hgnc:9884\"}]}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"frequency\": \"VERY_FREQUENT\", \"association\": \"Somatic Mutations\"}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is the principal modifiable risk factor reported for this rare carcinoma; published series summarized in a current review report that 50%\\u201379% of patients are current or former smokers.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Recurrent TP53 and RB1 Tumor-Suppressor Alterations\", \"target\": \"Cell-Cycle Checkpoint Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RB1 inactivation removes a tumor-suppressor regulator of cell-cycle control.\"}, {\"source\": \"Cell-Cycle Checkpoint Loss\", \"target\": \"Aggressive Bladder Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RB1-linked cell-cycle control contributes to bladder small cell oncogenesis, although the human evidence does not establish this as the sole or universal route to the tumor phenotype.\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"Recurrent TP53 and RB1 Tumor-Suppressor Alterations\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking predisposes to the carcinoma, but the retained evidence does not establish a direct route from exposure to the recurrent TP53/RB1 lesions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TP53\", \"target\": \"Recurrent TP53 and RB1 Tumor-Suppressor Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RB1\", \"target\": \"Recurrent TP53 and RB1 Tumor-Suppressor Alterations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4473,9 +4661,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Neoplasm<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4492,15 +4678,24 @@
                     <div class="item-name">
                         Hematuria
 
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
 
                     <span class="phenotype-id">
-                        Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4520,6 +4715,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4552,14 +4748,21 @@
                         Dysuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100518">HP:0100518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysuria (HP:0100518). HP:0100518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4579,6 +4782,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4611,76 +4815,8 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aggressive-bladder-neoplasm" data-dismech-node="Aggressive Bladder Neoplasm" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aggressive Bladder Neoplasm
-
-
-                    <span class="phenotype-id">
-                        Neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39428391" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39428391" target="_blank">PMID:39428391</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Small cell carcinoma of the bladder (SCCB) is a rare, highly malignant neuroendocrine tumor."</div>
-
-
-                <div class="evidence-explanation">Multi-institution clinical cohort supports the malignant neuroendocrine bladder tumor phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-urinary-frequency" data-dismech-node="Urinary Frequency" data-dismech-type="phenotype">
@@ -4688,14 +4824,23 @@
                         Urinary Frequency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pollakisuria
+
+                        <span class="phenotype-term-label">Pollakisuria</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100515" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100515">HP:0100515</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100515</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urinary frequency, annotated with Pollakisuria (HP:0100515). HP:0100515 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4716,6 +4861,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4727,6 +4873,75 @@
 
 
                 <div class="evidence-explanation">The same clinical presentation sentence lists increased urinary frequency among presenting symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aggressive-bladder-neoplasm" data-dismech-node="Aggressive Bladder Neoplasm" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aggressive Bladder Neoplasm
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bladder carcinoma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002862" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002862</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bladder carcinoma (HP:0002862). HP:0002862 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39428391" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39428391" target="_blank">PMID:39428391</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Small cell carcinoma of the bladder (SCCB) is a rare, highly malignant neuroendocrine tumor."</div>
+
+
+                <div class="evidence-explanation">Multi-institution clinical cohort supports the malignant neuroendocrine bladder tumor phenotype.</div>
 
 
 
@@ -4793,13 +5008,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4827,6 +5047,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40209138" target="_blank">PMID:40209138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4848,6 +5069,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662501" target="_blank">PMID:35662501</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4885,13 +5107,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9884">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:9884</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4919,6 +5146,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40209138" target="_blank">PMID:40209138</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4940,6 +5168,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4977,13 +5206,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5010,6 +5244,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40209138" target="_blank">PMID:40209138</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5041,6 +5276,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5056,7 +5294,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5105,6 +5348,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34582342" target="_blank">PMID:34582342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5134,7 +5378,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -5183,6 +5432,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34582342" target="_blank">PMID:34582342</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5212,7 +5462,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5243,17 +5498,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cisplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -5261,10 +5523,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5290,6 +5555,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39428391" target="_blank">PMID:39428391</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5311,6 +5577,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39536751" target="_blank">PMID:39536751</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5341,7 +5608,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5371,17 +5643,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cisplatin
@@ -5389,10 +5668,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5417,6 +5699,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39536751" target="_blank">PMID:39536751</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5446,6 +5729,141 @@
 
         <!-- Environmental Factors -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
+                <h2 class="card-title">Environmental Factors</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoking" data-dismech-node="Tobacco Smoking" data-dismech-type="environmental">
+                <div class="item-name">Tobacco Smoking</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-24">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-desc">Smoking is the principal modifiable risk factor reported for this rare carcinoma; published series summarized in a current review report that 50%–79% of patients are current or former smokers.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40842970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40842970" target="_blank">PMID:40842970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The major modifiable risk factor is smoking; 50%–79% of patients report as current or former smokers."</div>
+
+
+                <div class="evidence-explanation">The current clinical review identifies smoking as the principal modifiable risk factor and reports the range across case series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Recurrent TP53 and RB1 Tumor-Suppressor Alterations</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking predisposes to the carcinoma, but the retained evidence does not establish a direct route from exposure to the recurrent TP53/RB1 lesions.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40842970" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40842970" target="_blank">PMID:40842970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The major modifiable risk factor is smoking; 50%–79% of patients report as current or former smokers."</div>
+
+
+                <div class="evidence-explanation">The review supports predisposition to the disease but not a direct exposure-to-mutation mechanism, so this link is indirect and PARTIAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
         <!-- Biochemical Markers -->
 
@@ -5458,8 +5876,280 @@
 
         <!-- Clinical Trials -->
 
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05312671">
+                <div class="item-name">
+                    NCT05312671
+
+                    <span class="tag tag-phase">PHASE_II</span>
+
+
+                    <span class="tag tag-status">RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">Single-arm study of atezolizumab with platinum and etoposide before cystectomy for localized small cell neuroendocrine bladder cancer.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05312671" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05312671" target="_blank">clinicaltrials:NCT05312671</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The primary goal of this trial is to assess the pathologic complete response rate at cystectomy in patients after being treated with a combination therapy of atezolizumab, platinum, and etoposide."</div>
+
+
+                <div class="evidence-explanation">The registry summary states the treatment and primary endpoint.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06091124">
+                <div class="item-name">
+                    NCT06091124
+
+                    <span class="tag tag-phase">PHASE_II</span>
+
+
+                    <span class="tag tag-status">RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">Neoadjuvant adebrelimab plus etoposide and cisplatin before radical cystectomy in neuroendocrine bladder carcinoma.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06091124" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT06091124" target="_blank">clinicaltrials:NCT06091124</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The goal of this clinical trial is to learn about the efficacy and safety of neoadjuvant adebrelimab plus etoposide and cisplatin in patients with neuroendocrine bladder carcinoma."</div>
+
+
+                <div class="evidence-explanation">The registry summary directly states the study population and intervention.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06228066">
+                <div class="item-name">
+                    NCT06228066
+
+                    <span class="tag tag-phase">PHASE_II</span>
+
+
+                    <span class="tag tag-status">RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">LASER study of lurbinectedin with or without avelumab for recurrent, metastatic small cell bladder carcinoma or other high-grade urinary-tract neuroendocrine tumors.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06228066" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT06228066" target="_blank">clinicaltrials:NCT06228066</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To test lurbinectedin with or without avelumab in people with SCCB or HGNET."</div>
+
+
+                <div class="evidence-explanation">The registry objective directly states the tested intervention and population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06161532">
+                <div class="item-name">
+                    NCT06161532
+
+                    <span class="tag tag-phase">PHASE_II</span>
+
+
+                    <span class="tag tag-status">RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">SMART study of sacituzumab govitecan with or without atezolizumab in rare genitourinary tumors, including high-grade neuroendocrine carcinomas.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06161532" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT06161532" target="_blank">clinicaltrials:NCT06161532</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To test SG, either alone or combined with atezolizumab, in people with rare GU tumors."</div>
+
+
+                <div class="evidence-explanation">The registry objective supports the intervention; eligibility explicitly includes high-grade neuroendocrine carcinomas.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00756639">
+                <div class="item-name">
+                    NCT00756639
+
+                    <span class="tag tag-phase">PHASE_II</span>
+
+
+                    <span class="tag tag-status">ACTIVE_NOT_RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">Study of prophylactic whole-brain irradiation intended to reduce subsequent brain tumors in small cell carcinoma of the urinary tract, including bladder.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT00756639" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT00756639" target="_blank">clinicaltrials:NCT00756639</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The goal of this clinical research study is to learn if whole brain radiation can lower the chances of developing brain tumors in patients with small cell carcinoma of the urinary tract, including the bladder."</div>
+
+
+                <div class="evidence-explanation">The registry summary directly states the preventive-radiation objective.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5478,7 +6168,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Urinary Bladder Small Cell Neuroendocrine Carcinoma
 creation_date: &#39;2026-05-11T14:55:39Z&#39;
-updated_date: &#39;2026-05-11T15:52:00Z&#39;
 description: &gt;-
   Urinary bladder small cell neuroendocrine carcinoma is a rare, high-grade
   neuroendocrine carcinoma arising in the urinary bladder. It usually behaves
@@ -5496,12 +6185,100 @@ disease_term:
   term:
     id: MONDO:0004114
     label: urinary bladder small cell neuroendocrine carcinoma
-pathophysiology:
-- name: Recurrent Small Cell Genomic Alterations
+synonyms:
+- Small cell carcinoma of the bladder
+- Small cell bladder carcinoma
+- SCCB
+environmental:
+- name: Tobacco Smoking
   description: &gt;-
-    Small cell bladder carcinoma tumor cells frequently carry TP53, TERT, and
-    RB1 alterations, placing tumor-suppressor loss and telomerase activation
-    upstream of cell-cycle disruption and aggressive tumor behavior.
+    Smoking is the principal modifiable risk factor reported for this rare
+    carcinoma; published series summarized in a current review report that
+    50%–79% of patients are current or former smokers.
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Recurrent TP53 and RB1 Tumor-Suppressor Alterations
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking predisposes to the carcinoma, but the retained evidence does not
+      establish a direct route from exposure to the recurrent TP53/RB1 lesions.
+    evidence:
+    - reference: PMID:40842970
+      reference_title: &#34;Small cell carcinoma of the bladder: Review of pathogenesis, presentation, and management.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        The major modifiable risk factor is smoking; 50%–79% of patients report
+        as current or former smokers.
+      explanation: &gt;-
+        The review supports predisposition to the disease but not a direct
+        exposure-to-mutation mechanism, so this link is indirect and PARTIAL.
+  evidence:
+  - reference: PMID:40842970
+    reference_title: &#34;Small cell carcinoma of the bladder: Review of pathogenesis, presentation, and management.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The major modifiable risk factor is smoking; 50%–79% of patients report as
+      current or former smokers.
+    explanation: &gt;-
+      The current clinical review identifies smoking as the principal modifiable
+      risk factor and reports the range across case series.
+progression:
+- phase: Initial presentation and staging
+  age_range: Predominantly older adulthood
+  notes: &gt;-
+    The disease predominantly affects older adults and is usually already
+    muscle-invasive or locally advanced at diagnosis, with substantial subsequent
+    risk of nodal or distant metastasis.
+  evidence:
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      At presentation, over 90% bladder SmCC were at advanced stages with tumors
+      invading the muscularis propria and beyond, and about 1/3 developed
+      metastases to lymph nodes and other organs.
+    explanation: &gt;-
+      The 81-case cohort directly supports the high frequency of muscle-invasive
+      presentation and subsequent nodal or distant metastasis.
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The median age of patients was 68 years (range, 34–90 years).
+    explanation: The cohort supports the older-adult age characterization.
+- phase: Metastatic disease
+  notes: &gt;-
+    Metastatic disease has a markedly worse prognosis than bladder-confined
+    disease; in the 81-case series, stage IV median survival was 15 months.
+  evidence:
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      However, when the disease developed metastasis (stage IV), SmCC had a
+      significantly poorer median survival time than that of UC (15 months vs 24
+      months) (p=0.0194).
+    explanation: &gt;-
+      The cohort supplies a stage-specific median survival estimate and comparison
+      with metastatic urothelial carcinoma.
+pathophysiology:
+- name: Recurrent TP53 and RB1 Tumor-Suppressor Alterations
+  conforms_to: &#34;evading_growth_suppressors#Tumor Suppressor Inactivation&#34;
+  biological_scale: MOLECULAR
+  description: &gt;-
+    Small cell bladder carcinomas frequently carry somatic alterations in TP53
+    and RB1. The downstream edge is limited to the established cell-cycle role
+    of RB1 and does not imply that both alterations are universally required.
   evidence:
   - reference: PMID:40209138
     reference_title: &#34;Comparative Genomic Characterization of Small Cell Carcinoma of the Bladder Compared With Urothelial Carcinoma and Small Cell Lung Carcinoma.&#34;
@@ -5518,26 +6295,48 @@ pathophysiology:
     term:
       id: CL:0000165
       label: neuroendocrine cell
+  genes:
+  - preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
+  - preferred_term: RB1
+    term:
+      id: hgnc:9884
+      label: RB1
   downstream:
   - target: Cell-Cycle Checkpoint Loss
-    description: TP53 and RB1 alterations disrupt tumor-suppressor control of the cell cycle.
-  - target: Neuroendocrine Tumor Differentiation
-    description: Genomically altered tumor cells co-occur with a small cell neuroendocrine phenotype.
+    description: &gt;-
+      RB1 inactivation removes a tumor-suppressor regulator of cell-cycle control.
+    evidence:
+    - reference: PMID:29763719
+      reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        The RB1 gene encodes a tumor suppressor protein that regulates cell-cycle
+        regulation, senescence, and cell apoptosis.
+      explanation: &gt;-
+        This mechanistic statement supports the direction from RB1 alteration to
+        loss of normal cell-cycle checkpoint control.
 - name: Cell-Cycle Checkpoint Loss
+  conforms_to: &#34;evading_growth_suppressors#Loss of Cell-Cycle Checkpoint Control&#34;
+  biological_scale: CELLULAR
   description: &gt;-
-    TP53 and RB1 pathway disruption weakens cell-cycle checkpoint control in
-    small cell bladder carcinoma tumor cells.
+    RB1 inactivation weakens normal cell-cycle checkpoint control in small cell
+    bladder carcinoma tumor cells.
   evidence:
   - reference: PMID:29763719
     reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Inactivation of the RB1 gene may be implicated in the oncogenesis of
       bladder SmCC.
     explanation: &gt;-
-      The clinicopathologic series directly supports RB1 inactivation as an
-      oncogenic alteration in bladder small cell carcinoma.
+      The clinicopathologic series proposes RB1 inactivation as an oncogenic
+      contributor; PARTIAL preserves the source&#39;s qualified &#34;may be implicated&#34;
+      wording.
   cell_types:
   - preferred_term: neuroendocrine tumor cell
     term:
@@ -5550,12 +6349,45 @@ pathophysiology:
       id: GO:0051726
       label: regulation of cell cycle
   downstream:
-  - target: High-Grade Tumor Proliferation
-    description: Checkpoint loss permits expansion of malignant neuroendocrine tumor cells.
-- name: Neuroendocrine Tumor Differentiation
+  - target: Aggressive Bladder Neoplasm
+    description: &gt;-
+      Loss of RB1-linked cell-cycle control contributes to bladder small cell
+      oncogenesis, although the human evidence does not establish this as the
+      sole or universal route to the tumor phenotype.
+    evidence:
+    - reference: PMID:29763719
+      reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Inactivation of the RB1 gene may be implicated in the oncogenesis of
+        bladder SmCC.
+      explanation: &gt;-
+        The source proposes RB1 inactivation as an oncogenic contributor; PARTIAL
+        support preserves its qualified wording and avoids asserting sufficiency.
+- name: Neuroendocrine Differentiation State
+  biological_scale: CELLULAR
   description: &gt;-
-    Tumor cells show small cell neuroendocrine differentiation in the bladder,
-    with high-grade cytology and expression of neuroendocrine-lineage markers.
+    Tumor cells exhibit a neuroendocrine differentiation state defined by
+    expression of synaptophysin, chromogranin, CD56, or neuron-specific enolase.
+    The node is intentionally unwired because marker expression establishes the
+    state but not its causal position relative to TP53/RB1 alterations.
+  cell_types:
+  - preferred_term: neuroendocrine tumor cell
+    term:
+      id: CL:0000165
+      label: neuroendocrine cell
+  biological_processes:
+  - preferred_term: cell differentiation
+    term:
+      id: GO:0030154
+      label: cell differentiation
+    modifier: ABNORMAL
+  locations:
+  - preferred_term: urinary bladder
+    term:
+      id: UBERON:0001255
+      label: urinary bladder
   evidence:
   - reference: PMID:29763719
     reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
@@ -5566,71 +6398,8 @@ pathophysiology:
       synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B),
       CD56 (95%, 39/41), and NSE (100%, 4/4).
     explanation: &gt;-
-      Immunohistochemical data from 81 bladder small cell carcinoma cases support
-      neuroendocrine-marker expression as a defining tumor differentiation pattern.
-  cell_types:
-  - preferred_term: neuroendocrine tumor cell
-    term:
-      id: CL:0000165
-      label: neuroendocrine cell
-  locations:
-  - preferred_term: urinary bladder
-    term:
-      id: UBERON:0001255
-      label: urinary bladder
-  downstream:
-  - target: High-Grade Tumor Proliferation
-    description: Neuroendocrine carcinoma phenotype co-occurs with clinically aggressive growth.
-- name: High-Grade Tumor Proliferation
-  description: &gt;-
-    Malignant neuroendocrine tumor cells proliferate rapidly, contributing to
-    aggressive local growth.
-  evidence:
-  - reference: PMID:29763719
-    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      bladder SmCC is an aggressive disease that is frequently present at an
-      advanced stage.
-    explanation: &gt;-
-      The 81-case series supports aggressive biology and frequent advanced-stage
-      presentation in bladder small cell carcinoma.
-  cell_types:
-  - preferred_term: neuroendocrine tumor cell
-    term:
-      id: CL:0000165
-      label: neuroendocrine cell
-  biological_processes:
-  - preferred_term: cell population proliferation
-    modifier: INCREASED
-    term:
-      id: GO:0008283
-      label: cell population proliferation
-  downstream:
-  - target: Muscle-Invasive Bladder Cancer
-    description: Proliferation supports local invasion through the bladder wall.
-- name: Muscle-Invasive Bladder Cancer
-  description: &gt;-
-    Local invasion through the bladder wall produces advanced bladder cancer and
-    increases the risk of nodal or distant spread.
-  evidence:
-  - reference: PMID:29763719
-    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      At presentation, over 90% bladder SmCC were at advanced stages with tumors
-      invading the muscularis propria and beyond, and about 1/3 developed
-      metastases to lymph nodes and other organs.
-    explanation: &gt;-
-      The clinicopathologic series supports advanced presentation, muscle invasion,
-      and metastatic potential as downstream disease behavior.
-  locations:
-  - preferred_term: urinary bladder
-    term:
-      id: UBERON:0001255
-      label: urinary bladder
+      The 81-case cohort demonstrates the neuroendocrine-marker expression that
+      defines this differentiation state.
 histopathology:
 - name: Small Cell Neuroendocrine Carcinoma
   finding_term:
@@ -5641,7 +6410,8 @@ histopathology:
   diagnostic: true
   description: &gt;-
     Histology shows high-grade small cell neuroendocrine carcinoma, often requiring
-    immunohistochemical confirmation of neuroendocrine differentiation.
+    immunohistochemical confirmation of neuroendocrine differentiation. The small
+    cell component is commonly admixed with urothelial carcinoma.
   evidence:
   - reference: PMID:32381384
     reference_title: &#34;Expression of novel neuroendocrine marker insulinoma-associated protein 1 (INSM1) in genitourinary high-grade neuroendocrine carcinomas: An immunohistochemical study with specificity analysis and comparison to chromogranin, synaptophysin, and CD56.&#34;
@@ -5653,12 +6423,34 @@ histopathology:
     explanation: &gt;-
       Immunohistochemistry study supports the diagnostic role of marker staining
       for genitourinary high-grade neuroendocrine carcinomas.
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Only 1/3 of SmCC were pure (n=27), and the majority was mixed with other
+      histologic types (n=54).
+    explanation: &gt;-
+      The 81-case clinicopathologic cohort directly supports mixed urothelial and
+      small cell histology as the most common presentation.
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Most SmCC expressed at least one neuroendocrine markers, including
+      synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B),
+      CD56 (95%, 39/41), and NSE (100%, 4/4).
+    explanation: &gt;-
+      The 81-case series quantifies expression of the principal neuroendocrine
+      immunohistochemical markers.
 phenotypes:
 - category: Clinical
   name: Hematuria
+  frequency: VERY_FREQUENT
   description: &gt;-
-    Visible or microscopic blood in the urine is a common presenting symptom of
-    bladder tumors.
+    Visible or microscopic blood in the urine is the dominant presenting symptom
+    in the 81-case clinicopathologic cohort.
   evidence:
   - reference: PMID:29763719
     reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
@@ -5678,8 +6470,7 @@ phenotypes:
 - category: Clinical
   name: Dysuria
   description: &gt;-
-    Irritative voiding symptoms such as painful urination can occur when the
-    bladder mucosa or outlet is involved by tumor.
+    Painful urination is among the reported presenting symptoms.
   evidence:
   - reference: PMID:29763719
     reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
@@ -5735,10 +6526,10 @@ phenotypes:
       Multi-institution clinical cohort supports the malignant neuroendocrine
       bladder tumor phenotype.
   phenotype_term:
-    preferred_term: Neoplasm
+    preferred_term: Bladder carcinoma
     term:
-      id: HP:0002664
-      label: Neoplasm
+      id: HP:0002862
+      label: Bladder carcinoma
 genetic:
 - name: TP53
   gene_term:
@@ -5791,9 +6582,7 @@ genetic:
     reference_title: &#34;Comparative Genomic Characterization of Small Cell Carcinoma of the Bladder Compared With Urothelial Carcinoma and Small Cell Lung Carcinoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Among SCBC patients with TP53 mutations, RB1 comutations were observed in
-      77% of patients.
+    snippet: &#34;Among SCBC patients with TP53 mutations, RB1 comutations were observed in 77% of patients.&#34;  # codespell:ignore-line
     explanation: &gt;-
       Comparative genomic profiling supports frequent RB1 co-mutation in SCBC.
   - reference: PMID:29763719
@@ -5818,9 +6607,9 @@ genetic:
   inheritance:
   - name: Somatic
   notes: &gt;-
-    TERT promoter alteration is one of the most common genomic alterations in
-    small cell bladder carcinoma and is consistent with replicative immortality
-    as part of the malignant phenotype.
+    TERT promoter alterations are recurrent in small cell bladder carcinoma.
+    The functional telomerase interpretation is supported by review-level
+    synthesis and is not treated as a patient-level causal sequence.
   evidence:
   - reference: PMID:40209138
     reference_title: &#34;Comparative Genomic Characterization of Small Cell Carcinoma of the Bladder Compared With Urothelial Carcinoma and Small Cell Lung Carcinoma.&#34;
@@ -5951,6 +6740,176 @@ treatments:
       term:
         id: CHEBI:27899
         label: cisplatin
+diagnosis:
+- name: Histopathology and Neuroendocrine Immunohistochemistry
+  description: &gt;-
+    Diagnosis rests on characteristic small cell morphology, supported by
+    neuroendocrine immunohistochemical markers such as synaptophysin,
+    chromogranin, INSM1, neuron-specific enolase, and CD56.
+  diagnosis_term:
+    preferred_term: immunohistochemistry procedure
+    term:
+      id: NCIT:C23020
+      label: Immunohistochemistry Staining Method
+  results: &gt;-
+    Small cells with scant cytoplasm and nuclear molding plus expression of one
+    or more neuroendocrine markers support the diagnosis.
+  evidence:
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Most SmCC expressed at least one neuroendocrine markers, including
+      synaptophysin (73%, 41/56) (Fig. 2B), chromogranin (47%, 26/55) (Fig 3B),
+      CD56 (95%, 39/41), and NSE (100%, 4/4).
+    explanation: &gt;-
+      The 81-case clinicopathologic cohort quantifies the relevant
+      neuroendocrine marker panel.
+- name: Cross-Sectional Metastatic Staging
+  description: &gt;-
+    Cross-sectional and nuclear imaging evaluates local, nodal, and distant
+    disease for clinical staging.
+  diagnosis_term:
+    preferred_term: computed tomography
+    term:
+      id: NCIT:C17204
+      label: Computed Tomography
+  results: Local extent and presence or absence of nodal, visceral, bone, or brain metastasis.
+  evidence:
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      To aid the clinical staging, patients underwent a variety of radiographic
+      imaging evaluations, including computed tomography (CT), positron emission
+      tomography, bone scan scintigraphy, and magnetic resonance imaging (MRI).
+    explanation: &gt;-
+      The cohort directly reports the imaging modalities used for clinical staging.
+- name: Histologic Differential Diagnosis
+  description: &gt;-
+    Immunohistochemical interpretation distinguishes primary bladder small cell
+    carcinoma from poorly differentiated urothelial carcinoma, small cell
+    carcinoma metastatic from another organ, lymphoma, and melanoma.
+  diagnosis_term:
+    preferred_term: differential diagnosis
+    term:
+      id: NCIT:C15220
+      label: Diagnosis Assessment
+  results: &gt;-
+    Neuroendocrine-marker expression, urothelial-marker context, associated
+    histology, and lineage-specific markers support the primary diagnosis.
+  evidence:
+  - reference: PMID:29763719
+    reference_title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      It is important to differentiate SmCC from other malignant neoplasms in the
+      bladder. Poorly differentiated UC may show solid sheets of immature cells
+      with large nuclei and scant cytoplasm, mimicking SmCC, but it shows a
+      distinct immunohistochemical profile from SmCC.
+    explanation: &gt;-
+      The cohort report directly identifies poorly differentiated urothelial
+      carcinoma as a morphologic mimic and immunohistochemistry as the discriminator.
+clinical_trials:
+- name: NCT05312671
+  phase: PHASE_II
+  status: RECRUITING
+  description: &gt;-
+    Single-arm study of atezolizumab with platinum and etoposide before
+    cystectomy for localized small cell neuroendocrine bladder cancer.
+  evidence:
+  - reference: clinicaltrials:NCT05312671
+    reference_title: Atezolizumab With Platinum and Etoposide Chemotherapy Followed by Cystectomy for Patients With Localized Small Cell Neuroendocrine Bladder Cancer
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The primary goal of this trial is to assess the pathologic complete
+      response rate at cystectomy in patients after being treated with a
+      combination therapy of atezolizumab, platinum, and etoposide.
+    explanation: The registry summary states the treatment and primary endpoint.
+- name: NCT06091124
+  phase: PHASE_II
+  status: RECRUITING
+  description: &gt;-
+    Neoadjuvant adebrelimab plus etoposide and cisplatin before radical
+    cystectomy in neuroendocrine bladder carcinoma.
+  evidence:
+  - reference: clinicaltrials:NCT06091124
+    reference_title: A Prospective, Single-arm, Exploratory Study on the Efficacy and Safety of Neoadjuvant Adebrelimab Plus Etoposide and Cisplatin in Patients With Neuroendocrine Bladder Carcinoma
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The goal of this clinical trial is to learn about the efficacy and safety of
+      neoadjuvant adebrelimab plus etoposide and cisplatin in patients with
+      neuroendocrine bladder carcinoma.
+    explanation: The registry summary directly states the study population and intervention.
+- name: NCT06228066
+  phase: PHASE_II
+  status: RECRUITING
+  description: &gt;-
+    LASER study of lurbinectedin with or without avelumab for recurrent,
+    metastatic small cell bladder carcinoma or other high-grade urinary-tract
+    neuroendocrine tumors.
+  evidence:
+  - reference: clinicaltrials:NCT06228066
+    reference_title: A Phase II Study of Lurbinectedin With or Without Avelumab in Small Cell Carcinoma of the Bladder (LASER)
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      To test lurbinectedin with or without avelumab in people with SCCB or HGNET.
+    explanation: The registry objective directly states the tested intervention and population.
+- name: NCT06161532
+  phase: PHASE_II
+  status: RECRUITING
+  description: &gt;-
+    SMART study of sacituzumab govitecan with or without atezolizumab in rare
+    genitourinary tumors, including high-grade neuroendocrine carcinomas.
+  evidence:
+  - reference: clinicaltrials:NCT06161532
+    reference_title: &#34;A Phase II Study of Sacituzumab Govitecan With or Without Atezolizumab Immunotherapy in Rare Genitourinary Tumors (SMART) Such as High Grade Neuroendocrine Carcinomas, Adenocarcinoma, and Squamous Cell Bladder/Urinary Tract Cancer, Renal Medullary Carcinoma and Penile Cancer&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      To test SG, either alone or combined with atezolizumab, in people with rare
+      GU tumors.
+    explanation: &gt;-
+      The registry objective supports the intervention; eligibility explicitly
+      includes high-grade neuroendocrine carcinomas.
+- name: NCT00756639
+  phase: PHASE_II
+  status: ACTIVE_NOT_RECRUITING
+  description: &gt;-
+    Study of prophylactic whole-brain irradiation intended to reduce subsequent
+    brain tumors in small cell carcinoma of the urinary tract, including bladder.
+  evidence:
+  - reference: clinicaltrials:NCT00756639
+    reference_title: Prophylactic Cranial Irradiation (PCI) for Patients With Small Cell Carcinoma of the Urothelium
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The goal of this clinical research study is to learn if whole brain
+      radiation can lower the chances of developing brain tumors in patients with
+      small cell carcinoma of the urinary tract, including the bladder.
+    explanation: The registry summary directly states the preventive-radiation objective.
+references:
+- reference: PMID:29763719
+  title: &#34;Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.&#34;
+  found_in:
+  - Urinary_Bladder_Small_Cell_Neuroendocrine_Carcinoma-deep-research-falcon.md
+review_notes: &gt;-
+  Review deliberately keeps the causal graph narrow. The literature strongly
+  supports recurrent TP53/RB1/TERT alterations, neuroendocrine differentiation,
+  muscle-invasive presentation, and metastatic behavior, but most human sources
+  are observational and do not establish a universal ordered route between those
+  findings. Accordingly, the RB1-to-cell-cycle-control edge and a qualified
+  PARTIAL oncogenesis edge are retained with edge-level evidence; pathology and
+  clinical behavior are otherwise represented in their dedicated sections rather
+  than converted into unsupported causal arrows. No
+  disease-specific reusable molecular or omics dataset was added because none was
+  verified during this review.
 </pre>
             </div>
         </div>
@@ -5961,6 +6920,31 @@ treatments:
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
                 <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29763719" target="_blank">PMID:29763719</a>
+                            </div>
+
+                            <div class="reference-title">Small cell carcinoma of the urinary bladder: a clinicopathological and immunohistochemical analysis of 81 cases.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -6556,7 +7540,7 @@ This trial also reported grade ≥3 adverse events in 40% with no treatment-rela
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Urinary Bladder Small Cell Neuroendocrine Carcinoma", "mondoId": "MONDO:0004114", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Urinary_Bladder_Small_Cell_Neuroendocrine_Carcinoma", "yamlRevision": "f66fe5c88c57"};
+        const OS_CONFIG = {"diseaseName": "Urinary Bladder Small Cell Neuroendocrine Carcinoma", "mondoId": "MONDO:0004114", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Urinary_Bladder_Small_Cell_Neuroendocrine_Carcinoma", "yamlRevision": "c98c14dbb6f8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6975,5 +7959,73 @@ This trial also reported grade ≥3 adverse events in 40% with no treatment-rela
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

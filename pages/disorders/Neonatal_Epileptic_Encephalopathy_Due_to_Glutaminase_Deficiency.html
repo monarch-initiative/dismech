@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Neonatal Epileptic Encephalopathy Due to Glutaminase Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Neonatal Epileptic Encephalopathy Due to Glutaminase Deficiency</h1>
             <div class="header-meta">
 
@@ -3701,6 +3903,8 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3807,27 +4011,121 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
 
 
 
 
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glutamate/glutamine and aspartate/asparagine metabolism&#34; under category &#34;Disorders of amino acid metabolism&#34;. GLS glutaminase deficiency is a disorder of glutamine catabolism.">glu gln and asp asn</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3842,7 +4140,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-biochemical-plus-genetic-diagnosis-of-neonatal-glutaminase-deficiency">
                 <div class="item-name">Biochemical-plus-genetic diagnosis of neonatal glutaminase deficiency</div>
 
                 <div class="item-desc">Suspect this entity in a neonate with therapy-refractory seizures on a burst-suppression EEG and respiratory insufficiency whose plasma and cerebrospinal-fluid amino acids show elevated glutamine (with increased serum alanine) but a normal ammonia — a urea-cycle-like profile without hyperammonemia — particularly when brain MRI shows cystic lesions or a simplified gyral pattern. Confirmation is by demonstrating biallelic loss-of-function GLS variants. Unlike the repeat-expansion form, the coding lesions of this entity are detectable by exome sequencing.</div>
@@ -3888,6 +4186,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3910,6 +4209,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39559284" target="_blank">PMID:39559284</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3948,7 +4248,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3993,6 +4293,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4135,6 +4436,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4241,6 +4543,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4323,6 +4626,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4414,6 +4718,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4443,6 +4748,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4465,6 +4771,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4508,16 +4815,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutaminase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004359" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004359">GO:0004359</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004359" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0004359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves glutaminase activity (GO:0004359), qualified as loss of function. GO:0004359 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4538,6 +4850,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
                 </div>
+
 
 
 
@@ -4581,6 +4894,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4603,6 +4917,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4663,16 +4978,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-glutamine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006543">GO:0006543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-glutamine catabolic process (GO:0006543). GO:0006543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4692,16 +5012,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
+
                     <span class="tag tag-bio">
                         L-glutamate biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097054" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097054">GO:0097054</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097054" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0097054</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-glutamate biosynthetic process (GO:0097054). GO:0097054 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4722,6 +5047,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
                 </div>
+
 
 
 
@@ -4788,6 +5114,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4810,6 +5137,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4856,17 +5184,24 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4887,10 +5222,13 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4907,6 +5245,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
                 </div>
+
 
 
 
@@ -4961,6 +5300,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4983,6 +5323,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5029,17 +5370,24 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5060,10 +5408,13 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5090,16 +5441,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutamate secretion, neurotransmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061535" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061535">GO:0061535</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061535" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0061535</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glutamate secretion, neurotransmission (GO:0061535). GO:0061535 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5120,6 +5476,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
                 </div>
+
 
 
 
@@ -5186,6 +5543,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5208,6 +5566,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5243,16 +5602,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5279,16 +5643,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to endoplasmic reticulum stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5308,16 +5677,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial fission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000266">GO:0000266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0000266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mitochondrial fission (GO:0000266). GO:0000266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5338,6 +5712,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
                 </div>
+
 
 
 
@@ -5373,6 +5748,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5419,6 +5795,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5447,6 +5824,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5493,6 +5871,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5521,6 +5900,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5567,6 +5947,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5595,6 +5976,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5643,6 +6025,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5654,6 +6037,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5677,6 +6061,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5770,14 +6155,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Cerebral edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002181" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002181">HP:0002181</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002181</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral edema (HP:0002181). HP:0002181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5797,6 +6189,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5830,14 +6223,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Hyperglutaminemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperglutaminemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003217">HP:0003217</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperglutaminemia (HP:0003217). HP:0003217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5857,6 +6257,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5899,14 +6300,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         EEG with burst suppression
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG with burst suppression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010851" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010851">HP:0010851</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010851</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5926,6 +6334,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5959,14 +6368,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Cerebral atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002059</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5986,6 +6402,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6028,14 +6445,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Respiratory failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6055,6 +6479,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6088,14 +6513,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Apnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002104">HP:0002104</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002104</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6115,6 +6547,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39559284" target="_blank">PMID:39559284</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6159,14 +6592,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032807">HP:0032807</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032807</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal seizure (HP:0032807), qualified as temporality acute. HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6205,6 +6645,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6237,14 +6678,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Status epilepticus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Status epilepticus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002133">HP:0002133</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,6 +6712,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6297,14 +6746,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Simplified gyral pattern
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Simplified gyral pattern
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009879" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009879">HP:0009879</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009879" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0009879</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Simplified gyral pattern (HP:0009879). HP:0009879 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6324,6 +6780,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6357,14 +6814,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Increased CSF glutamine concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased CSF glutamine concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500197" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500197">HP:0500197</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0500197</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased CSF glutamine concentration (HP:0500197). HP:0500197 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6384,6 +6848,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6417,14 +6882,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Increased CSF glycine concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased CSF glycine concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500230" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500230">HP:0500230</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0500230</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased CSF glycine concentration (HP:0500230). HP:0500230 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6444,6 +6916,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39559284" target="_blank">PMID:39559284</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6477,14 +6950,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Hyperalaninemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperalaninemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003348" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003348">HP:0003348</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003348" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003348</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperalaninemia (HP:0003348). HP:0003348 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6504,6 +6984,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6537,14 +7018,21 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         Vegetative state
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vegetative state
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031358" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031358">HP:0031358</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031358" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0031358</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vegetative state (HP:0031358). HP:0031358 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6564,6 +7052,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6641,13 +7130,18 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GLS
 
 
-    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4331">hgnc:4331</a>
+    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:4331</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLS (hgnc:4331). hgnc:4331 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6670,6 +7164,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6694,6 +7189,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6716,6 +7212,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6748,6 +7245,9 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6763,7 +7263,12 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6813,6 +7318,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6843,7 +7349,12 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -6892,6 +7403,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39559284" target="_blank">PMID:39559284</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6959,6 +7471,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30575854" target="_blank">PMID:30575854</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7009,6 +7522,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7061,6 +7575,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7112,6 +7627,7 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41865506" target="_blank">PMID:41865506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7149,6 +7665,9 @@ Named &#34;developmental and epileptic encephalopathy, 71&#34; (DEE71) in OMIM/M
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8726,5 +9245,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

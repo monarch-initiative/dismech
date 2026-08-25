@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Immunodeficiency-Centromeric Instability-Facial Anomalies Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Immunodeficiency-Centromeric Instability-Facial Anomalies Syndrome</h1>
             <div class="header-meta">
 
@@ -3700,6 +3902,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3814,6 +4018,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3823,16 +4097,25 @@
 
 
 
-
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">IUIS Category</div>
+
+
+
                 <div class="tag-list">
-                    <span class="tag tag-classification">combined immunodeficiency with syndromic features</span>
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification Table 2 (combined immunodeficiencies with associated or syndromic features); ICF syndrome combines immunodeficiency with centromeric instability and facial anomalies.">combined immunodeficiency with syndromic features</span>
+
                 </div>
+
             </div>
 
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3903,7 +4186,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-icf-syndrome-definition">
                 <div class="item-name">Orphanet ICF syndrome definition</div>
 
                 <div class="item-desc">A rare autosomal recessive syndrome with combined immunodeficiency, panhypogammaglobulinemia, deficient memory B cells, centromeric instability, DNA hypomethylation around juxtacentromeric heterochromatin, and typical facial anomalies.
@@ -3948,6 +4231,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3969,6 +4253,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4006,7 +4291,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4051,6 +4336,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4072,6 +4358,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4134,7 +4421,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-icf1">
 
                     <div class="item-name">
                         ICF syndrome type 1 (DNMT3B-related)
@@ -4150,16 +4437,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 DNMT3B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2979">hgnc:2979</a>
+    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2979</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DNMT3B (hgnc:2979). hgnc:2979 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4187,6 +4479,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4213,7 +4506,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-icf2">
 
                     <div class="item-name">
                         ICF syndrome type 2 (ZBTB24-related)
@@ -4229,16 +4522,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ZBTB24
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21143">hgnc:21143</a>
+    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:21143</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ZBTB24 (hgnc:21143). hgnc:21143 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4266,6 +4564,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4292,7 +4591,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-icf3">
 
                     <div class="item-name">
                         ICF syndrome type 3 (CDCA7-related)
@@ -4306,16 +4605,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CDCA7
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14628">hgnc:14628</a>
+    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:14628</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CDCA7 (hgnc:14628). hgnc:14628 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4343,6 +4647,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724723" target="_blank">PMID:31724723</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4369,7 +4674,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-icf4">
 
                     <div class="item-name">
                         ICF syndrome type 4 (HELLS-related)
@@ -4383,16 +4688,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 HELLS
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4861">hgnc:4861</a>
+    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:4861</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HELLS (hgnc:4861). hgnc:4861 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4419,6 +4729,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724723" target="_blank">PMID:31724723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4482,16 +4793,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         DNMT3B
 
 
-    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2979">hgnc:2979</a>
+    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2979</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNMT3B (hgnc:2979). hgnc:2979 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4519,11 +4841,18 @@
         ZBTB24
 
 
-    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21143">hgnc:21143</a>
+    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:21143</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZBTB24 (hgnc:21143). hgnc:21143 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4551,11 +4880,18 @@
         CDCA7
 
 
-    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14628">hgnc:14628</a>
+    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:14628</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDCA7 (hgnc:14628). hgnc:14628 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4583,11 +4919,18 @@
         HELLS
 
 
-    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4861">hgnc:4861</a>
+    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:4861</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HELLS (hgnc:4861). hgnc:4861 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4615,10 +4958,13 @@
         UHRF1
 
 
-    <a href="https://bioregistry.io/hgnc:12556" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12556">hgnc:12556</a>
+    <a href="https://bioregistry.io/hgnc:12556" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:12556</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UHRF1 (hgnc:12556). hgnc:12556 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4646,16 +4992,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA methylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006304">GO:0006304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006304</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA methylation, annotated with DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4676,6 +5027,7 @@
 
 
                 </div>
+
 
 
 
@@ -4794,6 +5146,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4816,6 +5169,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4837,6 +5191,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4880,16 +5235,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA methylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006304">GO:0006304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006304</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA methylation, annotated with DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4915,19 +5275,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         pericentric heterochromatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005721" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005721">GO:0005721</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005721" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005721</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves pericentric heterochromatin (GO:0005721). GO:0005721 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4960,6 +5326,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724723" target="_blank">PMID:31724723</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4981,6 +5348,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5022,16 +5390,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromosome segregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007059" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007059">GO:0007059</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007059" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007059</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromosome segregation (GO:0007059). GO:0007059 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5052,6 +5425,7 @@
 
 
                 </div>
+
 
 
 
@@ -5098,6 +5472,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958354" target="_blank">PMID:39958354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5119,6 +5494,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25330735" target="_blank">PMID:25330735</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5153,17 +5529,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         memory B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000787">CL:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000787" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000787</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves memory B cell (CL:0000787). CL:0000787 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5184,10 +5567,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5214,16 +5600,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030183">GO:0030183</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0030183</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased B cell differentiation (GO:0030183). GO:0030183 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5244,6 +5635,7 @@
 
 
                 </div>
+
 
 
 
@@ -5296,6 +5688,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5317,6 +5710,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5351,17 +5745,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5382,10 +5783,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000542">CL:0000542</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000542</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lymphocyte (CL:0000542). CL:0000542 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5412,16 +5816,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042098" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042098">GO:0042098</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042098" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased T cell proliferation (GO:0042098). GO:0042098 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5442,6 +5851,7 @@
 
 
                 </div>
+
 
 
 
@@ -5482,6 +5892,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25330735" target="_blank">PMID:25330735</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5503,6 +5914,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5544,16 +5956,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ZBTB24
 
 
-    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21143">hgnc:21143</a>
+    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:21143</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZBTB24 (hgnc:21143). hgnc:21143 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5581,10 +6004,13 @@
         CDCA7
 
 
-    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14628">hgnc:14628</a>
+    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:14628</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDCA7 (hgnc:14628). hgnc:14628 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5612,16 +6038,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of DNA-templated transcription
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5662,6 +6093,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5709,6 +6141,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040103" target="_blank">PMID:39040103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5758,7 +6191,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neutrophils\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001874\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antimicrobial prophylaxis and treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotic or antimicrobial prophylaxis and treatment are used to prevent or manage recurrent and opportunistic infections, including Pneumocystis jirovecii infection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sulfamethoxazole\", \"trimethoprim\"]}}, {\"id\": \"Biallelic CDCA7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDCA7\"], \"gene_terms\": [{\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF3\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic DNMT3B pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNMT3B\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}], \"subtypes\": [\"ICF1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic HELLS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HELLS\"], \"gene_terms\": [{\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}], \"subtypes\": [\"ICF4\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic UHRF1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UHRF1\"], \"gene_terms\": [{\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic ZBTB24 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZBTB24\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}], \"subtypes\": [\"ICF2\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Centromeric Chromosome Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypomethylated juxtacentromeric heterochromatin produces characteristic chromosomal fragile sites, whole-arm deletions, triradials, multiradials, translocations, and other rearrangements in mitogen-stimulated lymphocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome segregation\"]}}, {\"id\": \"Chromosome instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003220\"}}, {\"id\": \"Communicating hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001334\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012368\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can reconstitute hematopoietic immune function and may cure the immunodeficiency component in selected patients, while chromosome instability and facial or neurologic manifestations remain outside its direct corrective effect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"ICF Gene Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing variants in DNMT3B, ZBTB24, CDCA7, HELLS, and UHRF1 disrupt a gene network required for normal DNA methylation and heterochromatin regulation.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"DNA methylation\"], \"genes\": [\"DNMT3B\", \"ZBTB24\", \"CDCA7\", \"HELLS\", \"UHRF1\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}, {\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}, {\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}, {\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}]}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IgG or intravenous immunoglobulin replacement is used to manage antibody deficiency and reduce infection burden, but it does not correct non-immune epigenetic disease manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000369\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001888\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation in lymphocytes impairs terminal B-cell differentiation and immunoglobulin production, leaving B-cell counts relatively preserved but memory B cells and circulating immunoglobulins deficient.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"memory B cell\", \"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived iPSCs carrying a homozygous ZBTB24 p.Cys408Gly mutation model ICF2 methylation defects, loss of CDCA7 activation, and impaired hematopoietic differentiation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pericentromeric Satellite Hypomethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ICF gene defects cause hypomethylation of pericentromeric satellite repeats and juxtacentromeric heterochromatin, especially around chromosomes 1, 16, and sometimes 9.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"Progressive Combined T-Cell Immune Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In at least ICF2, the immune phenotype can extend beyond a B-cell defect to impaired lymphocyte proliferation, increased cell death, and age-progressive combined immunodeficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"lymphocyte\"], \"biological_processes\": [\"T cell proliferation\"]}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001537\"}}, {\"id\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZBTB24 zinc-finger dysfunction can reduce transcriptional activation of CDCA7 and other target genes, recapitulating centromeric methylation defects and reducing hematopoietic progenitor output in an ICF2 iPSC model.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"genes\": [\"ZBTB24\", \"CDCA7\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF2\"], \"experimental_models\": [{\"name\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}]}}], \"edges\": [{\"source\": \"ICF Gene Network Disruption\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Communicating hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pericentromeric Satellite Hypomethylation\", \"target\": \"Centromeric Chromosome Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Chromosome instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes disrupts B-cell immunoglobulin isotype switching and immune-cell regulation.\"]}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Progressive Combined T-Cell Immune Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes perturbs lymphocyte activation and proliferation.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypogammaglobulinemia and impaired immune memory reduce respiratory pathogen control.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mutated ZBTB24 loses transcriptional activation of CDCA7 and other DNA-methylation-homeostasis target genes.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hematopoietic differentiation from patient-derived iPSCs may contribute to immune-cell deficits.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Abnormality of neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial prophylaxis and treatment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Biallelic DNMT3B pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HELLS pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic UHRF1 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neutrophils\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001874\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antimicrobial prophylaxis and treatment\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antibiotic or antimicrobial prophylaxis and treatment are used to prevent or manage recurrent and opportunistic infections, including Pneumocystis jirovecii infection risk.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sulfamethoxazole\", \"trimethoprim\"]}}, {\"id\": \"Biallelic CDCA7 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDCA7\"], \"gene_terms\": [{\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF3\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic DNMT3B pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNMT3B\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}], \"subtypes\": [\"ICF1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic HELLS pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HELLS\"], \"gene_terms\": [{\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}], \"subtypes\": [\"ICF4\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic UHRF1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UHRF1\"], \"gene_terms\": [{\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Biallelic ZBTB24 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ZBTB24\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}], \"subtypes\": [\"ICF2\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Cellular immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005374\"}}, {\"id\": \"Centromeric Chromosome Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypomethylated juxtacentromeric heterochromatin produces characteristic chromosomal fragile sites, whole-arm deletions, triradials, multiradials, translocations, and other rearrangements in mitogen-stimulated lymphocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromosome segregation\"]}}, {\"id\": \"Chromosome instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003220\"}}, {\"id\": \"Communicating hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001334\"}}, {\"id\": \"Depressed nasal bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005280\"}}, {\"id\": \"Epicanthus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000286\"}}, {\"id\": \"Flat face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012368\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation can reconstitute hematopoietic immune function and may cure the immunodeficiency component in selected patients, while chromosome instability and facial or neurologic manifestations remain outside its direct corrective effect.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Hypogammaglobulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"ICF Gene Network Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-causing variants in DNMT3B, ZBTB24, CDCA7, HELLS, and UHRF1 disrupt a gene network required for normal DNA methylation and heterochromatin regulation.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"DNA methylation\"], \"genes\": [\"DNMT3B\", \"ZBTB24\", \"CDCA7\", \"HELLS\", \"UHRF1\"], \"gene_terms\": [{\"label\": \"DNMT3B\", \"id\": \"hgnc:2979\"}, {\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}, {\"label\": \"HELLS\", \"id\": \"hgnc:4861\"}, {\"label\": \"UHRF1\", \"id\": \"hgnc:12556\"}]}}, {\"id\": \"Immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002721\"}}, {\"id\": \"Immunoglobulin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IgG or intravenous immunoglobulin replacement is used to manage antibody deficiency and reduce infection burden, but it does not correct non-immune epigenetic disease manifestations.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Low-set ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000369\"}}, {\"id\": \"Lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001888\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Macroglossia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000158\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation in lymphocytes impairs terminal B-cell differentiation and immunoglobulin production, leaving B-cell counts relatively preserved but memory B cells and circulating immunoglobulins deficient.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"memory B cell\", \"B cell\"], \"biological_processes\": [\"B cell differentiation\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived iPSCs carrying a homozygous ZBTB24 p.Cys408Gly mutation model ICF2 methylation defects, loss of CDCA7 activation, and impaired hematopoietic differentiation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pericentromeric Satellite Hypomethylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ICF gene defects cause hypomethylation of pericentromeric satellite repeats and juxtacentromeric heterochromatin, especially around chromosomes 1, 16, and sometimes 9.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"Progressive Combined T-Cell Immune Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In at least ICF2, the immune phenotype can extend beyond a B-cell defect to impaired lymphocyte proliferation, increased cell death, and age-progressive combined immunodeficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"lymphocyte\"], \"biological_processes\": [\"T cell proliferation\"]}}, {\"id\": \"Protruding tongue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010808\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Umbilical hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001537\"}}, {\"id\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZBTB24 zinc-finger dysfunction can reduce transcriptional activation of CDCA7 and other target genes, recapitulating centromeric methylation defects and reducing hematopoietic progenitor output in an ICF2 iPSC model.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"genes\": [\"ZBTB24\", \"CDCA7\"], \"gene_terms\": [{\"label\": \"ZBTB24\", \"id\": \"hgnc:21143\"}, {\"label\": \"CDCA7\", \"id\": \"hgnc:14628\"}], \"subtypes\": [\"ICF2\"], \"experimental_models\": [{\"name\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}]}}], \"edges\": [{\"source\": \"ICF Gene Network Disruption\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macroglossia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Epicanthus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Low-set ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Communicating hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Umbilical hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Depressed nasal bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Protruding tongue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ICF Gene Network Disruption\", \"target\": \"Flat face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pericentromeric Satellite Hypomethylation\", \"target\": \"Centromeric Chromosome Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Chromosome instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes disrupts B-cell immunoglobulin isotype switching and immune-cell regulation.\"]}, {\"source\": \"Centromeric Chromosome Instability\", \"target\": \"Progressive Combined T-Cell Immune Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chromosome instability in mitogen-stimulated lymphocytes perturbs lymphocyte activation and proliferation.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypogammaglobulinemia and impaired immune memory reduce respiratory pathogen control.\"]}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Combined T-Cell Immune Defect\", \"target\": \"Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Pericentromeric Satellite Hypomethylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Mutated ZBTB24 loses transcriptional activation of CDCA7 and other DNA-methylation-homeostasis target genes.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Cellular immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced hematopoietic differentiation from patient-derived iPSCs may contribute to immune-cell deficits.\"]}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Abnormality of neutrophils\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin replacement therapy\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antimicrobial prophylaxis and treatment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Memory B-Cell Differentiation and Antibody Production Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Hypogammaglobulinemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived ICF2 induced pluripotent stem cells\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.\\n\"}, {\"source\": \"Biallelic DNMT3B pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic ZBTB24 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic CDCA7 pathogenic variants\", \"target\": \"ZBTB24-CDCA7 Transcriptional Activation Failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic HELLS pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic UHRF1 pathogenic variants\", \"target\": \"ICF Gene Network Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5813,14 +6246,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased total lymphocyte count
+
+                        <span class="phenotype-term-label">Decreased total lymphocyte count</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001888">HP:0001888</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001888</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphopenia, annotated with Decreased total lymphocyte count (HP:0001888). HP:0001888 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5840,6 +6282,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5874,14 +6317,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5901,6 +6351,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5935,14 +6386,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased circulating immunoglobulin concentration
+
+                        <span class="phenotype-term-label">Decreased circulating immunoglobulin concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004313</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,6 +6422,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5984,6 +6445,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6027,14 +6489,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Malabsorption
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002024">HP:0002024</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6054,6 +6523,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6097,14 +6567,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Low-set ears
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000369">HP:0000369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6124,6 +6601,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6167,14 +6645,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6194,6 +6679,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,14 +6723,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macroglossia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000158">HP:0000158</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000158</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,6 +6757,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6298,14 +6792,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000256">HP:0000256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6325,6 +6826,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6359,14 +6861,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epicanthus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000286">HP:0000286</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000286</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6386,6 +6895,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6420,14 +6930,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6447,6 +6964,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6481,14 +6999,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depressed nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6508,6 +7033,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6542,14 +7068,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flat face
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012368">HP:0012368</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012368</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6569,6 +7102,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6612,14 +7146,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6639,6 +7180,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6661,6 +7203,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40585468" target="_blank">PMID:40585468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6695,14 +7238,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Immunodeficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002721">HP:0002721</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002721</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Immunodeficiency (HP:0002721). HP:0002721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6722,6 +7272,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6744,6 +7295,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958354" target="_blank">PMID:39958354</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6787,14 +7339,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6814,6 +7373,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6836,6 +7396,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23486536" target="_blank">PMID:23486536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6870,14 +7431,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6897,6 +7465,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6940,14 +7509,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6967,6 +7543,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7010,14 +7587,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Communicating hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001334" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001334">HP:0001334</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001334</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Communicating hydrocephalus (HP:0001334). HP:0001334 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7037,6 +7621,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7071,14 +7656,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Umbilical hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001537">HP:0001537</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001537</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7098,6 +7690,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7132,14 +7725,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of neutrophils
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001874" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001874">HP:0001874</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001874" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001874</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of neutrophils (HP:0001874). HP:0001874 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7159,6 +7759,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7193,14 +7794,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of chromosome stability
+
+                        <span class="phenotype-term-label">Abnormality of chromosome stability</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003220" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003220">HP:0003220</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003220</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chromosome instability, annotated with Abnormality of chromosome stability (HP:0003220). HP:0003220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7220,6 +7830,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7242,6 +7853,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958354" target="_blank">PMID:39958354</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7276,14 +7888,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cellular immunodeficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005374">HP:0005374</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005374</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cellular immunodeficiency (HP:0005374). HP:0005374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7303,6 +7922,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7325,6 +7945,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25330735" target="_blank">PMID:25330735</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7359,14 +7980,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Protruding tongue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010808">HP:0010808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protruding tongue (HP:0010808). HP:0010808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7386,6 +8014,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7464,13 +8093,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNMT3B
 
 
-    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2979">hgnc:2979</a>
+    <a href="https://bioregistry.io/hgnc:2979" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:2979</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNMT3B (hgnc:2979). hgnc:2979 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7500,6 +8134,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7521,6 +8156,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30406101" target="_blank">PMID:30406101</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7558,13 +8194,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZBTB24
 
 
-    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21143">hgnc:21143</a>
+    <a href="https://bioregistry.io/hgnc:21143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:21143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZBTB24 (hgnc:21143). hgnc:21143 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7594,6 +8235,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7615,6 +8257,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39958354" target="_blank">PMID:39958354</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7652,13 +8295,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDCA7
 
 
-    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14628">hgnc:14628</a>
+    <a href="https://bioregistry.io/hgnc:14628" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:14628</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDCA7 (hgnc:14628). hgnc:14628 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7688,6 +8336,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7709,6 +8358,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724723" target="_blank">PMID:31724723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7746,13 +8396,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HELLS
 
 
-    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4861">hgnc:4861</a>
+    <a href="https://bioregistry.io/hgnc:4861" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:4861</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HELLS (hgnc:4861). hgnc:4861 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7782,6 +8437,7 @@
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7803,6 +8459,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724723" target="_blank">PMID:31724723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7840,13 +8497,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UHRF1
 
 
-    <a href="https://bioregistry.io/hgnc:12556" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12556">hgnc:12556</a>
+    <a href="https://bioregistry.io/hgnc:12556" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:12556</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UHRF1 (hgnc:12556). hgnc:12556 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7875,6 +8537,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7906,6 +8569,106 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-icf-syndrome-disease-record">
+
+
+    <div class="item-name">Orphanet ICF syndrome disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=2268" target="_blank" rel="noopener noreferrer" title="Open ORPHA:2268">ORPHA:2268</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:2268 structured record for ICF syndrome includes the exact MONDO cross-reference, definition, autosomal recessive inheritance, epidemiology, disease-causing genes, natural-history onset, and HPO phenotype annotations used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2268" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0000133 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:2268 to the same MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2268" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2268" target="_blank">ORPHA:2268</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:242860 | Broader"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:242860 among the external cross-references for the ICF syndrome disease series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7921,7 +8684,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Intravenous Immunoglobulin Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Intravenous Immunoglobulin Therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7958,17 +8726,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypogammaglobulinemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0004313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent respiratory infections
@@ -7976,10 +8751,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7998,6 +8776,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8020,6 +8799,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40585468" target="_blank">PMID:40585468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8050,7 +8830,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antimicrobial pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">antimicrobial pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antimicrobial pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8081,17 +8866,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sulfamethoxazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9332">CHEBI:9332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:9332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         trimethoprim
@@ -8099,10 +8891,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45924">CHEBI:45924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:45924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trimethoprim (CHEBI:45924). CHEBI:45924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8117,16 +8912,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent respiratory infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8145,6 +8945,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8175,7 +8976,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -8235,6 +9041,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8264,17 +9071,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Immunodeficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002721">HP:0002721</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002721</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Immunodeficiency (HP:0002721). HP:0002721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypogammaglobulinemia
@@ -8282,10 +9096,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0004313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8304,6 +9121,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8326,6 +9144,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28713390" target="_blank">PMID:28713390</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8395,15 +9214,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-61">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-61">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8414,15 +9238,20 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-zbtb24-cdca7-transcriptional-activation-failure">ZBTB24-CDCA7 Transcriptional Activation Failure</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-zbtb24-cdca7-transcriptional-activation-failure">ZBTB24-CDCA7 Transcriptional Activation Failure</a>
+
+
+
+                <span class="crosslink-desc">The iPSC model recapitulates ZBTB24-dependent transcriptional activation failure and downstream centromeric hypomethylation.
 </span>
+
+
 
 
 
@@ -8437,6 +9266,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040103" target="_blank">PMID:39040103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8459,10 +9289,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8481,6 +9312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040103" target="_blank">PMID:39040103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8508,6 +9340,9 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8525,7 +9360,6 @@
                 <pre class="yaml-preview">name: Immunodeficiency-Centromeric Instability-Facial Anomalies Syndrome
 category: Mendelian
 creation_date: &#34;2026-05-10T06:09:11Z&#34;
-updated_date: &#34;2026-05-10T06:09:11Z&#34;
 synonyms:
 - ICF syndrome
 - Immunodeficiency-centromeric instability-facial dysmorphism syndrome
@@ -10246,7 +11080,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency-Centromeric Instability-Facial Anomalies Syndrome", "mondoId": "MONDO:0000133", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency-Centromeric_Instability-Facial_Anomalies_Syndrome", "yamlRevision": "0795e846c43d"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency-Centromeric Instability-Facial Anomalies Syndrome", "mondoId": "MONDO:0000133", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency-Centromeric_Instability-Facial_Anomalies_Syndrome", "yamlRevision": "f5ab18d897f2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10665,5 +11499,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Allopurinol-Induced Stevens-Johnson Syndrome/Toxic Epidermal Necrolysis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Allopurinol-Induced Stevens-Johnson Syndrome/Toxic Epidermal Necrolysis</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3894,17 +4098,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8-positive cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive cytotoxic T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3925,10 +4136,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3953,15 +4167,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HLA-B
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4932">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3989,16 +4210,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4043,6 +4269,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4072,6 +4299,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28133001" target="_blank">PMID:28133001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4094,6 +4322,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15743917" target="_blank">PMID:15743917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4115,6 +4344,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452515" target="_blank">PMID:37452515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4143,6 +4373,7 @@
                 <div class="item-name">Reduced renal oxypurinol clearance</div>
 
                 <div class="item-desc">Renal impairment delays oxypurinol clearance and sustains higher plasma exposure, providing a pharmacokinetic amplifier of the concentration-dependent drug-specific T-cell response.</div>
+
 
 
 
@@ -4188,6 +4419,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25115449" target="_blank">PMID:25115449</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4220,17 +4452,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8-positive cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive cytotoxic T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4251,10 +4490,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4281,16 +4523,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4335,6 +4582,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4372,6 +4620,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24152157" target="_blank">PMID:24152157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4393,6 +4642,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33341195" target="_blank">PMID:33341195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4426,16 +4676,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4462,16 +4717,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4491,16 +4751,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4521,6 +4786,7 @@
 
 
                 </div>
+
 
 
 
@@ -4557,6 +4823,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25355273" target="_blank">PMID:25355273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4578,6 +4845,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28133001" target="_blank">PMID:28133001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4611,16 +4879,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4647,16 +4920,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4677,6 +4955,7 @@
 
 
                 </div>
+
 
 
 
@@ -4753,6 +5032,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28133001" target="_blank">PMID:28133001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4785,16 +5065,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4821,16 +5106,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4860,6 +5150,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4871,6 +5162,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33341195" target="_blank">PMID:33341195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4907,7 +5199,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-full-thickness-epidermal-necrosis-with-dermo-epidermal-separation">
                 <div class="item-name">
                     Full-thickness epidermal necrosis with dermo-epidermal separation
 
@@ -4928,6 +5220,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28133001" target="_blank">PMID:28133001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4974,7 +5267,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal blistering of the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mucocutaneous bullae preceding epidermal detachment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008066\"}}, {\"id\": \"Allopurinol exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Therapeutic exposure to allopurinol (for gout/hyperuricemia) is the precipitating exposure. In EuroSCAR, risk was concentrated in the first eight weeks and was higher at daily doses of at least 200 mg.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute ocular-surface inflammation may accompany the mucocutaneous eruption; ocular disease can also produce important long-term sequelae.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000509\"}}, {\"id\": \"Drug-specific cytotoxic T-cell activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxypurinol-specific CD8 T cells are activated in a concentration-dependent response favored by HLA-B*58:01, then expand as the effector population that targets keratinocytes. NK cells also participate in the convergent SJS/TEN effector response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive cytotoxic T cell\", \"natural killer cell\"], \"biological_processes\": [\"T cell activation\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Oxypurinol-stimulated patient PBMC model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models oxypurinol-driven CD8 T-cell activation and clonal expansion.\"}]}}, {\"id\": \"Epidermal necrolysis and detachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Confluent keratinocyte death produces full-thickness epidermal necrosis that separates the epidermis from the dermis, manifesting as the skin and mucosal detachment of allopurinol SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"role\": \"effector\"}}, {\"id\": \"Erosion of oral mucosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread oral mucosal erosions or ulceration are a characteristic component of the SJS/TEN mucocutaneous presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031446\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever occurs in the influenza-like prodrome before the painful cutaneous and mucous-membrane lesions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Genital mucosal erosion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital mucous-membrane erosions may accompany oral and ocular involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003249\"}}, {\"id\": \"HLA-B*58:01\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Class I HLA allele present in essentially all allopurinol-SCAR patients in the index Han Chinese case-control study; the restricting element for drug-specific T-cell recognition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"association\": \"HLA-B*58:01 strongly predisposes to allopurinol-induced SCAR (SJS/TEN)\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Keratinocyte death by cytotoxic mediators\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated lymphocytes release granulysin, Fas ligand, and perforin/granzyme, driving keratinocyte apoptosis and necroptosis \\u2014 the central effector lesion of allopurinol SJS/TEN and the key conformance target of the SCAR module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"apoptotic process\"], \"role\": \"central_effector\"}}, {\"id\": \"Mucocutaneous failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive epidermal and mucosal detachment causes skin-barrier failure with high morbidity and mortality, the defining consequence of allopurinol SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"role\": \"consequence\"}}, {\"id\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxypurinol forms a labile interaction with peptide/HLA complexes at the cell surface and can activate drug-reactive T cells without intracellular antigen processing. HLA-B*58:01 strongly favors this response but is not required in every affected patient.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive cytotoxic T cell\", \"keratinocyte\"], \"biological_processes\": [\"antigen processing and presentation\"], \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Oxypurinol-stimulated patient PBMC model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the labile oxypurinol interaction with peptide/HLA complexes.\"}]}}, {\"id\": \"Oxypurinol-stimulated patient PBMC model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"In-vitro oxypurinol stimulation of peripheral blood mononuclear cells from resolved allopurinol-induced SJS/TEN cases models the drug-reactive CD8 T-cell response and its oligoclonal TCR repertoire.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"resolved allopurinol-induced SJS/TEN\", \"oxypurinol exposure\"], \"publication\": \"PMID:37452515\"}}, {\"id\": \"Reduced renal oxypurinol clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal impairment delays oxypurinol clearance and sustains higher plasma exposure, providing a pharmacokinetic amplifier of the concentration-dependent drug-specific T-cell response.\", \"meta\": {\"evidence_count\": 1, \"role\": \"amplifier\"}}, {\"id\": \"Renal impairment\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Poor renal function delays oxypurinol clearance, increasing exposure to the metabolite that drives the dose-dependent T-cell response and worsening prognosis in allopurinol-SCAR, including SJS/TEN.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread epidermal and mucosal detachment, the defining feature of SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032156\"}}], \"edges\": [{\"source\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLA-restricted presentation activates drug-specific cytotoxic T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced renal oxypurinol clearance\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained oxypurinol exposure amplifies the concentration-dependent generation of drug-specific T cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Drug-specific cytotoxic T-cell activation\", \"target\": \"Keratinocyte death by cytotoxic mediators\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated cytotoxic lymphocytes release mediators that kill keratinocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Drug-specific cytotoxic T-cell activation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic immune activation contributes to the influenza-like febrile prodrome, although the intervening cytokine pathway is not specified here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte death by cytotoxic mediators\", \"target\": \"Epidermal necrolysis and detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Confluent keratinocyte death produces full-thickness epidermal necrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Mucocutaneous failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the epidermal barrier produces systemic consequences.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Skin detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal necrolysis directly manifests as skin detachment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Abnormal blistering of the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermo-epidermal separation manifests clinically as blistering.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Erosion of oral mucosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal epithelial necrolysis produces painful oral erosions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface involvement produces acute conjunctival inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Genital mucosal erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital mucosal epithelial injury produces erosions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allopurinol exposure\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Allopurinol itself is not the antigenic species. It is metabolized to oxypurinol, which is what engages peptide-HLA complexes at the cell surface, so the prescribed exposure reaches this node through its metabolite.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Renal impairment\", \"target\": \"Reduced renal oxypurinol clearance\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Impaired renal function is the direct cause of the delayed oxypurinol clearance this node describes, sustaining the higher metabolite concentrations that drive the concentration-dependent T-cell response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxypurinol-stimulated patient PBMC model\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Oxypurinol-stimulated patient PBMC model\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-B*58:01\", \"target\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal blistering of the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mucocutaneous bullae preceding epidermal detachment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008066\"}}, {\"id\": \"Allopurinol exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Therapeutic exposure to allopurinol (for gout/hyperuricemia) is the precipitating exposure. In EuroSCAR, risk was concentrated in the first eight weeks and was higher at daily doses of at least 200 mg.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute ocular-surface inflammation may accompany the mucocutaneous eruption; ocular disease can also produce important long-term sequelae.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000509\"}}, {\"id\": \"Drug-specific cytotoxic T-cell activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxypurinol-specific CD8 T cells are activated in a concentration-dependent response favored by HLA-B*58:01, then expand as the effector population that targets keratinocytes. NK cells also participate in the convergent SJS/TEN effector response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive cytotoxic T cell\", \"natural killer cell\"], \"biological_processes\": [\"T cell activation\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Oxypurinol-stimulated patient PBMC model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models oxypurinol-driven CD8 T-cell activation and clonal expansion.\"}]}}, {\"id\": \"Epidermal necrolysis and detachment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Confluent keratinocyte death produces full-thickness epidermal necrosis that separates the epidermis from the dermis, manifesting as the skin and mucosal detachment of allopurinol SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"role\": \"effector\"}}, {\"id\": \"Erosion of oral mucosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread oral mucosal erosions or ulceration are a characteristic component of the SJS/TEN mucocutaneous presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031446\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever occurs in the influenza-like prodrome before the painful cutaneous and mucous-membrane lesions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Genital mucosal erosion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital mucous-membrane erosions may accompany oral and ocular involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003249\"}}, {\"id\": \"HLA-B*58:01\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Class I HLA allele present in essentially all allopurinol-SCAR patients in the index Han Chinese case-control study; the restricting element for drug-specific T-cell recognition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"association\": \"HLA-B*58:01 strongly predisposes to allopurinol-induced SCAR (SJS/TEN)\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Keratinocyte death by cytotoxic mediators\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated lymphocytes release granulysin, Fas ligand, and perforin/granzyme, driving keratinocyte apoptosis and necroptosis \\u2014 the central effector lesion of allopurinol SJS/TEN and the key conformance target of the SCAR module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"T cell mediated cytotoxicity\", \"apoptotic process\"], \"role\": \"central_effector\"}}, {\"id\": \"Mucocutaneous failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive epidermal and mucosal detachment causes skin-barrier failure with high morbidity and mortality, the defining consequence of allopurinol SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell death\"], \"role\": \"consequence\"}}, {\"id\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxypurinol forms a labile interaction with peptide/HLA complexes at the cell surface and can activate drug-reactive T cells without intracellular antigen processing. HLA-B*58:01 strongly favors this response but is not required in every affected patient.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD8-positive cytotoxic T cell\", \"keratinocyte\"], \"biological_processes\": [\"antigen processing and presentation\"], \"genes\": [\"HLA-B\"], \"gene_terms\": [{\"label\": \"HLA-B\", \"id\": \"hgnc:4932\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Oxypurinol-stimulated patient PBMC model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the labile oxypurinol interaction with peptide/HLA complexes.\"}]}}, {\"id\": \"Oxypurinol-stimulated patient PBMC model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"In-vitro oxypurinol stimulation of peripheral blood mononuclear cells from resolved allopurinol-induced SJS/TEN cases models the drug-reactive CD8 T-cell response and its oligoclonal TCR repertoire.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"resolved allopurinol-induced SJS/TEN\", \"oxypurinol exposure\"], \"publication\": \"PMID:37452515\"}}, {\"id\": \"Reduced renal oxypurinol clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal impairment delays oxypurinol clearance and sustains higher plasma exposure, providing a pharmacokinetic amplifier of the concentration-dependent drug-specific T-cell response.\", \"meta\": {\"evidence_count\": 1, \"role\": \"amplifier\"}}, {\"id\": \"Renal impairment\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Poor renal function delays oxypurinol clearance, increasing exposure to the metabolite that drives the dose-dependent T-cell response and worsening prognosis in allopurinol-SCAR, including SJS/TEN.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread epidermal and mucosal detachment, the defining feature of SJS/TEN.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032156\"}}], \"edges\": [{\"source\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HLA-restricted presentation activates drug-specific cytotoxic T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced renal oxypurinol clearance\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained oxypurinol exposure amplifies the concentration-dependent generation of drug-specific T cells.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Drug-specific cytotoxic T-cell activation\", \"target\": \"Keratinocyte death by cytotoxic mediators\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated cytotoxic lymphocytes release mediators that kill keratinocytes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Drug-specific cytotoxic T-cell activation\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic immune activation contributes to the influenza-like febrile prodrome, although the intervening cytokine pathway is not specified here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Keratinocyte death by cytotoxic mediators\", \"target\": \"Epidermal necrolysis and detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Confluent keratinocyte death produces full-thickness epidermal necrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Mucocutaneous failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the epidermal barrier produces systemic consequences.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Skin detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epidermal necrolysis directly manifests as skin detachment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Abnormal blistering of the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dermo-epidermal separation manifests clinically as blistering.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Erosion of oral mucosa\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal epithelial necrolysis produces painful oral erosions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface involvement produces acute conjunctival inflammation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epidermal necrolysis and detachment\", \"target\": \"Genital mucosal erosion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital mucosal epithelial injury produces erosions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allopurinol exposure\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Allopurinol itself is not the antigenic species. It is metabolized to oxypurinol, which is what engages peptide-HLA complexes at the cell surface, so the prescribed exposure reaches this node through its metabolite.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Renal impairment\", \"target\": \"Reduced renal oxypurinol clearance\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Impaired renal function is the direct cause of the delayed oxypurinol clearance this node describes, sustaining the higher metabolite concentrations that drive the concentration-dependent T-cell response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oxypurinol-stimulated patient PBMC model\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models the labile oxypurinol interaction with peptide/HLA complexes.\"}, {\"source\": \"Oxypurinol-stimulated patient PBMC model\", \"target\": \"Drug-specific cytotoxic T-cell activation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models oxypurinol-driven CD8 T-cell activation and clonal expansion.\"}, {\"source\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"target\": \"Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-B*58:01\", \"target\": \"HLA-B*58:01 pharmacogenomic susceptibility\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5019,14 +5312,21 @@
                         Conjunctivitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conjunctivitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000509">HP:0000509</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000509</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5046,6 +5346,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19243825" target="_blank">PMID:19243825</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5087,14 +5388,23 @@
                         Genital mucosal erosion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Genital ulcers
+
+                        <span class="phenotype-term-label">Genital ulcers</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003249">HP:0003249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genital ulcers (HP:0003249). HP:0003249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5114,6 +5424,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29188475" target="_blank">PMID:29188475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5155,14 +5466,21 @@
                         Erosion of oral mucosa
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erosion of oral mucosa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031446" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031446">HP:0031446</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0031446</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erosion of oral mucosa (HP:0031446). HP:0031446 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5182,6 +5500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42482572" target="_blank">PMID:42482572</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5223,14 +5542,21 @@
                         Skin detachment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032156">HP:0032156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0032156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin detachment (HP:0032156). HP:0032156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5250,6 +5576,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33341195" target="_blank">PMID:33341195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5282,14 +5609,21 @@
                         Abnormal blistering of the skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal blistering of the skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008066">HP:0008066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mucocutaneous blistering, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,6 +5643,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35437717" target="_blank">PMID:35437717</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5350,14 +5685,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5377,6 +5719,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29188475" target="_blank">PMID:29188475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5455,13 +5798,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-B
 
 
-    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4932">hgnc:4932</a>
+    <a href="https://bioregistry.io/hgnc:4932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:4932</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-B (hgnc:4932). hgnc:4932 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5487,6 +5835,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15743917" target="_blank">PMID:15743917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5509,6 +5858,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25047754" target="_blank">PMID:25047754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5530,6 +5880,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41160012" target="_blank">PMID:41160012</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5573,6 +5924,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5584,6 +5937,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15743917" target="_blank">PMID:15743917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5620,6 +5974,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5635,7 +5992,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5684,6 +6046,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35437717" target="_blank">PMID:35437717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5713,7 +6076,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic testing</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">genetic testing<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic testing (NCIT:C15709). NCIT:C15709 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Testing</span>
 
 
@@ -5762,6 +6130,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26399967" target="_blank">PMID:26399967</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5783,6 +6152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25047754" target="_blank">PMID:25047754</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5824,6 +6194,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Therapeutic exposure to allopurinol (for gout/hyperuricemia) is the precipitating exposure. In EuroSCAR, risk was concentrated in the first eight weeks and was higher at daily doses of at least 200 mg.</div>
 
 
@@ -5839,6 +6213,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15743917" target="_blank">PMID:15743917</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5861,6 +6236,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17919772" target="_blank">PMID:17919772</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5911,6 +6287,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15743917" target="_blank">PMID:15743917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5943,6 +6320,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Poor renal function delays oxypurinol clearance, increasing exposure to the metabolite that drives the dose-dependent T-cell response and worsening prognosis in allopurinol-SCAR, including SJS/TEN.</div>
 
 
@@ -5958,6 +6339,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25115449" target="_blank">PMID:25115449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6007,6 +6389,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25115449" target="_blank">PMID:25115449</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6086,15 +6469,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-24">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-24">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -6127,14 +6515,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-oxypurinol-hla-class-i-interaction-with-hla-b-58-01-susceptibility">Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models the labile oxypurinol interaction with peptide/HLA complexes.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-oxypurinol-hla-class-i-interaction-with-hla-b-58-01-susceptibility">Oxypurinol-HLA class I interaction with HLA-B*58:01 susceptibility</a>
+
+
+
+                <span class="crosslink-desc">Models the labile oxypurinol interaction with peptide/HLA complexes.</span>
+
+
 
 
 
@@ -6149,6 +6542,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452515" target="_blank">PMID:37452515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6171,12 +6565,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-drug-specific-cytotoxic-t-cell-activation">Drug-specific cytotoxic T-cell activation</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-drug-specific-cytotoxic-t-cell-activation">Drug-specific cytotoxic T-cell activation</a>
 
-                            <span class="crosslink-desc">Models oxypurinol-driven CD8 T-cell activation and clonal expansion.</span>
+
+
+                <span class="crosslink-desc">Models oxypurinol-driven CD8 T-cell activation and clonal expansion.</span>
+
+
 
 
 
@@ -6191,6 +6589,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452515" target="_blank">PMID:37452515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6213,10 +6612,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -6235,6 +6635,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452515" target="_blank">PMID:37452515</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6260,6 +6661,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7621,5 +8025,73 @@ review_notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

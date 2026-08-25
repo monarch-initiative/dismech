@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Melanoma_in_Congenital_Melanocytic_Nevus</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Melanoma_in_Congenital_Melanocytic_Nevus</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3787,34 +3991,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Melanoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3856,17 +4147,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3887,10 +4185,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3917,16 +4218,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3954,10 +4266,13 @@
         NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7989</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3985,17 +4300,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4016,11 +4338,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090398">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0090398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4041,10 +4368,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000723">GO:0000723</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0000723</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves telomere maintenance (GO:0000723). GO:0000723 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4067,17 +4397,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         leptomeninx
@@ -4085,13 +4422,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000391" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000391">UBERON:0000391</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000391" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in leptomeninx (UBERON:0000391). UBERON:0000391 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4131,6 +4472,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16750612" target="_blank">PMID:16750612</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4151,6 +4493,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28110826" target="_blank">PMID:28110826</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4170,6 +4513,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32100974" target="_blank">PMID:32100974</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4214,6 +4558,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4241,6 +4586,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25268584" target="_blank">PMID:25268584</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4260,6 +4606,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33759772" target="_blank">PMID:33759772</a>
                     </span>
+
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
@@ -4298,15 +4645,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PTEN
 
 
-    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9588">hgnc:9588</a>
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:9588</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4334,17 +4688,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphatidylinositol-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048015">GO:0048015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves phosphatidylinositol-mediated signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4365,10 +4726,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031929">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0031929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4385,6 +4749,7 @@
 
 
                 </div>
+
 
 
 
@@ -4433,12 +4798,14 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-cell-growth" data-dismech-node="Uncontrolled Cell Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Cell Growth</div>
 
                 <div class="item-desc">Dysregulated cellular proliferation</div>
+
 
 
 
@@ -4472,7 +4839,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-melanocytic-neoplasm">
                 <div class="item-name">
                     Melanocytic Neoplasm
 
@@ -4495,6 +4862,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27268913" target="_blank">PMID:27268913</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4551,7 +4919,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Mutations\"}}, {\"id\": \"DNA Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damage to DNA structure from various causes\"}, {\"id\": \"Genetic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-zygotic mosaic mutations in NRAS (codon 61) and BRAF (V600E) occur during embryogenesis in neural crest-derived melanocyte precursors, driving constitutive MAPK signaling. NRAS mutations are dominant in large/giant CMN (68-94%), while BRAF mutations are less common. Progression to melanoma requires additional alterations including TERT activation, CDKN2A loss, TP53 mutations, and PTEN inactivation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"melanocyte\", \"neural crest cell\"], \"biological_processes\": [\"MAPK cascade\", \"cellular senescence\", \"telomere maintenance\"], \"genes\": [\"BRAF\", \"NRAS\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"locations\": [\"skin\", \"leptomeninx\"]}}, {\"id\": \"Malignant Transformation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Mutations\"}}, {\"id\": \"PI3K-AKT-mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compensatory activation of the PI3K-AKT-mTOR pathway occurs alongside MAPK signaling, often driven by PTEN loss. This pathway cross-talk promotes cell survival, invasion, and resistance to MEK inhibition. Combined targeting of both MAPK and PI3K pathways represents a rational therapeutic strategy.\", \"meta\": {\"biological_processes\": [\"phosphatidylinositol-mediated signaling\", \"TOR signaling\"], \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}]}}, {\"id\": \"PTEN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Loss of function\"}}, {\"id\": \"UV Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultraviolet (UV) radiation can damage the DNA in skin cells, contributing to mutations and the development of melanoma.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Uncontrolled Cell Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated cellular proliferation\"}], \"edges\": [{\"source\": \"Genetic Mutations\", \"target\": \"Uncontrolled Cell Growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genetic Mutations\", \"target\": \"Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"NRAS mutations drive malignant transformation in congenital melanocytic nevi, with NRAS being the predominant genetic driver in large-giant CMNs.\"}, {\"source\": \"UV Exposure\", \"target\": \"DNA Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR Pathway Activation\", \"target\": \"Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BRAF\", \"target\": \"Genetic Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"Genetic Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTEN\", \"target\": \"PI3K-AKT-mTOR Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Malignant Transformation\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Mutations\"}}, {\"id\": \"DNA Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Damage to DNA structure from various causes\"}, {\"id\": \"Genetic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-zygotic mosaic mutations in NRAS (codon 61) and BRAF (V600E) occur during embryogenesis in neural crest-derived melanocyte precursors, driving constitutive MAPK signaling. NRAS mutations are dominant in large/giant CMN (68-94%), while BRAF mutations are less common. Progression to melanoma requires additional alterations including TERT activation, CDKN2A loss, TP53 mutations, and PTEN inactivation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"melanocyte\", \"neural crest cell\"], \"biological_processes\": [\"MAPK cascade\", \"cellular senescence\", \"telomere maintenance\"], \"genes\": [\"BRAF\", \"NRAS\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"locations\": [\"skin\", \"leptomeninx\"]}}, {\"id\": \"Malignant Transformation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"association\": \"Mutations\"}}, {\"id\": \"PI3K-AKT-mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compensatory activation of the PI3K-AKT-mTOR pathway occurs alongside MAPK signaling, often driven by PTEN loss. This pathway cross-talk promotes cell survival, invasion, and resistance to MEK inhibition. Combined targeting of both MAPK and PI3K pathways represents a rational therapeutic strategy.\", \"meta\": {\"biological_processes\": [\"phosphatidylinositol-mediated signaling\", \"TOR signaling\"], \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}]}}, {\"id\": \"PTEN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}], \"association\": \"Loss of function\"}}, {\"id\": \"UV Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultraviolet (UV) radiation can damage the DNA in skin cells, contributing to mutations and the development of melanoma.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Uncontrolled Cell Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated cellular proliferation\"}], \"edges\": [{\"source\": \"Genetic Mutations\", \"target\": \"Uncontrolled Cell Growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Genetic Mutations\", \"target\": \"Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"NRAS mutations drive malignant transformation in congenital melanocytic nevi, with NRAS being the predominant genetic driver in large-giant CMNs.\"}, {\"source\": \"UV Exposure\", \"target\": \"DNA Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR Pathway Activation\", \"target\": \"Malignant Transformation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"BRAF\", \"target\": \"Genetic Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"Genetic Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTEN\", \"target\": \"PI3K-AKT-mTOR Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Malignant Transformation\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4596,14 +4964,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4626,6 +5001,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38779794" target="_blank">PMID:38779794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4646,6 +5022,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14750241" target="_blank">PMID:14750241</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4665,6 +5042,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11902552" target="_blank">PMID:11902552</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4708,14 +5086,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4738,6 +5123,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29971818" target="_blank">PMID:29971818</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4758,6 +5144,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3882344" target="_blank">PMID:3882344</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -4775,6 +5162,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30653639" target="_blank">PMID:30653639</a>
                     </span>
+
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
@@ -4807,14 +5195,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin ulcer
+
+                        <span class="phenotype-term-label">Skin ulcer</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0200042</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ulceration, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4847,14 +5244,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4878,14 +5282,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4938,6 +5349,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20888464" target="_blank">PMID:20888464</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4958,6 +5370,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34799033" target="_blank">PMID:34799033</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4977,6 +5390,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32392930" target="_blank">PMID:32392930</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5031,6 +5445,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486690" target="_blank">PMID:27486690</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5051,6 +5466,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36122342" target="_blank">PMID:36122342</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5070,6 +5486,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17653760" target="_blank">PMID:17653760</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5123,6 +5540,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29971818" target="_blank">PMID:29971818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5195,6 +5613,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:1097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5209,6 +5649,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16750612" target="_blank">PMID:16750612</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,6 +5671,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37156689" target="_blank">PMID:37156689</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5249,6 +5691,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31111470" target="_blank">PMID:31111470</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5282,6 +5725,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NRAS
+
+
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5296,6 +5761,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33851646" target="_blank">PMID:33851646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5316,6 +5782,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31111470" target="_blank">PMID:31111470</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5347,6 +5814,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TERT
+
+
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11730</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5359,6 +5848,28 @@
                     CDKN2A
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Loss of function)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CDKN2A
+
+
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5377,6 +5888,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5389,6 +5922,28 @@
                     PTEN
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Loss of function)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PTEN
+
+
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9588</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5407,6 +5962,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MET
+
+
+    <a href="https://bioregistry.io/hgnc:7029" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:7029</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MET (hgnc:7029). hgnc:7029 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5422,6 +5999,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RAF1
+
+
+    <a href="https://bioregistry.io/hgnc:9829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:9829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAF1 (hgnc:9829). hgnc:9829 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5433,6 +6032,9 @@
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5450,7 +6052,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Excision</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Excision<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Excision (NCIT:C15232). NCIT:C15232 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5498,6 +6105,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33010324" target="_blank">PMID:33010324</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -5515,6 +6123,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11079795" target="_blank">PMID:11079795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5535,6 +6144,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14379056" target="_blank">PMID:14379056</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5565,7 +6175,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -5614,6 +6229,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27453302" target="_blank">PMID:27453302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5634,6 +6250,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16762733" target="_blank">PMID:16762733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5653,6 +6270,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36435868" target="_blank">PMID:36435868</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5681,7 +6299,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5730,6 +6353,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24880943" target="_blank">PMID:24880943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5749,6 +6373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30792255" target="_blank">PMID:30792255</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5777,7 +6402,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5825,6 +6455,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8977557" target="_blank">PMID:8977557</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5845,6 +6476,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12609784" target="_blank">PMID:12609784</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
@@ -5864,6 +6496,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28092363" target="_blank">PMID:28092363</a>
                     </span>
+
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
@@ -5894,7 +6527,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5942,6 +6580,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22980259" target="_blank">PMID:22980259</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5961,6 +6600,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27268913" target="_blank">PMID:27268913</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6000,21 +6640,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Ultraviolet radiation exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000006">ECTO:0000006</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-31">ECTO:0000006</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Ultraviolet radiation exposure, annotated with exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6033,6 +6682,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32281145" target="_blank">PMID:32281145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6054,6 +6704,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35298329" target="_blank">PMID:35298329</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6073,6 +6724,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30113042" target="_blank">PMID:30113042</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6116,6 +6768,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6132,7 +6787,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Melanoma_in_Congenital_Melanocytic_Nevus
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 description: &gt;-
   Melanoma arising in a congenital melanocytic nevus is a malignant melanocytic
   neoplasm that develops within a nevus present at birth, with risk greatest for
@@ -6408,14 +7062,17 @@ phenotypes:
     snippet: We report a 6-year-old child with molluscum contagiosum infection arising within an intermediate melanocytic congenital nevus of the thigh, associated with itching and occasional bleeding.
     explanation: The literature supports that itching can be associated with a congenital melanocytic nevus, but it does not specifically link this to melanoma. Therefore, the statement is only partially supported.
   - reference: PMID:3882344
+    reference_title: &#34;Melanoma and other melanocytic skin lesions.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses melanoma and other melanocytic skin lesions but does not provide evidence about pruritus (itching) in congenital melanocytic nevi.
   - reference: PMID:30653639
+    reference_title: &#34;Common Neonatal Skin Lesions: Melanocytic Nevi, Pigment Alterations, and Nonmelanocytic Nevi.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses congenital melanocytic nevi and other birthmarks but does not mention pruritus (itching) in the context of melanoma in congenital melanocytic nevi.
   - reference: PMID:3284306
+    reference_title: &#34;Becker&#39;s nevus.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference focuses on Becker&#39;s nevus and does not provide information about pruritus in congenital melanocytic nevi or melanoma.
@@ -6425,10 +7082,12 @@ phenotypes:
     snippet: &#39;&#39;
     explanation: This reference discusses melanoma with childhood onset but does not mention pruritus in the context of congenital melanocytic nevi.
   - reference: PMID:8990709
+    reference_title: &#34;Congenital atrophic plaque.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses a congenital atrophic plaque and possible diagnoses including congenital melanocytic nevus but does not mention pruritus.
   - reference: PMID:1869648
+    reference_title: &#34;Neurocutaneous melanosis: definition and review of the literature.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses neurocutaneous melanosis and congenital melanocytic nevi but does not mention pruritus.
@@ -6438,10 +7097,12 @@ phenotypes:
     snippet: &#39;&#39;
     explanation: This reference discusses various cutaneous lesions including congenital melanocytic nevus but does not mention pruritus.
   - reference: PMID:28290622
+    reference_title: &#34;Melanoma and melanocytic nevi in pediatric patients: a single institution experience.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses melanoma and melanocytic nevi in pediatric patients but does not mention pruritus in the context of congenital melanocytic nevi.
   - reference: PMID:28954104
+    reference_title: &#34;The recurrent nevus phenomenon.&#34;
     supports: NO_EVIDENCE
     snippet: &#39;&#39;
     explanation: This reference discusses the recurrent nevus phenomenon but does not mention pruritus in the context of congenital melanocytic nevi.
@@ -6536,6 +7197,11 @@ diagnosis:
     explanation: This study discusses the rates of sentinel lymph node metastases in pediatric melanoma but does not specifically address the congenital melanocytic nevus as the primary condition.
 genetic:
 - name: BRAF
+  gene_term:
+    preferred_term: BRAF
+    term:
+      id: hgnc:1097
+      label: BRAF
   association: Mutations
   evidence:
   - reference: PMID:16750612
@@ -6559,6 +7225,11 @@ genetic:
     snippet: Mutations in NRAS have been previously detected in GCMN, but mutations in BRAF are generally lacking in the Chinese population.
     explanation: The excerpt suggests the presence of BRAF mutations in GCMN, though less frequent in the Chinese population.
 - name: NRAS
+  gene_term:
+    preferred_term: NRAS
+    term:
+      id: hgnc:7989
+      label: NRAS
   association: Mutations
   notes: Post-zygotic mosaic mutations at codon 61 (Q61K/R) are the dominant driver in 68-94% of large/giant CMN and associated melanomas
   evidence:
@@ -6573,21 +7244,51 @@ genetic:
     snippet: Multiple congenital melanocytic naevi (CMN) have been shown to be caused by NRAS mosaic mutations in 70-80% of cases.
     explanation: This reference provides statistical data supporting the association between NRAS mutations and congenital melanocytic nevi.
 - name: TERT
+  gene_term:
+    preferred_term: TERT
+    term:
+      id: hgnc:11730
+      label: TERT
   association: Promoter mutations
   notes: TERT promoter activation or amplification associated with malignant transformation, enabling telomere maintenance and replicative immortality
 - name: CDKN2A
+  gene_term:
+    preferred_term: CDKN2A
+    term:
+      id: hgnc:1787
+      label: CDKN2A
   association: Loss of function
   notes: Deletion or loss enables escape from oncogene-induced senescence and promotes progression to invasive melanoma
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Mutations
   notes: Somatic mutations in progressed lesions contribute to genomic instability and malignant transformation
 - name: PTEN
+  gene_term:
+    preferred_term: PTEN
+    term:
+      id: hgnc:9588
+      label: PTEN
   association: Loss of function
   notes: Loss or inactivation leads to PI3K-AKT-mTOR pathway activation, cooperating with MAPK signaling to promote survival and invasion
 - name: MET
+  gene_term:
+    preferred_term: MET
+    term:
+      id: hgnc:7029
+      label: MET
   association: Pathway activation
   notes: HGF/MET signaling enhances RAS-MAPK and PI3K-AKT pathways, implicated in both cutaneous and leptomeningeal melanocytic proliferation
 - name: RAF1
+  gene_term:
+    preferred_term: RAF1
+    term:
+      id: hgnc:9829
+      label: RAF1
   association: Gene fusions
   notes: Rare mosaic RAF1 fusions reported as oncogenic drivers in atypical CMN cases
 environmental:
@@ -7096,7 +7797,7 @@ Melanoma arising in CMN is a mosaic, developmentally rooted malignancy classical
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Melanoma_in_Congenital_Melanocytic_Nevus", "mondoId": "MONDO:0850110", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Melanoma_in_Congenital_Melanocytic_Nevus", "yamlRevision": "af76fc89e0be"};
+        const OS_CONFIG = {"diseaseName": "Melanoma_in_Congenital_Melanocytic_Nevus", "mondoId": "MONDO:0850110", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Melanoma_in_Congenital_Melanocytic_Nevus", "yamlRevision": "96dc50845ea6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7515,5 +8216,73 @@ Melanoma arising in CMN is a mosaic, developmentally rooted malignancy classical
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

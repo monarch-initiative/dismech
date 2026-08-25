@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Warburg micro syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Warburg micro syndrome</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3811,7 +4015,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3885,7 +4089,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-warbm1">
 
                     <div class="item-name">
                         Warburg micro syndrome 1 (RAB3GAP1)
@@ -3899,16 +4103,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 RAB3GAP1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17063">hgnc:17063</a>
+    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:17063</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RAB3GAP1 (hgnc:17063). hgnc:17063 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3927,7 +4136,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-warbm2">
 
                     <div class="item-name">
                         Warburg micro syndrome 2 (RAB3GAP2)
@@ -3941,16 +4150,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 RAB3GAP2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17168">hgnc:17168</a>
+    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:17168</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RAB3GAP2 (hgnc:17168). hgnc:17168 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3969,7 +4183,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-warbm3">
 
                     <div class="item-name">
                         Warburg micro syndrome 3 (RAB18)
@@ -3983,16 +4197,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 RAB18
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14244">hgnc:14244</a>
+    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:14244</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RAB18 (hgnc:14244). hgnc:14244 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4011,7 +4230,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-warbm4">
 
                     <div class="item-name">
                         Warburg micro syndrome 4 (TBC1D20)
@@ -4025,16 +4244,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 TBC1D20
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16133">hgnc:16133</a>
+    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:16133</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TBC1D20 (hgnc:16133). hgnc:16133 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4088,16 +4312,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RAB3GAP1
 
 
-    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17063">hgnc:17063</a>
+    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:17063</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB3GAP1 (hgnc:17063). hgnc:17063 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4125,10 +4360,13 @@
         RAB3GAP2
 
 
-    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17168">hgnc:17168</a>
+    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:17168</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB3GAP2 (hgnc:17168). hgnc:17168 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4156,16 +4394,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Rab protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032482" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032482">GO:0032482</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032482" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0032482</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Rab protein signal transduction (GO:0032482). GO:0032482 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4186,6 +4429,7 @@
 
 
                 </div>
+
 
 
 
@@ -4230,6 +4474,7 @@
                         <a href="https://bioregistry.io/DOI:10.1098/rsob.150047" target="_blank">DOI:10.1098/rsob.150047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4269,16 +4514,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RAB18
 
 
-    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14244">hgnc:14244</a>
+    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:14244</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB18 (hgnc:14244). hgnc:14244 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4306,10 +4562,13 @@
         TBC1D20
 
 
-    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16133">hgnc:16133</a>
+    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:16133</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBC1D20 (hgnc:16133). hgnc:16133 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4337,16 +4596,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vesicle-mediated transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016192">GO:0016192</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0016192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal vesicle-mediated transport (GO:0016192). GO:0016192 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4355,6 +4619,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4372,10 +4638,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006888">GO:0006888</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006888</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal endoplasmic reticulum to Golgi vesicle-mediated transport (GO:0006888). GO:0006888 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4395,16 +4664,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Golgi organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007030" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007030">GO:0007030</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007030" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007030</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Golgi organization (GO:0007030). GO:0007030 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4425,6 +4699,7 @@
 
 
                 </div>
+
 
 
 
@@ -4493,6 +4768,7 @@
                         <a href="https://bioregistry.io/DOI:10.1083/jcb.202406139" target="_blank">DOI:10.1083/jcb.202406139</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4532,16 +4808,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TBC1D20
 
 
-    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16133">hgnc:16133</a>
+    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:16133</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBC1D20 (hgnc:16133). hgnc:16133 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4569,10 +4856,13 @@
         RAB3GAP1
 
 
-    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17063">hgnc:17063</a>
+    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:17063</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB3GAP1 (hgnc:17063). hgnc:17063 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4600,16 +4890,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4635,19 +4930,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         autophagosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005776">GO:0005776</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0005776</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4682,6 +4983,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/jimd.12798" target="_blank">DOI:10.1002/jimd.12798</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4703,6 +5005,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1080/15548627.2016.1199300" target="_blank">DOI:10.1080/15548627.2016.1199300</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4743,16 +5046,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TBC1D20
 
 
-    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16133">hgnc:16133</a>
+    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:16133</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBC1D20 (hgnc:16133). hgnc:16133 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4780,10 +5094,13 @@
         RAB18
 
 
-    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14244">hgnc:14244</a>
+    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:14244</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB18 (hgnc:14244). hgnc:14244 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4811,16 +5128,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lipid droplet organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034389">GO:0034389</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034389" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0034389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal lipid droplet organization (GO:0034389). GO:0034389 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4841,6 +5163,7 @@
 
 
                 </div>
+
 
 
 
@@ -4877,6 +5200,7 @@
                         <a href="https://bioregistry.io/DOI:10.1126/sciadv.ade7753" target="_blank">DOI:10.1126/sciadv.ade7753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4909,17 +5233,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4940,10 +5271,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4970,16 +5304,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuron development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048666">GO:0048666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0048666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuron development (GO:0048666). GO:0048666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5000,6 +5339,7 @@
 
 
                 </div>
+
 
 
 
@@ -5084,6 +5424,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/jdn.10264" target="_blank">DOI:10.1002/jdn.10264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5116,16 +5457,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5152,16 +5498,55 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         camera-type eye morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048593">GO:0048593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0048593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        eye morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0048592</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5184,6 +5569,28 @@
                 </div>
 
 
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        eye
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0000970</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -5242,6 +5649,7 @@
                         <a href="https://bioregistry.io/DOI:10.1242/dmm.015222" target="_blank">DOI:10.1242/dmm.015222</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5281,16 +5689,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         reproductive process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022414" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022414">GO:0022414</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022414" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0022414</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal reproductive process (GO:0022414). GO:0022414 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5311,6 +5724,7 @@
 
 
                 </div>
+
 
 
 
@@ -5363,6 +5777,7 @@
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5411,7 +5826,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early cataract extraction can be used to treat congenital cataracts, though visual outcomes may remain limited by optic nerve and broader neurodevelopmental involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataract is a defining ocular manifestation.\", \"meta\": {\"term_id\": \"HP:0000518\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Male genital hypoplasia in Warburg micro syndrome can include undescended testes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective Autophagosome Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBC1D20 and RAB3GAP1/Rab-pathway dysfunction links Warburg micro syndrome to impaired autophagy and autophagosome maturation, particularly in nervous system and patient-derived cellular contexts.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"autophagy\"], \"genes\": [\"TBC1D20\", \"RAB3GAP1\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}, {\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children have profound global developmental delay.\", \"meta\": {\"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia and hypogonadism are recognized features of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Male genital hypoplasia in Warburg micro syndrome can include penile hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008736\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum is part of the brain-malformation spectrum.\", \"meta\": {\"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes hypothalamic hypogonadism and genital hypoplasia, producing delayed pubertal/reproductive development and male genital phenotypes such as cryptorchidism and penile hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"reproductive process\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early hypotonia is part of the motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Lipid Droplet Homeostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome genes, particularly TBC1D20 and RAB18/Rab-pathway biology, intersect with ER-to-lipid droplet trafficking and lipid droplet growth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid droplet organization\"], \"genes\": [\"TBC1D20\", \"RAB18\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}, {\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}]}}, {\"id\": \"Membrane trafficking disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of RAB18 or TBC1D20 function disrupts Rab18-associated membrane trafficking across the endomembrane system, linking Warburg micro syndrome to abnormal vesicular transport and organelle organization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vesicle-mediated transport\", \"endoplasmic reticulum to Golgi vesicle-mediated transport\", \"Golgi organization\"], \"genes\": [\"RAB18\", \"TBC1D20\"], \"gene_terms\": [{\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}, {\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced head circumference is a core cranial-neurodevelopmental feature.\", \"meta\": {\"term_id\": \"HP:0000252\"}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcornea is a common anterior-segment abnormality in the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphthalmia is one of the defining ocular malformations.\", \"meta\": {\"term_id\": \"HP:0000568\"}}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent nervous-system outcome is severe neurodevelopmental impairment with microcephaly, brain malformations, intellectual disability, abnormal tone, and delayed motor development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"Purkinje cell\"], \"biological_processes\": [\"neuron development\"]}}, {\"id\": \"Ocular developmental abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes congenital maldevelopment of the eye, especially microphthalmia, microcornea, cataract, and optic nerve atrophy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"camera-type eye morphogenesis\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve atrophy contributes to severe visual impairment.\", \"meta\": {\"term_id\": \"HP:0000648\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria is a cortical malformation reported in WARBM1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"RAB18\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB18\"], \"gene_terms\": [{\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}], \"association\": \"Causal biallelic pathogenic variants in RAB18\"}}, {\"id\": \"RAB3GAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB3GAP1\"], \"gene_terms\": [{\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}], \"association\": \"Causal biallelic pathogenic variants in RAB3GAP1\"}}, {\"id\": \"RAB3GAP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB3GAP2\"], \"gene_terms\": [{\"label\": \"RAB3GAP2\", \"id\": \"hgnc:17168\"}], \"association\": \"Causal biallelic pathogenic variants in RAB3GAP2\"}}, {\"id\": \"Rab GTPase regulatory complex dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in RAB3GAP1 or RAB3GAP2 disrupt the RAB3GAP complex, disturbing Rab-family small GTPase signaling during nervous-system and ocular development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Rab protein signal transduction\"], \"genes\": [\"RAB3GAP1\", \"RAB3GAP2\"], \"gene_terms\": [{\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}, {\"label\": \"RAB3GAP2\", \"id\": \"hgnc:17168\"}]}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intellectual disability is a defining neurodevelopmental manifestation.\", \"meta\": {\"term_id\": \"HP:0001249\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity can develop over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TBC1D20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TBC1D20\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}], \"association\": \"Causal biallelic pathogenic variants in TBC1D20\"}}], \"edges\": [{\"source\": \"Rab GTPase regulatory complex dysfunction\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Rab regulation perturbs vesicle-mediated trafficking.\"}, {\"source\": \"Rab GTPase regulatory complex dysfunction\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rab-pathway disruption contributes to impaired brain development.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endomembrane trafficking defects impair developing neural tissues.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Ocular developmental abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endomembrane trafficking defects impair anterior-segment and lens development.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes hypothalamic hypogonadism with genital hypoplasia.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBC1D20/Rab-pathway disruption perturbs autophagy maturation.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBC1D20-related trafficking defects alter ER-to-lipid droplet biology.\"}, {\"source\": \"Defective Autophagosome Maturation\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagy impairment is linked to neurodevelopmental and ocular disease biology.\"}, {\"source\": \"Lipid Droplet Homeostasis Defect\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-droplet and ER trafficking defects may contribute to multisystem disease.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes delayed milestone acquisition.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes severe cognitive impairment.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes reduced head circumference.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain development causes corpus callosum hypoplasia.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical malformation can include polymicrogyria.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment can manifest as early hypotonia.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron involvement can manifest as progressive spasticity.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular developmental defects include small globe size.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior-segment developmental defects include microcornea.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Congenital cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens opacity is a defining congenital ocular phenotype.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic nerve involvement contributes to severe visual impairment.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic gonadotropin-axis dysfunction causes hypogonadotropic hypogonadism.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia can include undescended testes.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia can include penile hypoplasia.\"}, {\"source\": \"Cataract surgery\", \"target\": \"Ocular developmental abnormality\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cataract surgery\", \"target\": \"Congenital cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RAB3GAP1\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB3GAP1\", \"target\": \"Rab GTPase regulatory complex dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB3GAP2\", \"target\": \"Rab GTPase regulatory complex dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB18\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB18\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cataract surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early cataract extraction can be used to treat congenital cataracts, though visual outcomes may remain limited by optic nerve and broader neurodevelopmental involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataract is a defining ocular manifestation.\", \"meta\": {\"term_id\": \"HP:0000518\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Male genital hypoplasia in Warburg micro syndrome can include undescended testes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective Autophagosome Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TBC1D20 and RAB3GAP1/Rab-pathway dysfunction links Warburg micro syndrome to impaired autophagy and autophagosome maturation, particularly in nervous system and patient-derived cellular contexts.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"autophagy\"], \"genes\": [\"TBC1D20\", \"RAB3GAP1\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}, {\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children have profound global developmental delay.\", \"meta\": {\"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia and hypogonadism are recognized features of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypoplasia of penis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Male genital hypoplasia in Warburg micro syndrome can include penile hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008736\"}}, {\"id\": \"Hypoplasia of the corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agenesis or hypoplasia of the corpus callosum is part of the brain-malformation spectrum.\", \"meta\": {\"term_id\": \"HP:0002079\"}}, {\"id\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes hypothalamic hypogonadism and genital hypoplasia, producing delayed pubertal/reproductive development and male genital phenotypes such as cryptorchidism and penile hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"reproductive process\"]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early hypotonia is part of the motor phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Lipid Droplet Homeostasis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome genes, particularly TBC1D20 and RAB18/Rab-pathway biology, intersect with ER-to-lipid droplet trafficking and lipid droplet growth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lipid droplet organization\"], \"genes\": [\"TBC1D20\", \"RAB18\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}, {\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}]}}, {\"id\": \"Membrane trafficking disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of RAB18 or TBC1D20 function disrupts Rab18-associated membrane trafficking across the endomembrane system, linking Warburg micro syndrome to abnormal vesicular transport and organelle organization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vesicle-mediated transport\", \"endoplasmic reticulum to Golgi vesicle-mediated transport\", \"Golgi organization\"], \"genes\": [\"RAB18\", \"TBC1D20\"], \"gene_terms\": [{\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}, {\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced head circumference is a core cranial-neurodevelopmental feature.\", \"meta\": {\"term_id\": \"HP:0000252\"}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcornea is a common anterior-segment abnormality in the syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphthalmia is one of the defining ocular malformations.\", \"meta\": {\"term_id\": \"HP:0000568\"}}, {\"id\": \"Neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent nervous-system outcome is severe neurodevelopmental impairment with microcephaly, brain malformations, intellectual disability, abnormal tone, and delayed motor development.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"Purkinje cell\"], \"biological_processes\": [\"neuron development\"]}}, {\"id\": \"Ocular developmental abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes congenital maldevelopment of the eye, especially microphthalmia, microcornea, cataract, and optic nerve atrophy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"biological_processes\": [\"camera-type eye morphogenesis\", \"eye morphogenesis\"], \"locations\": [\"eye\"]}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve atrophy contributes to severe visual impairment.\", \"meta\": {\"term_id\": \"HP:0000648\"}}, {\"id\": \"Polymicrogyria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Polymicrogyria is a cortical malformation reported in WARBM1.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002126\"}}, {\"id\": \"RAB18\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB18\"], \"gene_terms\": [{\"label\": \"RAB18\", \"id\": \"hgnc:14244\"}], \"association\": \"Causal biallelic pathogenic variants in RAB18\"}}, {\"id\": \"RAB3GAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB3GAP1\"], \"gene_terms\": [{\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}], \"association\": \"Causal biallelic pathogenic variants in RAB3GAP1\"}}, {\"id\": \"RAB3GAP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RAB3GAP2\"], \"gene_terms\": [{\"label\": \"RAB3GAP2\", \"id\": \"hgnc:17168\"}], \"association\": \"Causal biallelic pathogenic variants in RAB3GAP2\"}}, {\"id\": \"Rab GTPase regulatory complex dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in RAB3GAP1 or RAB3GAP2 disrupt the RAB3GAP complex, disturbing Rab-family small GTPase signaling during nervous-system and ocular development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Rab protein signal transduction\"], \"genes\": [\"RAB3GAP1\", \"RAB3GAP2\"], \"gene_terms\": [{\"label\": \"RAB3GAP1\", \"id\": \"hgnc:17063\"}, {\"label\": \"RAB3GAP2\", \"id\": \"hgnc:17168\"}]}}, {\"id\": \"Severe intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe intellectual disability is a defining neurodevelopmental manifestation.\", \"meta\": {\"term_id\": \"HP:0001249\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spasticity can develop over time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001257\"}}, {\"id\": \"TBC1D20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TBC1D20\"], \"gene_terms\": [{\"label\": \"TBC1D20\", \"id\": \"hgnc:16133\"}], \"association\": \"Causal biallelic pathogenic variants in TBC1D20\"}}], \"edges\": [{\"source\": \"Rab GTPase regulatory complex dysfunction\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Rab regulation perturbs vesicle-mediated trafficking.\"}, {\"source\": \"Rab GTPase regulatory complex dysfunction\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rab-pathway disruption contributes to impaired brain development.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endomembrane trafficking defects impair developing neural tissues.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Ocular developmental abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endomembrane trafficking defects impair anterior-segment and lens development.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Warburg micro syndrome includes hypothalamic hypogonadism with genital hypoplasia.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBC1D20/Rab-pathway disruption perturbs autophagy maturation.\"}, {\"source\": \"Membrane trafficking disruption\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TBC1D20-related trafficking defects alter ER-to-lipid droplet biology.\"}, {\"source\": \"Defective Autophagosome Maturation\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autophagy impairment is linked to neurodevelopmental and ocular disease biology.\"}, {\"source\": \"Lipid Droplet Homeostasis Defect\", \"target\": \"Neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-droplet and ER trafficking defects may contribute to multisystem disease.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes delayed milestone acquisition.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Severe intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes severe cognitive impairment.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment causes reduced head circumference.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Hypoplasia of the corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain development causes corpus callosum hypoplasia.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Polymicrogyria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cortical malformation can include polymicrogyria.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal neurodevelopment can manifest as early hypotonia.\"}, {\"source\": \"Neurodevelopmental impairment\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper-motor-neuron involvement can manifest as progressive spasticity.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular developmental defects include small globe size.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior-segment developmental defects include microcornea.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Congenital cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens opacity is a defining congenital ocular phenotype.\"}, {\"source\": \"Ocular developmental abnormality\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic nerve involvement contributes to severe visual impairment.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic gonadotropin-axis dysfunction causes hypogonadotropic hypogonadism.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia can include undescended testes.\"}, {\"source\": \"Hypothalamic hypogonadism and genital hypoplasia\", \"target\": \"Hypoplasia of penis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genital hypoplasia can include penile hypoplasia.\"}, {\"source\": \"Cataract surgery\", \"target\": \"Ocular developmental abnormality\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cataract surgery\", \"target\": \"Congenital cataract\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RAB3GAP1\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB3GAP1\", \"target\": \"Rab GTPase regulatory complex dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB3GAP2\", \"target\": \"Rab GTPase regulatory complex dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB18\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAB18\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Defective Autophagosome Maturation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Lipid Droplet Homeostasis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBC1D20\", \"target\": \"Membrane trafficking disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5460,14 +5875,21 @@
                         Hypogonadotropic hypogonadism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypogonadotropic hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000044">HP:0000044</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000044</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5487,6 +5909,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5528,14 +5951,21 @@
                         Microphthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568), qualified as congenital onset. HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5584,14 +6014,21 @@
                         Microcornea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcornea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000482</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcornea (HP:0000482), qualified as congenital onset. HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5641,6 +6078,7 @@
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5672,14 +6110,21 @@
                         Congenital cataract
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital cataract, annotated with Cataract (HP:0000518), qualified as congenital onset. HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5728,14 +6173,21 @@
                         Optic atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5764,14 +6216,21 @@
                         Cryptorchidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cryptorchidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5791,6 +6250,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5832,14 +6292,21 @@
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5868,14 +6335,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5895,6 +6369,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5927,14 +6402,21 @@
                         Spasticity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257), qualified as course progressive. HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5972,6 +6454,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6013,14 +6496,21 @@
                         Severe intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe intellectual disability, annotated with Intellectual disability (HP:0001249), qualified as severity severe. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6058,14 +6548,21 @@
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263), qualified as infantile onset. HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6114,14 +6611,21 @@
                         Hypoplasia of the corpus callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002079</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079), qualified as congenital onset. HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6170,14 +6674,21 @@
                         Polymicrogyria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polymicrogyria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002126">HP:0002126</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002126</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6197,6 +6708,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/jdn.10264" target="_blank">DOI:10.1002/jdn.10264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6238,14 +6750,21 @@
                         Hypoplasia of penis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of penis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008736">HP:0008736</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0008736</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of penis (HP:0008736). HP:0008736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6265,6 +6784,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2510" target="_blank">ORPHA:2510</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6343,13 +6863,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB3GAP1
 
 
-    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17063">hgnc:17063</a>
+    <a href="https://bioregistry.io/hgnc:17063" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:17063</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB3GAP1 (hgnc:17063). hgnc:17063 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6370,6 +6895,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.62234" target="_blank">DOI:10.1002/ajmg.a.62234</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6392,6 +6918,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_a1e4a47e-757a-442f-b82f-2ddfd69d0854-2020-05-26T160000.000Z" target="_blank">CGGV:assertion_a1e4a47e-757a-442f-b82f-2ddfd69d0854-2020-05-26T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6429,13 +6956,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB3GAP2
 
 
-    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17168">hgnc:17168</a>
+    <a href="https://bioregistry.io/hgnc:17168" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:17168</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB3GAP2 (hgnc:17168). hgnc:17168 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6456,6 +6988,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1098/rsob.150047" target="_blank">DOI:10.1098/rsob.150047</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6478,6 +7011,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_a322fa3e-2985-4f60-9b4b-87f333cf9431-2023-11-28T200000.000Z" target="_blank">CGGV:assertion_a322fa3e-2985-4f60-9b4b-87f333cf9431-2023-11-28T200000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6515,13 +7049,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB18
 
 
-    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14244">hgnc:14244</a>
+    <a href="https://bioregistry.io/hgnc:14244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:14244</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB18 (hgnc:14244). hgnc:14244 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6542,6 +7081,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1098/rsob.150047" target="_blank">DOI:10.1098/rsob.150047</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6564,6 +7104,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_4f09a474-8789-4f05-8f7e-611698d30936-2023-09-30T160000.000Z" target="_blank">CGGV:assertion_4f09a474-8789-4f05-8f7e-611698d30936-2023-09-30T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6601,13 +7142,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBC1D20
 
 
-    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16133">hgnc:16133</a>
+    <a href="https://bioregistry.io/hgnc:16133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:16133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBC1D20 (hgnc:16133). hgnc:16133 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6628,6 +7174,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1098/rsob.150047" target="_blank">DOI:10.1098/rsob.150047</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6659,6 +7206,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6674,7 +7224,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6720,7 +7275,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6775,16 +7335,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6803,6 +7368,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/2633004020938061" target="_blank">DOI:10.1177/2633004020938061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6833,7 +7399,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6881,6 +7452,7 @@
                         <a href="https://bioregistry.io/DOI:10.1177/2633004020938061" target="_blank">DOI:10.1177/2633004020938061</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6925,6 +7497,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6941,7 +7516,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Warburg micro syndrome
 creation_date: &#34;2026-05-07T15:59:44Z&#34;
-updated_date: &#34;2026-05-07T16:36:52Z&#34;
 description: &gt;-
   Warburg micro syndrome is a rare autosomal recessive Mendelian
   neurodevelopmental disorder characterized by congenital ocular abnormalities,
@@ -7184,6 +7758,7 @@ pathophysiology:
     description: Warburg micro syndrome includes hypothalamic hypogonadism with genital hypoplasia.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Other frequent findings are hypothalamic hypogonadism and brain malformations.&#34;
@@ -7325,6 +7900,7 @@ pathophysiology:
     description: Abnormal neurodevelopment can manifest as early hypotonia.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001252 | Hypotonia | Very frequent (99-80%)&#34;
@@ -7333,6 +7909,7 @@ pathophysiology:
     description: Upper-motor-neuron involvement can manifest as progressive spasticity.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001257 | Spasticity | Very frequent (99-80%)&#34;
@@ -7349,6 +7926,7 @@ pathophysiology:
       Supports corpus callosum and cortical malformation as human WARBM
       neurodevelopmental outcomes.
 - name: Ocular developmental abnormality
+  conforms_to: &#34;ocular_morphogenesis_failure#Disrupted Optic Cup and Globe Morphogenesis&#34;
   description: &gt;-
     Warburg micro syndrome includes congenital maldevelopment of the eye,
     especially microphthalmia, microcornea, cataract, and optic nerve atrophy.
@@ -7363,6 +7941,16 @@ pathophysiology:
       id: GO:0048593
       label: camera-type eye morphogenesis
     modifier: ABNORMAL
+  - preferred_term: eye morphogenesis
+    term:
+      id: GO:0048592
+      label: eye morphogenesis
+    modifier: ABNORMAL
+  locations:
+  - preferred_term: eye
+    term:
+      id: UBERON:0000970
+      label: eye
   downstream:
   - target: Microphthalmia
     description: Ocular developmental defects include small globe size.
@@ -7370,6 +7958,7 @@ pathophysiology:
     description: Anterior-segment developmental defects include microcornea.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000482 | Microcornea | Very frequent (99-80%)&#34;
@@ -7406,6 +7995,7 @@ pathophysiology:
     description: Hypothalamic gonadotropin-axis dysfunction causes hypogonadotropic hypogonadism.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Other frequent findings are hypothalamic hypogonadism and brain malformations.&#34;
@@ -7414,6 +8004,7 @@ pathophysiology:
     description: Genital hypoplasia can include undescended testes.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000028 | Cryptorchidism | Very frequent (99-80%)&#34;
@@ -7422,12 +8013,14 @@ pathophysiology:
     description: Genital hypoplasia can include penile hypoplasia.
     evidence:
     - reference: ORPHA:2510
+      reference_title: &#34;Micro syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008736 | Hypoplasia of penis | Frequent (79-30%)&#34;
       explanation: Orphanet lists hypoplasia of penis as a frequent Warburg micro phenotype.
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Other frequent findings are hypothalamic hypogonadism and brain malformations.&#34;
@@ -7495,6 +8088,7 @@ phenotypes:
       onset_category: CONGENITAL
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000482 | Microcornea | Very frequent (99-80%)&#34;
@@ -7528,6 +8122,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001252 | Hypotonia | Very frequent (99-80%)&#34;
@@ -7543,6 +8138,7 @@ phenotypes:
     clinical_course: PROGRESSIVE
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001257 | Spasticity | Very frequent (99-80%)&#34;
@@ -7557,6 +8153,7 @@ phenotypes:
       label: Hypogonadotropic hypogonadism
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Other frequent findings are hypothalamic hypogonadism and brain malformations.&#34;
@@ -7589,6 +8186,7 @@ phenotypes:
       label: Cryptorchidism
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000028 | Cryptorchidism | Very frequent (99-80%)&#34;
@@ -7603,6 +8201,7 @@ phenotypes:
       label: Hypoplasia of penis
   evidence:
   - reference: ORPHA:2510
+    reference_title: &#34;Micro syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008736 | Hypoplasia of penis | Frequent (79-30%)&#34;
@@ -7958,6 +8557,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/ajmg.a.62234" target="_blank">DOI:10.1002/ajmg.a.62234</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8027,6 +8627,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/jdn.10264" target="_blank">DOI:10.1002/jdn.10264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8095,6 +8696,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/jimd.12798" target="_blank">DOI:10.1002/jimd.12798</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8313,6 +8915,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1055/s-0043-1768693" target="_blank">DOI:10.1055/s-0043-1768693</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8381,6 +8984,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/s-0043-57022" target="_blank">DOI:10.1055/s-0043-57022</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8488,6 +9092,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1083/jcb.202406139" target="_blank">DOI:10.1083/jcb.202406139</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8556,6 +9161,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1098/rsob.150047" target="_blank">DOI:10.1098/rsob.150047</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8626,6 +9232,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1126/sciadv.ade7753" target="_blank">DOI:10.1126/sciadv.ade7753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8694,6 +9301,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/2633004020938061" target="_blank">DOI:10.1177/2633004020938061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8801,6 +9409,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s13023-022-02340-7" target="_blank">DOI:10.1186/s13023-022-02340-7</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8907,6 +9516,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1242/dmm.015222" target="_blank">DOI:10.1242/dmm.015222</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8975,6 +9585,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1534/g3.115.022707" target="_blank">DOI:10.1534/g3.115.022707</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9602,7 +10213,7 @@ These were explicitly highlighted in a prenatal WARBM1 diagnosis report. (lallar
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Warburg micro syndrome", "mondoId": "MONDO:0016649", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Warburg_micro_syndrome", "yamlRevision": "7693980f17f6"};
+        const OS_CONFIG = {"diseaseName": "Warburg micro syndrome", "mondoId": "MONDO:0016649", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Warburg_micro_syndrome", "yamlRevision": "6dbe49dc5e81"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10021,5 +10632,73 @@ These were explicitly highlighted in a prenatal WARBM1 diagnosis report. (lallar
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

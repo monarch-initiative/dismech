@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Severe Neonatal-Onset Encephalopathy With Microcephaly</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Severe Neonatal-Onset Encephalopathy With Microcephaly</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3823,6 +4027,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3915,7 +4127,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-genereviews-clinical-characterization-of-the-male-severe-neonatal-onset-phenotype">
                 <div class="item-name">GeneReviews clinical characterization of the male severe neonatal-onset phenotype</div>
 
                 <div class="item-desc">GeneReviews defines the male end of the MECP2 spectrum and identifies severe neonatal-onset encephalopathy as the most common phenotype in affected males, characterized by a relentless course resembling a metabolic-degenerative disease, abnormal tone, involuntary movements, severe seizures and breathing abnormalities, with death often before age two years. Molecular confirmation in a male proband requires suggestive findings plus a hemizygous MECP2 pathogenic variant.</div>
@@ -3961,6 +4173,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3982,6 +4195,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4007,7 +4221,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-salient-clinical-diagnostic-criteria-for-non-mosaic-46-xy-mecp2-null-males">
                 <div class="item-name">Salient clinical diagnostic criteria for non-mosaic 46,XY MECP2 null males</div>
 
                 <div class="item-desc">Case-series-derived recognition criteria. A non-mosaic 46,XY male with a MECP2 null variant presents with a phenotype explicitly distinct from Rett syndrome; the practical trigger for MECP2 testing is a boy with progressive encephalopathy plus one or more of respiratory insufficiency, abnormal movements or tone, and intractable seizures.</div>
@@ -4053,6 +4267,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4075,6 +4290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4096,6 +4312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4133,7 +4350,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -4178,6 +4395,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4200,6 +4418,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4221,6 +4440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4307,6 +4527,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4329,6 +4550,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4350,6 +4572,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4462,6 +4685,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4478,6 +4707,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Characterise cortical progenitor proliferation, neuronal migration and gyral patterning prenatally in hemizygous Mecp2-null mice and in MECP2-null human cortical organoids, to establish whether complete MeCP2 loss perturbs cortical development before birth in a way that heterozygous mosaic loss does not.</div>
+
+
+
+
+
+
 
 
 
@@ -4519,6 +4754,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4541,6 +4777,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4562,6 +4799,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4662,6 +4900,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4678,6 +4922,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare the developmental stage at which dendritic and synaptic deficits first appear in MECP2-null human cortical organoids against the corresponding stage in hemizygous Mecp2-null mouse cortex, to test whether the human requirement is earlier relative to corticogenesis.</div>
+
+
+
+
+
+
 
 
 
@@ -4719,6 +4969,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4741,6 +4992,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242117" target="_blank">PMID:11242117</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4762,6 +5014,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242118" target="_blank">PMID:11242118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4857,6 +5110,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4873,6 +5132,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Determine, in hemizygous Mecp2-null mice and MECP2-null human neurons, the MeCP2 re-expression dose window that rescues dendritic and respiratory phenotypes without producing duplication-syndrome-like overexpression toxicity, and test whether that window differs from the window established in mosaic heterozygous female models.</div>
+
+
+
+
+
+
 
 
 
@@ -4914,6 +5179,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20298210" target="_blank">PMID:20298210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4936,6 +5202,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="https://clinicaltrials.gov/study/NCT05898620" target="_blank">clinicaltrials:NCT05898620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4957,6 +5224,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06152237" target="_blank">clinicaltrials:NCT06152237</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5057,6 +5325,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5080,6 +5354,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5102,6 +5377,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5123,6 +5399,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5175,15 +5452,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5211,16 +5495,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epigenetic regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040029">GO:0040029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0040029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5241,6 +5530,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -5285,6 +5575,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5307,6 +5598,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5328,6 +5620,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5363,16 +5656,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5399,15 +5697,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5435,16 +5740,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         dosage compensation by inactivation of X chromosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009048" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009048">GO:0009048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0009048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent dosage compensation by inactivation of X chromosome (GO:0009048). GO:0009048 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5465,6 +5775,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -5501,6 +5812,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5523,6 +5835,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11738861" target="_blank">PMID:11738861</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5544,6 +5857,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39476560" target="_blank">PMID:39476560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5586,15 +5900,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5622,16 +5943,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5656,16 +5982,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         methyl-CpG binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008327" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008327">GO:0008327</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008327" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008327</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased methyl-CpG binding (GO:0008327). GO:0008327 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5686,6 +6017,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -5737,6 +6069,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5759,6 +6092,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5780,6 +6114,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10508514" target="_blank">PMID:10508514</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5820,15 +6155,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5848,6 +6190,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -5889,6 +6232,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5911,6 +6255,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5932,6 +6277,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5967,17 +6313,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5998,10 +6351,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6028,15 +6384,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6064,16 +6427,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epigenetic regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040029">GO:0040029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0040029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6100,19 +6468,25 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6154,6 +6528,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6176,6 +6551,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6197,6 +6573,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19234456" target="_blank">PMID:19234456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6232,16 +6609,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6268,15 +6650,22 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6990</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6304,16 +6693,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000122">GO:0000122</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0000122</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of transcription by RNA polymerase II (GO:0000122). GO:0000122 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6333,16 +6727,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
                     <span class="tag tag-bio">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010468">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0010468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6363,6 +6762,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -6407,6 +6807,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25232122" target="_blank">PMID:25232122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6429,6 +6830,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25232122" target="_blank">PMID:25232122</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6450,6 +6852,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25232122" target="_blank">PMID:25232122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6483,16 +6886,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6519,16 +6927,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010468">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0010468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6549,6 +6962,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -6585,6 +6999,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18511691" target="_blank">PMID:18511691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6606,6 +7021,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18511691" target="_blank">PMID:18511691</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6639,17 +7055,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6670,10 +7093,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002608" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002608">CL:0002608</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002608" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002608</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hippocampal neuron (CL:0002608). CL:0002608 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6700,16 +7126,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         dendrite morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048813">GO:0048813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0048813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dendrite morphogenesis (GO:0048813). GO:0048813 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6730,6 +7161,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -6766,6 +7198,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19234456" target="_blank">PMID:19234456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6787,6 +7220,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19234456" target="_blank">PMID:19234456</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6820,17 +7254,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6851,10 +7292,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6881,16 +7325,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         dendrite morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048813">GO:0048813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0048813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dendrite morphogenesis (GO:0048813). GO:0048813 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6899,6 +7348,8 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -6916,10 +7367,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050808">GO:0050808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0050808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased synapse organization (GO:0050808). GO:0050808 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6946,17 +7400,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cerebellum
@@ -6964,11 +7425,16 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         spinal cord
@@ -6976,13 +7442,17 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7072,6 +7542,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7094,6 +7565,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7115,6 +7587,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22412847" target="_blank">PMID:22412847</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7157,16 +7630,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         brain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007420">GO:0007420</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0007420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased brain development (GO:0007420). GO:0007420 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7193,17 +7671,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         frontal cortex
@@ -7211,11 +7696,16 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001870" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001870">UBERON:0001870</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001870" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0001870</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in frontal cortex (UBERON:0001870). UBERON:0001870 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         temporal lobe
@@ -7223,13 +7713,17 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001871">UBERON:0001871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0001871</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0001871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7271,6 +7765,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7292,6 +7787,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242118" target="_blank">PMID:11242118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7332,16 +7828,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cerebral cortex development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021987">GO:0021987</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0021987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cerebral cortex development (GO:0021987). GO:0021987 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7368,19 +7869,25 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-36">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7430,6 +7937,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7451,6 +7959,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7484,16 +7993,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7520,16 +8034,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of respiratory gaseous exchange
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043576" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043576">GO:0043576</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043576" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0043576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of respiratory gaseous exchange (GO:0043576). GO:0043576 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7556,19 +8075,25 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brainstem
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-39">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7626,6 +8151,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7648,6 +8174,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7669,6 +8196,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7709,16 +8237,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of respiratory gaseous exchange
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043576" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043576">GO:0043576</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043576" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0043576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulation of respiratory gaseous exchange (GO:0043576). GO:0043576 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7739,6 +8272,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -7783,6 +8317,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7804,6 +8339,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7844,16 +8380,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071456">GO:0071456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0071456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7880,19 +8421,25 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7933,6 +8480,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7979,6 +8527,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7990,6 +8539,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8013,6 +8563,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8034,6 +8585,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8069,16 +8621,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8105,16 +8662,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8141,19 +8703,25 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -8203,6 +8771,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8225,6 +8794,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8246,6 +8816,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8279,16 +8850,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8315,16 +8891,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006937" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006937">GO:0006937</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006937" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-47">GO:0006937</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of muscle contraction (GO:0006937). GO:0006937 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8345,6 +8926,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
                 </div>
+
 
 
 
@@ -8429,6 +9011,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8451,6 +9034,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8472,6 +9056,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8512,16 +9097,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of heart rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002027">GO:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8548,17 +9138,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         sinoatrial node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002351">UBERON:0002351</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002351" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0002351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON:0002351 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         heart
@@ -8566,13 +9163,17 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-50">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -8630,6 +9231,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8652,6 +9254,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8673,6 +9276,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8779,14 +9383,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bradycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001662">HP:0001662</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001662</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bradycardia (HP:0001662), qualified as severity severe. HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8825,6 +9436,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8846,6 +9458,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8878,14 +9491,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Prolonged QT Interval
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prolonged QT interval
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001657">HP:0001657</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001657</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8905,6 +9525,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8948,14 +9569,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968), qualified as course progressive; severity severe. HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8996,6 +9624,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9018,6 +9647,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9039,6 +9669,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9082,14 +9713,23 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of eye movement
+
+                        <span class="phenotype-term-label">Abnormality of eye movement</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000496">HP:0000496</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000496</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular dyskinesia, annotated with Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9109,6 +9749,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9152,14 +9793,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252), qualified as course progressive. HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9198,6 +9846,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9219,6 +9868,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9283,6 +9933,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9327,14 +9978,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9354,6 +10012,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9376,6 +10035,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9419,14 +10079,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Involuntary movements
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004305">HP:0004305</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0004305</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Involuntary movements (HP:0004305). HP:0004305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9446,6 +10113,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9468,6 +10136,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9502,14 +10171,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9529,6 +10205,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9563,14 +10240,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9590,6 +10274,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9624,14 +10309,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myoclonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001336">HP:0001336</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001336</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9651,6 +10343,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9685,14 +10378,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250), qualified as severity severe. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9731,6 +10431,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9752,6 +10453,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9784,14 +10486,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         EEG Abnormality
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002353">HP:0002353</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002353</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9811,6 +10520,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9845,14 +10555,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Severe global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011344">HP:0011344</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0011344</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9872,6 +10589,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9895,6 +10613,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37537631" target="_blank">PMID:37537631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9916,6 +10635,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9950,14 +10670,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polymicrogyria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002126">HP:0002126</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002126</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polymicrogyria (HP:0002126). HP:0002126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9977,6 +10704,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9999,6 +10727,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10033,14 +10762,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10060,6 +10796,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10103,14 +10840,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093), qualified as course progressive. HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10149,6 +10893,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10170,6 +10915,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10211,14 +10957,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Sudden Death
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001699">HP:0001699</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001699</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden death (HP:0001699). HP:0001699 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10238,6 +10991,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10281,14 +11035,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10308,6 +11069,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10330,6 +11092,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10373,14 +11136,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital encephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007239" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007239">HP:0007239</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0007239</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital encephalopathy (HP:0007239), qualified as temporality chronic; course progressive. HP:0007239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10421,6 +11191,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10443,6 +11214,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10464,6 +11236,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10534,6 +11307,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10569,14 +11343,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal muscle tone
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003808">HP:0003808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0003808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10596,6 +11377,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10618,6 +11400,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10650,14 +11433,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Hypoventilation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoventilation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002791">HP:0002791</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0002791</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoventilation (HP:0002791). HP:0002791 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10677,6 +11467,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10699,6 +11490,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10731,14 +11523,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Central Apnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002871" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002871">HP:0002871</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0002871</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central apnea (HP:0002871), qualified as severity severe. HP:0002871 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10777,6 +11576,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10808,14 +11608,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Inability to Walk
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Inability to walk
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002540">HP:0002540</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002540</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10835,6 +11642,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10869,14 +11677,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bruxism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003763">HP:0003763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0003763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bruxism (HP:0003763). HP:0003763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10896,6 +11711,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10930,14 +11746,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sick sinus syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011704">HP:0011704</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0011704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sick sinus syndrome (HP:0011704). HP:0011704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10957,6 +11780,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10989,14 +11813,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         Type 2 Muscle Fiber Atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type 2 muscle fiber atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003554">HP:0003554</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0003554</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type 2 muscle fiber atrophy (HP:0003554). HP:0003554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11016,6 +11847,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11094,13 +11926,18 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MECP2
 
 
-    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6990">hgnc:6990</a>
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:6990</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -11132,6 +11969,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11154,6 +11992,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11175,6 +12014,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11222,6 +12062,8 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -11233,6 +12075,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10577905" target="_blank">PMID:10577905</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11256,6 +12099,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10577905" target="_blank">PMID:10577905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11277,6 +12121,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11738861" target="_blank">PMID:11738861</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11324,6 +12169,8 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11335,6 +12182,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11357,6 +12205,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11402,6 +12251,8 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11413,6 +12264,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11436,6 +12288,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11457,6 +12310,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11493,6 +12347,51 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-mondo-0010397-disease-record-and-cross-references">
+
+
+    <div class="item-name">MONDO:0010397 disease record and cross-references</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">MONDO</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">ontology disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="https://monarchinitiative.org/MONDO:0010397" target="_blank" rel="noopener noreferrer" title="Open MONDO:0010397">MONDO:0010397</a>
+
+
+    </div>
+
+    <div class="item-desc">MONDO:0010397 anchors this entry. Its OBO record names MECP2 as the causal gene (RO:0004003 HGNC:6990), classifies the entity under monogenic epilepsy, neonatal epilepsy syndrome and Mendelian encephalopathy, and lists cross-references to OMIM:300673, Orphanet:209370, NCIT:C132293, DOID:0111932, MEDGEN:409616, MESH:C566878, GARD:0017103 and UMLS:C1968556.</div>
+
+
+
+    <div class="mapping-notes">Recorded as an external assertion rather than as an evidence-bearing claim because the ontology record itself is not a citable publication with a quotable snippet. The gene, OMIM identifier and synonym list were used for the named-entity-confusion preflight on the deep-research reports consumed by this entry.</div>
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -11508,7 +12407,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11556,6 +12460,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11585,7 +12490,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticonvulsant therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-79">anticonvulsant therapy<span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
@@ -11616,16 +12526,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         anticonvulsant agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C264">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-80">NCIT:C264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -11660,6 +12575,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -11689,16 +12605,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11717,6 +12638,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11739,6 +12661,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -11769,7 +12692,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">serial electrocardiography with QTc assessment</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">serial electrocardiography with QTc assessment<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is serial electrocardiography with QTc assessment, annotated with Electrocardiography (NCIT:C38053). NCIT:C38053 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Electrocardiography</span>
 
 
@@ -11827,6 +12755,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11856,17 +12785,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Prolonged QT interval
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001657">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-83">HP:0001657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sudden death
@@ -11874,10 +12810,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001699">HP:0001699</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001699" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-84">HP:0001699</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sudden death (HP:0001699). HP:0001699 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11896,6 +12835,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11918,6 +12858,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29631775" target="_blank">PMID:29631775</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11948,7 +12889,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11978,16 +12924,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         melatonin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16796" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16796">CHEBI:16796</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16796" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-86">CHEBI:16796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -12001,16 +12952,21 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sleep disturbance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0002360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12029,6 +12985,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -12051,6 +13008,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -12081,7 +13039,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Nutritional Support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-88">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-88">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -12117,17 +13080,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0001508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
@@ -12135,10 +13105,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12157,6 +13130,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17236109" target="_blank">PMID:17236109</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12179,6 +13153,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -12209,7 +13184,12 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-91">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -12257,6 +13237,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12278,6 +13259,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301670" target="_blank">PMID:20301670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12351,7 +13333,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-classic-rett-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Rett_Syndrome.html">Classic Rett syndrome</a>
@@ -12408,6 +13390,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12430,6 +13413,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10508514" target="_blank">PMID:10508514</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12451,6 +13435,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12479,7 +13464,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mecp2-duplication-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="MECP2_Duplication_Syndrome.html">MECP2 duplication syndrome</a>
@@ -12534,6 +13519,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12556,6 +13542,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12577,6 +13564,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34502518" target="_blank">PMID:34502518</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12605,7 +13593,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-milder-male-mecp2-phenotypes-ppm-x-and-x-linked-syndromic-intellectual-disability-13">
                 <div class="item-name">
 
                     <a class="item-name-link" href="PPM-X_Syndrome.html">Milder male MECP2 phenotypes (PPM-X and X-linked syndromic intellectual disability 13)</a>
@@ -12656,6 +13644,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12678,6 +13667,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34271245" target="_blank">PMID:34271245</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12699,6 +13689,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27929079" target="_blank">PMID:27929079</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12725,7 +13716,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-neonatal-hypoxic-ischemic-encephalopathy-and-perinatal-asphyxia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Neonatal hypoxic-ischemic encephalopathy and perinatal asphyxia</span>
@@ -12779,6 +13770,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40515634" target="_blank">PMID:40515634</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12801,6 +13793,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12822,6 +13815,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -12850,7 +13844,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cdkl5-deficiency-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="CDKL5_Deficiency_Disorder.html">CDKL5 deficiency disorder</a>
@@ -12901,6 +13895,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16832102" target="_blank">PMID:16832102</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -12926,7 +13921,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bilateral-perisylvian-polymicrogyria">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Bilateral perisylvian polymicrogyria</span>
@@ -12976,6 +13971,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12997,6 +13993,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11930274" target="_blank">PMID:11930274</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13036,7 +14033,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04502199">
                 <div class="item-name">
                     NCT04502199
 
@@ -13053,17 +14050,24 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Bradycardia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001662">HP:0001662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0001662</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Bradycardia (HP:0001662). HP:0001662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Prolonged QT interval
@@ -13071,10 +14075,13 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001657">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-93">HP:0001657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13092,6 +14099,7 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04502199" target="_blank">clinicaltrials:NCT04502199</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13120,6 +14128,315 @@ Two further considerations make simple extrapolation unsafe. MECP2-directed ther
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mecp2-null-hemizygous-male-mus-musculus" data-dismech-node="Mecp2-null hemizygous male Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mecp2-null hemizygous male Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">The hemizygous Mecp2-null male mouse is argued in the human neuropathology literature to be the true counterpart of THIS entity rather than of Rett syndrome, because it reproduces the non-mosaic, uniformly MeCP2-deficient male state. Null mice and brain-restricted deletions develop severe neurological symptoms at about six weeks and die between six and twelve weeks, with brains substantially reduced in weight and neuronal cell size but no structural defect or neurodegeneration. Hemizygous mutant males also give the quantitative dendritic phenotype, with reduced basal dendritic length and compartment-specific spine loss in layer 5 motor cortex. Two important limitations qualify its use for this entity. The mouse is normal until five to six weeks of age, whereas the affected human male is encephalopathic from birth, and the mouse literature interprets its own delayed onset as evidence that MeCP2 maintains brain function rather than builds it, which sits awkwardly beside the human autopsy findings of a small brain and perisylvian polymicrogyria.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Mecp2-null hemizygous male</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MECP2
+
+
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-94">hgnc:6990</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-94">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (8 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18477000" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18477000" target="_blank">PMID:18477000</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Males with congenital encephalopathy, not females with RTT, represent the true human counterpart for the commonly studied Mecp2-/y mouse model and provide unique insight into the mechanisms of MeCP2 deficiency."</div>
+
+
+                <div class="evidence-explanation">States the claim that licenses using the hemizygous null mouse as the model for this entity specifically.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11242117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242117" target="_blank">PMID:11242117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both Mecp2-null mice and mice in which Mecp2 was deleted in brain showed severe neurological symptoms at approximately six weeks of age."</div>
+
+
+                <div class="evidence-explanation">Establishes the model&#39;s phenotype and its timing, which is the basis of the onset-mismatch limitation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11242118" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242118" target="_blank">PMID:11242118</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mecp2-null mice were normal until 5 weeks of age, when they began to develop disease, leading to death between 6 and 12 weeks."</div>
+
+
+                <div class="evidence-explanation">Documents the model&#39;s asymptomatic early period and lethality window.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 5 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mecp2-mutant-astrocyte-neuron-coculture-mus-musculus" data-dismech-node="Mecp2 mutant astrocyte-neuron coculture Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mecp2 mutant astrocyte-neuron coculture Mus musculus
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Astrocyte-neuron coculture from Mecp2-mutant mice provides the experimental basis for the non-cell-autonomous arm of the mechanism. Mutant astrocytes and their conditioned medium alone fail to support normal dendritic morphology in either wild-type or mutant hippocampal neurons, implicating aberrant secretion of soluble factors. This is especially relevant to a hemizygous male, in whom astrocytes are also uniformly MeCP2-deficient.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Mecp2 mutant astrocyte-neuron coculture</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MECP2
+
+
+    <a href="https://bioregistry.io/hgnc:6990" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-95">hgnc:6990</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-95">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns MECP2 (hgnc:6990). hgnc:6990 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19234456" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19234456" target="_blank">PMID:19234456</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using an in vitro co-culture system, we found that mutant astrocytes from a RTT mouse model, and their conditioned medium, failed to support normal dendritic morphology of either wild-type or mutant hippocampal neurons."</div>
+
+
+                <div class="evidence-explanation">The coculture result that establishes the non-cell-autonomous astrocytic contribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -19055,5 +20372,73 @@ Globally reduced brain volume  ──►  ACQUIRED / PROGRESSIVE MICROCEPHALY
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

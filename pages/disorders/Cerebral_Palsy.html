@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Cerebral Palsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Cerebral Palsy</h1>
             <div class="header-meta">
 
@@ -3693,6 +3895,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3783,27 +3987,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3850,7 +4131,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-spastic">
 
                     <div class="item-name">
                         Spastic cerebral palsy
@@ -3880,7 +4161,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dyskinetic">
 
                     <div class="item-name">
                         Dyskinetic cerebral palsy
@@ -3910,7 +4191,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ataxic">
 
                     <div class="item-name">
                         Ataxic cerebral palsy
@@ -3940,7 +4221,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mixed">
 
                     <div class="item-name">
                         Mixed cerebral palsy
@@ -4009,6 +4290,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4054,6 +4336,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4076,6 +4359,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4097,6 +4381,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17370477" target="_blank">PMID:17370477</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4130,16 +4415,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pre-myelinating oligodendrocyte precursor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased pre-myelinating oligodendrocyte precursor cell, annotated with oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4170,16 +4460,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         oligodendrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048709">GO:0048709</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0048709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oligodendrocyte differentiation (GO:0048709). GO:0048709 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4188,6 +4483,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4205,10 +4502,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4235,19 +4535,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         periventricular white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in periventricular white matter, annotated with white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4281,6 +4587,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19081519" target="_blank">PMID:19081519</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4302,6 +4609,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19081519" target="_blank">PMID:19081519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4335,16 +4643,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4375,16 +4688,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4393,6 +4711,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4410,10 +4730,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamate excitotoxicity, annotated with glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4422,6 +4745,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4439,10 +4764,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4462,16 +4790,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4492,6 +4825,7 @@
 
 
                 </div>
+
 
 
 
@@ -4528,6 +4862,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112349" target="_blank">PMID:32112349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4560,16 +4895,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4600,16 +4940,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         microglial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001774">GO:0001774</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001774</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased microglial cell activation (GO:0001774). GO:0001774 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4629,16 +4974,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         neuroinflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0150076">GO:0150076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0150076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4659,6 +5009,7 @@
 
 
                 </div>
+
 
 
 
@@ -4703,6 +5054,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10989405" target="_blank">PMID:10989405</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4745,19 +5097,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         basal ganglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002420">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglia, annotated with basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4775,6 +5133,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19081519" target="_blank">PMID:19081519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4818,19 +5177,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         basal ganglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002420">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglia, annotated with basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4863,6 +5228,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15578034" target="_blank">PMID:15578034</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4906,19 +5272,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002707">UBERON:0002707</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4947,6 +5319,7 @@
                 <div class="item-name">Upper Motor Neuron Syndrome</div>
 
                 <div class="item-desc">Loss of descending corticospinal control produces the clinical upper motor neuron syndrome: velocity-dependent hypertonia (spasticity), hyperreflexia, and extensor plantar responses. This is the direct clinical substrate of the spastic motor phenotype.</div>
+
 
 
 
@@ -4992,6 +5365,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5019,6 +5393,7 @@
                 <div class="item-name">Secondary Musculoskeletal Pathology</div>
 
                 <div class="item-desc">Chronic spasticity and abnormal muscle tone acting on a growing skeleton lead to progressive secondary musculoskeletal deformities: muscle-tendon contractures, hip subluxation/dislocation, and neuromuscular scoliosis. These are secondary consequences of the fixed brain lesion, not progression of the lesion itself.</div>
+
 
 
 
@@ -5116,14 +5491,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5152,14 +5534,21 @@
                         Hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5179,6 +5568,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5220,14 +5610,21 @@
                         Visual impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5247,6 +5644,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5279,14 +5677,21 @@
                         Strabismus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5317,14 +5722,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Drooling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002307">HP:0002307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5344,6 +5756,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5385,14 +5798,21 @@
                         Spasticity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5412,6 +5832,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5444,14 +5865,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5471,14 +5899,21 @@
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5498,14 +5933,21 @@
                         Joint contractures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint contracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034392">HP:0034392</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0034392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5534,14 +5976,21 @@
                         Dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5561,6 +6010,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5593,14 +6043,21 @@
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5620,6 +6077,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5652,14 +6110,21 @@
                         Delayed gross motor development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed gross motor development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002194">HP:0002194</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5679,14 +6144,21 @@
                         Gait disturbance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5708,14 +6180,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5735,6 +6214,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5769,14 +6249,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5796,6 +6283,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5828,14 +6316,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5855,6 +6350,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5889,14 +6385,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5916,6 +6421,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5950,14 +6456,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5977,6 +6490,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6020,14 +6534,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012531</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6047,6 +6568,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6088,14 +6610,21 @@
                         Spastic diplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic diplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001264" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001264">HP:0001264</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001264</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic diplegia (HP:0001264). HP:0001264 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6115,14 +6644,21 @@
                         Spastic tetraplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic tetraplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002510">HP:0002510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6142,14 +6678,21 @@
                         Hemiplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemiplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002301" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002301">HP:0002301</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002301</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemiplegia (HP:0002301). HP:0002301 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6169,6 +6712,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20497457" target="_blank">PMID:20497457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6201,14 +6745,21 @@
                         Choreoathetosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Athetosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002305">HP:0002305</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002305</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6228,6 +6779,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6260,14 +6812,21 @@
                         Hip dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hip dislocation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002827">HP:0002827</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002827</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6287,6 +6846,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045562" target="_blank">PMID:23045562</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6382,6 +6942,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6403,6 +6964,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30564460" target="_blank">PMID:30564460</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6438,13 +7000,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:2514</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6469,6 +7036,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36083290" target="_blank">PMID:36083290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6504,13 +7072,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TUBA1A
 
 
-    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20766">hgnc:20766</a>
+    <a href="https://bioregistry.io/hgnc:20766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:20766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TUBA1A (hgnc:20766). hgnc:20766 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6535,6 +7108,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32989326" target="_blank">PMID:32989326</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6566,6 +7140,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6581,7 +7158,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6627,7 +7209,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">occupational therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Occupational Therapy</span>
 
 
@@ -6673,7 +7260,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech and language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -6719,7 +7311,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6749,16 +7346,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         botulinum toxin type A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3160">CHEBI:3160</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:3160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6783,6 +7385,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32086598" target="_blank">PMID:32086598</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6813,7 +7416,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6843,16 +7451,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         baclofen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2972">CHEBI:2972</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:2972</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6877,6 +7490,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32086598" target="_blank">PMID:32086598</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6907,7 +7521,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6955,6 +7574,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32086598" target="_blank">PMID:32086598</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6984,7 +7604,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7029,7 +7654,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7074,7 +7704,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7104,16 +7739,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         magnesium sulfate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:32599">CHEBI:32599</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:32599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7139,6 +7779,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39724363" target="_blank">PMID:39724363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7160,6 +7801,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32086598" target="_blank">PMID:32086598</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7190,7 +7832,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Therapeutic Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7238,6 +7885,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23440789" target="_blank">PMID:23440789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7278,6 +7926,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Prematurity is the single strongest risk factor for cerebral palsy; risk rises steeply with decreasing gestational age and birth weight, largely via vulnerability of periventricular white matter.</div>
 
 
@@ -7293,6 +7945,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23346889" target="_blank">PMID:23346889</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7315,6 +7968,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19081519" target="_blank">PMID:19081519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7365,6 +8019,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23346889" target="_blank">PMID:23346889</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7397,6 +8052,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Intrapartum hypoxic-ischemic events producing neonatal encephalopathy are a recognized cause, particularly of dyskinetic and spastic-quadriplegic forms.</div>
 
 
@@ -7412,6 +8071,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112349" target="_blank">PMID:32112349</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7434,6 +8094,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23440789" target="_blank">PMID:23440789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7484,6 +8145,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32112349" target="_blank">PMID:32112349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7516,6 +8178,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Chorioamnionitis and maternal/fetal inflammation increase cerebral palsy risk independent of, and synergistically with, hypoxia-ischemia.</div>
 
 
@@ -7531,6 +8197,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10989405" target="_blank">PMID:10989405</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7581,6 +8248,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10989405" target="_blank">PMID:10989405</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7613,6 +8281,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Perinatal arterial ischemic stroke is a leading cause of unilateral (hemiplegic) cerebral palsy.</div>
 
 
@@ -7628,6 +8300,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20497457" target="_blank">PMID:20497457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7678,6 +8351,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20497457" target="_blank">PMID:20497457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7710,6 +8384,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Severe untreated neonatal jaundice causing bilirubin encephalopathy is a preventable cause of dyskinetic cerebral palsy.</div>
 
 
@@ -7725,6 +8403,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15578034" target="_blank">PMID:15578034</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7775,6 +8454,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15578034" target="_blank">PMID:15578034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7807,6 +8487,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Twin/multiple pregnancies and fetal growth restriction carry elevated risk.</div>
 
 
@@ -7831,6 +8515,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7883,6 +8570,7 @@ prevalence:
     the most common motor disability of childhood.
   evidence:
   - reference: PMID:23346889
+    reference_title: &#34;An update on the prevalence of cerebral palsy: a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The pooled overall prevalence of CP was 2.11 per 1000 live births&#34;
@@ -7898,6 +8586,7 @@ prevalence:
     per 1000 live births in children born before 28 weeks (95% CI 69.53-179.78).
   evidence:
   - reference: PMID:23346889
+    reference_title: &#34;An update on the prevalence of cerebral palsy: a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of CP expressed by gestational age was highest in children born before 28 weeks&#39; gestation (111.80 per 1000 live births; 95% CI 69.53-179.78; p&lt;0.0327).&#34;
@@ -7971,16 +8660,19 @@ pathophysiology:
     description: Intrauterine infection/inflammation is an independent injury pathway contributing to the developing-brain lesion.
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CP was thus defined as a non-progressive developmental disorder of movement and/or posture impairing motor function.&#34;
     explanation: States the operational non-progressive, movement/posture definition of cerebral palsy.
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This operational definition thus excluded progressive neurological disorders such as neurodegenerative diseases.&#34;
     explanation: Reinforces that CP is defined by a static (non-progressive) lesion, distinguishing it from neurodegeneration.
   - reference: PMID:17370477
+    reference_title: &#34;A report: the definition and classification of cerebral palsy April 2006.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;at the workshop, it was agreed that the concept &#39;cerebral palsy&#39; should be retained&#34;
@@ -8023,11 +8715,13 @@ pathophysiology:
     description: Injury to periventricular white matter damages the descending corticospinal motor fibers carrying descending motor output to the legs.
   evidence:
   - reference: PMID:19081519
+    reference_title: &#34;Brain injury in premature infants: a complex amalgam of destructive and developmental disturbances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This type of brain injury is generally thought to consist primarily of periventricular leukomalacia (PVL), a distinctive form of cerebral white matter injury.&#34;
     explanation: Identifies periventricular leukomalacia (white matter injury) as the primary brain injury of prematurity underlying spastic CP.
   - reference: PMID:19081519
+    reference_title: &#34;Brain injury in premature infants: a complex amalgam of destructive and developmental disturbances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PVL is frequently accompanied by neuronal/axonal disease, affecting the cerebral white matter, thalamus, basal ganglia, cerebral cortex, brain stem, and cerebellum.&#34;
@@ -8074,6 +8768,7 @@ pathophysiology:
     description: Acute profound asphyxia preferentially injures the metabolically active deep grey nuclei, producing the dyskinetic phenotype.
   evidence:
   - reference: PMID:32112349
+    reference_title: &#34;Pathophysiology of hypoxic-ischemic encephalopathy: a review of the past and a view on the future.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HIE pathophysiology involves oxidative stress, mitochondrial energy production failure, glutaminergic excitotoxicity, and apoptosis.&#34;
@@ -8117,6 +8812,7 @@ pathophysiology:
     description: Fetal inflammation synergizes with and lowers the threshold for hypoxic-ischemic neuronal injury.
   evidence:
   - reference: PMID:10989405
+    reference_title: &#34;Chorioamnionitis as a risk factor for cerebral palsy: A meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;clinical chorioamnionitis was significantly associated with both cerebral palsy (RR, 1.9; 95% CI, 1.4-2.5) and cPVL (RR, 3.0; 95% CI, 2.2-4.0) in preterm infants.&#34;
@@ -8135,6 +8831,7 @@ pathophysiology:
       label: basal ganglion
   evidence:
   - reference: PMID:19081519
+    reference_title: &#34;Brain injury in premature infants: a complex amalgam of destructive and developmental disturbances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PVL is frequently accompanied by neuronal/axonal disease, affecting the cerebral white matter, thalamus, basal ganglia, cerebral cortex, brain stem, and cerebellum.&#34;
@@ -8158,6 +8855,7 @@ pathophysiology:
     description: Bilirubin deposits selectively in the globus pallidus and subthalamic nucleus, injuring the basal ganglia and producing dyskinetic CP.
   evidence:
   - reference: PMID:15578034
+    reference_title: &#34;Definition of the clinical spectrum of kernicterus and bilirubin-induced neurologic dysfunction (BIND).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;traditional and evolving definitions ranging from classical kernicterus with athetoid cerebral palsy, impaired upward gaze and deafness&#34;
@@ -8196,6 +8894,7 @@ pathophysiology:
     description: Chronic spasticity acting on the growing skeleton drives progressive contractures, hip displacement, and neuromuscular scoliosis.
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Movement disorder (spasticity, dystonia, choreoathetosis and/or ataxia) onset occurs within the first few years of life as a manifestation of disrupted brain development&#34;
@@ -8218,6 +8917,7 @@ phenotypes:
       label: Spasticity
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Movement disorder (spasticity, dystonia, choreoathetosis and/or ataxia) onset occurs within the first few years of life as a manifestation of disrupted brain development&#34;
@@ -8248,6 +8948,7 @@ phenotypes:
       label: Hemiplegia
   evidence:
   - reference: PMID:20497457
+    reference_title: &#34;Epilepsy in hemiplegic cerebral palsy due to perinatal arterial ischaemic stroke.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the frequency, risk factors, manifestations, and outcome of epilepsy in children with hemiplegic cerebral palsy (CP) due to perinatal arterial ischaemic stroke (AIS)&#34;
@@ -8262,6 +8963,7 @@ phenotypes:
       label: Dystonia
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Movement disorder (spasticity, dystonia, choreoathetosis and/or ataxia) onset occurs within the first few years of life as a manifestation of disrupted brain development&#34;
@@ -8276,6 +8978,7 @@ phenotypes:
       label: Athetosis
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Movement disorder (spasticity, dystonia, choreoathetosis and/or ataxia) onset occurs within the first few years of life as a manifestation of disrupted brain development&#34;
@@ -8290,6 +8993,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Movement disorder (spasticity, dystonia, choreoathetosis and/or ataxia) onset occurs within the first few years of life as a manifestation of disrupted brain development&#34;
@@ -8325,6 +9029,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 2 had an intellectual disability&#34;
@@ -8339,6 +9044,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 4 had epilepsy&#34;
@@ -8353,6 +9059,7 @@ phenotypes:
       label: Pain
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;3 in 4 were in pain&#34;
@@ -8366,6 +9073,7 @@ phenotypes:
       label: Visual impairment
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 10 were blind&#34;
@@ -8379,6 +9087,7 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 25 were deaf&#34;
@@ -8392,6 +9101,7 @@ phenotypes:
       label: Dysarthria
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 4 could not talk&#34;
@@ -8413,6 +9123,7 @@ phenotypes:
       label: Drooling
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 5 dribbled; 1 in 10 were blind&#34;
@@ -8447,6 +9158,7 @@ phenotypes:
       label: Hip dislocation
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 3 had a hip displacement&#34;
@@ -8461,6 +9173,7 @@ phenotypes:
       label: Atypical behavior
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 4 had a behavior disorder&#34;
@@ -8475,6 +9188,7 @@ phenotypes:
       label: Sleep disturbance
   evidence:
   - reference: PMID:23045562
+    reference_title: &#34;Clinical prognostic messages from a systematic review on cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;1 in 5 had a sleep disorder&#34;
@@ -8507,11 +9221,13 @@ environmental:
     vulnerability of periventricular white matter.
   evidence:
   - reference: PMID:23346889
+    reference_title: &#34;An update on the prevalence of cerebral palsy: a systematic review and meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The prevalence of CP expressed by gestational age was highest in children born before 28 weeks&#39; gestation (111.80 per 1000 live births; 95% CI 69.53-179.78; p&lt;0.0327).&#34;
     explanation: The &gt;50-fold higher CP prevalence in extremely preterm infants establishes prematurity as the dominant risk factor.
   - reference: PMID:19081519
+    reference_title: &#34;Brain injury in premature infants: a complex amalgam of destructive and developmental disturbances.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Brain injury in premature infants is of enormous public health importance because of the large number of such infants who survive with serious neurodevelopmental disability, including major cognitive deficits and motor disability.&#34;
@@ -8540,11 +9256,13 @@ environmental:
     recognized cause, particularly of dyskinetic and spastic-quadriplegic forms.
   evidence:
   - reference: PMID:32112349
+    reference_title: &#34;Pathophysiology of hypoxic-ischemic encephalopathy: a review of the past and a view on the future.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Hypoxic-ischemic encephalopathy, also referred as HIE, is a type of brain injury&#34;
     explanation: Defines perinatal hypoxic-ischemic encephalopathy — the sequela of perinatal asphyxia — as a neonatal brain injury, the etiologic anchor of the HIE → deep-grey-nuclei → dyskinetic CP branch.
   - reference: PMID:23440789
+    reference_title: &#34;Cooling for newborns with hypoxic ischaemic encephalopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;newborns with hypoxic ischaemic encephalopathy&#34;
@@ -8573,6 +9291,7 @@ environmental:
     risk independent of, and synergistically with, hypoxia-ischemia.
   evidence:
   - reference: PMID:10989405
+    reference_title: &#34;Chorioamnionitis as a risk factor for cerebral palsy: A meta-analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among full-term infants, a positive association was found between clinical chorioamnionitis and cerebral palsy (RR, 4.7; 95% CI, 1.3-16.2).&#34;
@@ -8600,6 +9319,7 @@ environmental:
     (hemiplegic) cerebral palsy.
   evidence:
   - reference: PMID:20497457
+    reference_title: &#34;Epilepsy in hemiplegic cerebral palsy due to perinatal arterial ischaemic stroke.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;children with hemiplegic cerebral palsy (CP) due to perinatal arterial ischaemic stroke (AIS)&#34;
@@ -8628,6 +9348,7 @@ environmental:
     preventable cause of dyskinetic cerebral palsy.
   evidence:
   - reference: PMID:15578034
+    reference_title: &#34;Definition of the clinical spectrum of kernicterus and bilirubin-induced neurologic dysfunction (BIND).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;classical kernicterus with athetoid cerebral palsy, impaired upward gaze and deafness&#34;
@@ -8646,11 +9367,13 @@ genetic:
     disorders; nonetheless, most cerebral palsy remains acquired/multifactorial.
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We found an enrichment of damaging DNMs in CP cases, which became more apparent when focusing the analysis on genes intolerant to LoF variation&#34;
     explanation: Whole-exome sequencing of 250 CP trios shows enrichment of damaging de novo mutations, implicating monogenic genetic contributions (e.g., CTNNB1, TUBA1A).
   - reference: PMID:30564460
+    reference_title: &#34;Pathogenic copy number variants that affect gene expression contribute to genomic burden in cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Combined SNV and CNV analysis revealed pathogenic and likely pathogenic variants in 22.7% of unselected individuals with CP.&#34;
@@ -8669,6 +9392,7 @@ genetic:
     spastic diplegia with visual defects (NEDSDV).
   evidence:
   - reference: PMID:36083290
+    reference_title: &#34;Genomic and phenotypic characterization of 404 individuals with neurodevelopmental disorders caused by CTNNB1 variants.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Germline loss-of-function variants in CTNNB1 cause neurodevelopmental disorder with spastic diplegia and visual defects (NEDSDV; OMIM 615075) and are the most frequent, recurrent monogenic cause of cerebral palsy (CP).&#34;
@@ -8687,6 +9411,7 @@ genetic:
     essential for neuronal migration.
   evidence:
   - reference: PMID:32989326
+    reference_title: &#34;Mutations disrupting neuritogenesis genes confer risk for cerebral palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;of these, two (TUBA1AandCTNNB1) met genome-wide significance.&#34;
@@ -8731,6 +9456,7 @@ treatments:
   therapeutic_modality: OTHER
   evidence:
   - reference: PMID:32086598
+    reference_title: &#34;State of the Evidence Traffic Lights 2019: Systematic Review of Interventions for Preventing and Treating Children with Cerebral Palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Effective medical and surgical interventions include anti-convulsants, bisphosphonates, botulinum toxin, botulinum toxin plus occupational therapy, botulinum toxin plus casting, diazepam, dentistry, hip surveillance, intrathecal baclofen, scoliosis correction, selective dorsal rhizotomy, and umbilical cord blood cell therapy.&#34;
@@ -8752,6 +9478,7 @@ treatments:
   therapeutic_modality: SMALL_MOLECULE
   evidence:
   - reference: PMID:32086598
+    reference_title: &#34;State of the Evidence Traffic Lights 2019: Systematic Review of Interventions for Preventing and Treating Children with Cerebral Palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Effective medical and surgical interventions include anti-convulsants, bisphosphonates, botulinum toxin, botulinum toxin plus occupational therapy, botulinum toxin plus casting, diazepam, dentistry, hip surveillance, intrathecal baclofen, scoliosis correction, selective dorsal rhizotomy, and umbilical cord blood cell therapy.&#34;
@@ -8769,6 +9496,7 @@ treatments:
   therapeutic_modality: SURGERY
   evidence:
   - reference: PMID:32086598
+    reference_title: &#34;State of the Evidence Traffic Lights 2019: Systematic Review of Interventions for Preventing and Treating Children with Cerebral Palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Effective medical and surgical interventions include anti-convulsants, bisphosphonates, botulinum toxin, botulinum toxin plus occupational therapy, botulinum toxin plus casting, diazepam, dentistry, hip surveillance, intrathecal baclofen, scoliosis correction, selective dorsal rhizotomy, and umbilical cord blood cell therapy.&#34;
@@ -8812,11 +9540,13 @@ treatments:
   therapeutic_modality: SMALL_MOLECULE
   evidence:
   - reference: PMID:39724363
+    reference_title: &#34;Magnesium sulfate for fetal neuroprotection in preterm labor: an updated systematic review and meta-analysis of randomized controlled trials.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Our meta-analysis including eight RCTs showed that magnesium sulfate reduced the risk of cerebral palsy without a significant change in pediatric mortality.&#34;
     explanation: Meta-analysis of RCTs showing antenatal magnesium sulfate reduces CP risk in preterm-labor pregnancies.
   - reference: PMID:32086598
+    reference_title: &#34;State of the Evidence Traffic Lights 2019: Systematic Review of Interventions for Preventing and Treating Children with Cerebral Palsy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Effective prevention strategies include antenatal corticosteroids, magnesium sulfate, caffeine, and neonatal hypothermia.&#34;
@@ -8836,6 +9566,7 @@ treatments:
   therapeutic_modality: OTHER
   evidence:
   - reference: PMID:23440789
+    reference_title: &#34;Cooling for newborns with hypoxic ischaemic encephalopathy.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;There is evidence from the 11 randomised controlled trials included in this systematic review (N = 1505 infants) that therapeutic hypothermia is beneficial in term and late preterm newborns with hypoxic ischaemic encephalopathy.&#34;
@@ -9377,7 +10108,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cerebral Palsy", "mondoId": "MONDO:0006497", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cerebral_Palsy", "yamlRevision": "5a425aca9d13"};
+        const OS_CONFIG = {"diseaseName": "Cerebral Palsy", "mondoId": "MONDO:0006497", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cerebral_Palsy", "yamlRevision": "f62efc7c9631"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9796,5 +10527,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

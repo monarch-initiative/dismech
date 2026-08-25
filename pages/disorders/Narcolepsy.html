@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Narcolepsy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Narcolepsy</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3785,27 +3989,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3844,7 +4125,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-narcolepsy-type-1">
 
                     <div class="item-name">
                         Narcolepsy Type 1
@@ -3878,6 +4159,7 @@
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3906,7 +4188,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-narcolepsy-type-2">
 
                     <div class="item-name">
                         Narcolepsy Type 2
@@ -3939,6 +4221,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3997,16 +4280,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Orexin Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011109">CL:0011109</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011109" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011109</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Orexin Neuron, annotated with hypocretin-secreting neuron (CL:0011109). CL:0011109 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4033,16 +4321,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sleep-Wake Regulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042745">GO:0042745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sleep-Wake Regulation, annotated with circadian sleep/wake cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4068,6 +4361,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4079,6 +4373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4120,16 +4415,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Autoimmune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002460" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002460">GO:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002460" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Autoimmune Response, annotated with adaptive immune response based on somatic recombination of immune receptors built from immunoglobulin superfamily domains (GO:0002460). GO:0002460 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4155,6 +4455,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4166,6 +4467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4189,6 +4491,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32227223" target="_blank">PMID:32227223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4208,6 +4511,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077397" target="_blank">PMID:38077397</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4260,13 +4564,18 @@
                     <span class="phenotype-category">Sleep</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002329">HP:0002329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0002329</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive Daytime Sleepiness, annotated with Drowsiness (HP:0002329). HP:0002329 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4288,6 +4597,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077397" target="_blank">PMID:38077397</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4323,13 +4633,18 @@
                     <span class="phenotype-category">Motor</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002524">HP:0002524</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002524</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cataplexy (HP:0002524). HP:0002524 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4351,6 +4666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4388,13 +4704,18 @@
                     <span class="phenotype-category">Sleep</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025233" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025233">HP:0025233</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0025233</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Paralysis (HP:0025233). HP:0025233 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4416,6 +4737,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4453,13 +4775,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002519" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002519">HP:0002519</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002519</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypnagogic Hallucination (HP:0002519). HP:0002519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4481,6 +4808,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4518,13 +4846,18 @@
                     <span class="phenotype-category">Sleep</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4546,6 +4879,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4609,6 +4943,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32227223" target="_blank">PMID:32227223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4628,6 +4963,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4663,6 +4999,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCRT
+
+
+    <a href="https://bioregistry.io/hgnc:4847" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:4847</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCRT (hgnc:4847). hgnc:4847 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4677,6 +5035,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4710,6 +5069,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HCRTR2
+
+
+    <a href="https://bioregistry.io/hgnc:4849" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:4849</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HCRTR2 (hgnc:4849). hgnc:4849 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4724,6 +5105,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25728441" target="_blank">PMID:25728441</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,6 +5137,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4770,7 +5155,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4818,6 +5208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22893778" target="_blank">PMID:22893778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4845,7 +5236,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4875,16 +5271,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         modafinil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31859">CHEBI:31859</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31859" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-13">CHEBI:31859</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses modafinil (CHEBI:31859). CHEBI:31859 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -4909,6 +5310,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20671626" target="_blank">PMID:20671626</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4937,7 +5339,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4967,16 +5374,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pitolisant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_134709" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:134709">CHEBI:134709</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_134709" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:134709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pitolisant (CHEBI:134709). CHEBI:134709 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5001,6 +5413,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34935103" target="_blank">PMID:34935103</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5029,7 +5442,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5059,16 +5477,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         solriamfetol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152389" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152389">NCIT:C152389</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152389" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C152389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses solriamfetol (NCIT:C152389). NCIT:C152389 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5093,6 +5516,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30694576" target="_blank">PMID:30694576</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5121,7 +5545,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5170,6 +5599,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5201,7 +5631,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5249,6 +5684,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830438" target="_blank">PMID:18830438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5276,7 +5712,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5324,6 +5765,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30837110" target="_blank">PMID:30837110</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5351,7 +5793,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -5400,6 +5847,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830438" target="_blank">PMID:18830438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5436,11 +5884,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-h1n1-infection" data-dismech-node="H1N1 Infection" data-dismech-type="environmental">
                 <div class="item-name">H1N1 Infection</div>
 
-
-                <div class="item-desc">Increased risk after 2009 pandemic</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        viral exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-22">ECTO:3000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is viral exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Increased risk after 2009 pandemic. Evidenced independently of vaccination by a Chinese post-pandemic series, in which almost no patient had been vaccinated.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21866560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21866560" target="_blank">PMID:21866560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we found a 3-fold increase in narcolepsy onset following the 2009 H1N1 winter influenza pandemic. The increase is unlikely to be explained by increased vaccination, as only 8 of 142 (5.6%) patients recalled receiving an H1N1 vaccination"</div>
+
+
+                <div class="evidence-explanation">Retrospective analysis of onset in 629 Beijing patients, 86 percent of them children. Because vaccination was rare in this sample, it separates the infection exposure from the vaccine exposure curated below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5450,10 +5958,70 @@
                 <div class="item-name">Pandemrix Vaccine</div>
 
 
-                <div class="item-desc">Associated with increased narcolepsy risk in Europe</div>
 
 
 
+
+                <div class="item-desc">Associated with increased narcolepsy risk in Europe after the 2009 pandemic vaccination campaign. The magnitude is drawn from observational studies whose methodological limitations are contested; both the estimate and the manufacturer-affiliated critique of it are cited, and they disagree.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29855798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29855798" target="_blank">PMID:29855798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the risk of narcolepsy was increased 5- to 14-fold in children and adolescents and 2- to 7-fold in adults"</div>
+
+
+                <div class="evidence-explanation">Reports the magnitude of the association between the AS03-adjuvanted pandemic vaccine and incident narcolepsy across European studies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26379011" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26379011" target="_blank">PMID:26379011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"significant methodological limitations of the studies have not been fully addressed and raise questions about the reported risk estimates"</div>
+
+
+                <div class="evidence-explanation">Cited deliberately alongside the risk estimate as the dissenting reading of the same twelve European studies. Provenance matters here and is not neutral: the authors are staff and contractors of GSK Vaccines, the manufacturer of Pandemrix, together with a pharmacovigilance consultancy, so this is the manufacturer-affiliated critique rather than independent scrutiny. The two cited sources genuinely disagree - PMID:29855798 concedes that confounding and diagnostic bias may influence some studies but judges it unlikely they explain the increased incidence across every country where Pandemrix was used. The dispute is recorded here rather than resolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5462,11 +6030,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-streptococcal-infection" data-dismech-node="Streptococcal Infection" data-dismech-type="environmental">
                 <div class="item-name">Streptococcal Infection</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        Infectious agent exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-23">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Infectious agent exposure, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Possible trigger in some cases</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19725248" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19725248" target="_blank">PMID:19725248</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Streptococcal infections are probably a significant environmental trigger for narcolepsy"</div>
+
+
+                <div class="evidence-explanation">Serological study of anti-streptolysin O titers in narcolepsy near disease onset. The authors hedge as probable rather than established, which is the level of confidence this note records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5510,6 +6138,7 @@
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5550,7 +6179,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse240851">
                 <div class="item-name">
                     The Transcriptomic Profiling of Blood CD4 and CD8 T-cells in Narcolepsy Type I
 
@@ -5593,7 +6222,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse21592">
                 <div class="item-name">
                     Genome-wide gene expression profiling of human narcolepsy
 
@@ -5636,7 +6265,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse247134">
                 <div class="item-name">
                     Single cell transcriptomics of cerebrospinal fluid cells from patients with recent-onset narcolepsy
 
@@ -5675,7 +6304,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001004886">
                 <div class="item-name">
                     mRNA and T cell receptor sequencing of patients with Pandemrix-associated narcolepsy type 1
 
@@ -5710,7 +6339,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000092401">
                 <div class="item-name">
                     LCMSMS Quantitation of HILIC Enriched N glycopeptides derived from low abundance serum glycoproteins in patients with Narcolepsy Type I
 
@@ -5752,6 +6381,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5768,7 +6400,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Narcolepsy
 creation_date: &#39;2025-12-19T14:27:56Z&#39;
-updated_date: &#39;2026-05-17T03:10:05Z&#39;
 description: &gt;-
   Narcolepsy is a chronic neurological sleep disorder characterized by excessive
   daytime sleepiness and dysregulation of rapid eye movement (REM) sleep. Type 1
@@ -5983,6 +6614,11 @@ genetic:
       This deep-research citation updates the HLA assertion with high-resolution
       2024 HLA sequencing evidence.
 - name: HCRT
+  gene_term:
+    preferred_term: HCRT
+    term:
+      id: hgnc:4847
+      label: HCRT
   association: Causative
   notes: Rare mutations in hypocretin gene cause familial narcolepsy
   evidence:
@@ -5993,6 +6629,11 @@ genetic:
     snippet: &#34;Ablation of hypocretin or hypocretin receptors also leads to narcolepsy phenotypes in animal models.&#34;
     explanation: Demonstrates that loss of hypocretin gene function causes narcolepsy.
 - name: HCRTR2
+  gene_term:
+    preferred_term: HCRTR2
+    term:
+      id: hgnc:4849
+      label: HCRTR2
   association: Causative
   notes: Hypocretin receptor 2 mutations (canine model)
   evidence:
@@ -6004,11 +6645,52 @@ genetic:
     explanation: Confirms that hypocretin receptor mutations cause narcolepsy in animal models.
 environmental:
 - name: H1N1 Infection
-  notes: Increased risk after 2009 pandemic
+  exposure_term:
+    preferred_term: viral exposure
+    term:
+      id: ECTO:3000001
+      label: exposure to virus
+  notes: Increased risk after 2009 pandemic. Evidenced independently of vaccination
+    by a Chinese post-pandemic series, in which almost no patient had been vaccinated.
+  evidence:
+  - reference: PMID:21866560
+    reference_title: &#34;Narcolepsy onset is seasonal and increased following the 2009 H1N1 pandemic in China.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we found a 3-fold increase in narcolepsy onset following the 2009 H1N1 winter influenza pandemic. The increase is unlikely to be explained by increased vaccination, as only 8 of 142 (5.6%) patients recalled receiving an H1N1 vaccination&#34;
+    explanation: &#34;Retrospective analysis of onset in 629 Beijing patients, 86 percent of them children. Because vaccination was rare in this sample, it separates the infection exposure from the vaccine exposure curated below.&#34;
 - name: Pandemrix Vaccine
-  notes: Associated with increased narcolepsy risk in Europe
+  notes: Associated with increased narcolepsy risk in Europe after the 2009 pandemic
+    vaccination campaign. The magnitude is drawn from observational studies whose
+    methodological limitations are contested; both the estimate and the
+    manufacturer-affiliated critique of it are cited, and they disagree.
+  evidence:
+  - reference: PMID:29855798
+    reference_title: &#34;Narcolepsy Associated with Pandemrix Vaccine.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the risk of narcolepsy was increased 5- to 14-fold in children and adolescents and 2- to 7-fold in adults&#34;
+    explanation: &#34;Reports the magnitude of the association between the AS03-adjuvanted pandemic vaccine and incident narcolepsy across European studies.&#34;
+  - reference: PMID:26379011
+    reference_title: &#34;Pandemrix™ and narcolepsy: A critical appraisal of the observational studies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;significant methodological limitations of the studies have not been fully addressed and raise questions about the reported risk estimates&#34;
+    explanation: &#34;Cited deliberately alongside the risk estimate as the dissenting reading of the same twelve European studies. Provenance matters here and is not neutral: the authors are staff and contractors of GSK Vaccines, the manufacturer of Pandemrix, together with a pharmacovigilance consultancy, so this is the manufacturer-affiliated critique rather than independent scrutiny. The two cited sources genuinely disagree - PMID:29855798 concedes that confounding and diagnostic bias may influence some studies but judges it unlikely they explain the increased incidence across every country where Pandemrix was used. The dispute is recorded here rather than resolved.&#34;
 - name: Streptococcal Infection
+  exposure_term:
+    preferred_term: Infectious agent exposure
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
   notes: Possible trigger in some cases
+  evidence:
+  - reference: PMID:19725248
+    reference_title: &#34;Elevated anti-streptococcal antibodies in patients with recent narcolepsy onset.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Streptococcal infections are probably a significant environmental trigger for narcolepsy&#34;
+    explanation: &#34;Serological study of anti-streptolysin O titers in narcolepsy near disease onset. The authors hedge as probable rather than established, which is the level of confidence this note records.&#34;
 treatments:
 - name: Sodium Oxybate
   description: First-line for cataplexy and daytime sleepiness, improves nighttime sleep.
@@ -6469,6 +7151,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-70594-1" target="_blank">DOI:10.1038/s41598-024-70594-1</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6575,6 +7258,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1111/iji.12688" target="_blank">DOI:10.1111/iji.12688</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6643,6 +7327,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jsr.14277" target="_blank">DOI:10.1111/jsr.14277</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6713,6 +7398,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fphar.2024.1415918" target="_blank">DOI:10.3389/fphar.2024.1415918</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6781,6 +7467,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fpsyt.2026.1799520" target="_blank">DOI:10.3389/fpsyt.2026.1799520</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6851,6 +7538,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ctn8030025" target="_blank">DOI:10.3390/ctn8030025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6920,6 +7608,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms252211914" target="_blank">DOI:10.3390/ijms252211914</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6988,6 +7677,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm14238444" target="_blank">DOI:10.3390/jcm14238444</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7527,7 +8217,7 @@ These models support evaluation of orexin-pathway therapeutics for wake consolid
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "f267f9d31f98"};
+        const OS_CONFIG = {"diseaseName": "Narcolepsy", "mondoId": "MONDO:0021107", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Narcolepsy", "yamlRevision": "a048757ef99d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7946,5 +8636,73 @@ These models support evaluation of orexin-pathway therapeutics for wake consolid
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

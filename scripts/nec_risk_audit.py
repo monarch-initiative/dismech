@@ -35,68 +35,38 @@ from __future__ import annotations
 import argparse
 import glob
 import os
-import re
 from collections import defaultdict
 
+from dismech.nec_risk import (
+    ACRONYM_RE,
+    NON_EPONYM_WORDS,
+    SERIES_PREFIXES,
+    SERIES_RE,
+    TYPE_RE,
+    acronym_synonyms,
+    eponyms_in,
+    series_hits,
+)
 from dismech.yaml_io import safe_load
 
+# The detection logic itself lives in ``dismech.nec_risk`` so the priority
+# dashboard can reuse it against *uncurated* MONDO candidates. This script is
+# the corpus-level view over the entries already in ``kb/disorders``. The
+# re-exports above keep the historical module surface (tests and any caller
+# that imported these names from here) intact.
+__all__ = [
+    "ACRONYM_RE",
+    "DISORDERS_GLOB",
+    "NON_EPONYM_WORDS",
+    "SERIES_PREFIXES",
+    "SERIES_RE",
+    "TYPE_RE",
+    "audit",
+    "eponyms_in",
+    "load_entries",
+]
+
 DISORDERS_GLOB = "kb/disorders/*.yaml"
-
-# Words that are Capitalized in a disease name but should NOT trigger an eponym
-# flag. Most are common nouns/descriptors, but a few (``Charcot``, ``Hodgkin``,
-# ``Parkinson``) are *genuine* eponyms deliberately suppressed because they recur
-# as plain descriptors across many entries (e.g. "Parkinson" in 20+ files) and
-# would otherwise swamp the collision detector with false positives. Trade-off:
-# a real collision involving one of these surnames will be missed; the per-report
-# preflight gene check (#3889) remains the backstop for those.
-NON_EPONYM_WORDS = {
-    "Syndrome", "Disease", "Disorder", "Deficiency", "Dysplasia", "Dystrophy",
-    "Dysostosis", "Dyschondrosteosis", "Anemia", "Carcinoma", "Sarcoma",
-    "Lymphoma", "Leukemia", "Tumor", "Cancer", "Type", "Familial", "Congenital",
-    "Hereditary", "Autosomal", "Recessive", "Dominant", "Acute", "Chronic",
-    "Juvenile", "Infantile", "Neonatal", "Adult", "Primary", "Secondary",
-    "Idiopathic", "Multiple", "Mixed", "Complex", "Combined", "Generalized",
-    "Focal", "Systemic", "Progressive", "Spinocerebellar", "Cerebellar",
-    "Muscular", "Skeletal", "Spondylo", "Mucinous", "Cystadenoma", "Ataxia",
-    "Charcot", "Hypohidrotic", "Ectodermal", "Mediterranean", "Pancreatic",
-    "Frontonasal", "Spastic", "Paraplegia", "Encephalopathy", "Retinopathy",
-    "Nephropathy", "Neuropathy", "Myopathy", "Anaplastic", "Papillary",
-    "Medullary", "Hodgkin", "Non", "Related", "Associated", "Due", "And",
-    "Of", "The", "With", "X", "XY", "XX",
-    # Anatomical / descriptive common nouns that precede a disease head-noun
-    # but are not surnames (high-frequency false positives).
-    "Anomalies", "Artery", "Cell", "Chemotherapy", "Induced", "Kidney",
-    "Storage", "Small", "Negative", "Positive", "Onset", "Macular", "Nail",
-    "Hair", "Sinus", "Fusion", "Dystonia", "Parkinsonism", "Parkinson",
-    "Responsive", "Dopa", "Immunodeficiency", "Neurodevelopmental", "Renal",
-    "Spondyloepimetaphyseal", "Thanatophoric", "Tall", "Spasticity", "Gait",
-    "Centromeric", "Facial", "Instability", "Body", "Inclusion", "Bone",
-    "Dementia", "Frontotemporal", "Motor", "Sensory", "Axonal", "Corpus",
-    "Callosum", "Peripheral", "Eye", "Island", "Islands", "Band", "Partial",
-    "Lichenoid", "Pityriasis", "Neuronal", "Ceroid", "Lipofuscinosis",
-    "Sialic", "Acid", "Free", "Hepatic", "Fibrinogen", "Glycogen", "Sick",
-    "Silent", "Clear", "Sickle", "Coronary", "Multicentric", "Acquired",
-    "North", "Carolina", "Hypotrichosis", "Woolly", "Skin", "Fragility",
-    "Tooth", "Stature", "Disability", "Intellectual", "Vomiting", "Nausea",
-    "Diarrhea", "Toxin", "Drug", "Pulmonary", "Arterial", "Hypertension",
-    "Breast", "Triple", "Lung", "Demyelinating", "Leukodystrophy", "Early",
-    "Undetermined", "Epileptic", "Myoclonus", "Spinal", "Anterior",
-}
-
-# Series-acronym prefixes whose numbering is known to have drifted upstream
-# (the strongest NEC trigger -- SCAR20 was a wrong expansion of Lichtenstein-Knorr).
-SERIES_PREFIXES = (
-    "SCAR", "SCA", "SPG", "CMT", "CMTX", "MEN", "EDS", "OI", "CDG", "NCL",
-    "BBS", "MPS", "DYX", "HSAN", "PCH", "COXPD", "MTDPS", "EIEE", "DEE",
-    "CDA", "GLUT", "MODY",
-)
-
-# Cap at XV — disease series rarely exceed type 15. ``XI{0,3}`` covers XI/XII/XIII
-# (the original ``XI{0,2}`` silently missed XIII); XIV/XV are spelled out explicitly.
-ROMAN = r"(?:I{1,3}V?|IV|VI{0,3}|IX|XI{0,3}|XIV|XV|X)"
-TYPE_RE = re.compile(rf"\btype[\s-]+([0-9]+[A-Za-z]?|{ROMAN})\b", re.IGNORECASE)
-SERIES_RE = re.compile(r"\b(" + "|".join(SERIES_PREFIXES) + r")[\s-]?([0-9]+[A-Za-z]?)\b")
-ACRONYM_RE = re.compile(r"^[A-Z][A-Z0-9]{1,5}$")
 
 
 def load_entries():
@@ -124,27 +94,6 @@ def load_entries():
     return rows
 
 
-def eponyms_in(text: str):
-    """Return surname-like eponym tokens found in a disease name."""
-    found = set()
-    # Hyphenated capitalized pairs: Leri-Weill, Bassen-Kornzweig, Loeys-Dietz.
-    for m in re.finditer(r"\b([A-Z][a-z]{2,})-([A-Z][a-z]{2,})\b", text):
-        for tok in m.groups():
-            if tok not in NON_EPONYM_WORDS:
-                found.add(tok)
-    # Single Capitalized surname directly before a disease head-noun.
-    for m in re.finditer(
-        r"\b([A-Z][a-z]{3,})\s+(?:syndrome|disease|dysplasia|dystrophy|"
-        r"dysostosis|anomaly|sign|sarcoma|ataxia)\b",
-        text,
-        re.IGNORECASE,
-    ):
-        tok = m.group(1)
-        if tok[0].isupper() and tok not in NON_EPONYM_WORDS:
-            found.add(tok)
-    return found
-
-
 def audit(rows):
     findings = defaultdict(list)  # category -> list of dict
     eponym_to_files = defaultdict(set)
@@ -153,13 +102,9 @@ def audit(rows):
         haystack = " ".join([r["name"], r["label"]] + r["synonyms"])
 
         # 1. Numbered / lettered series.
-        series_hits = set()
-        for m in TYPE_RE.finditer(haystack):
-            series_hits.add("type " + m.group(1))
-        for m in SERIES_RE.finditer(haystack):
-            series_hits.add(m.group(1) + m.group(2))
-        if series_hits:
-            findings["NUMBERED_SERIES"].append({**r, "hits": sorted(series_hits)})
+        hits = series_hits(haystack)
+        if hits:
+            findings["NUMBERED_SERIES"].append({**r, "hits": sorted(hits)})
 
         # 2. Eponyms (for collision grouping).
         eps = eponyms_in(r["name"]) | eponyms_in(r["label"])
@@ -176,7 +121,7 @@ def audit(rows):
             findings["SYNONYM_ALIASING"].append({**r, "alias_eponyms": sorted(extra)})
 
         # 4. Acronym ambiguity: short all-caps synonym.
-        acr = [s for s in r["synonyms"] if ACRONYM_RE.match(s)]
+        acr = acronym_synonyms(r["synonyms"])
         if acr:
             findings["ACRONYM_AMBIGUITY"].append({**r, "acronyms": acr})
 

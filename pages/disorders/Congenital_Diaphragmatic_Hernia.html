@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Congenital Diaphragmatic Hernia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Congenital Diaphragmatic Hernia</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 34</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 36</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Congenital%20Diaphragmatic%20Hernia"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3750,7 +3954,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">34</div>
+                <div class="stat-value">36</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3827,27 +4031,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3865,7 +4146,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-multifactorial-inheritance-with-a-polygenic-component">
                 <div class="item-name">
                     Multifactorial inheritance with a polygenic component
 
@@ -3910,6 +4191,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39332409" target="_blank">PMID:39332409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3932,6 +4214,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39332409" target="_blank">PMID:39332409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3953,6 +4236,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4019,7 +4303,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-bochdalek">
 
                     <div class="item-name">
                         Bochdalek (posterolateral) hernia
@@ -4053,6 +4337,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4074,6 +4359,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4101,7 +4387,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-morgagni">
 
                     <div class="item-name">
                         Morgagni (anterior retrosternal) hernia
@@ -4135,6 +4421,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4161,7 +4448,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-central">
 
                     <div class="item-name">
                         Central (septum transversum) defect
@@ -4195,6 +4482,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4221,7 +4509,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-isolated-cdh">
 
                     <div class="item-name">
                         Isolated CDH
@@ -4255,6 +4543,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36441118" target="_blank">PMID:36441118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4281,7 +4570,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-syndromic-cdh">
 
                     <div class="item-name">
                         Syndromic (complex) CDH
@@ -4315,6 +4604,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4336,6 +4626,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36441118" target="_blank">PMID:36441118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4457,6 +4748,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4479,6 +4771,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4500,6 +4793,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10751355" target="_blank">PMID:10751355</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4590,6 +4884,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10751355" target="_blank">PMID:10751355</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4611,6 +4906,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10751355" target="_blank">PMID:10751355</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4698,6 +4994,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4801,6 +5098,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4823,6 +5126,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32384329" target="_blank">PMID:32384329</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4914,6 +5218,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4937,6 +5247,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35633948" target="_blank">PMID:35633948</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4958,6 +5269,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35633948" target="_blank">PMID:35633948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5021,16 +5333,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pleuroperitoneal fold mesenchymal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008019">CL:0008019</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008019</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pleuroperitoneal fold mesenchymal cell, annotated with mesenchymal cell (CL:0008019). CL:0008019 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5057,15 +5374,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ALDH1A2 (RALDH2)
 
 
-    <a href="https://bioregistry.io/hgnc:15472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15472">hgnc:15472</a>
+    <a href="https://bioregistry.io/hgnc:15472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:15472</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALDH1A2 (RALDH2), annotated with ALDH1A2 (hgnc:15472). hgnc:15472 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5093,16 +5417,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         retinoic acid receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048384">GO:0048384</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048384</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retinoic acid receptor signaling pathway (GO:0048384). GO:0048384 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5122,16 +5451,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         diaphragm development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060539" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060539">GO:0060539</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060539" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0060539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal diaphragm development (GO:0060539). GO:0060539 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5152,6 +5486,7 @@
 
 
                 </div>
+
 
 
 
@@ -5218,6 +5553,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5240,6 +5576,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5261,6 +5598,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5321,16 +5659,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         diaphragm morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060540" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060540">GO:0060540</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060540" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0060540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal diaphragm morphogenesis (GO:0060540). GO:0060540 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5357,19 +5700,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         diaphragm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001103">UBERON:0001103</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001103</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in diaphragm (UBERON:0001103). UBERON:0001103 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5501,6 +5850,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5522,6 +5872,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31519366" target="_blank">PMID:31519366</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5555,16 +5906,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pulmonary alveolar type 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002063">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5591,16 +5947,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         branching morphogenesis of an epithelial tube
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048754" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048754">GO:0048754</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0048754</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased branching morphogenesis of an epithelial tube (GO:0048754). GO:0048754 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5609,6 +5970,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5626,10 +5989,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048286" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048286">GO:0048286</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lung alveolus development (GO:0048286). GO:0048286 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5656,19 +6022,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5718,6 +6090,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5739,6 +6112,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35633948" target="_blank">PMID:35633948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5772,17 +6146,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pulmonary artery smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary artery smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5803,10 +6184,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary artery endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5833,16 +6217,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood vessel remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001974">GO:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5862,16 +6251,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         lung vasculature development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060426" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060426">GO:0060426</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060426" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0060426</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal lung vasculature development (GO:0060426). GO:0060426 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5891,16 +6285,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048659">GO:0048659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0048659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased smooth muscle cell proliferation (GO:0048659). GO:0048659 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5920,16 +6319,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         nitric oxide biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006809">GO:0006809</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006809</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5950,6 +6354,7 @@
 
 
                 </div>
+
 
 
 
@@ -5986,6 +6391,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6007,6 +6413,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31519366" target="_blank">PMID:31519366</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6047,16 +6454,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6077,6 +6489,7 @@
 
 
                 </div>
+
 
 
 
@@ -6129,6 +6542,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6150,6 +6564,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6183,16 +6598,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6209,6 +6629,7 @@
 
 
                 </div>
+
 
 
 
@@ -6252,6 +6673,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6284,16 +6706,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6323,19 +6750,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         left cardiac ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in left cardiac ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6369,6 +6802,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28370263" target="_blank">PMID:28370263</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6391,6 +6825,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28370263" target="_blank">PMID:28370263</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6412,6 +6847,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28370263" target="_blank">PMID:28370263</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6440,6 +6876,7 @@
                 <div class="item-name">Refractory Hypoxemia and Neonatal Respiratory Failure</div>
 
                 <div class="item-desc">The combination of reduced alveolar gas-exchange surface, ventilation limited by a small and stiff lung, and extrapulmonary right-to-left shunting produces severe hypoxemia that is frequently refractory to conventional ventilation and inhaled vasodilators.</div>
+
 
 
 
@@ -6525,6 +6962,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6546,6 +6984,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6595,7 +7034,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Central diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A central tendon defect of the diaphragm.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Central\"], \"term_id\": \"HP:0025195\"}}, {\"id\": \"Chronic lung disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic oxygen dependency and long-term pulmonary morbidity in survivors, the CDH counterpart of bronchopulmonary dysplasia. It reflects the hypoplastic, immature lung compounded by exposure to mechanical ventilation and oxygen.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006528\"}}, {\"id\": \"Congenital diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A defect in the diaphragm permitting herniation of abdominal viscera into the thorax, typically detected on prenatal ultrasound or in the immediate newborn period.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000776\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central cyanosis reflecting right-to-left shunting and impaired gas exchange.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Delayed Surgical Repair of the Diaphragmatic Defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Operative closure of the diaphragmatic defect by primary repair or prosthetic patch, deferred until after physiological stabilisation rather than performed as a neonatal emergency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Extracorporeal Membrane Oxygenation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Venoarterial or venovenous extracorporeal life support used as rescue therapy for refractory hypoxemia or cardiovascular failure in CDH, permitting lung rest until pulmonary vascular resistance falls.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Incomplete closure of the pleuroperitoneal canal leaves a diaphragmatic defect through which abdominal viscera herniate into the thorax during fetal life. The herniated viscera occupy the hemithorax and compress the developing lung, most often on the left.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"diaphragm morphogenesis\"], \"role\": \"central_effector\", \"locations\": [\"diaphragm\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor postnatal growth in survivors, driven by increased work of breathing, feeding difficulty, and reflux.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fetal Endoscopic Tracheal Occlusion (FETO)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Percutaneous fetoscopic placement of a detachable balloon in the fetal trachea, which retains lung fluid, raises intrapulmonary pressure and promotes lung growth, followed by balloon removal before delivery. Offered in severe isolated CDH with low observed-to-expected lung-to-head ratio.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A common long-term morbidity in CDH survivors, related to distortion of the oesophageal hiatus and altered gastro-oesophageal anatomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Gentle Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A permissive-hypercapnia, pressure-limited ventilation strategy that avoids high peak inflating pressures in order to prevent barotrauma to the hypoplastic lung; the standardised approach that underpinned improved survival in contemporary CDH care.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Hypoplastic left ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced left ventricular and left-sided valvar dimensions in left-sided CDH, proportional to lung size and liver herniation. This is a hypoplasia of degree rather than hypoplastic left heart syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004383\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, often labile arterial hypoxemia refractory to supplemental oxygen.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Inhaled Nitric Oxide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selective inhaled pulmonary vasodilator used for pulmonary hypertension with right-to-left shunting; response in CDH is frequently poor compared with other causes of persistent pulmonary hypertension of the newborn.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitric oxide\"]}}, {\"id\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In left-sided CDH the herniated viscera displace the mediastinum to the right and compress the left heart during the period of fetal cardiac growth. Left-sided structures (mitral valve, aortic valve, left ventricle) are correspondingly smaller, in proportion to lung size and the extent of liver herniation. This is a distinct arm from the right ventricular pressure overload driven by pulmonary hypertension, and it contributes to the low-output physiology and vasodilator intolerance of severe disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"role\": \"effector\", \"locations\": [\"left cardiac ventricle\"]}}, {\"id\": \"Milrinone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-3 inhibitor with inotropic and pulmonary vasodilator effects used for right ventricular dysfunction with pulmonary hypertension in CDH.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"milrinone\"]}}, {\"id\": \"Morgagni diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An anterior retrosternal diaphragmatic defect, less common and frequently diagnosed beyond the neonatal period.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Morgagni\"], \"term_id\": \"HP:0025194\"}}, {\"id\": \"Neurodevelopmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment in survivors, reported in association with prolonged hypoxemia, extracorporeal support, and prolonged intensive care.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012758\"}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chest wall depression in survivors, the second component of the musculoskeletal morbidity of CDH. Primary abdominal closure under tension after repair is associated with a higher rate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Persistent Pulmonary Hypertension of the Newborn\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structurally reduced and hypermuscularized pulmonary vascular bed, combined with abnormal vasoreactivity, prevents the normal postnatal fall in pulmonary vascular resistance. Suprasystemic pulmonary pressures drive right-to-left shunting across the ductus arteriosus and foramen ovale.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vasoconstriction\"], \"role\": \"consequence\"}}, {\"id\": \"Posterolateral diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The posterolateral (Bochdalek) defect, the most common anatomic form of CDH and predominantly left-sided.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Bochdalek\"], \"term_id\": \"HP:0025193\"}}, {\"id\": \"Pulmonary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both lungs, and particularly the ipsilateral lung, show reduced airway branching generations, reduced alveolar number and surface area, thickened alveolar septa, and surfactant abnormalities. The parenchymal deficit is bilateral even when the defect is unilateral, indicating a primary developmental component in addition to mechanical compression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"branching morphogenesis of an epithelial tube\", \"lung alveolus development\"], \"role\": \"effector\", \"locations\": [\"lung\"]}}, {\"id\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pulmonary vascular bed in CDH is reduced in cross-sectional area, with fewer arterial generations per unit lung, and the pre-acinar and intra-acinar arteries show adventitial thickening and abnormal medial muscularization extending peripherally into vessels that are normally non-muscular. Endothelial dysfunction with reduced nitric oxide signaling accompanies the structural remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\", \"pulmonary artery endothelial cell\"], \"biological_processes\": [\"blood vessel remodeling\", \"lung vasculature development\", \"smooth muscle cell proliferation\", \"nitric oxide biosynthetic process\"], \"role\": \"effector\"}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension of the newborn with failure of the normal postnatal fall in pulmonary vascular resistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lung volume with fewer airway branching generations and reduced alveolar number, affecting both lungs but more severely the lung ipsilateral to the defect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002089\"}}, {\"id\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of reduced alveolar gas-exchange surface, ventilation limited by a small and stiff lung, and extrapulmonary right-to-left shunting produces severe hypoxemia that is frequently refractory to conventional ventilation and inhaled vasodilators.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal respiratory failure presenting within minutes to hours of birth in severe cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in CDH is a deficit of the pleuroperitoneal fold (PPF) mesenchyme, the transient structure whose expansion closes the pleuroperitoneal canal. Retinoic acid signaling is required for PPF outgrowth, and disruption of the retinoid pathway or of PPF mesenchymal transcriptional regulators such as ZFPM2, GATA4, NR2F2 and WT1 reduces the amplifying PPF cell population.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"pleuroperitoneal fold mesenchymal cell\"], \"biological_processes\": [\"retinoic acid receptor signaling pathway\", \"diaphragm development\"], \"genes\": [\"ALDH1A2 (RALDH2)\"], \"gene_terms\": [{\"label\": \"ALDH1A2 (RALDH2)\", \"id\": \"hgnc:15472\"}], \"role\": \"trigger\"}}, {\"id\": \"Right Ventricular Pressure Overload and Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension imposes high afterload on a right ventricle that may itself be hypoplastic or intrinsically dysfunctional in CDH. Progressive right ventricular dilation and failure reduce pulmonary blood flow and left ventricular preload, producing systemic hypoperfusion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"role\": \"consequence\"}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular dysfunction and failure secondary to pulmonary hypertensive afterload.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Scaphoid abdomen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A sunken abdominal contour in the newborn resulting from displacement of abdominal viscera into the thorax.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025063\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity in long-term survivors, one component of the musculoskeletal morbidity that follows a large diaphragmatic defect and its repair. It correlates with defect severity rather than being an intrinsic developmental feature of the diaphragmatic lesion.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss reported in CDH survivors, described in association with extracorporeal support and prolonged intensive care exposure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Sildenafil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-5 inhibitor used to treat pulmonary hypertension in CDH, including as prenatal and postnatal therapy under investigation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sildenafil\"]}}], \"edges\": [{\"source\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"target\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A deficient pleuroperitoneal fold fails to close the pleuroperitoneal canal, leaving a diaphragmatic defect.\", \"hypothesis_groups\": [\"retinoid\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The \\\"first hit\\\" of the dual-hit model: the same early developmental perturbation that impairs pleuroperitoneal fold outgrowth also acts directly on the developing lung, before and independently of the diaphragmatic defect. This edge is asserted only under the dual-hit hypothesis group; under the competing purely mechanical model it does not exist, and all pulmonary hypoplasia is secondary to compression.\", \"hypothesis_groups\": [\"dual_hit\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Space occupation by herniated viscera restricts lung growth during the pseudoglandular and canalicular stages. This is the \\\"second hit\\\" of the dual-hit model and the whole of the competing purely mechanical model, so the edge is shared by both hypothesis groups.\", \"hypothesis_groups\": [\"dual_hit\", \"mechanical_compression_only\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental window that limits airway branching also limits and distorts pulmonary vascular development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Congenital diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomic defect is the defining clinical finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Posterolateral diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of pleuroperitoneal fold closure specifically produces the posterolateral (Bochdalek) defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Morgagni diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of closure at the sternocostal trigone produces the anterior retrosternal (Morgagni) defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Central diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal septum transversum development produces the central tendon defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Scaphoid abdomen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relocation of abdominal viscera into the thorax leaves the abdomen empty, producing the sunken newborn abdominal contour.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distortion of the oesophageal hiatus and gastro-oesophageal junction anatomy by the defect and its repair predisposes to reflux in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediastinal shift and compression by herniated viscera, most often on the left, restrict filling and growth of the left-sided cardiac structures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic cage growth asymmetry after a large defect and its repair produces spinal deformity in long-term survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same asymmetric chest wall growth, and abdominal closure under tension after repair, produce anterior chest wall deformity in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced alveolar surface area limits gas exchange from the first postnatal breaths.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced lung parenchymal mass is the defining structural phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Chronic lung disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A structurally deficient lung that must then be ventilated develops chronic oxygen dependency and long-term respiratory morbidity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced and abnormally muscularized vascular bed raises pulmonary vascular resistance after birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Right Ventricular Pressure Overload and Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high afterload overloads the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extrapulmonary right-to-left shunting adds a component of hypoxemia that is unresponsive to increased inspired oxygen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated pulmonary arterial pressure is directly observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right Ventricular Pressure Overload and Failure\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right heart decompensation is the clinical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"target\": \"Hypoplastic left ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced left ventricular dimensions are the observed structural phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of gas exchange at birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe and often labile arterial desaturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visible manifestation of arterial desaturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Neurodevelopmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged hypoxemia and the intensive care it necessitates (prolonged ventilation, extracorporeal support) are the recognised route to neurodevelopmental impairment in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss in survivors is attributed to the same prolonged critical illness and extracorporeal support exposure rather than to a primary cochlear lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased work of breathing and prolonged respiratory morbidity drive the postnatal growth failure seen in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Endoscopic Tracheal Occlusion (FETO)\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gentle Ventilation\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Nitric Oxide\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sildenafil\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Milrinone\", \"target\": \"Right Ventricular Pressure Overload and Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal Membrane Oxygenation\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Delayed Surgical Repair of the Diaphragmatic Defect\", \"target\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Central diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A central tendon defect of the diaphragm.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Central\"], \"term_id\": \"HP:0025195\"}}, {\"id\": \"Chronic lung disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic oxygen dependency and long-term pulmonary morbidity in survivors, the CDH counterpart of bronchopulmonary dysplasia. It reflects the hypoplastic, immature lung compounded by exposure to mechanical ventilation and oxygen.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006528\"}}, {\"id\": \"Congenital diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A defect in the diaphragm permitting herniation of abdominal viscera into the thorax, typically detected on prenatal ultrasound or in the immediate newborn period.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000776\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central cyanosis reflecting right-to-left shunting and impaired gas exchange.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Delayed Surgical Repair of the Diaphragmatic Defect\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Operative closure of the diaphragmatic defect by primary repair or prosthetic patch, deferred until after physiological stabilisation rather than performed as a neonatal emergency.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Extracorporeal Membrane Oxygenation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Venoarterial or venovenous extracorporeal life support used as rescue therapy for refractory hypoxemia or cardiovascular failure in CDH, permitting lung rest until pulmonary vascular resistance falls.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Incomplete closure of the pleuroperitoneal canal leaves a diaphragmatic defect through which abdominal viscera herniate into the thorax during fetal life. The herniated viscera occupy the hemithorax and compress the developing lung, most often on the left.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"diaphragm morphogenesis\"], \"role\": \"central_effector\", \"locations\": [\"diaphragm\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor postnatal growth in survivors, driven by increased work of breathing, feeding difficulty, and reflux.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fetal Endoscopic Tracheal Occlusion (FETO)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Percutaneous fetoscopic placement of a detachable balloon in the fetal trachea, which retains lung fluid, raises intrapulmonary pressure and promotes lung growth, followed by balloon removal before delivery. Offered in severe isolated CDH with low observed-to-expected lung-to-head ratio.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Gastroesophageal reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A common long-term morbidity in CDH survivors, related to distortion of the oesophageal hiatus and altered gastro-oesophageal anatomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Gentle Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A permissive-hypercapnia, pressure-limited ventilation strategy that avoids high peak inflating pressures in order to prevent barotrauma to the hypoplastic lung; the standardised approach that underpinned improved survival in contemporary CDH care.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Hypoplastic left ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced left ventricular and left-sided valvar dimensions in left-sided CDH, proportional to lung size and liver herniation. This is a hypoplasia of degree rather than hypoplastic left heart syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004383\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, often labile arterial hypoxemia refractory to supplemental oxygen.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Inhaled Nitric Oxide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selective inhaled pulmonary vasodilator used for pulmonary hypertension with right-to-left shunting; response in CDH is frequently poor compared with other causes of persistent pulmonary hypertension of the newborn.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"nitric oxide\"]}}, {\"id\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In left-sided CDH the herniated viscera displace the mediastinum to the right and compress the left heart during the period of fetal cardiac growth. Left-sided structures (mitral valve, aortic valve, left ventricle) are correspondingly smaller, in proportion to lung size and the extent of liver herniation. This is a distinct arm from the right ventricular pressure overload driven by pulmonary hypertension, and it contributes to the low-output physiology and vasodilator intolerance of severe disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"role\": \"effector\", \"locations\": [\"left cardiac ventricle\"]}}, {\"id\": \"Milrinone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-3 inhibitor with inotropic and pulmonary vasodilator effects used for right ventricular dysfunction with pulmonary hypertension in CDH.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"milrinone\"]}}, {\"id\": \"Morgagni diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An anterior retrosternal diaphragmatic defect, less common and frequently diagnosed beyond the neonatal period.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Morgagni\"], \"term_id\": \"HP:0025194\"}}, {\"id\": \"Neurodevelopmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurodevelopmental impairment in survivors, reported in association with prolonged hypoxemia, extracorporeal support, and prolonged intensive care.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012758\"}}, {\"id\": \"Other maternal exposures\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal age, alcohol use and smoking have been reported as epidemiological associations with CDH. Evidence outside retinoid biology remains limited and these associations should not be read as established individual causation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pectus excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chest wall depression in survivors, the second component of the musculoskeletal morbidity of CDH. Primary abdominal closure under tension after repair is associated with a higher rate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Persistent Pulmonary Hypertension of the Newborn\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structurally reduced and hypermuscularized pulmonary vascular bed, combined with abnormal vasoreactivity, prevents the normal postnatal fall in pulmonary vascular resistance. Suprasystemic pulmonary pressures drive right-to-left shunting across the ductus arteriosus and foramen ovale.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vasoconstriction\"], \"role\": \"consequence\"}}, {\"id\": \"Posterolateral diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The posterolateral (Bochdalek) defect, the most common anatomic form of CDH and predominantly left-sided.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Bochdalek\"], \"term_id\": \"HP:0025193\"}}, {\"id\": \"Pulmonary Hypoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both lungs, and particularly the ipsilateral lung, show reduced airway branching generations, reduced alveolar number and surface area, thickened alveolar septa, and surfactant abnormalities. The parenchymal deficit is bilateral even when the defect is unilateral, indicating a primary developmental component in addition to mechanical compression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"branching morphogenesis of an epithelial tube\", \"lung alveolus development\"], \"role\": \"effector\", \"locations\": [\"lung\"]}}, {\"id\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The pulmonary vascular bed in CDH is reduced in cross-sectional area, with fewer arterial generations per unit lung, and the pre-acinar and intra-acinar arteries show adventitial thickening and abnormal medial muscularization extending peripherally into vessels that are normally non-muscular. Endothelial dysfunction with reduced nitric oxide signaling accompanies the structural remodeling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\", \"pulmonary artery endothelial cell\"], \"biological_processes\": [\"blood vessel remodeling\", \"lung vasculature development\", \"smooth muscle cell proliferation\", \"nitric oxide biosynthetic process\"], \"role\": \"effector\"}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension of the newborn with failure of the normal postnatal fall in pulmonary vascular resistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced lung volume with fewer airway branching generations and reduced alveolar number, affecting both lungs but more severely the lung ipsilateral to the defect.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002089\"}}, {\"id\": \"Reduced retinoid (vitamin A) signaling during diaphragm morphogenesis\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Perturbation of the vitamin A / retinoic acid axis during early gestation is the best-developed environmental hypothesis for CDH. Retinoic acid is generated from dietary vitamin A by retinaldehyde dehydrogenases; dietary vitamin A deficiency, teratogens that inhibit retinoic acid synthesis, and genetic lesions in retinoid transport and signalling all produce diaphragmatic defects, and the pathway is a locus of gene-environment interaction.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of reduced alveolar gas-exchange surface, ventilation limited by a small and stiff lung, and extrapulmonary right-to-left shunting produces severe hypoxemia that is frequently refractory to conventional ventilation and inhaled vasodilators.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neonatal respiratory failure presenting within minutes to hours of birth in severe cases.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in CDH is a deficit of the pleuroperitoneal fold (PPF) mesenchyme, the transient structure whose expansion closes the pleuroperitoneal canal. Retinoic acid signaling is required for PPF outgrowth, and disruption of the retinoid pathway or of PPF mesenchymal transcriptional regulators such as ZFPM2, GATA4, NR2F2 and WT1 reduces the amplifying PPF cell population.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"pleuroperitoneal fold mesenchymal cell\"], \"biological_processes\": [\"retinoic acid receptor signaling pathway\", \"diaphragm development\"], \"genes\": [\"ALDH1A2 (RALDH2)\"], \"gene_terms\": [{\"label\": \"ALDH1A2 (RALDH2)\", \"id\": \"hgnc:15472\"}], \"role\": \"trigger\"}}, {\"id\": \"Right Ventricular Pressure Overload and Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent pulmonary hypertension imposes high afterload on a right ventricle that may itself be hypoplastic or intrinsically dysfunctional in CDH. Progressive right ventricular dilation and failure reduce pulmonary blood flow and left ventricular preload, producing systemic hypoperfusion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"role\": \"consequence\"}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular dysfunction and failure secondary to pulmonary hypertensive afterload.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Scaphoid abdomen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A sunken abdominal contour in the newborn resulting from displacement of abdominal viscera into the thorax.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025063\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity in long-term survivors, one component of the musculoskeletal morbidity that follows a large diaphragmatic defect and its repair. It correlates with defect severity rather than being an intrinsic developmental feature of the diaphragmatic lesion.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss reported in CDH survivors, described in association with extracorporeal support and prolonged intensive care exposure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Sildenafil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-5 inhibitor used to treat pulmonary hypertension in CDH, including as prenatal and postnatal therapy under investigation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sildenafil\"]}}], \"edges\": [{\"source\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"target\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A deficient pleuroperitoneal fold fails to close the pleuroperitoneal canal, leaving a diaphragmatic defect.\", \"hypothesis_groups\": [\"retinoid\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The \\\"first hit\\\" of the dual-hit model: the same early developmental perturbation that impairs pleuroperitoneal fold outgrowth also acts directly on the developing lung, before and independently of the diaphragmatic defect. This edge is asserted only under the dual-hit hypothesis group; under the competing purely mechanical model it does not exist, and all pulmonary hypoplasia is secondary to compression.\", \"hypothesis_groups\": [\"dual_hit\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Space occupation by herniated viscera restricts lung growth during the pseudoglandular and canalicular stages. This is the \\\"second hit\\\" of the dual-hit model and the whole of the competing purely mechanical model, so the edge is shared by both hypothesis groups.\", \"hypothesis_groups\": [\"dual_hit\", \"mechanical_compression_only\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental window that limits airway branching also limits and distorts pulmonary vascular development.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Congenital diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The anatomic defect is the defining clinical finding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Posterolateral diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of pleuroperitoneal fold closure specifically produces the posterolateral (Bochdalek) defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Morgagni diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of closure at the sternocostal trigone produces the anterior retrosternal (Morgagni) defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Central diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal septum transversum development produces the central tendon defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Scaphoid abdomen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Relocation of abdominal viscera into the thorax leaves the abdomen empty, producing the sunken newborn abdominal contour.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Gastroesophageal reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distortion of the oesophageal hiatus and gastro-oesophageal junction anatomy by the defect and its repair predisposes to reflux in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mediastinal shift and compression by herniated viscera, most often on the left, restrict filling and growth of the left-sided cardiac structures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thoracic cage growth asymmetry after a large defect and its repair produces spinal deformity in long-term survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"target\": \"Pectus excavatum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same asymmetric chest wall growth, and abdominal closure under tension after repair, produce anterior chest wall deformity in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced alveolar surface area limits gas exchange from the first postnatal breaths.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced lung parenchymal mass is the defining structural phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Hypoplasia\", \"target\": \"Chronic lung disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A structurally deficient lung that must then be ventilated develops chronic oxygen dependency and long-term respiratory morbidity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Vascular Maldevelopment and Remodeling\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A reduced and abnormally muscularized vascular bed raises pulmonary vascular resistance after birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Right Ventricular Pressure Overload and Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high afterload overloads the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extrapulmonary right-to-left shunting adds a component of hypoxemia that is unresponsive to increased inspired oxygen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistent Pulmonary Hypertension of the Newborn\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated pulmonary arterial pressure is directly observed clinically.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Right Ventricular Pressure Overload and Failure\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right heart decompensation is the clinical manifestation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Heart Hypoplasia in Left-Sided CDH\", \"target\": \"Hypoplastic left ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced left ventricular dimensions are the observed structural phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of gas exchange at birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe and often labile arterial desaturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visible manifestation of arterial desaturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Neurodevelopmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged hypoxemia and the intensive care it necessitates (prolonged ventilation, extracorporeal support) are the recognised route to neurodevelopmental impairment in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hearing loss in survivors is attributed to the same prolonged critical illness and extracorporeal support exposure rather than to a primary cochlear lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased work of breathing and prolonged respiratory morbidity drive the postnatal growth failure seen in survivors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced retinoid (vitamin A) signaling during diaphragm morphogenesis\", \"target\": \"Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node is named for this pathway, so the exposure is its own content rather than something acting on it from outside. Graded partial because the cited sentence announces the retinoid hypothesis as a hypothesis under review, twenty years on, rather than reporting a result; the entry\u0027s own description is equally careful, calling this the best-developed environmental hypothesis rather than an established cause.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Other maternal exposures\", \"target\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded well below the retinoid link, and the second item carried here is the reason: it states that apart from the maturing retinol hypothesis there is limited evidence implicating other environmental factors at all. Keeping that sentence on the link means the weakness of this exposure class travels with it rather than sitting where a reader of the pathograph would not meet it. Pointed at the closure failure rather than at the retinoid node, because no route through retinoid biology is claimed for these exposures.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Endoscopic Tracheal Occlusion (FETO)\", \"target\": \"Pulmonary Hypoplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gentle Ventilation\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Nitric Oxide\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sildenafil\", \"target\": \"Persistent Pulmonary Hypertension of the Newborn\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Milrinone\", \"target\": \"Right Ventricular Pressure Overload and Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal Membrane Oxygenation\", \"target\": \"Refractory Hypoxemia and Neonatal Respiratory Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Delayed Surgical Repair of the Diaphragmatic Defect\", \"target\": \"Failure of Diaphragm Closure and Visceral Herniation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6652,14 +7091,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary arterial hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002092</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6679,6 +7125,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6701,6 +7148,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6735,14 +7183,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6762,6 +7219,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6805,14 +7263,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastroesophageal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal reflux (HP:0002020), qualified as temporality chronic. HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6850,6 +7315,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6891,14 +7357,21 @@
                         Sensorineural hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,6 +7391,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6959,14 +7433,21 @@
                         Cyanosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000961">HP:0000961</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6986,6 +7467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31519366" target="_blank">PMID:31519366</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7029,14 +7511,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650), qualified as course progressive. HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7075,6 +7564,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31482324" target="_blank">PMID:31482324</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7097,6 +7587,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31482324" target="_blank">PMID:31482324</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7118,6 +7609,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7152,14 +7644,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus excavatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7179,6 +7678,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31482324" target="_blank">PMID:31482324</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7201,6 +7701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31482324" target="_blank">PMID:31482324</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7242,14 +7743,21 @@
                         Neurodevelopmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurodevelopmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012758">HP:0012758</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012758</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurodevelopmental delay (HP:0012758). HP:0012758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7269,6 +7777,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7310,14 +7819,21 @@
                         Polyhydramnios
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyhydramnios
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001561">HP:0001561</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001561</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7337,6 +7853,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301632" target="_blank">PMID:20301632</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7380,14 +7897,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7407,6 +7931,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7441,14 +7966,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878), qualified as temporality acute. HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7487,6 +8019,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7518,14 +8051,21 @@
                         Hypoxemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoxemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7545,6 +8085,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7586,14 +8127,21 @@
                         Failure to thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7613,6 +8161,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7656,14 +8205,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital diaphragmatic hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000776">HP:0000776</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000776</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7683,6 +8239,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7715,14 +8272,21 @@
                         Posterolateral diaphragmatic hernia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Posterolateral diaphragmatic hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025193" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025193">HP:0025193</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025193</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Posterolateral diaphragmatic hernia (HP:0025193). HP:0025193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7742,6 +8306,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7774,14 +8339,21 @@
                         Morgagni diaphragmatic hernia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Morgagni diaphragmatic hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025194" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025194">HP:0025194</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0025194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Morgagni diaphragmatic hernia (HP:0025194). HP:0025194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7801,6 +8373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7833,14 +8406,21 @@
                         Central diaphragmatic hernia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central diaphragmatic hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025195" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025195">HP:0025195</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025195" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0025195</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central diaphragmatic hernia (HP:0025195). HP:0025195 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7860,6 +8440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7892,14 +8473,21 @@
                         Right ventricular failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Right ventricular failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001708">HP:0001708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7919,6 +8507,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7951,14 +8540,21 @@
                         Scaphoid abdomen
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scaphoid abdomen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025063">HP:0025063</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0025063</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scaphoid abdomen (HP:0025063). HP:0025063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7978,6 +8574,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8012,14 +8609,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic lung disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006528">HP:0006528</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0006528</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic lung disease (HP:0006528), qualified as temporality chronic. HP:0006528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8058,6 +8662,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21042035" target="_blank">PMID:21042035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8080,6 +8685,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21042035" target="_blank">PMID:21042035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8101,6 +8707,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8135,14 +8742,21 @@
                         Hypoplastic left ventricle
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplastic left ventricle
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004383" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004383">HP:0004383</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0004383</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular hypoplasia, annotated with Hypoplastic left ventricle (HP:0004383). HP:0004383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8162,6 +8776,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28370263" target="_blank">PMID:28370263</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8184,6 +8799,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28370263" target="_blank">PMID:28370263</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8260,13 +8876,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZFPM2
 
 
-    <a href="https://bioregistry.io/hgnc:16700" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16700">hgnc:16700</a>
+    <a href="https://bioregistry.io/hgnc:16700" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:16700</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZFPM2 (hgnc:16700). hgnc:16700 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8289,6 +8910,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8324,13 +8946,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA4
 
 
-    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4173">hgnc:4173</a>
+    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:4173</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8353,6 +8980,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8388,13 +9016,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NR2F2
 
 
-    <a href="https://bioregistry.io/hgnc:7976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7976">hgnc:7976</a>
+    <a href="https://bioregistry.io/hgnc:7976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:7976</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NR2F2 (hgnc:7976). hgnc:7976 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8417,6 +9050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8452,13 +9086,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WT1
 
 
-    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12796">hgnc:12796</a>
+    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:12796</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8482,6 +9121,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28768736" target="_blank">PMID:28768736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8503,6 +9143,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8538,13 +9179,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LONP1
 
 
-    <a href="https://bioregistry.io/hgnc:9479" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9479">hgnc:9479</a>
+    <a href="https://bioregistry.io/hgnc:9479" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:9479</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LONP1 (hgnc:9479). hgnc:9479 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8568,6 +9214,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547244" target="_blank">PMID:34547244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8589,6 +9236,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34547244" target="_blank">PMID:34547244</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8624,13 +9272,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYRF
 
 
-    <a href="https://bioregistry.io/hgnc:1181" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1181">hgnc:1181</a>
+    <a href="https://bioregistry.io/hgnc:1181" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:1181</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYRF (hgnc:1181). hgnc:1181 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8653,6 +9306,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36375006" target="_blank">PMID:36375006</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8688,13 +9342,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRP2
 
 
-    <a href="https://bioregistry.io/hgnc:6694" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6694">hgnc:6694</a>
+    <a href="https://bioregistry.io/hgnc:6694" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:6694</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP2 (hgnc:6694). hgnc:6694 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8718,6 +9377,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301732" target="_blank">PMID:20301732</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8739,6 +9399,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301732" target="_blank">PMID:20301732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8774,13 +9435,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STRA6
 
 
-    <a href="https://bioregistry.io/hgnc:30650" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30650">hgnc:30650</a>
+    <a href="https://bioregistry.io/hgnc:30650" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:30650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STRA6 (hgnc:30650). hgnc:30650 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8804,6 +9470,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19309693" target="_blank">PMID:19309693</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8825,6 +9492,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19309693" target="_blank">PMID:19309693</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8860,13 +9528,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA6
 
 
-    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4174">hgnc:4174</a>
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:4174</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8892,6 +9565,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24385578" target="_blank">PMID:24385578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8913,6 +9587,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24385578" target="_blank">PMID:24385578</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8948,13 +9623,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PBX1
 
 
-    <a href="https://bioregistry.io/hgnc:8632" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8632">hgnc:8632</a>
+    <a href="https://bioregistry.io/hgnc:8632" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:8632</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8980,6 +9660,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29036646" target="_blank">PMID:29036646</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9001,6 +9682,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22315423" target="_blank">PMID:22315423</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9036,13 +9718,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLIT3
 
 
-    <a href="https://bioregistry.io/hgnc:11087" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11087">hgnc:11087</a>
+    <a href="https://bioregistry.io/hgnc:11087" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:11087</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLIT3 (hgnc:11087). hgnc:11087 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9066,6 +9753,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33933663" target="_blank">PMID:33933663</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9087,6 +9775,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33933663" target="_blank">PMID:33933663</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9118,6 +9807,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9133,7 +9825,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fetoscopic tracheal occlusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">fetoscopic tracheal occlusion<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fetoscopic tracheal occlusion, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -9200,6 +9897,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34106556" target="_blank">PMID:34106556</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9222,6 +9920,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34106556" target="_blank">PMID:34106556</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9243,6 +9942,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34106555" target="_blank">PMID:34106555</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9275,7 +9975,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pressure-limited mechanical ventilation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">pressure-limited mechanical ventilation<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pressure-limited mechanical ventilation, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
@@ -9342,6 +10047,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26692079" target="_blank">PMID:26692079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9364,6 +10070,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26692079" target="_blank">PMID:26692079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9385,6 +10092,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077664" target="_blank">PMID:27077664</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9415,7 +10123,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9445,16 +10158,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nitric oxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16480" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16480">CHEBI:16480</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16480" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:16480</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nitric oxide (CHEBI:16480). CHEBI:16480 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9498,6 +10216,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32384329" target="_blank">PMID:32384329</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9519,6 +10238,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9549,7 +10269,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9579,16 +10304,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sildenafil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9139">CHEBI:9139</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-58">CHEBI:9139</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9632,6 +10362,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077664" target="_blank">PMID:27077664</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9661,7 +10392,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9691,16 +10427,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         milrinone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50693" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50693">CHEBI:50693</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50693" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:50693</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses milrinone (CHEBI:50693). CHEBI:50693 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9744,6 +10485,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39018718" target="_blank">PMID:39018718</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9773,7 +10515,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">extracorporeal membrane oxygenation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">extracorporeal membrane oxygenation<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C171507 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Extracorporeal Membrane Oxygenation</span>
 
 
@@ -9840,6 +10587,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9861,6 +10609,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9891,7 +10640,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">diaphragmatic hernia repair</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">diaphragmatic hernia repair<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is diaphragmatic hernia repair, annotated with Herniorrhaphy (NCIT:C168249). NCIT:C168249 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Herniorrhaphy</span>
 
 
@@ -9958,6 +10712,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9979,6 +10734,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301632" target="_blank">PMID:20301632</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10020,6 +10776,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Perturbation of the vitamin A / retinoic acid axis during early gestation is the best-developed environmental hypothesis for CDH. Retinoic acid is generated from dietary vitamin A by retinaldehyde dehydrogenases; dietary vitamin A deficiency, teratogens that inhibit retinoic acid synthesis, and genetic lesions in retinoid transport and signalling all produce diaphragmatic defects, and the pathway is a locus of gene-environment interaction.</div>
 
 
@@ -10035,6 +10795,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10058,6 +10819,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10080,10 +10842,90 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node is named for this pathway, so the exposure is its own content rather than something acting on it from outside. Graded partial because the cited sentence announces the retinoid hypothesis as a hypothesis under review, twenty years on, rather than reporting a result; the entry&#39;s own description is equally careful, calling this the best-developed environmental hypothesis rather than an established cause.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37990078" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This review provides a comprehensive update on the Retinoid Hypothesis, which links abnormal retinoic acid signaling to the etiology of congenital diaphragmatic hernia."</div>
+
+
+                <div class="evidence-explanation">A review updating the retinoid hypothesis, which links abnormal retinoic acid signalling to the aetiology of this malformation. It names the pathway at this node and frames it as a hypothesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37990078" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 2003, Greer et al. proposed the Retinoid Hypothesis, stating that the underlying cause of abnormal diaphragm development in CDH was related to altered retinoid signaling"</div>
+
+
+                <div class="evidence-explanation">States what the hypothesis actually claims, that the underlying cause of abnormal diaphragm development is altered retinoid signalling. Carried alongside the update sentence because it names the causal content rather than the review&#39;s currency, and it remains an attributed proposal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-other-maternal-exposures" data-dismech-node="Other maternal exposures" data-dismech-type="environmental">
                 <div class="item-name">Other maternal exposures</div>
+
+
+
+
 
 
 
@@ -10102,6 +10944,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10125,6 +10968,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10146,6 +10990,82 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Failure of Diaphragm Closure and Visceral Herniation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded well below the retinoid link, and the second item carried here is the reason: it states that apart from the maturing retinol hypothesis there is limited evidence implicating other environmental factors at all. Keeping that sentence on the link means the weakness of this exposure class travels with it rather than sitting where a reader of the pathograph would not meet it. Pointed at the closure failure rather than at the retinoid node, because no route through retinoid biology is claimed for these exposures.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37990078" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37990078" target="_blank">PMID:37990078</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Environmental risk factors for CDH are varied, including associations with maternal age, alcohol use, and smoking."</div>
+
+
+                <div class="evidence-explanation">Lists maternal age, alcohol use and smoking as reported associations. The review presents them as associations rather than proven causes, which the entry&#39;s description repeats.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39183805" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39183805" target="_blank">PMID:39183805</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, apart from the gradually maturing retinol hypothesis, there is limited evidence implicating other environmental factors in CDH occurrence."</div>
+
+
+                <div class="evidence-explanation">States that apart from the retinol hypothesis there is limited evidence implicating other environmental factors. Carried deliberately, as the bound on what this link can claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10183,6 +11103,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35650272" target="_blank">PMID:35650272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10205,6 +11126,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39505208" target="_blank">PMID:39505208</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10226,6 +11148,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39505208" target="_blank">PMID:39505208</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10267,7 +11190,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-congenital-pulmonary-airway-malformation">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Congenital_Pulmonary_Airway_Malformation.html">Congenital pulmonary airway malformation</a>
@@ -10316,6 +11239,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10341,7 +11265,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-congenital-pulmonary-sequestration">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Congenital pulmonary sequestration</span>
@@ -10393,6 +11317,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252753" target="_blank">PMID:33252753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10414,6 +11339,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10440,7 +11366,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-congenital-lobar-emphysema">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Congenital lobar emphysema</span>
@@ -10492,6 +11418,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33252753" target="_blank">PMID:33252753</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10513,6 +11440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22214468" target="_blank">PMID:22214468</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10539,7 +11467,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-diaphragmatic-eventration">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Diaphragmatic eventration</span>
@@ -10589,6 +11517,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301632" target="_blank">PMID:20301632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10627,7 +11556,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01240057">
                 <div class="item-name">
                     NCT01240057
 
@@ -10644,16 +11573,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002089</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10671,6 +11605,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01240057" target="_blank">clinicaltrials:NCT01240057</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10695,7 +11630,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00763737">
                 <div class="item-name">
                     NCT00763737
 
@@ -10712,16 +11647,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002089</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10739,6 +11679,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00763737" target="_blank">clinicaltrials:NCT00763737</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10761,6 +11702,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00763737" target="_blank">clinicaltrials:NCT00763737</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10785,7 +11727,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06179472">
                 <div class="item-name">
                     NCT06179472
 
@@ -10802,17 +11744,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002089</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulmonary arterial hypertension
@@ -10820,10 +11769,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10841,6 +11793,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06179472" target="_blank">clinicaltrials:NCT06179472</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10869,6 +11822,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12836,6 +13792,39 @@ treatments:
       the timing of repair itself.
 environmental:
 - name: Reduced retinoid (vitamin A) signaling during diaphragm morphogenesis
+  influences_mechanisms:
+  - target: Retinoid Signaling and Pleuroperitoneal Fold Mesenchymal Deficit
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node is named for this pathway, so the exposure is its own content
+      rather than something acting on it from outside. Graded partial because
+      the cited sentence announces the retinoid hypothesis as a hypothesis
+      under review, twenty years on, rather than reporting a result; the
+      entry&#39;s own description is equally careful, calling this the
+      best-developed environmental hypothesis rather than an established
+      cause.
+    evidence:
+    - reference: PMID:37990078
+      reference_title: &#34;The etiology of congenital diaphragmatic hernia: the retinoid hypothesis 20 years later.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;This review provides a comprehensive update on the Retinoid Hypothesis, which links abnormal retinoic acid signaling to the etiology of congenital diaphragmatic hernia.&#34;
+      explanation: &gt;-
+        A review updating the retinoid hypothesis, which links abnormal
+        retinoic acid signalling to the aetiology of this malformation. It
+        names the pathway at this node and frames it as a hypothesis.
+    - reference: PMID:37990078
+      reference_title: &#34;The etiology of congenital diaphragmatic hernia: the retinoid hypothesis 20 years later.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;In 2003, Greer et al. proposed the Retinoid Hypothesis, stating that the underlying cause of abnormal diaphragm development in CDH was related to altered retinoid signaling&#34;
+      explanation: &gt;-
+        States what the hypothesis actually claims, that the underlying cause
+        of abnormal diaphragm development is altered retinoid signalling.
+        Carried alongside the update sentence because it names the causal
+        content rather than the review&#39;s currency, and it remains an
+        attributed proposal.
   description: &gt;-
     Perturbation of the vitamin A / retinoic acid axis during early gestation
     is the best-developed environmental hypothesis for CDH. Retinoic acid is
@@ -12871,6 +13860,38 @@ environmental:
       Identifies the retinoid pathway specifically as the gene-environment
       interaction locus in CDH.
 - name: Other maternal exposures
+  influences_mechanisms:
+  - target: Failure of Diaphragm Closure and Visceral Herniation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded well below the retinoid link, and the second item carried here is
+      the reason: it states that apart from the maturing retinol hypothesis
+      there is limited evidence implicating other environmental factors at
+      all. Keeping that sentence on the link means the weakness of this
+      exposure class travels with it rather than sitting where a reader of the
+      pathograph would not meet it. Pointed at the closure failure rather than
+      at the retinoid node, because no route through retinoid biology is
+      claimed for these exposures.
+    evidence:
+    - reference: PMID:37990078
+      reference_title: &#34;The etiology of congenital diaphragmatic hernia: the retinoid hypothesis 20 years later.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Environmental risk factors for CDH are varied, including associations with maternal age, alcohol use, and smoking.&#34;
+      explanation: &gt;-
+        Lists maternal age, alcohol use and smoking as reported associations.
+        The review presents them as associations rather than proven causes,
+        which the entry&#39;s description repeats.
+    - reference: PMID:39183805
+      reference_title: &#34;Role of genetics and the environment in the etiology of congenital diaphragmatic hernia.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;However, apart from the gradually maturing retinol hypothesis, there is limited evidence implicating other environmental factors in CDH occurrence.&#34;
+      explanation: &gt;-
+        States that apart from the retinol hypothesis there is limited
+        evidence implicating other environmental factors. Carried
+        deliberately, as the bound on what this link can claim.
   description: &gt;-
     Maternal age, alcohol use and smoking have been reported as epidemiological
     associations with CDH. Evidence outside retinoid biology remains limited
@@ -14450,7 +15471,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Congenital Diaphragmatic Hernia", "mondoId": "MONDO:0005711", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Diaphragmatic_Hernia", "yamlRevision": "46a54ca8f179"};
+        const OS_CONFIG = {"diseaseName": "Congenital Diaphragmatic Hernia", "mondoId": "MONDO:0005711", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Congenital_Diaphragmatic_Hernia", "yamlRevision": "9ac35e3d4674"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14869,5 +15890,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

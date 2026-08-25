@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Cholangiocarcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Cholangiocarcinoma</h1>
             <div class="header-meta">
 
@@ -3564,7 +3766,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cholangiocarcinoma"
@@ -3693,6 +3895,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3722,7 +3926,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3776,6 +3980,122 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Derived from this entry&#39;s disease term MONDO:0019087 (cholangiocarcinoma), which carries the cross-reference ICDO:8160/3 and whose NCIT cross-reference NCIT:C4436 (Cholangiocarcinoma) is a descendant of NCIT:C2852 (Adenocarcinoma), the term this enum value is bound to.">Adenocarcinoma</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Cholangiocarcinoma is managed as a hepatobiliary solid-tumor oncology problem (resection, cytotoxic chemotherapy, FGFR2/IDH1-targeted therapy).">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -3816,7 +4136,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-intrahepatic">
 
                     <div class="item-name">
                         Intrahepatic Cholangiocarcinoma (iCCA)
@@ -3846,7 +4166,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-perihilar">
 
                     <div class="item-name">
                         Perihilar Cholangiocarcinoma (pCCA, Klatskin tumor)
@@ -3876,7 +4196,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-distal">
 
                     <div class="item-name">
                         Distal Cholangiocarcinoma (dCCA)
@@ -3932,16 +4252,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholangiocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000488">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:1000488</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3968,16 +4293,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3986,6 +4316,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4003,10 +4335,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4033,19 +4368,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bile duct
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002394" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002394">UBERON:0002394</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002394" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002394</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bile duct (UBERON:0002394). UBERON:0002394 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4087,6 +4428,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30851228" target="_blank">PMID:30851228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4106,6 +4448,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4144,16 +4487,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042127">GO:0042127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4174,6 +4522,7 @@
 
 
                 </div>
+
 
 
 
@@ -4218,6 +4567,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36528236" target="_blank">PMID:36528236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4238,6 +4588,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41850925" target="_blank">PMID:41850925</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4257,6 +4608,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41682001" target="_blank">PMID:41682001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4295,16 +4647,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4324,16 +4681,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         epigenetic regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040029">GO:0040029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0040029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4354,6 +4716,7 @@
 
 
                 </div>
+
 
 
 
@@ -4375,6 +4738,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36528236" target="_blank">PMID:36528236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4394,6 +4758,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32505533" target="_blank">PMID:32505533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4427,16 +4792,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cancer-associated fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4463,16 +4833,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4493,6 +4868,7 @@
 
 
                 </div>
+
 
 
 
@@ -4537,6 +4913,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35961702" target="_blank">PMID:35961702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4557,6 +4934,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35961702" target="_blank">PMID:35961702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4576,6 +4954,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32505533" target="_blank">PMID:32505533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4609,16 +4988,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         tumor-associated macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves tumor-associated macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4645,16 +5029,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4684,6 +5073,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4695,6 +5085,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32505533" target="_blank">PMID:32505533</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4717,6 +5108,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39570809" target="_blank">PMID:39570809</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4755,16 +5147,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4794,6 +5191,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4805,6 +5203,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41460204" target="_blank">PMID:41460204</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4825,6 +5224,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41682001" target="_blank">PMID:41682001</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4872,7 +5272,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA harbors a diverse mutational landscape. Common alterations include IDH1/2 mutations (10-20% of iCCA), FGFR2 fusions/rearrangements (10-16% of iCCA), TP53 mutations, KRAS mutations, ARID1A mutations, BAP1 loss, and PBRM1 mutations. The mutational profile differs by anatomic and pathologic subtype, with IDH and FGFR alterations enriched in small duct iCCA and KRAS mutations more common in large duct and extrahepatic subtypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell population proliferation\"]}}, {\"id\": \"Chronic Biliary Inflammation and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the biliary epithelium from conditions such as primary sclerosing cholangitis, hepatolithiasis, or liver fluke infection leads to repeated cycles of injury and repair. Persistent cholestasis and bile acid exposure cause oxidative stress and DNA damage in cholangiocytes, promoting malignant transformation. In Western countries about 50% of cases are diagnosed without any identifiable risk factor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholangiocyte\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"bile duct\"]}}, {\"id\": \"Desmoplastic Stromal Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA is characterized by a prominent desmoplastic stroma comprising cancer-associated fibroblasts (CAFs), extracellular matrix proteins, and inflammatory cells. Single-cell analysis identified six distinct fibroblast subsets, with vascular CAFs (vCAFs) dominant and expressing high levels of IL-6. Matricellular glycoproteins including periostin, osteopontin, and tenascin-C promote proliferation, invasion, EMT, and immune evasion. The dense stroma limits immune cell infiltration and drug delivery.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cancer-associated fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Enhanced Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple oncogenic pathways converge to drive CCA proliferation and survival. RAS-MAPK and PI3K-AKT-mTOR pathways are frequently activated by KRAS mutations, FGFR alterations, or growth factor receptor amplifications. MAPK pathway activation serves as a convergent resistance mechanism across targeted therapies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH1/2 mutations produce the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases including TET2 and histone demethylases. This leads to DNA and histone hypermethylation, blocking cholangiocyte differentiation and promoting a progenitor-like state. EZH2 overexpression further drives epigenetic silencing of tumor suppressors. vCAF-derived IL-6 induces epigenetic alterations in CCA cells, particularly upregulating EZH2.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Immunosuppressive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CCA microenvironment is enriched with tumor-associated macrophages, myeloid-derived suppressor cells, and regulatory T cells with highly immunosuppressive characteristics. PD-L1 expression is variable. The dense desmoplastic stroma acts as a physical barrier to T cell infiltration. Tumor-infiltrating B cells are scarce, immature, and immunosuppressive.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"]}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Desmoplastic Stromal Reaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates periductal fibroblasts and stellate cells\"}, {\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Accumulation of Oncogenic Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles promote somatic mutation accumulation\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IDH mutations produce oncometabolite 2-HG causing epigenetic changes\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS and FGFR alterations drive proliferative signaling\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Immunosuppressive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense stroma and CAF-derived factors create immune-excluded phenotype\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAF-secreted growth factors promote tumor cell proliferation\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA harbors a diverse mutational landscape. Common alterations include IDH1/2 mutations (10-20% of iCCA), FGFR2 fusions/rearrangements (10-16% of iCCA), TP53 mutations, KRAS mutations, ARID1A mutations, BAP1 loss, and PBRM1 mutations. The mutational profile differs by anatomic and pathologic subtype, with IDH and FGFR alterations enriched in small duct iCCA and KRAS mutations more common in large duct and extrahepatic subtypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell population proliferation\"]}}, {\"id\": \"Chronic Biliary Inflammation and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the biliary epithelium from conditions such as primary sclerosing cholangitis, hepatolithiasis, or liver fluke infection leads to repeated cycles of injury and repair. Persistent cholestasis and bile acid exposure cause oxidative stress and DNA damage in cholangiocytes, promoting malignant transformation. In Western countries about 50% of cases are diagnosed without any identifiable risk factor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholangiocyte\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"bile duct\"]}}, {\"id\": \"Desmoplastic Stromal Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA is characterized by a prominent desmoplastic stroma comprising cancer-associated fibroblasts (CAFs), extracellular matrix proteins, and inflammatory cells. Single-cell analysis identified six distinct fibroblast subsets, with vascular CAFs (vCAFs) dominant and expressing high levels of IL-6. Matricellular glycoproteins including periostin, osteopontin, and tenascin-C promote proliferation, invasion, EMT, and immune evasion. The dense stroma limits immune cell infiltration and drug delivery.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cancer-associated fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Enhanced Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple oncogenic pathways converge to drive CCA proliferation and survival. RAS-MAPK and PI3K-AKT-mTOR pathways are frequently activated by KRAS mutations, FGFR alterations, or growth factor receptor amplifications. MAPK pathway activation serves as a convergent resistance mechanism across targeted therapies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH1/2 mutations produce the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases including TET2 and histone demethylases. This leads to DNA and histone hypermethylation, blocking cholangiocyte differentiation and promoting a progenitor-like state. EZH2 overexpression further drives epigenetic silencing of tumor suppressors. vCAF-derived IL-6 induces epigenetic alterations in CCA cells, particularly upregulating EZH2.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Immunosuppressive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CCA microenvironment is enriched with tumor-associated macrophages, myeloid-derived suppressor cells, and regulatory T cells with highly immunosuppressive characteristics. PD-L1 expression is variable. The dense desmoplastic stroma acts as a physical barrier to T cell infiltration. Tumor-infiltrating B cells are scarce, immature, and immunosuppressive.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"]}}, {\"id\": \"Liver Fluke Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Infection with Opisthorchis viverrini or Clonorchis sinensis, endemic in Southeast Asia, is a major risk factor for CCA, particularly in Thailand and Laos. Chronic fluke infection causes biliary inflammation and epithelial damage.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Desmoplastic Stromal Reaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates periductal fibroblasts and stellate cells\"}, {\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Accumulation of Oncogenic Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles promote somatic mutation accumulation\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IDH mutations produce oncometabolite 2-HG causing epigenetic changes\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS and FGFR alterations drive proliferative signaling\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Immunosuppressive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense stroma and CAF-derived factors create immune-excluded phenotype\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAF-secreted growth factors promote tumor cell proliferation\"}, {\"source\": \"Liver Fluke Infection\", \"target\": \"Chronic Biliary Inflammation and Cholestasis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The best-evidenced link in this tranche, and the only one where the intervening step is quoted rather than assumed: the flukes cause chronic irritation and increased cellular turnover in the bile ducts, which is the inflammation this node holds. Deliberately down to one item. Two further sentences were fetched from the same review, a four to fivefold risk figure and the ingestion route, and both were moved to the exposure\u0027s own evidence where they characterise the exposure rather than this edge into the node. The sentence that was already on the exposure reports incidence rates by country and never mentions flukes at all, so it names neither the exposure nor any relation to this node and stays where it is.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4917,14 +5317,21 @@
                         Hepatomegaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4953,14 +5360,21 @@
                         Pruritus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4989,14 +5403,21 @@
                         Abdominal Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5025,14 +5446,21 @@
                         Unintentional Weight Loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5052,6 +5480,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41429598" target="_blank">PMID:41429598</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5091,14 +5520,23 @@
                         Obstructive Jaundice
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Extrahepatic cholestasis
+
+                        <span class="phenotype-term-label">Extrahepatic cholestasis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012334" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012334">HP:0012334</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012334</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obstructive jaundice, annotated with Extrahepatic cholestasis (HP:0012334). HP:0012334 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5149,6 +5587,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5164,7 +5605,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy with immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">chemotherapy with immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy with immunotherapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5213,6 +5659,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41429598" target="_blank">PMID:41429598</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5232,6 +5679,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533571" target="_blank">PMID:40533571</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5260,7 +5708,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surgical resection<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical resection, annotated with Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Definitive Surgical Resection</span>
 
 
@@ -5306,7 +5759,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">adjuvant chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">adjuvant chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is adjuvant chemotherapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5355,6 +5813,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35316080" target="_blank">PMID:35316080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5382,7 +5841,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted molecular therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">targeted molecular therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5431,6 +5895,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39730074" target="_blank">PMID:39730074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5450,6 +5915,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41460204" target="_blank">PMID:41460204</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5478,7 +5944,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immune checkpoint inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">immune checkpoint inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5527,6 +5998,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39870490" target="_blank">PMID:39870490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5565,13 +6037,17 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Infection with Opisthorchis viverrini or Clonorchis sinensis, endemic in Southeast Asia, is a major risk factor for CCA, particularly in Thailand and Laos. Chronic fluke infection causes biliary inflammation and epithelial damage.</div>
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5580,6 +6056,49 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
                     </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)"</div>
+
+
+                <div class="evidence-explanation">Quantifies the exposure at a four to fivefold increase in disease risk and names both species. It sizes the exposure rather than arguing for any particular step inside the mechanism, which is why it sits here rather than on the link.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32129902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Liver flukes are parasitic trematodes that, when ingested via raw, pickled, or undercooked fish, can live in the host biliary system for decades"</div>
+
+
+                <div class="evidence-explanation">Establishes the route and the duration, which is what makes this an environmental exposure rather than a host state: the organism is eaten, and it then occupies the bile ducts long enough for chronic inflammation to matter.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32129902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
+                    </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5601,10 +6120,65 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Biliary Inflammation and Cholestasis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The best-evidenced link in this tranche, and the only one where the intervening step is quoted rather than assumed: the flukes cause chronic irritation and increased cellular turnover in the bile ducts, which is the inflammation this node holds. Deliberately down to one item. Two further sentences were fetched from the same review, a four to fivefold risk figure and the ingestion route, and both were moved to the exposure&#39;s own evidence where they characterise the exposure rather than this edge into the node. The sentence that was already on the exposure reports incidence rates by country and never mentions flukes at all, so it names neither the exposure nor any relation to this node and stays where it is.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32129902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"These flukes cause chronic irritation and increased cellular turnover, which can increase the susceptibility of cholangiocytes to endogenous and exogenous carcinogens"</div>
+
+
+                <div class="evidence-explanation">Names the mechanism this edge asserts: chronic irritation and cellular turnover in the bile ducts, which is this node&#39;s content, and then the carcinogen susceptibility that follows from it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-primary-sclerosing-cholangitis" data-dismech-node="Primary Sclerosing Cholangitis" data-dismech-type="environmental">
                 <div class="item-name">Primary Sclerosing Cholangitis</div>
+
+
+
+
 
 
 
@@ -5623,6 +6197,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30725866" target="_blank">PMID:30725866</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5664,7 +6239,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001000375">
                 <div class="item-name">
                     Exome sequencing of paired tumor/normal DNA samples from the eight intrahepatic cholangiocarcinoma patients
 
@@ -5701,7 +6276,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001653">
                 <div class="item-name">
                     Whole-Genome and Epigenomic Landscapes of Etiologically Distinct Subtypes of Cholangiocarcinoma
 
@@ -5740,7 +6315,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002547">
                 <div class="item-name">
                     Clonal evolution study of Intrahepatic cholangiocarcinoma in Zhongshan Hospital
 
@@ -5775,7 +6350,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000230">
                 <div class="item-name">
                     Comprehensive analysis of transcriptome and metabolome in Intrahepatic Cholangiocarcinoma and Hepatocellular Carcinoma
 
@@ -5806,7 +6381,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st000231">
                 <div class="item-name">
                     Comprehensive analysis of transcriptome and metabolome in Intrahepatic Cholangiocarcinoma and Hepatocellular Carcinoma (part II)
 
@@ -5837,7 +6412,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000084273">
                 <div class="item-name">
                     TWEAK/Fn14 signalling promotes cholangiocarcinoma niche formation and progression
 
@@ -5879,6 +6454,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5895,7 +6473,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cholangiocarcinoma
 creation_date: &#34;2026-04-08T00:00:00Z&#34;
-updated_date: &#34;2026-04-10T00:00:00Z&#34;
 description: &gt;-
   Cholangiocarcinoma (CCA) is a heterogeneous group of malignancies arising from the
   epithelial cells of the bile ducts. It is classified anatomically into intrahepatic (iCCA),
@@ -5915,6 +6492,28 @@ disease_term:
   term:
     id: MONDO:0019087
     label: cholangiocarcinoma
+classifications:
+  icdo_morphology:
+    classification_value: Adenocarcinoma
+    notes: &gt;-
+      Derived from this entry&#39;s disease term MONDO:0019087 (cholangiocarcinoma),
+      which carries the cross-reference ICDO:8160/3 and whose NCIT
+      cross-reference NCIT:C4436 (Cholangiocarcinoma) is a descendant of
+      NCIT:C2852 (Adenocarcinoma), the term this enum value is bound to.
+    evidence:
+    - reference: PMID:32129902
+      reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Cholangiocarcinomas (CCAs) are rare tumors that originate from cholangiocytes in the bile ducts&#34;
+      explanation: &gt;-
+        Cholangiocytes are the glandular epithelial lining of the bile ducts, the
+        cell of origin underlying the adenocarcinoma morphology assignment.
+  harrisons_chapter:
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      Cholangiocarcinoma is managed as a hepatobiliary solid-tumor oncology
+      problem (resection, cytotoxic chemotherapy, FGFR2/IDH1-targeted therapy).
 parents:
 - adenocarcinoma of gallbladder and extrahepatic biliary tract
 has_subtypes:
@@ -6421,11 +7020,54 @@ infectious_agent:
       label: Clonorchis sinensis
 environmental:
 - name: Liver Fluke Infection
+  influences_mechanisms:
+  - target: Chronic Biliary Inflammation and Cholestasis
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The best-evidenced link in this tranche, and the only one where the
+      intervening step is quoted rather than assumed: the flukes cause chronic
+      irritation and increased cellular turnover in the bile ducts, which is
+      the inflammation this node holds. Deliberately down to one item. Two
+      further sentences were fetched from the same review, a four to fivefold
+      risk figure and the ingestion route, and both were moved to the
+      exposure&#39;s own evidence where they characterise the exposure rather
+      than this edge into the node. The sentence that was already on the
+      exposure reports incidence rates by country and never mentions flukes at
+      all, so it names neither the exposure nor any relation to this node and
+      stays where it is.
+    evidence:
+    - reference: PMID:32129902
+      reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
+      supports: SUPPORT
+      snippet: &#34;These flukes cause chronic irritation and increased cellular turnover, which can increase the susceptibility of cholangiocytes to endogenous and exogenous carcinogens&#34;
+      explanation: &gt;-
+        Names the mechanism this edge asserts: chronic irritation and cellular
+        turnover in the bile ducts, which is this node&#39;s content, and then the
+        carcinogen susceptibility that follows from it.
   description: &gt;-
     Infection with Opisthorchis viverrini or Clonorchis sinensis, endemic in Southeast
     Asia, is a major risk factor for CCA, particularly in Thailand and Laos. Chronic
     fluke infection causes biliary inflammation and epithelial damage.
   evidence:
+  - reference: PMID:32129902
+    reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
+    supports: SUPPORT
+    snippet: &#34;Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)&#34;
+    explanation: &gt;-
+      Quantifies the exposure at a four to fivefold increase in disease risk
+      and names both species. It sizes the exposure rather than arguing for
+      any particular step inside the mechanism, which is why it sits here
+      rather than on the link.
+  - reference: PMID:32129902
+    reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
+    supports: SUPPORT
+    snippet: &#34;Liver flukes are parasitic trematodes that, when ingested via raw, pickled, or undercooked fish, can live in the host biliary system for decades&#34;
+    explanation: &gt;-
+      Establishes the route and the duration, which is what makes this an
+      environmental exposure rather than a host state: the organism is eaten,
+      and it then occupies the bile ducts long enough for chronic
+      inflammation to matter.
   - reference: PMID:32129902
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
@@ -6859,7 +7501,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cholangiocarcinoma", "mondoId": "MONDO:0019087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholangiocarcinoma", "yamlRevision": "ef8bde46d9e6"};
+        const OS_CONFIG = {"diseaseName": "Cholangiocarcinoma", "mondoId": "MONDO:0019087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholangiocarcinoma", "yamlRevision": "b0475de13a54"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7278,5 +7920,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

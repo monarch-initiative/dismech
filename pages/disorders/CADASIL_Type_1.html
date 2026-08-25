@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>CADASIL Type 1</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>CADASIL Type 1</h1>
             <div class="header-meta">
 
@@ -3560,8 +3762,8 @@
 
 
                 <span class="badge badge-mondo">
-                    <a href="http://purl.obolibrary.org/obo/MONDO_0007432" target="_blank">
-                        MONDO:0007432
+                    <a href="http://purl.obolibrary.org/obo/MONDO_0000914" target="_blank">
+                        MONDO:0000914
                     </a>
                 </span>
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3827,10 +4031,10 @@
                 <div class="mapping-item">
                     <div class="mapping-title">
 
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0000914" target="_blank" class="missing-ontology-link">MONDO:0000914</a>
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007432" target="_blank" class="missing-ontology-link">MONDO:0007432</a>
 
 
-                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1</span>
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">cerebral arteriopathy with subcortical infarcts and leukoencephalopathy</span>
 
 
                         <span class="curation-gap-badge">Not Yet Curated</span>
@@ -3839,7 +4043,7 @@
                     </div>
                     <div class="tag-list">
 
-                        <span class="tag tag-classification">skos:narrowMatch</span>
+                        <span class="tag tag-classification">skos:broadMatch</span>
 
 
                         <span class="tag tag-parent">MONDO</span>
@@ -3847,7 +4051,7 @@
 
                     </div>
 
-                    <div class="mapping-notes">MONDO:0000914 (OMIM:125310) is_a the MONDO:0007432 anchor of this entry and is defined as its NOTCH3 subtype (intersection_of RO:0004003 HGNC:7883). This entry is named CADASIL Type 1 and curates NOTCH3 (hgnc:7883) as its causative gene, so it is that entity. narrowMatch rather than exactMatch because the anchor also subsumes CADASIL type 2 (HTRA1).
+                    <div class="mapping-notes">MONDO:0007432 is the parent grouping term (OMIMPS:125310) and subsumes four distinct entities: MONDO:0000914 (CADASIL type 1, NOTCH3), MONDO:0014768 (CADASIL type 2, HTRA1), MONDO:0010829 (CARASIL) and MONDO:0979867 (ARCASIL type 1). This entry is named CADASIL Type 1 and curates NOTCH3 (hgnc:7883) as its sole causative gene, so it is MONDO:0000914 specifically — that term is defined as the NOTCH3 subtype (intersection_of RO:0004003 HGNC:7883) and carries &#34;CADASIL&#34; as an EXACT synonym. broadMatch because dismech does not curate the HTRA1 or recessive members the parent also covers, so this entry must not retire MONDO:0007432 from the curation queue.
 </div>
 
                 </div>
@@ -3873,7 +4077,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3899,6 +4103,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1662012" target="_blank">DOI:10.3389/fneur.2025.1662012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3956,17 +4161,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3987,10 +4199,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000669">CL:0000669</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pericyte (CL:0000669). CL:0000669 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4015,15 +4230,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NOTCH3
 
 
-    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7883">hgnc:7883</a>
+    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4051,16 +4273,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Notch signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007219">GO:0007219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4083,19 +4310,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4145,6 +4378,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38386425" target="_blank">PMID:38386425</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4167,6 +4401,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38386425" target="_blank">PMID:38386425</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4188,6 +4423,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biom14010127" target="_blank">DOI:10.3390/biom14010127</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4221,16 +4457,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4257,16 +4498,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4283,6 +4529,7 @@
 
 
                 </div>
+
 
 
 
@@ -4319,6 +4566,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30855338" target="_blank">PMID:30855338</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4340,6 +4588,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fnmol.2024.1391040" target="_blank">DOI:10.3389/fnmol.2024.1391040</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4373,16 +4622,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4409,16 +4663,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4438,16 +4697,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4468,6 +4732,7 @@
 
 
                 </div>
+
 
 
 
@@ -4504,6 +4769,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23649698" target="_blank">PMID:23649698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4525,6 +4791,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23649698" target="_blank">PMID:23649698</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4558,17 +4825,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4589,11 +4863,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4614,10 +4893,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4644,17 +4926,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to endoplasmic reticulum stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4675,11 +4964,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006957">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4700,10 +4994,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4720,6 +5017,7 @@
 
 
                 </div>
+
 
 
 
@@ -4756,6 +5054,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37158955" target="_blank">PMID:37158955</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4777,6 +5076,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37158955" target="_blank">PMID:37158955</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4810,17 +5110,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4841,10 +5148,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4870,6 +5180,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         vascular associated smooth muscle cell apoptotic process
@@ -4877,10 +5189,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905288" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1905288">GO:1905288</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905288" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:1905288</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves vascular associated smooth muscle cell apoptotic process (GO:1905288). GO:1905288 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4903,19 +5218,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral hemisphere white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002437">UBERON:0002437</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral hemisphere white matter (UBERON:0002437). UBERON:0002437 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4989,6 +5310,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38386425" target="_blank">PMID:38386425</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5021,17 +5343,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5052,10 +5381,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5082,16 +5414,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of blood-brain barrier permeability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1905603">GO:1905603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:1905603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of blood-brain barrier permeability (GO:1905603). GO:1905603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5118,17 +5455,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain white matter, annotated with white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         basal ganglion
@@ -5136,13 +5480,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002420">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5176,6 +5524,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36715085" target="_blank">PMID:36715085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5197,6 +5546,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36715085" target="_blank">PMID:36715085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5230,17 +5580,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5261,10 +5618,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000669">CL:0000669</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pericyte (CL:0000669). CL:0000669 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5291,16 +5651,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5320,16 +5685,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to ischemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002931">GO:0002931</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002931" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0002931</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to ischemia (GO:0002931). GO:0002931 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5352,17 +5722,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral hemisphere white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002437">UBERON:0002437</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral hemisphere white matter (UBERON:0002437). UBERON:0002437 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         temporal lobe
@@ -5370,11 +5747,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001871">UBERON:0001871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0001871</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0001871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         external capsule
@@ -5382,13 +5764,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004545" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004545">UBERON:0004545</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004545" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0004545</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in external capsule, annotated with external capsule of telencephalon (UBERON:0004545). UBERON:0004545 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5470,6 +5856,7 @@
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5509,17 +5896,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5540,10 +5934,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5569,6 +5966,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5580,6 +5978,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13113138" target="_blank">DOI:10.3390/jcm13113138</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5602,6 +6001,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13113138" target="_blank">DOI:10.3390/jcm13113138</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5694,14 +6094,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lacunar stroke
+
+                        <span class="phenotype-term-label">Lacunar stroke</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032325" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032325">HP:0032325</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0032325</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lacunar stroke (HP:0032325). HP:0032325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5721,6 +6130,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5755,14 +6165,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lacunar stroke
+
+                        <span class="phenotype-term-label">Lacunar stroke</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032325" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032325">HP:0032325</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0032325</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subcortical lacunar infarcts (chronic MRI), annotated with Lacunar stroke (HP:0032325). HP:0032325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5782,6 +6201,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36535904" target="_blank">PMID:36535904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5825,14 +6245,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Migraine with aura
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002077">HP:0002077</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Migraine with aura (HP:0002077). HP:0002077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5852,6 +6279,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5886,14 +6314,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5913,6 +6348,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5935,6 +6371,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1662012" target="_blank">DOI:10.3389/fneur.2025.1662012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5969,14 +6406,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
+
+                        <span class="phenotype-term-label">Depression</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5996,6 +6442,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6030,14 +6477,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperintensity of cerebral white matter on MRI
+
+                        <span class="phenotype-term-label">Hyperintensity of cerebral white matter on MRI</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030890">HP:0030890</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0030890</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperintensity of cerebral white matter on MRI (HP:0030890). HP:0030890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6057,6 +6513,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6079,6 +6536,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30855338" target="_blank">PMID:30855338</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6113,14 +6571,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Leukoencephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002352">HP:0002352</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002352</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6142,6 +6607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6176,14 +6642,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dementia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000726</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6203,6 +6676,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1662012" target="_blank">DOI:10.3389/fneur.2025.1662012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6237,14 +6711,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Apathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000741" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000741">HP:0000741</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000741</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apathy (HP:0000741). HP:0000741 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,6 +6745,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1573052" target="_blank">DOI:10.3389/fneur.2025.1573052</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6298,14 +6780,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6327,6 +6816,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1662012" target="_blank">DOI:10.3389/fneur.2025.1662012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6368,14 +6858,21 @@
                         Transient ischemic attack
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Transient ischemic attack
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6395,6 +6892,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1203985" target="_blank">DOI:10.3389/fneur.2023.1203985</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6429,14 +6927,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral hemorrhage
+
+                        <span class="phenotype-term-label">Cerebral hemorrhage</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001342" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001342">HP:0001342</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001342</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral microbleed, annotated with Cerebral hemorrhage (HP:0001342). HP:0001342 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6456,6 +6963,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36715085" target="_blank">PMID:36715085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6478,6 +6986,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36715085" target="_blank">PMID:36715085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6556,13 +7065,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH3
 
 
-    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7883">hgnc:7883</a>
+    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:7883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6583,6 +7097,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2025.1662012" target="_blank">DOI:10.3389/fneur.2025.1662012</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6606,6 +7121,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30855338" target="_blank">PMID:30855338</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6627,6 +7143,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36535904" target="_blank">PMID:36535904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6660,6 +7177,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6675,7 +7195,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6705,17 +7230,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         aspirin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:15365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         clopidogrel
@@ -6723,10 +7255,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_37941" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:37941">CHEBI:37941</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_37941" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:37941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clopidogrel (CHEBI:37941). CHEBI:37941 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6752,6 +7287,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6773,6 +7309,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s00415-023-12177-0" target="_blank">DOI:10.1007/s00415-023-12177-0</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6803,7 +7340,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6851,6 +7393,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6872,6 +7415,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6902,7 +7446,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6950,6 +7499,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6971,6 +7521,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s00415-023-12177-0" target="_blank">DOI:10.1007/s00415-023-12177-0</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7001,7 +7552,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7049,6 +7605,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7078,7 +7635,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7126,6 +7688,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301673" target="_blank">PMID:20301673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7170,6 +7733,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7186,7 +7752,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: CADASIL Type 1
 creation_date: &#39;2026-02-14T02:39:04Z&#39;
-updated_date: &#39;2026-07-30T20:24:43Z&#39;
 description: &gt;-
   Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and
   Leukoencephalopathy (CADASIL) is a hereditary small vessel disease caused by
@@ -7202,22 +7767,26 @@ category: Mendelian
 disease_term:
   preferred_term: CADASIL
   term:
-    id: MONDO:0007432
-    label: cerebral arteriopathy with subcortical infarcts and leukoencephalopathy
+    id: MONDO:0000914
+    label: cerebral arteriopathy, autosomal dominant, with subcortical infarcts and
+      leukoencephalopathy, type 1
 mappings:
   mondo_mappings:
   - term:
-      id: MONDO:0000914
-      label: cerebral arteriopathy, autosomal dominant, with subcortical infarcts
-        and leukoencephalopathy, type 1
-    mapping_predicate: skos:narrowMatch
+      id: MONDO:0007432
+      label: cerebral arteriopathy with subcortical infarcts and leukoencephalopathy
+    mapping_predicate: skos:broadMatch
     mapping_source: MONDO
     mapping_justification: &gt;
-      MONDO:0000914 (OMIM:125310) is_a the MONDO:0007432 anchor of this entry and
-      is defined as its NOTCH3 subtype (intersection_of RO:0004003 HGNC:7883).
-      This entry is named CADASIL Type 1 and curates NOTCH3 (hgnc:7883) as its
-      causative gene, so it is that entity. narrowMatch rather than exactMatch
-      because the anchor also subsumes CADASIL type 2 (HTRA1).
+      MONDO:0007432 is the parent grouping term (OMIMPS:125310) and subsumes four
+      distinct entities: MONDO:0000914 (CADASIL type 1, NOTCH3), MONDO:0014768
+      (CADASIL type 2, HTRA1), MONDO:0010829 (CARASIL) and MONDO:0979867 (ARCASIL
+      type 1). This entry is named CADASIL Type 1 and curates NOTCH3 (hgnc:7883)
+      as its sole causative gene, so it is MONDO:0000914 specifically — that term
+      is defined as the NOTCH3 subtype (intersection_of RO:0004003 HGNC:7883) and
+      carries &#34;CADASIL&#34; as an EXACT synonym. broadMatch because dismech does not
+      curate the HTRA1 or recessive members the parent also covers, so this entry
+      must not retire MONDO:0007432 from the curation queue.
 parents:
 - Hereditary Stroke Disorder
 - Small Vessel Disease
@@ -8881,6 +9450,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s00415-023-12177-0" target="_blank">DOI:10.1007/s00415-023-12177-0</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8949,6 +9519,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1055/s-0042-1758756" target="_blank">DOI:10.1055/s-0042-1758756</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9019,6 +9590,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1177/0271678x221126280" target="_blank">DOI:10.1177/0271678x221126280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9087,6 +9659,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s40246-019-0255-x" target="_blank">DOI:10.1186/s40246-019-0255-x</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9157,6 +9730,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.14806/ej.24.0.921" target="_blank">DOI:10.14806/ej.24.0.921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9225,6 +9799,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fgene.2021.705284" target="_blank">DOI:10.3389/fgene.2021.705284</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9295,6 +9870,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1203985" target="_blank">DOI:10.3389/fneur.2023.1203985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9363,6 +9939,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25168796" target="_blank">DOI:10.3390/ijms25168796</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9755,7 +10332,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CADASIL Type 1", "mondoId": "MONDO:0007432", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CADASIL_Type_1", "yamlRevision": "5f8b7cefdf8c"};
+        const OS_CONFIG = {"diseaseName": "CADASIL Type 1", "mondoId": "MONDO:0000914", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CADASIL_Type_1", "yamlRevision": "2869ec4c6ef0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10174,5 +10751,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

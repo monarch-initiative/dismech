@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Juvenile Idiopathic Arthritis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Juvenile Idiopathic Arthritis</h1>
             <div class="header-meta">
 
@@ -3665,6 +3867,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3838,7 +4042,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-oligoarticular">
 
                     <div class="item-name">
                         Oligoarticular JIA
@@ -3862,13 +4066,46 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:85410" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"juvenile onset arthritis that affects fewer than 5 joints during the first 6 months after disease onset"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition matches the recorded ILAR criterion for the oligoarticular category: fewer than five joints in the first six months.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polyarticular-rf-negative">
 
                     <div class="item-name">
                         Polyarticular JIA, RF-negative
@@ -3892,13 +4129,46 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30275259" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30275259" target="_blank">PMID:30275259</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three Delphi rounds of interactions were implemented to revise the 7 ILAR JIA categories"</div>
+
+
+                <div class="evidence-explanation">Confirms RF-negative polyarthritis is one of the seven ILAR categories this list enumerates. Tagged PARTIAL because the consensus does not restate the category&#39;s diagnostic criteria, and it in fact proposes folding this category into &#34;others&#34; pending validation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-polyarticular-rf-positive">
 
                     <div class="item-name">
                         Polyarticular JIA, RF-positive
@@ -3922,13 +4192,69 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:85435" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"distal and symmetrical polyarthritis (more than 5 joints) with presence of rheumatoid factor and possible evolution towards the appearance of erosions and joint destruction"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition supports both recorded features: more than five joints with rheumatoid factor positivity, and the erosive/destructive course.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30275259" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30275259" target="_blank">PMID:30275259</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four disorders were proposed: (a) systemic JIA; (b) rheumatoid factor-positive JIA; (c) enthesitis/spondylitis-related JIA; and (d) early-onset antinuclear antibody-positive JIA."</div>
+
+
+                <div class="evidence-explanation">RF-positive JIA is retained as a distinct entity in the PRINTO provisional criteria, consistent with the recorded observation that it is immunogenetically the childhood counterpart of adult rheumatoid arthritis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-systemic">
 
                     <div class="item-name">
                         Systemic JIA (Still&#39;s disease)
@@ -3950,13 +4276,46 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:85414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"chronic arthritis, intermittent high spiking fever, maculopapular rash during fever episodes, hepatomegaly and/or splenomegaly, lymphadenopathy, and serositis"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s definition covers the core clinical features recorded here - quotidian fever, evanescent rash, lymphadenopathy, hepatosplenomegaly and serositis alongside the arthritis - and frames them as of &#34;variable occurrence&#34; rather than invariant. It does not address the macrophage activation syndrome or adult-onset Still&#39;s continuum also recorded in this description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-psoriatic">
 
                     <div class="item-name">
                         Psoriatic JIA
@@ -3978,13 +4337,46 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30275259" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30275259" target="_blank">PMID:30275259</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three Delphi rounds of interactions were implemented to revise the 7 ILAR JIA categories"</div>
+
+
+                <div class="evidence-explanation">Confirms psoriatic JIA is one of the seven ILAR categories enumerated here. Tagged PARTIAL because the consensus does not restate the category&#39;s Vancouver-style criteria, and proposes moving it into &#34;others&#34;.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-enthesitis-related">
 
                     <div class="item-name">
                         Enthesitis-Related JIA
@@ -4008,13 +4400,46 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30275259" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30275259" target="_blank">PMID:30275259</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four disorders were proposed: (a) systemic JIA; (b) rheumatoid factor-positive JIA; (c) enthesitis/spondylitis-related JIA; and (d) early-onset antinuclear antibody-positive JIA."</div>
+
+
+                <div class="evidence-explanation">The PRINTO provisional criteria retain enthesitis/spondylitis-related JIA as one of only four distinct proposed disorders, supporting its status as a discrete category. PARTIAL because the consensus does not state the ILAR diagnostic criteria recorded in this description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-undifferentiated">
 
                     <div class="item-name">
                         Undifferentiated
@@ -4035,6 +4460,39 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30275259" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30275259" target="_blank">PMID:30275259</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The other forms were gathered under the term &#34;others.&#34; These will be analyzed during the prospective data collection using a list of descriptors to see whether the clustering of some of them could identify homogeneous entities."</div>
+
+
+                <div class="evidence-explanation">Supports the residual character of this category: the PRINTO consensus explicitly gathers the non-distinct ILAR forms into an &#34;others&#34; bucket pending prospective data to see whether homogeneous entities emerge.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4070,17 +4528,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4101,11 +4566,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4126,10 +4596,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4156,16 +4629,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4185,16 +4663,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         lymphocyte activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046649">GO:0046649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lymphocyte activation (GO:0046649). GO:0046649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4221,19 +4704,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         synovial membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002018">UBERON:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in synovial membrane, annotated with synovial membrane of synovial joint (UBERON:0002018). UBERON:0002018 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4271,6 +4760,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266057" target="_blank">PMID:42266057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4303,16 +4793,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         synovial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000214" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000214">CL:0000214</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000214" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves synovial cell (CL:0000214). CL:0000214 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4342,19 +4837,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         synovial membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002018">UBERON:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in synovial membrane, annotated with synovial membrane of synovial joint (UBERON:0002018). UBERON:0002018 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4373,6 +4874,39 @@
 	                </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42266057" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266057" target="_blank">PMID:42266057</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Synovial atlas and spatial transcriptomic studies have further connected genetic susceptibility to immune-cell states and organized inflammatory niches, linking inherited risk to the chronic arthritis-sustaining tissue environment."</div>
+
+
+                <div class="evidence-explanation">Synovial atlas and spatial transcriptomic work describes organized inflammatory niches within the synovial tissue, the structural counterpart of the expanded, inflamed synovium modelled here. PARTIAL because the study characterises tissue architecture rather than measuring synoviocyte proliferation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -4393,16 +4927,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cytokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4429,19 +4968,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         synovial membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002018">UBERON:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in synovial membrane, annotated with synovial membrane of synovial joint (UBERON:0002018). UBERON:0002018 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4460,6 +5005,62 @@
 	                </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21684384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21684384" target="_blank">PMID:21684384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"have led to successful studies of both interleukin-1 and interleukin-6 blockade"</div>
+
+
+                <div class="evidence-explanation">Successful IL-1 and IL-6 blockade is the strongest available evidence that these cytokines are causal drivers rather than bystanders in JIA joint inflammation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29848426" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29848426" target="_blank">PMID:29848426</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Joint deformities are more likely to be seen in children with long-standing disease, those with polyarthritis JIA and seropositive patients."</div>
+
+
+                <div class="evidence-explanation">Structural joint damage accumulates with disease duration, consistent with sustained inflammatory cytokine exposure being the proximate cause of articular destruction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -4480,16 +5081,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         interleukin-1 mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070498" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070498">GO:0070498</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070498" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0070498</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased interleukin-1 mediated signaling pathway, annotated with interleukin-1-mediated signaling pathway (GO:0070498). GO:0070498 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4509,16 +5115,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         interleukin-6 mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070102" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070102">GO:0070102</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070102" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070102</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased interleukin-6 mediated signaling pathway, annotated with interleukin-6-mediated signaling pathway (GO:0070102). GO:0070102 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4539,6 +5150,7 @@
 
 
                 </div>
+
 
 
 
@@ -4573,6 +5185,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38756937" target="_blank">PMID:38756937</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4594,6 +5207,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39317417" target="_blank">PMID:39317417</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4643,7 +5257,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic arthritis of one or more joints lasting at least six weeks is the defining feature across all ILAR JIA categories.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Cytokine-Mediated Articular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-inflammatory cytokine production (notably TNF, IL-1, IL-6) by infiltrating leukocytes and hyperplastic synovium drives cartilage and bone destruction at the joint, the proximate mechanism of the long-term joint-damage phenotype across non-systemic JIA categories.\", \"meta\": {\"biological_processes\": [\"cytokine production\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Elevated circulating C-reactive protein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating C-reactive protein concentration is reported as a very frequent (80-99%) manifestation of systemic-onset juvenile idiopathic arthritis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Systemic\"], \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Systemic Autoinflammation (sJIA)\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"CRP as an acute-phase readout of IL-6-driven systemic autoinflammation\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Quotidian or quotidian-like fever is a defining feature of systemic JIA (Still\u0027s disease) and uncommon in the non-systemic categories; qualified here to the Systemic subtype.\", \"meta\": {\"subtypes\": [\"Systemic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Synovial Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated synovial fibroblasts and resident synoviocytes proliferate under cytokine drive, producing the thickened, vascularised synovium (pannus-like membrane in long-standing disease) that supports ongoing inflammation and joint damage.\", \"meta\": {\"cell_types\": [\"synovial cell\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Synovial Leukocyte Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell and macrophage recruitment to the synovial membrane is the initiating cellular event of synovitis in JIA, with the relative contribution of adaptive autoimmunity versus innate autoinflammation varying by ILAR subtype. Recent synovial atlas and spatial transcriptomic studies have identified that these infiltrating immune cells form organized inflammatory niches within the synovium, with distinct subsets of T cells (particularly lymphocyte activation markers), synovial macrophages, and B cells positioning themselves in tissue-specific configurations that sustain chronic arthritis. The genetic susceptibility loci identified by GWAS (lymphocyte activation, cytokine signaling, and immune regulation genes) directly correlate with these immune-cell states, linking inherited risk to the cellular environment perpetuating synovitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"macrophage\", \"B cell\"], \"biological_processes\": [\"immune response\", \"lymphocyte activation\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Systemic Autoinflammation (sJIA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic JIA is dominated by innate-immune activation with prominent IL-1 and IL-6 signalling, distinguishing it pathophysiologically from the more T-cell-driven oligo-/polyarticular categories. Under current consensus it is considered the same entity as adult-onset Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-1 mediated signaling pathway\", \"interleukin-6 mediated signaling pathway\"]}}], \"edges\": [{\"source\": \"Synovial Leukocyte Infiltration\", \"target\": \"Synovial Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synovial Leukocyte Infiltration\", \"target\": \"Cytokine-Mediated Articular Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synovial Hyperplasia\", \"target\": \"Cytokine-Mediated Articular Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Mediated Articular Damage\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation (sJIA)\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation (sJIA)\", \"target\": \"Elevated circulating C-reactive protein concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CRP as an acute-phase readout of IL-6-driven systemic autoinflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic arthritis of one or more joints lasting at least six weeks is the defining feature across all ILAR JIA categories.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Cytokine-Mediated Articular Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-inflammatory cytokine production (notably TNF, IL-1, IL-6) by infiltrating leukocytes and hyperplastic synovium drives cartilage and bone destruction at the joint, the proximate mechanism of the long-term joint-damage phenotype across non-systemic JIA categories.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cytokine production\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Elevated circulating C-reactive protein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating C-reactive protein concentration is reported as a very frequent (80-99%) manifestation of systemic-onset juvenile idiopathic arthritis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Systemic\"], \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Systemic Autoinflammation (sJIA)\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"CRP as an acute-phase readout of IL-6-driven systemic autoinflammation\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Quotidian or quotidian-like fever is a defining feature of systemic JIA (Still\u0027s disease) and uncommon in the non-systemic categories; qualified here to the Systemic subtype.\", \"meta\": {\"subtypes\": [\"Systemic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Synovial Hyperplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated synovial fibroblasts and resident synoviocytes proliferate under cytokine drive, producing the thickened, vascularised synovium (pannus-like membrane in long-standing disease) that supports ongoing inflammation and joint damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"synovial cell\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Synovial Leukocyte Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T-cell and macrophage recruitment to the synovial membrane is the initiating cellular event of synovitis in JIA, with the relative contribution of adaptive autoimmunity versus innate autoinflammation varying by ILAR subtype. Recent synovial atlas and spatial transcriptomic studies have identified that these infiltrating immune cells form organized inflammatory niches within the synovium, with distinct subsets of T cells (particularly lymphocyte activation markers), synovial macrophages, and B cells positioning themselves in tissue-specific configurations that sustain chronic arthritis. The genetic susceptibility loci identified by GWAS (lymphocyte activation, cytokine signaling, and immune regulation genes) directly correlate with these immune-cell states, linking inherited risk to the cellular environment perpetuating synovitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\", \"macrophage\", \"B cell\"], \"biological_processes\": [\"immune response\", \"lymphocyte activation\"], \"locations\": [\"synovial membrane\"]}}, {\"id\": \"Systemic Autoinflammation (sJIA)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic JIA is dominated by innate-immune activation with prominent IL-1 and IL-6 signalling, distinguishing it pathophysiologically from the more T-cell-driven oligo-/polyarticular categories. Under current consensus it is considered the same entity as adult-onset Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-1 mediated signaling pathway\", \"interleukin-6 mediated signaling pathway\"]}}], \"edges\": [{\"source\": \"Synovial Leukocyte Infiltration\", \"target\": \"Synovial Hyperplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synovial Leukocyte Infiltration\", \"target\": \"Cytokine-Mediated Articular Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Synovial Hyperplasia\", \"target\": \"Cytokine-Mediated Articular Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cytokine-Mediated Articular Damage\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation (sJIA)\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation (sJIA)\", \"target\": \"Elevated circulating C-reactive protein concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CRP as an acute-phase readout of IL-6-driven systemic autoinflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4696,14 +5310,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4723,6 +5344,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4757,14 +5379,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pericarditis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001701">HP:0001701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4784,6 +5413,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4818,14 +5448,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Splenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001744">HP:0001744</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001744</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4845,6 +5482,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4888,14 +5526,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Uveitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000554">HP:0000554</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000554</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4915,6 +5560,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4949,14 +5595,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4976,6 +5629,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5019,14 +5673,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin rash
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000988">HP:0000988</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000988</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5046,6 +5707,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5080,14 +5742,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autoimmunity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002960">HP:0002960</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002960</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5107,6 +5776,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5150,14 +5820,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint swelling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001386">HP:0001386</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001386</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5179,14 +5856,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5217,14 +5901,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5244,6 +5935,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29037901" target="_blank">PMID:29037901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5278,14 +5970,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint stiffness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001387</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5307,14 +6006,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limitation of joint mobility
+
+                        <span class="phenotype-term-label">Limitation of joint mobility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint deformity, annotated with Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5334,6 +6042,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29848426" target="_blank">PMID:29848426</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5368,14 +6077,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5395,6 +6111,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5429,14 +6146,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5456,6 +6180,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5490,14 +6215,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Symmetric polyarthritis
+
+                        <span class="phenotype-term-label">Symmetric polyarthritis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040311" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040311">HP:0040311</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0040311</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Symetrical distal arthritis, annotated with Symmetric polyarthritis (HP:0040311). HP:0040311 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5517,6 +6251,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5551,14 +6286,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5578,6 +6320,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5621,14 +6364,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5650,14 +6400,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5677,6 +6434,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5720,14 +6478,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5747,6 +6512,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5781,14 +6547,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5808,6 +6581,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5851,14 +6625,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anterior uveitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012122">HP:0012122</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012122</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior uveitis (HP:0012122), qualified as temporality chronic. HP:0012122 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5898,14 +6679,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated erythrocyte sedimentation rate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003565">HP:0003565</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003565</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). HP:0003565 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5925,6 +6713,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5959,14 +6748,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Juvenile rheumatoid arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005681" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005681">HP:0005681</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005681</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Juvenile rheumatoid arthritis (HP:0005681). HP:0005681 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5986,6 +6782,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6020,14 +6817,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating C-reactive protein concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011227">HP:0011227</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0011227</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6047,6 +6851,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6081,14 +6886,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glomerulonephritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6108,6 +6920,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85414" target="_blank">ORPHA:85414</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6142,14 +6955,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Antinuclear antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003493">HP:0003493</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003493</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6169,6 +6989,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6203,14 +7024,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oligoarthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040313">HP:0040313</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0040313</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligoarthritis (HP:0040313). HP:0040313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6230,6 +7058,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6264,14 +7093,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Knee osteoarthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005086" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005086">HP:0005086</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Knee osteoarthritis (HP:0005086). HP:0005086 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6291,6 +7127,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6325,14 +7162,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased circulating interferon-gamma concentration
+
+                        <span class="phenotype-term-label">Increased circulating interferon-gamma concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030356" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030356">HP:0030356</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0030356</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased serum interferon-gamma level, annotated with Increased circulating interferon-gamma concentration (HP:0030356). HP:0030356 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6352,6 +7198,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85410" target="_blank">ORPHA:85410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6386,14 +7233,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rheumatoid factor positive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002923" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002923">HP:0002923</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002923" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002923</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rheumatoid factor positive (HP:0002923). HP:0002923 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6413,6 +7267,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6447,14 +7302,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyarticular arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005764">HP:0005764</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0005764</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6474,6 +7336,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6508,14 +7371,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Progressive joint destruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005187" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005187">HP:0005187</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005187" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0005187</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive joint destruction (HP:0005187). HP:0005187 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6535,6 +7405,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6569,14 +7440,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Interphalangeal joint erosions
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006252">HP:0006252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0006252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interphalangeal joint erosions (HP:0006252). HP:0006252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6596,6 +7474,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6630,14 +7509,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Synovitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100769" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100769">HP:0100769</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0100769</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synovitis (HP:0100769). HP:0100769 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6657,6 +7543,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6691,14 +7578,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Premature epimetaphyseal fusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010588" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010588">HP:0010588</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0010588</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature epimetaphyseal fusion (HP:0010588). HP:0010588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6718,6 +7612,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:85435" target="_blank">ORPHA:85435</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6796,13 +7691,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6823,6 +7723,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29037901" target="_blank">PMID:29037901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6846,6 +7747,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29037901" target="_blank">PMID:29037901</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6867,6 +7769,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29037901" target="_blank">PMID:29037901</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6917,6 +7820,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266057" target="_blank">PMID:42266057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6939,6 +7843,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266057" target="_blank">PMID:42266057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6960,6 +7865,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266057" target="_blank">PMID:42266057</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6991,6 +7897,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7006,7 +7915,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">NSAID therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">NSAID therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is NSAID therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7037,16 +7951,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         NSAID
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C257">NCIT:C257</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C257" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses NSAID, annotated with Nonsteroidal Antiinflammatory Drug (NCIT:C257). NCIT:C257 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7060,6 +7979,39 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41728909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41728909" target="_blank">PMID:41728909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Short-term course of NSAID and intra-articular corticosteroids was recommended as initial therapy in those with minimal disease activity with no risk factors for poor prognosis."</div>
+
+
+                <div class="evidence-explanation">A GRADE-based guideline recommends a short NSAID course as initial therapy, supporting the recorded first-line symptom-control role. Note the recommendation is for a short course in minimal disease activity, not indefinite NSAID monotherapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -7069,7 +8021,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">glucocorticoid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">glucocorticoid therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is glucocorticoid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7100,28 +8057,89 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         triamcinolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9667" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9667">CHEBI:9667</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9667" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:9667</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses triamcinolone (CHEBI:9667). CHEBI:9667 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Intra-articular steroid injection (most often triamcinolone) is standard for oligoarticular JIA. Short-course systemic glucocorticoids are used as a bridge to DMARDs and as front-line therapy in active systemic JIA.</div>
+                <div class="item-desc">Intra-articular steroid injection (most often triamcinolone) is standard for oligoarticular JIA. Systemic glucocorticoids are used as a short-course bridge to DMARDs, and in active systemic JIA as a short-duration adjunct alongside early IL-1 or IL-6 blockade rather than as a standing systemic agent.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41728909" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41728909" target="_blank">PMID:41728909</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Short-term course of NSAID and intra-articular corticosteroids was recommended as initial therapy"</div>
+
+
+                <div class="evidence-explanation">Directly supports intra-articular corticosteroid injection as initial therapy in the oligoarticular category, the setting named in this treatment description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39317417" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39317417" target="_blank">PMID:39317417</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The optimal therapeutic strategy relies on early use of interleukin (IL-1 or IL-6 inhibitors associated to short duration glucocorticoid (GC)."</div>
+
+
+                <div class="evidence-explanation">EULAR/PReS place glucocorticoids in systemic JIA / Still&#39;s disease as a short-duration component alongside early IL-1 or IL-6 blockade, which is the systemic glucocorticoid role recorded in this treatment description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -7132,7 +8150,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">methotrexate therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">methotrexate therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7163,16 +8186,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7198,10 +8226,11 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41728909" target="_blank">PMID:41728909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -7227,7 +8256,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic DMARD therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">biologic DMARD therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic DMARD therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7258,17 +8292,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         etanercept
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2381" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2381">NCIT:C2381</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2381" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C2381</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etanercept (NCIT:C2381). NCIT:C2381 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         adalimumab
@@ -7276,11 +8317,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C65216">NCIT:C65216</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C65216" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C65216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         anakinra
@@ -7288,11 +8334,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C38717">NCIT:C38717</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38717" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C38717</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         canakinumab
@@ -7300,11 +8351,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80971">NCIT:C80971</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C80971</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         tocilizumab
@@ -7312,10 +8368,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C84217">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C84217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7341,6 +8400,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39317417" target="_blank">PMID:39317417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7362,6 +8422,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38756937" target="_blank">PMID:38756937</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7407,7 +8468,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003510">
                 <div class="item-name">
                     Juvenile Idiopathic Arthritis exome sequencing in a consanguineous family
 
@@ -7442,7 +8503,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000000808">
                 <div class="item-name">
                     Impact of Glycolysis Inhibition on the Epigenome of Synovial Fluid T Cells in Juvenile Idiopathic Arthritis
 
@@ -7479,7 +8540,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000000995">
                 <div class="item-name">
                     CLUSTER RNAseq Study of Juvenile Idiopathic Arthritis patients in methotrexate cohort
 
@@ -7518,7 +8579,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-metabolomics-workbench-st001815">
                 <div class="item-name">
                     Metabolic Markers of Methotrexate Response in Juvenile Idiopathic Arthritis
 
@@ -7558,6 +8619,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7574,7 +8638,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Juvenile Idiopathic Arthritis
 creation_date: &#39;2026-05-12T00:00:00Z&#39;
-updated_date: &#39;2026-05-12T21:00:00Z&#39;
 description: &gt;-
   Juvenile idiopathic arthritis (JIA) is an umbrella term for the chronic
   arthritides of childhood beginning before 16 years of age and persisting for
@@ -7612,6 +8675,15 @@ has_subtypes:
     JIA category in young children, with strong association with chronic
     anterior uveitis (particularly in ANA-positive girls). May extend to a
     polyarticular course.
+  evidence:
+  - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;juvenile onset arthritis that affects fewer than 5 joints during the first 6 months after disease onset&#34;
+    explanation: &gt;-
+      Orphanet&#39;s definition matches the recorded ILAR criterion for the
+      oligoarticular category: fewer than five joints in the first six months.
 - name: Polyarticular RF-negative
   display_name: Polyarticular JIA, RF-negative
   subtype_term:
@@ -7624,6 +8696,19 @@ has_subtypes:
     rheumatoid factor. Symmetric or asymmetric involvement; clinically
     heterogeneous. Grounded to the broader polyarticular-JIA MONDO term;
     MONDO does not yet split RF-negative as a distinct identifier.
+  evidence:
+  - reference: PMID:30275259
+    reference_title: &#34;Toward New Classification Criteria for Juvenile Idiopathic Arthritis: First Steps, Pediatric Rheumatology International Trials Organization International Consensus.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      three Delphi rounds of interactions were implemented to revise the 7 ILAR
+      JIA categories
+    explanation: &gt;-
+      Confirms RF-negative polyarthritis is one of the seven ILAR categories
+      this list enumerates. Tagged PARTIAL because the consensus does not
+      restate the category&#39;s diagnostic criteria, and it in fact proposes
+      folding this category into &#34;others&#34; pending validation.
 - name: Polyarticular RF-positive
   display_name: Polyarticular JIA, RF-positive
   subtype_term:
@@ -7637,6 +8722,28 @@ has_subtypes:
     most similar to adult rheumatoid arthritis; tends to be aggressive and
     erosive. Grounded to the broader polyarticular-JIA MONDO term; MONDO
     does not yet split RF-positive as a distinct identifier.
+  evidence:
+  - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;distal and symmetrical polyarthritis (more than 5 joints) with presence of rheumatoid factor and possible evolution towards the appearance of erosions and joint destruction&#34;
+    explanation: &gt;-
+      Orphanet&#39;s definition supports both recorded features: more than five
+      joints with rheumatoid factor positivity, and the erosive/destructive
+      course.
+  - reference: PMID:30275259
+    reference_title: &#34;Toward New Classification Criteria for Juvenile Idiopathic Arthritis: First Steps, Pediatric Rheumatology International Trials Organization International Consensus.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Four disorders were proposed: (a) systemic JIA; (b) rheumatoid
+      factor-positive JIA; (c) enthesitis/spondylitis-related JIA; and (d)
+      early-onset antinuclear antibody-positive JIA.
+    explanation: &gt;-
+      RF-positive JIA is retained as a distinct entity in the PRINTO
+      provisional criteria, consistent with the recorded observation that it is
+      immunogenetically the childhood counterpart of adult rheumatoid arthritis.
 - name: Systemic
   display_name: Systemic JIA (Still&#39;s disease)
   description: &gt;-
@@ -7646,6 +8753,19 @@ has_subtypes:
     adult-onset Still&#39;s disease and complicated by macrophage activation
     syndrome. (No dedicated MONDO subtype term identified by exact-label
     lookup; left ungrounded until verified.)
+  evidence:
+  - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;chronic arthritis, intermittent high spiking fever, maculopapular rash during fever episodes, hepatomegaly and/or splenomegaly, lymphadenopathy, and serositis&#34;
+    explanation: &gt;-
+      Orphanet&#39;s definition covers the core clinical features recorded here -
+      quotidian fever, evanescent rash, lymphadenopathy, hepatosplenomegaly and
+      serositis alongside the arthritis - and frames them as of &#34;variable
+      occurrence&#34; rather than invariant. It does not address the macrophage
+      activation syndrome or adult-onset Still&#39;s continuum also recorded in this
+      description.
 - name: Psoriatic
   display_name: Psoriatic JIA
   description: &gt;-
@@ -7653,6 +8773,18 @@ has_subtypes:
     nail pitting / onycholysis, or psoriasis in a first-degree relative.
     (No dedicated MONDO subtype term identified by exact-label lookup;
     left ungrounded until verified.)
+  evidence:
+  - reference: PMID:30275259
+    reference_title: &#34;Toward New Classification Criteria for Juvenile Idiopathic Arthritis: First Steps, Pediatric Rheumatology International Trials Organization International Consensus.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      three Delphi rounds of interactions were implemented to revise the 7 ILAR
+      JIA categories
+    explanation: &gt;-
+      Confirms psoriatic JIA is one of the seven ILAR categories enumerated
+      here. Tagged PARTIAL because the consensus does not restate the
+      category&#39;s Vancouver-style criteria, and proposes moving it into &#34;others&#34;.
 - name: Enthesitis-related
   display_name: Enthesitis-Related JIA
   subtype_term:
@@ -7665,10 +8797,38 @@ has_subtypes:
     sacroiliitis, acute anterior uveitis, or family history of
     spondyloarthropathy). Predominantly affects older boys; overlaps with
     juvenile-onset spondyloarthritis.
+  evidence:
+  - reference: PMID:30275259
+    reference_title: &#34;Toward New Classification Criteria for Juvenile Idiopathic Arthritis: First Steps, Pediatric Rheumatology International Trials Organization International Consensus.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Four disorders were proposed: (a) systemic JIA; (b) rheumatoid
+      factor-positive JIA; (c) enthesitis/spondylitis-related JIA; and (d)
+      early-onset antinuclear antibody-positive JIA.
+    explanation: &gt;-
+      The PRINTO provisional criteria retain enthesitis/spondylitis-related JIA
+      as one of only four distinct proposed disorders, supporting its status as
+      a discrete category. PARTIAL because the consensus does not state the ILAR
+      diagnostic criteria recorded in this description.
 - name: Undifferentiated
   description: &gt;-
     JIA that does not fulfil criteria for any of the above categories or
     fulfils criteria for more than one. A residual ILAR category.
+  evidence:
+  - reference: PMID:30275259
+    reference_title: &#34;Toward New Classification Criteria for Juvenile Idiopathic Arthritis: First Steps, Pediatric Rheumatology International Trials Organization International Consensus.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The other forms were gathered under the term &#34;others.&#34; These will be
+      analyzed during the prospective data collection using a list of
+      descriptors to see whether the clustering of some of them could identify
+      homogeneous entities.
+    explanation: &gt;-
+      Supports the residual character of this category: the PRINTO consensus
+      explicitly gathers the non-distinct ILAR forms into an &#34;others&#34; bucket
+      pending prospective data to see whether homogeneous entities emerge.
 pathophysiology:
 - name: Synovial Leukocyte Infiltration
   description: &gt;-
@@ -7716,8 +8876,36 @@ pathophysiology:
   downstream:
   - target: Synovial Hyperplasia
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:21684384
+      reference_title: &#34;Juvenile idiopathic arthritis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        synovial inflammation is the consequence of a disturbed balance between
+        proinflammatory effector cells (such as T-helper-17 cells), and
+        anti-inflammatory regulatory cells (such as FOXP3-positive regulatory T
+        cells)
+      explanation: &gt;-
+        Places the infiltrating T-cell compartment upstream of synovial
+        inflammation. PARTIAL because the seminar addresses synovial
+        inflammation generally rather than synoviocyte proliferation
+        specifically.
   - target: Cytokine-Mediated Articular Damage
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:21684384
+      reference_title: &#34;Juvenile idiopathic arthritis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        immunological studies have shown that systemic juvenile idiopathic
+        arthritis is an acquired autoinflammatory disease, and have led to
+        successful studies of both interleukin-1 and interleukin-6 blockade
+      explanation: &gt;-
+        Cytokine blockade being therapeutically effective establishes that the
+        infiltrating immune compartment acts through cytokines. PARTIAL because
+        the cited blockade evidence is from the systemic category.
   evidence:
   - reference: PMID:42266057
     reference_title: &#34;Polyarticular juvenile idiopathic arthritis: insights from genetic studies on disease risk and pathogenesis.&#34;
@@ -7741,6 +8929,18 @@ pathophysiology:
     term:
       id: UBERON:0002018
       label: synovial membrane of synovial joint
+  evidence:
+  - reference: PMID:42266057
+    reference_title: &#34;Polyarticular juvenile idiopathic arthritis: insights from genetic studies on disease risk and pathogenesis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Synovial atlas and spatial transcriptomic studies have further connected genetic susceptibility to immune-cell states and organized inflammatory niches, linking inherited risk to the chronic arthritis-sustaining tissue environment.&#34;
+    explanation: &gt;-
+      Synovial atlas and spatial transcriptomic work describes organized
+      inflammatory niches within the synovial tissue, the structural
+      counterpart of the expanded, inflamed synovium modelled here. PARTIAL
+      because the study characterises tissue architecture rather than measuring
+      synoviocyte proliferation.
   downstream:
   - target: Cytokine-Mediated Articular Damage
     causal_link_type: DIRECT
@@ -7761,9 +8961,45 @@ pathophysiology:
     term:
       id: UBERON:0002018
       label: synovial membrane of synovial joint
+  evidence:
+  - reference: PMID:21684384
+    reference_title: &#34;Juvenile idiopathic arthritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      have led to successful studies of both interleukin-1 and interleukin-6
+      blockade
+    explanation: &gt;-
+      Successful IL-1 and IL-6 blockade is the strongest available evidence
+      that these cytokines are causal drivers rather than bystanders in JIA
+      joint inflammation.
+  - reference: PMID:29848426
+    reference_title: &#34;Spectrum of Joint Deformities in Children with Juvenile Idiopathic Arthritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Joint deformities are more likely to be seen in children with
+      long-standing disease, those with polyarthritis JIA and seropositive
+      patients.
+    explanation: &gt;-
+      Structural joint damage accumulates with disease duration, consistent
+      with sustained inflammatory cytokine exposure being the proximate cause
+      of articular destruction.
   downstream:
   - target: Arthritis
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:29848426
+      reference_title: &#34;Spectrum of Joint Deformities in Children with Juvenile Idiopathic Arthritis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Forty patients (57.1%) had joint deformities. Most common joints
+        involved were hand (50%), wrist (50%), and knee (35.7%).
+      explanation: &gt;-
+        In a 70-child JIA cohort, 57% had established joint deformities,
+        directly evidencing that the articular inflammatory process produces
+        the clinical arthritis and joint-damage endpoint.
 - name: Systemic Autoinflammation (sJIA)
   description: &gt;-
     Systemic JIA is dominated by innate-immune activation with prominent
@@ -7798,6 +9034,16 @@ pathophysiology:
   downstream:
   - target: Fever
     causal_link_type: DIRECT
+    evidence:
+    - reference: ORPHA:85414
+      reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;characterized by the variable occurrence of chronic arthritis, intermittent high spiking fever, maculopapular rash during fever episodes&#34;
+      explanation: &gt;-
+        Orphanet records intermittent high spiking fever as a defining feature
+        of systemic-onset JIA, the clinical expression of the innate-immune
+        (IL-1/IL-6) autoinflammatory drive modelled by this node.
 phenotypes:
 - category: Musculoskeletal
   name: Arthritis
@@ -7912,6 +9158,7 @@ phenotypes:
       label: &#34;Skin rash&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000988 | Skin rash | Very frequent (99-80%)&#34;
@@ -7928,6 +9175,7 @@ phenotypes:
       label: &#34;Autoimmunity&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002960 | Autoimmunity | Very frequent (99-80%)&#34;
@@ -7944,6 +9192,7 @@ phenotypes:
       label: &#34;Elevated erythrocyte sedimentation rate&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003565 | Elevated erythrocyte sedimentation rate | Very frequent (99-80%)&#34;
@@ -7960,6 +9209,7 @@ phenotypes:
       label: &#34;Juvenile rheumatoid arthritis&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005681 | Juvenile rheumatoid arthritis | Very frequent (99-80%)&#34;
@@ -7980,8 +9230,22 @@ phenotypes:
     direction: POSITIVE
     endpoint_context: DIAGNOSTIC
     interpretation: CRP as an acute-phase readout of IL-6-driven systemic autoinflammation
+    evidence:
+    - reference: PMID:21684384
+      reference_title: &#34;Juvenile idiopathic arthritis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        systemic juvenile idiopathic arthritis is an acquired autoinflammatory
+        disease, and have led to successful studies of both interleukin-1 and
+        interleukin-6 blockade
+      explanation: &gt;-
+        Supports the IL-6-driven autoinflammatory mechanism of which CRP is the
+        canonical hepatic acute-phase readout. PARTIAL because the seminar does
+        not itself measure CRP as a readout of that axis.
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0011227 | Elevated circulating C-reactive protein concentration | Very frequent (99-80%)&#34;
@@ -7998,6 +9262,7 @@ phenotypes:
       label: &#34;Lymphadenopathy&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002716 | Lymphadenopathy | Frequent (79-30%)&#34;
@@ -8014,6 +9279,7 @@ phenotypes:
       label: &#34;Glomerulonephritis&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000099 | Glomerulonephritis | Occasional (29-5%)&#34;
@@ -8030,6 +9296,7 @@ phenotypes:
       label: &#34;Osteopenia&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000938 | Osteopenia | Occasional (29-5%)&#34;
@@ -8046,6 +9313,7 @@ phenotypes:
       label: &#34;Growth delay&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001510 | Growth delay | Occasional (29-5%)&#34;
@@ -8062,6 +9330,7 @@ phenotypes:
       label: &#34;Pericarditis&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001701 | Pericarditis | Occasional (29-5%)&#34;
@@ -8078,6 +9347,7 @@ phenotypes:
       label: &#34;Splenomegaly&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001744 | Splenomegaly | Occasional (29-5%)&#34;
@@ -8094,6 +9364,7 @@ phenotypes:
       label: &#34;Abdominal pain&#34;
   evidence:
   - reference: ORPHA:85414
+    reference_title: &#34;Systemic-onset juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002027 | Abdominal pain | Occasional (29-5%)&#34;
@@ -8110,6 +9381,7 @@ phenotypes:
       label: &#34;Antinuclear antibody positivity&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003493 | Antinuclear antibody positivity | Very frequent (99-80%)&#34;
@@ -8126,6 +9398,7 @@ phenotypes:
       label: &#34;Oligoarthritis&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0040313 | Oligoarthritis | Very frequent (99-80%)&#34;
@@ -8142,6 +9415,7 @@ phenotypes:
       label: &#34;Uveitis&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000554 | Uveitis | Frequent (79-30%)&#34;
@@ -8158,6 +9432,7 @@ phenotypes:
       label: &#34;Joint hypermobility&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001382 | Joint hypermobility | Frequent (79-30%)&#34;
@@ -8174,6 +9449,7 @@ phenotypes:
       label: &#34;Failure to thrive&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001508 | Failure to thrive | Frequent (79-30%)&#34;
@@ -8190,6 +9466,7 @@ phenotypes:
       label: &#34;Knee osteoarthritis&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005086 | Knee osteoarthritis | Frequent (79-30%)&#34;
@@ -8206,6 +9483,7 @@ phenotypes:
       label: &#34;Increased circulating interferon-gamma concentration&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0030356 | Increased serum interferon-gamma level | Frequent (79-30%)&#34;
@@ -8222,6 +9500,7 @@ phenotypes:
       label: &#34;Visual loss&#34;
   evidence:
   - reference: ORPHA:85410
+    reference_title: &#34;Oligoarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000572 | Visual loss | Occasional (29-5%)&#34;
@@ -8238,6 +9517,7 @@ phenotypes:
       label: &#34;Rheumatoid factor positive&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002923 | Rheumatoid factor positive | Very frequent (99-80%)&#34;
@@ -8254,6 +9534,7 @@ phenotypes:
       label: &#34;Polyarticular arthritis&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005764 | Polyarticular arthritis | Very frequent (99-80%)&#34;
@@ -8270,6 +9551,7 @@ phenotypes:
       label: &#34;Progressive joint destruction&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005187 | Progressive joint destruction | Frequent (79-30%)&#34;
@@ -8286,6 +9568,7 @@ phenotypes:
       label: &#34;Interphalangeal joint erosions&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006252 | Interphalangeal joint erosions | Frequent (79-30%)&#34;
@@ -8302,6 +9585,7 @@ phenotypes:
       label: &#34;Symmetric polyarthritis&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0040311 | Symetrical distal arthritis | Frequent (79-30%)&#34;
@@ -8318,6 +9602,7 @@ phenotypes:
       label: &#34;Synovitis&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100769 | Synovitis | Frequent (79-30%)&#34;
@@ -8334,6 +9619,7 @@ phenotypes:
       label: &#34;Reduced bone mineral density&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0004349 | Reduced bone mineral density | Occasional (29-5%)&#34;
@@ -8350,6 +9636,7 @@ phenotypes:
       label: &#34;Premature epimetaphyseal fusion&#34;
   evidence:
   - reference: ORPHA:85435
+    reference_title: &#34;Rheumatoid factor-positive polyarticular juvenile idiopathic arthritis&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0010588 | Premature epimetaphyseal fusion | Occasional (29-5%)&#34;
@@ -8446,12 +9733,28 @@ treatments:
       term:
         id: NCIT:C257
         label: Nonsteroidal Antiinflammatory Drug
+  therapeutic_modality: SMALL_MOLECULE
+  evidence:
+  - reference: PMID:41728909
+    reference_title: &#34;Pan American League of Associations for Rheumatology: Recommendations for the Treatment of Oligoarticular Juvenile Idiopathic Arthritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Short-term course of NSAID and intra-articular corticosteroids was
+      recommended as initial therapy in those with minimal disease activity
+      with no risk factors for poor prognosis.
+    explanation: &gt;-
+      A GRADE-based guideline recommends a short NSAID course as initial
+      therapy, supporting the recorded first-line symptom-control role. Note
+      the recommendation is for a short course in minimal disease activity, not
+      indefinite NSAID monotherapy.
 - name: Intra-articular and Systemic Glucocorticoids
   description: &gt;-
     Intra-articular steroid injection (most often triamcinolone) is
-    standard for oligoarticular JIA. Short-course systemic
-    glucocorticoids are used as a bridge to DMARDs and as front-line
-    therapy in active systemic JIA.
+    standard for oligoarticular JIA. Systemic glucocorticoids are used as a
+    short-course bridge to DMARDs, and in active systemic JIA as a
+    short-duration adjunct alongside early IL-1 or IL-6 blockade rather than as
+    a standing systemic agent.
   treatment_term:
     preferred_term: glucocorticoid therapy
     term:
@@ -8462,6 +9765,28 @@ treatments:
       term:
         id: CHEBI:9667
         label: triamcinolone
+  therapeutic_modality: SMALL_MOLECULE
+  evidence:
+  - reference: PMID:41728909
+    reference_title: &#34;Pan American League of Associations for Rheumatology: Recommendations for the Treatment of Oligoarticular Juvenile Idiopathic Arthritis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Short-term course of NSAID and intra-articular corticosteroids was
+      recommended as initial therapy
+    explanation: &gt;-
+      Directly supports intra-articular corticosteroid injection as initial
+      therapy in the oligoarticular category, the setting named in this
+      treatment description.
+  - reference: PMID:39317417
+    reference_title: &#34;EULAR/PReS recommendations for the diagnosis and management of Still&#39;s disease, comprising systemic juvenile idiopathic arthritis and adult-onset Still&#39;s disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The optimal therapeutic strategy relies on early use of interleukin (IL-1 or IL-6 inhibitors associated to short duration glucocorticoid (GC).&#34;
+    explanation: &gt;-
+      EULAR/PReS place glucocorticoids in systemic JIA / Still&#39;s disease as a
+      short-duration component alongside early IL-1 or IL-6 blockade, which is
+      the systemic glucocorticoid role recorded in this treatment description.
 - name: Methotrexate (conventional DMARD)
   description: &gt;-
     Methotrexate is the conventional synthetic DMARD of first choice for
@@ -8481,7 +9806,7 @@ treatments:
   - reference: PMID:41728909
     reference_title: &#34;Pan American League of Associations for Rheumatology: Recommendations for the Treatment of Oligoarticular Juvenile Idiopathic Arthritis.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &#34;For patients who achieve inactive disease state, treatment with DMARD should be maintained for a minimum of 12 months after remission.&#34;
     explanation: The PANLAR recommendations advise maintaining DMARD treatment for at least 12 months after remission in patients reaching an inactive disease state.
 - name: TNF, IL-1, and IL-6 Inhibitor Biologics
@@ -8733,7 +10058,7 @@ for systemic JIA per the EULAR/PReS recommendations.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Juvenile Idiopathic Arthritis", "mondoId": "MONDO:0011429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Idiopathic_Arthritis", "yamlRevision": "16dbc561c75d"};
+        const OS_CONFIG = {"diseaseName": "Juvenile Idiopathic Arthritis", "mondoId": "MONDO:0011429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Idiopathic_Arthritis", "yamlRevision": "61b89a7e3b5c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9152,5 +10477,73 @@ for systemic JIA per the EULAR/PReS recommendations.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

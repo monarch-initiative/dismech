@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Carbon Monoxide Poisoning</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Carbon Monoxide Poisoning</h1>
             <div class="header-meta">
 
@@ -3669,6 +3871,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3881,7 +4085,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-case-definition-for-carbon-monoxide-poisoning">
                 <div class="item-name">Clinical case definition for carbon monoxide poisoning</div>
 
                 <div class="item-desc">Carbon monoxide poisoning is a toxic-inhalation syndrome in which carbon monoxide binds hemoglobin and other heme proteins, producing tissue hypoxia and oxidative stress, confirmed by an elevated blood carboxyhemoglobin level in a compatible clinical and exposure context.</div>
@@ -3927,6 +4131,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3948,6 +4153,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4006,7 +4212,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-acute-co-poisoning">
 
                     <div class="item-name">
                         Acute CO Poisoning
@@ -4040,6 +4246,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35461624" target="_blank">PMID:35461624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4066,7 +4273,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-delayed-neuropsychiatric-sequelae">
 
                     <div class="item-name">
                         Delayed Neurological Sequelae (DNS)
@@ -4099,6 +4306,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4163,7 +4371,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Hyperbaric oxygen therapy</span>
+    <a class="entity-ref-chip" href="#treatment-hyperbaric-oxygen-therapy">treatments#Hyperbaric oxygen therapy</a>
 
 
 
@@ -4197,6 +4405,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10092916" target="_blank">PMID:10092916</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4277,6 +4486,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15342916" target="_blank">PMID:15342916</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4321,16 +4531,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4357,16 +4572,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         oxygen transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015671" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015671">GO:0015671</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015671" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0015671</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxygen transport (GO:0015671). GO:0015671 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4387,6 +4607,7 @@
 
 
                 </div>
+
 
 
 
@@ -4423,6 +4644,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4455,16 +4677,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000232">CL:0000232</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000232</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4481,6 +4708,7 @@
 
 
                 </div>
+
 
 
 
@@ -4524,6 +4752,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4563,16 +4792,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071456">GO:0071456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0071456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4593,6 +4827,7 @@
 
 
                 </div>
+
 
 
 
@@ -4637,6 +4872,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4676,16 +4912,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4705,16 +4946,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial electron transport, cytochrome c to oxygen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006123">GO:0006123</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial electron transport, cytochrome c to oxygen (GO:0006123). GO:0006123 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4735,6 +4981,7 @@
 
 
                 </div>
+
 
 
 
@@ -4779,6 +5026,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9584335" target="_blank">PMID:9584335</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4800,6 +5048,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9584335" target="_blank">PMID:9584335</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4840,16 +5089,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         aerobic respiration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009060" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009060">GO:0009060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0009060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased aerobic respiration (GO:0009060). GO:0009060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4870,6 +5124,7 @@
 
 
                 </div>
+
 
 
 
@@ -4905,6 +5160,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27753502" target="_blank">PMID:27753502</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4945,16 +5201,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4975,6 +5236,7 @@
 
 
                 </div>
+
 
 
 
@@ -5019,6 +5281,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24773392" target="_blank">PMID:24773392</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5051,16 +5314,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5087,16 +5355,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         platelet aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070527</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5116,16 +5389,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5146,6 +5424,7 @@
 
 
                 </div>
+
 
 
 
@@ -5182,6 +5461,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16931637" target="_blank">PMID:16931637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5203,6 +5483,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16931637" target="_blank">PMID:16931637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5243,16 +5524,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         reactive oxygen species metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072593">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0072593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5273,6 +5559,7 @@
 
 
                 </div>
+
 
 
 
@@ -5309,6 +5596,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1447108" target="_blank">PMID:1447108</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5330,6 +5618,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24773392" target="_blank">PMID:24773392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5370,16 +5659,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lipid oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034440" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034440">GO:0034440</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034440" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0034440</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipid oxidation (GO:0034440). GO:0034440 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5400,6 +5694,7 @@
 
 
                 </div>
+
 
 
 
@@ -5436,6 +5731,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2341364" target="_blank">PMID:2341364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5457,6 +5753,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15342916" target="_blank">PMID:15342916</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5490,16 +5787,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5526,16 +5828,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adaptive immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5556,6 +5863,7 @@
 
 
                 </div>
+
 
 
 
@@ -5592,6 +5900,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15342916" target="_blank">PMID:15342916</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5624,16 +5933,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5660,16 +5974,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043525">GO:0043525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0043525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of neuron apoptotic process (GO:0043525). GO:0043525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5690,6 +6009,7 @@
 
 
                 </div>
+
 
 
 
@@ -5726,6 +6046,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5747,6 +6068,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16537269" target="_blank">PMID:16537269</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5780,16 +6102,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5816,16 +6143,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5846,6 +6178,7 @@
 
 
                 </div>
+
 
 
 
@@ -5882,6 +6215,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27753502" target="_blank">PMID:27753502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5914,16 +6248,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5950,16 +6289,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5989,6 +6333,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6000,6 +6345,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15342916" target="_blank">PMID:15342916</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6033,16 +6379,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6069,16 +6420,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071456">GO:0071456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0071456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to hypoxia (GO:0071456). GO:0071456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6108,6 +6464,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6119,6 +6476,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24518173" target="_blank">PMID:24518173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6141,6 +6499,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24518173" target="_blank">PMID:24518173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6177,7 +6536,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-bilateral-globus-pallidus-lesions">
                 <div class="item-name">
                     Bilateral globus pallidus lesions
 
@@ -6198,6 +6557,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6290,17 +6650,22 @@
                     <div class="item-name">
                         Syncope
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001279</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6320,6 +6685,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6354,14 +6720,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myocardial infarction
+
+                        <span class="phenotype-term-label">Myocardial infarction</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001658">HP:0001658</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001658</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is myocardial infarction (HP:0001658). HP:0001658 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6382,6 +6757,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27753502" target="_blank">PMID:27753502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6392,7 +6768,7 @@
                 <div class="evidence-snippet">"Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction."</div>
 
 
-                <div class="evidence-explanation">Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases.</div>
+                <div class="evidence-explanation">Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases. The OCCASIONAL band departs downward from that figure deliberately: the one-third denominator is the moderate-to-severely poisoned subgroup, not all CO-poisoned patients, and that subgroup is a minority of presentations, so the share of the whole disease population falls in the OCCASIONAL range (5-29%) rather than FREQUENT (30-79%).</div>
 
 
 
@@ -6422,14 +6798,21 @@
                         Nausea and vomiting
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6449,6 +6832,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35461624" target="_blank">PMID:35461624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6490,14 +6874,23 @@
                         Dizziness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertigo
+
+                        <span class="phenotype-term-label">Vertigo</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dizziness, annotated with Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6517,6 +6910,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6557,17 +6951,24 @@
                     <div class="item-name">
                         Headache
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6588,6 +6989,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6598,7 +7000,7 @@
                 <div class="evidence-snippet">"The initial symptoms with CO exposure when COHb is 15-30% are nonspecific, namely, headache, dizziness, nausea, fatigue, and impaired manual dexterity."</div>
 
 
-                <div class="evidence-explanation">Supports headache as a common early symptom of CO exposure.</div>
+                <div class="evidence-explanation">Supports headache as an initial symptom of CO exposure (the D2P association). The snippet carries no frequency content, so the FREQUENT band is a documented clinical estimate consistent with headache being listed first among the nonspecific initial symptoms (docs/frequency-evidence-guidelines.md, Pattern D) rather than a value extracted from the citation.</div>
 
 
 
@@ -6618,17 +7020,22 @@
                     <div class="item-name">
                         Seizures
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6648,6 +7055,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35461624" target="_blank">PMID:35461624</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6679,17 +7087,22 @@
                     <div class="item-name">
                         Coma
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Coma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001259">HP:0001259</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001259</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is coma (HP:0001259). HP:0001259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6709,6 +7122,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27753502" target="_blank">PMID:27753502</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6741,14 +7155,21 @@
                         Confusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Confusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001289">HP:0001289</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001289</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is confusion / altered mental status, annotated with Confusion (HP:0001289). HP:0001289 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6768,6 +7189,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32015960" target="_blank">PMID:32015960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6802,14 +7224,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6830,6 +7259,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27753502" target="_blank">PMID:27753502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6840,7 +7270,7 @@
                 <div class="evidence-snippet">"Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction."</div>
 
 
-                <div class="evidence-explanation">Supports long-term neurocognitive deficits in a substantial fraction of patients.</div>
+                <div class="evidence-explanation">Supports long-term neurocognitive deficits in a substantial fraction of patients. The reported 15-40% range straddles the OCCASIONAL (5-29%) and FREQUENT (30-79%) boundary; FREQUENT is banded on the upper end of the range, consistent with the cited review treating long-term neurocognitive deficit as a hallmark sequela rather than an uncommon outcome. The lower end of the reported range would band as OCCASIONAL.</div>
 
 
 
@@ -6860,17 +7290,22 @@
                     <div class="item-name">
                         Memory impairment
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Memory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002354</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6890,6 +7325,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6921,17 +7357,22 @@
                     <div class="item-name">
                         Parkinsonism
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001300</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6951,6 +7392,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6991,17 +7433,22 @@
                     <div class="item-name">
                         Respiratory failure
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7021,6 +7468,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24518173" target="_blank">PMID:24518173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7062,14 +7510,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7089,6 +7544,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24518173" target="_blank">PMID:24518173</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7120,17 +7576,22 @@
                     <div class="item-name">
                         Chest pain
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
 
 
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7150,6 +7611,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7213,6 +7675,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7228,7 +7693,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supplemental oxygen therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">supplemental oxygen therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supplemental oxygen therapy, annotated with Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Oxygen Therapy</span>
 
 
@@ -7286,6 +7756,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7327,6 +7798,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7348,6 +7820,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7378,7 +7851,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hyperbaric oxygen therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">hyperbaric oxygen therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hyperbaric oxygen therapy (NCIT:C38065). NCIT:C38065 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hyperbaric Oxygen Therapy</span>
 
 
@@ -7436,6 +7914,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7481,6 +7960,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7710151" target="_blank">PMID:7710151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7522,6 +8002,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12362006" target="_blank">PMID:12362006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7544,6 +8025,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7710151" target="_blank">PMID:7710151</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7565,6 +8047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7595,7 +8078,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7670,21 +8158,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000207">ECTO:0000207</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:0000207</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to carbon monoxide (ECTO:0000207). ECTO:0000207 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7703,6 +8200,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32015960" target="_blank">PMID:32015960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7753,6 +8251,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7785,21 +8284,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000207">ECTO:0000207</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-42">ECTO:0000207</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to carbon monoxide (ECTO:0000207). ECTO:0000207 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7818,6 +8326,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32015960" target="_blank">PMID:32015960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7868,6 +8377,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7900,17 +8410,24 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000207">ECTO:0000207</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:0000207</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to carbon monoxide (ECTO:0000207). ECTO:0000207 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
+
+
 
 
                     <span class="tag tag-location">
@@ -7919,14 +8436,21 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_03510009" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:03510009">ENVO:03510009</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_03510009" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-44">ENVO:03510009</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in gasoline exhaust (ENVO:03510009). ENVO:03510009 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7945,6 +8469,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32015960" target="_blank">PMID:32015960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7995,6 +8520,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8027,21 +8553,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000207">ECTO:0000207</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-45">ECTO:0000207</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to carbon monoxide (ECTO:0000207). ECTO:0000207 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8060,6 +8595,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8110,6 +8646,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8142,21 +8679,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000207">ECTO:0000207</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000207" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-46">ECTO:0000207</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to carbon monoxide (ECTO:0000207). ECTO:0000207 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8175,6 +8721,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8925320" target="_blank">PMID:8925320</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8224,6 +8771,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8925320" target="_blank">PMID:8925320</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8288,6 +8836,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34053712" target="_blank">PMID:34053712</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8341,7 +8890,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse94780">
                 <div class="item-name">
                     Gene expression in rat striatum following carbon monoxide poisoning and hypoxic hypoxia
 
@@ -8387,6 +8936,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8929,7 +9481,7 @@ pathophysiology:
 phenotypes:
 - category: Nervous System
   name: Headache
-  frequency: VERY_FREQUENT
+  frequency: FREQUENT
   description: &gt;-
     Headache is the most common presenting symptom of carbon monoxide poisoning,
     reflecting cerebral hypoxia.
@@ -8944,7 +9496,13 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The initial symptoms with CO exposure when COHb is 15-30% are nonspecific, namely, headache, dizziness, nausea, fatigue, and impaired manual dexterity.&#34;
-    explanation: Supports headache as a common early symptom of CO exposure.
+    explanation: &gt;-
+      Supports headache as an initial symptom of CO exposure (the D2P
+      association). The snippet carries no frequency content, so the FREQUENT
+      band is a documented clinical estimate consistent with headache being
+      listed first among the nonspecific initial symptoms
+      (docs/frequency-evidence-guidelines.md, Pattern D) rather than a value
+      extracted from the citation.
 - category: Nervous System
   name: Dizziness
   description: &gt;-
@@ -8999,7 +9557,6 @@ phenotypes:
     explanation: Supports fatigue as an early manifestation within the CO poisoning symptom spectrum.
 - category: Nervous System
   name: Syncope
-  frequency: OCCASIONAL
   description: &gt;-
     Loss of consciousness or syncope occurs with more severe exposure and is an
     indicator of significant poisoning.
@@ -9017,7 +9574,6 @@ phenotypes:
     explanation: Supports loss of consciousness/syncope as a marker of severe poisoning.
 - category: Nervous System
   name: Seizures
-  frequency: OCCASIONAL
   description: &gt;-
     Seizures can occur in severe acute CO poisoning.
   phenotype_term:
@@ -9034,7 +9590,6 @@ phenotypes:
     explanation: Supports seizures as a clinical effect of severe CO poisoning.
 - category: Nervous System
   name: Coma
-  frequency: OCCASIONAL
   description: &gt;-
     Coma occurs in severe poisoning and portends risk of death or delayed
     neurological sequelae.
@@ -9086,10 +9641,15 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction.&#34;
-    explanation: Supports long-term neurocognitive deficits in a substantial fraction of patients.
+    explanation: &gt;-
+      Supports long-term neurocognitive deficits in a substantial fraction of
+      patients. The reported 15-40% range straddles the OCCASIONAL (5-29%) and
+      FREQUENT (30-79%) boundary; FREQUENT is banded on the upper end of the
+      range, consistent with the cited review treating long-term neurocognitive
+      deficit as a hallmark sequela rather than an uncommon outcome. The lower
+      end of the reported range would band as OCCASIONAL.
 - category: Nervous System
   name: Memory impairment
-  frequency: OCCASIONAL
   description: &gt;-
     Memory deficits are among the most frequent delayed neuropsychiatric
     sequelae after CO poisoning.
@@ -9107,7 +9667,6 @@ phenotypes:
     explanation: Supports memory loss as a delayed neuropsychiatric sequela of CO poisoning.
 - category: Nervous System
   name: Parkinsonism
-  frequency: OCCASIONAL
   description: &gt;-
     Delayed parkinsonism and other movement disorders can follow CO poisoning,
     associated with basal-ganglia (globus pallidus) injury.
@@ -9141,10 +9700,15 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction.&#34;
-    explanation: Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases.
+    explanation: &gt;-
+      Supports myocardial injury and cardiac dysfunction in roughly one-third of
+      moderate-to-severe cases. The OCCASIONAL band departs downward from that
+      figure deliberately: the one-third denominator is the moderate-to-severely
+      poisoned subgroup, not all CO-poisoned patients, and that subgroup is a
+      minority of presentations, so the share of the whole disease population
+      falls in the OCCASIONAL range (5-29%) rather than FREQUENT (30-79%).
 - category: Cardiovascular
   name: Chest pain
-  frequency: OCCASIONAL
   description: &gt;-
     Chest pain can accompany CO-induced myocardial ischemia, especially in
     individuals with underlying ischemic heart disease.
@@ -9162,7 +9726,6 @@ phenotypes:
     explanation: Supports chest pain from myocardial ischemia at low COHb levels in susceptible individuals.
 - category: Respiratory
   name: Respiratory failure
-  frequency: OCCASIONAL
   description: &gt;-
     Severe CO poisoning can progress to respiratory failure, sometimes with
     noncardiogenic pulmonary edema.
@@ -10130,7 +10693,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carbon Monoxide Poisoning", "mondoId": "MONDO:0800373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carbon_Monoxide_Poisoning", "yamlRevision": "7a29e3e7c3a1"};
+        const OS_CONFIG = {"diseaseName": "Carbon Monoxide Poisoning", "mondoId": "MONDO:0800373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carbon_Monoxide_Poisoning", "yamlRevision": "96a2181e7d2f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10549,5 +11112,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Aminoacylase 1 Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aminoacylase 1 Deficiency</h1>
             <div class="header-meta">
 
@@ -3696,6 +3898,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3810,6 +4014,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3819,9 +4093,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Other disorders of amino acid metabolism&#34; under category &#34;Disorders of amino acid metabolism&#34;. ACY1 deficiency disrupts deacetylation/recycling of N-acetylated amino acids and is assigned to the WP-005 other amino-acid metabolism package.">amino acids other</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3839,7 +4129,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3881,6 +4171,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4004,6 +4295,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4108,6 +4400,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4129,6 +4422,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4239,6 +4533,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4255,6 +4555,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Use ACY1-null human iPSC-derived neurons/organoids and/or an animal model to test whether loss of aminoacylase 1 perturbs neuronal metabolism, development, or function, given that ACY1 is expressed in the CNS but no accumulation of N-acetylated amino acids was detected in patient CSF.</div>
+
+
+
+
+
+
 
 
 
@@ -4296,6 +4602,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20480396" target="_blank">PMID:20480396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4317,6 +4624,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38234346" target="_blank">PMID:38234346</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4415,6 +4723,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4438,6 +4752,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4459,6 +4774,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17516490" target="_blank">PMID:17516490</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4511,7 +4827,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Congenital sensorineural hearing impairment</span>
+    <a class="entity-ref-chip" href="#phenotype-congenital-sensorineural-hearing-impairment">phenotype#Congenital sensorineural hearing impairment</a>
 
 
 
@@ -4557,6 +4873,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4579,6 +4901,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4643,15 +4966,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ACY1
 
 
-    <a href="https://bioregistry.io/hgnc:177" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:177">hgnc:177</a>
+    <a href="https://bioregistry.io/hgnc:177" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:177</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACY1 (hgnc:177). hgnc:177 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4678,6 +5008,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         N-acetyl amino acid hydrolysis in amino acid metabolism
@@ -4685,10 +5017,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006520" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006520">GO:0006520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased N-acetyl amino acid hydrolysis in amino acid metabolism, annotated with amino acid metabolic process (GO:0006520). GO:0006520 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4713,16 +5048,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         aminoacylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004046" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004046">GO:0004046</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004046" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased aminoacylase activity (GO:0004046). GO:0004046 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4743,6 +5083,7 @@
 
 
                 </div>
+
 
 
 
@@ -4798,6 +5139,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4820,6 +5162,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4841,6 +5184,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4895,16 +5239,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         accumulation of N-acetyl amino acids
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006520" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006520">GO:0006520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased accumulation of N-acetyl amino acids, annotated with amino acid metabolic process (GO:0006520). GO:0006520 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4925,6 +5274,7 @@
 
 
                 </div>
+
 
 
 
@@ -4981,6 +5331,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5003,6 +5354,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17516490" target="_blank">PMID:17516490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5024,6 +5376,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17516490" target="_blank">PMID:17516490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5075,16 +5428,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial ATP synthesis coupled electron transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042775">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5129,6 +5487,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5168,6 +5527,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5212,16 +5572,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         auditory hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000202">CL:0000202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves auditory hair cell (CL:0000202). CL:0000202 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5248,16 +5613,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inner ear receptor cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060119">GO:0060119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0060119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased inner ear receptor cell development (GO:0060119). GO:0060119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5302,6 +5672,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5342,6 +5713,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5370,6 +5742,7 @@
 
                 <div class="item-desc">Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).
 </div>
+
 
 
 
@@ -5487,6 +5860,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20480396" target="_blank">PMID:20480396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5508,6 +5882,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5557,7 +5932,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACY1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the deacetylation step is blocked, N-acetylated amino acids accumulate and are excreted in the urine, producing the biochemical signature of the disease: a specific profile of ~11 N-acetylated amino acids on urine GC-MS/NMR (N-acetyl derivatives of methionine, glutamate, alanine, glycine, threonine, leucine, isoleucine, valine, serine, plus N-acetylglutamine and N-acetylasparagine). Notably, one study found no increase of N-acetylated amino acids in cerebrospinal fluid, leaving the consequences for brain metabolism unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"accumulation of N-acetyl amino acids\"]}}, {\"id\": \"Aminoacylase 1 Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function or missense variants in ACY1 abolish or reduce the activity of aminoacylase 1, a zinc-binding metalloenzyme that hydrolyzes N-acetyl amino acids into the free amino acid and acetate. Enzyme deficiency is demonstrable in patient-derived (EBV-transformed) lymphoblasts and reproduced by expression of mutant ACY1 in HEK293 cells, where most disease-associated mutations cause a nearly complete loss of enzyme function. This blocks the deacetylation/recycling step of amino-acid metabolism performed by the enzyme.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"N-acetyl amino acid hydrolysis in amino acid metabolism\"], \"molecular_functions\": [\"aminoacylase activity\"], \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Auditory Hair-Cell Developmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated acy1 knockdown in zebrafish reduced auditory hair cells, impaired auditory function, and downregulated inner-ear developmental genes; wild-type but not mutant human ACY1 mRNA rescued the phenotype. The model is relevant to one human congenital-hearing-loss case but is not independently validated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"], \"biological_processes\": [\"inner ear receptor cell development\"], \"experimental_models\": [{\"name\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"model_type\": \"OTHER\", \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar vermis atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was an imaging finding in one of the originally described subjects (presenting with psychomotor delay).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006855\"}}, {\"id\": \"Congenital sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing loss was reported in one child with confirmed ACY1 deficiency and normal developmental milestones. ACY1 remains a candidate hearing-loss gene pending unrelated cases and independent validation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe speech delay and absent speech are part of the reported neurological spectrum, including a child with an exon-skipping ACY1 variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"N-acetylglutamate exposure\", \"N-acetylmethionine exposure\", \"Unexposed control preparations\"], \"publication\": \"PMID:37871522\"}}, {\"id\": \"Febrile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the neurological findings reported in ACY1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002373\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cognitively normal 63-year-old woman developed dystonic symptoms from around age 12 that evolved into generalized dystonia, expanding the reported clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007325\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was the presenting feature prompting metabolic screening in one of the four originally genetically defined subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor / developmental delay has been reported, and affected individuals have been ascertained during evaluation of nonspecific psychomotor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a recent three-sibling series; his brothers had slightly varied intellectual abilities, and follow-up showed no deterioration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001256\"}}, {\"id\": \"Mitochondrial Brain Energy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In developing-rat brain mitochondrial preparations, N-acetylglutamate and N-acetylmethionine inhibited selected respiratory-chain and glutamate-dehydrogenase activities and strongly reduced ATP synthesis. This is a candidate toxic-metabolite mechanism, not a demonstrated human disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"], \"experimental_models\": [{\"name\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"model_type\": \"OTHER\", \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}]}}, {\"id\": \"Moderate intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability (historically \\\"moderate mental retardation\\\") has been reported in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002342\"}}, {\"id\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Morpholino-mediated acy1 knockdown\", \"Wild-type human ACY1 mRNA rescue\", \"Mutant human ACY1 mRNA rescue\"], \"publication\": \"PMID:42322530\"}}, {\"id\": \"Syringomyelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted alongside cerebellar vermis atrophy in one of the originally described subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003396\"}}], \"edges\": [{\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deacetylate N-acetyl amino acids leaves them to accumulate and be excreted in the urine.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACY1 knockdown reduced zebrafish auditory hair cells and function, with wild-type but not mutant human-mRNA rescue.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"N-acetylglutamate and N-acetylmethionine directly impaired mitochondrial enzymes and ATP synthesis in vitro.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most ascertained patients have neurological findings, but whether the biochemical defect causes them is unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Brain Energy Impairment\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial energy impairment could contribute to neurological findings, but this has not been shown in affected humans.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Auditory Hair-Cell Developmental Impairment\", \"target\": \"Congenital sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced auditory hair-cell number and function is a candidate mechanism for the single reported human hearing phenotype.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychomotor/developmental delay is among the reported findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was a presenting feature in one of the original subjects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Febrile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the reported neurological findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Moderate intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability has been reported in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Cerebellar vermis atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Syringomyelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A 63-year-old woman with generalized dystonia expanded the reported phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a three-sibling series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe speech delay was documented in a child with an exon-skipping ACY1 variant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ACY1 pathogenic variants\", \"target\": \"Aminoacylase 1 Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACY1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the deacetylation step is blocked, N-acetylated amino acids accumulate and are excreted in the urine, producing the biochemical signature of the disease: a specific profile of ~11 N-acetylated amino acids on urine GC-MS/NMR (N-acetyl derivatives of methionine, glutamate, alanine, glycine, threonine, leucine, isoleucine, valine, serine, plus N-acetylglutamine and N-acetylasparagine). Notably, one study found no increase of N-acetylated amino acids in cerebrospinal fluid, leaving the consequences for brain metabolism unresolved.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"accumulation of N-acetyl amino acids\"]}}, {\"id\": \"Aminoacylase 1 Enzyme Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic loss-of-function or missense variants in ACY1 abolish or reduce the activity of aminoacylase 1, a zinc-binding metalloenzyme that hydrolyzes N-acetyl amino acids into the free amino acid and acetate. Enzyme deficiency is demonstrable in patient-derived (EBV-transformed) lymphoblasts and reproduced by expression of mutant ACY1 in HEK293 cells, where most disease-associated mutations cause a nearly complete loss of enzyme function. This blocks the deacetylation/recycling step of amino-acid metabolism performed by the enzyme.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"N-acetyl amino acid hydrolysis in amino acid metabolism\"], \"molecular_functions\": [\"aminoacylase activity\"], \"genes\": [\"ACY1\"], \"gene_terms\": [{\"label\": \"ACY1\", \"id\": \"hgnc:177\"}]}}, {\"id\": \"Auditory Hair-Cell Developmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Morpholino-mediated acy1 knockdown in zebrafish reduced auditory hair cells, impaired auditory function, and downregulated inner-ear developmental genes; wild-type but not mutant human ACY1 mRNA rescued the phenotype. The model is relevant to one human congenital-hearing-loss case but is not independently validated.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"auditory hair cell\"], \"biological_processes\": [\"inner ear receptor cell development\"], \"experimental_models\": [{\"name\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"model_type\": \"OTHER\", \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar vermis atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was an imaging finding in one of the originally described subjects (presenting with psychomotor delay).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006855\"}}, {\"id\": \"Congenital sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hearing loss was reported in one child with confirmed ACY1 deficiency and normal developmental milestones. ACY1 remains a candidate hearing-loss gene pending unrelated cases and independent validation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008527\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe speech delay and absent speech are part of the reported neurological spectrum, including a child with an exon-skipping ACY1 variant.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"N-acetylglutamate exposure\", \"N-acetylmethionine exposure\", \"Unexposed control preparations\"], \"publication\": \"PMID:37871522\"}}, {\"id\": \"Febrile seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the neurological findings reported in ACY1 deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002373\"}}, {\"id\": \"Generalized dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A cognitively normal 63-year-old woman developed dystonic symptoms from around age 12 that evolved into generalized dystonia, expanding the reported clinical spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007325\"}}, {\"id\": \"Generalized hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was the presenting feature prompting metabolic screening in one of the four originally genetically defined subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor / developmental delay has been reported, and affected individuals have been ascertained during evaluation of nonspecific psychomotor delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most individuals ascertained with ACY1 deficiency have presented with heterogeneous, nonspecific neurological symptoms, and the disorder is thought to be underdiagnosed. However, because ACY1 has been evolutionarily conserved and is expressed in the CNS, a role in CNS function or development is conceivable but has not been demonstrated, and ascertainment through urine metabolic screening means it remains unresolved whether ACY1 deficiency is a true metabolic disease with pleiotropic clinical expression or a biochemical variant. This node is intentionally curated as a mechanism of uncertain causality (see the attached knowledge gap).\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mild intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a recent three-sibling series; his brothers had slightly varied intellectual abilities, and follow-up showed no deterioration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001256\"}}, {\"id\": \"Mitochondrial Brain Energy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In developing-rat brain mitochondrial preparations, N-acetylglutamate and N-acetylmethionine inhibited selected respiratory-chain and glutamate-dehydrogenase activities and strongly reduced ATP synthesis. This is a candidate toxic-metabolite mechanism, not a demonstrated human disease mechanism.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\"], \"experimental_models\": [{\"name\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"model_type\": \"OTHER\", \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}]}}, {\"id\": \"Moderate intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability (historically \\\"moderate mental retardation\\\") has been reported in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002342\"}}, {\"id\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"conditions\": [\"Morpholino-mediated acy1 knockdown\", \"Wild-type human ACY1 mRNA rescue\", \"Mutant human ACY1 mRNA rescue\"], \"publication\": \"PMID:42322530\"}}, {\"id\": \"Syringomyelia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted alongside cerebellar vermis atrophy in one of the originally described subjects.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003396\"}}], \"edges\": [{\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deacetylate N-acetyl amino acids leaves them to accumulate and be excreted in the urine.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aminoacylase 1 Enzyme Deficiency\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACY1 knockdown reduced zebrafish auditory hair cells and function, with wild-type but not mutant human-mRNA rescue.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"N-acetylglutamate and N-acetylmethionine directly impaired mitochondrial enzymes and ATP synthesis in vitro.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation and Urinary Excretion of N-Acetylated Amino Acids\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Most ascertained patients have neurological findings, but whether the biochemical defect causes them is unresolved.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Brain Energy Impairment\", \"target\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial energy impairment could contribute to neurological findings, but this has not been shown in affected humans.\", \"hypothesis_groups\": [\"n_acetyl_mitochondrial_bioenergetic_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Auditory Hair-Cell Developmental Impairment\", \"target\": \"Congenital sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced auditory hair-cell number and function is a candidate mechanism for the single reported human hearing phenotype.\", \"hypothesis_groups\": [\"acy1_auditory_hair_cell_hypothesis\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Psychomotor/developmental delay is among the reported findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked muscular hypotonia was a presenting feature in one of the original subjects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Febrile seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile seizures are among the reported neurological findings.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Moderate intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Moderate intellectual disability has been reported in affected individuals.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An ACY1-deficient patient presented with autistic features.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Cerebellar vermis atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophy of the cerebellar vermis was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Syringomyelia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Syringomyelia was noted in one original subject.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Generalized dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A 63-year-old woman with generalized dystonia expanded the reported phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Mild intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mild intellectual disability was reported in the proband of a three-sibling series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous Neurological Manifestations of Uncertain Causality\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe speech delay was documented in a child with an exon-skipping ACY1 variant.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Developing-rat brain mitochondrial metabolite-exposure preparation\", \"target\": \"Mitochondrial Brain Energy Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.\"}, {\"source\": \"Morpholino-mediated acy1-knockdown zebrafish auditory model\", \"target\": \"Auditory Hair-Cell Developmental Impairment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.\"}, {\"source\": \"ACY1 pathogenic variants\", \"target\": \"Aminoacylase 1 Enzyme Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5598,14 +5973,21 @@
                         Generalized hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Marked muscular hypotonia, annotated with Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5625,6 +6007,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5666,14 +6049,21 @@
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychomotor developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5693,6 +6083,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5725,14 +6116,23 @@
                         Febrile seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Febrile seizure (within the age range of 3 months to 6 years)
+
+                        <span class="phenotype-term-label">Febrile seizure (within the age range of 3 months to 6 years)</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002373">HP:0002373</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002373</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Febrile seizures, annotated with Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5752,6 +6152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5784,14 +6185,21 @@
                         Mild intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mild intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001256">HP:0001256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5811,6 +6219,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38234346" target="_blank">PMID:38234346</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5843,14 +6252,21 @@
                         Delayed speech and language development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5870,6 +6286,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24117009" target="_blank">PMID:24117009</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5902,14 +6319,21 @@
                         Autistic behavior
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000729</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic features, annotated with Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5929,6 +6353,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20480396" target="_blank">PMID:20480396</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5970,14 +6395,21 @@
                         Moderate intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Moderate intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002342">HP:0002342</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002342</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Moderate intellectual disability (HP:0002342). HP:0002342 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5997,6 +6429,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21414403" target="_blank">PMID:21414403</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6029,14 +6462,21 @@
                         Cerebellar vermis atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar vermis atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006855">HP:0006855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0006855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophy of the vermis, annotated with Cerebellar vermis atrophy (HP:0006855). HP:0006855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6056,6 +6496,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6088,14 +6529,21 @@
                         Syringomyelia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Syringomyelia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003396">HP:0003396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syringomyelia (HP:0003396). HP:0003396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6115,6 +6563,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16465618" target="_blank">PMID:16465618</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6147,14 +6596,21 @@
                         Generalized dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007325" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007325">HP:0007325</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007325</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized dystonia (HP:0007325), qualified as childhood onset. HP:0007325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6204,6 +6660,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26686503" target="_blank">PMID:26686503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6235,14 +6692,21 @@
                         Congenital sensorineural hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008527">HP:0008527</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008527</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital sensorineural hearing impairment (HP:0008527). HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6262,6 +6726,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6284,6 +6749,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6360,13 +6826,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACY1
 
 
-    <a href="https://bioregistry.io/hgnc:177" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:177">hgnc:177</a>
+    <a href="https://bioregistry.io/hgnc:177" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:177</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACY1 (hgnc:177). hgnc:177 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6394,6 +6865,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16274666" target="_blank">PMID:16274666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6416,6 +6888,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16274666" target="_blank">PMID:16274666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6437,6 +6910,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16274666" target="_blank">PMID:16274666</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6470,6 +6944,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6485,7 +6962,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">speech language therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech language therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -6533,6 +7015,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38234346" target="_blank">PMID:38234346</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6596,6 +7079,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16274666" target="_blank">PMID:16274666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6618,6 +7102,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17516490" target="_blank">PMID:17516490</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6639,6 +7124,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17516490" target="_blank">PMID:17516490</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6680,7 +7166,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-canavan-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Canavan_disease.html">Canavan disease</a>
@@ -6726,6 +7212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39628365" target="_blank">PMID:39628365</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6795,30 +7282,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             Norway rat
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10116">NCBITaxon:10116</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-21">NCBITaxon:10116</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-21">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in Norway rat, annotated with Rattus norvegicus (NCBITaxon:10116). NCBITaxon:10116 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             brain
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000955</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -6850,14 +7347,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mitochondrial-brain-energy-impairment">Mitochondrial Brain Energy Impairment</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mitochondrial-brain-energy-impairment">Mitochondrial Brain Energy Impairment</a>
+
+
+
+                <span class="crosslink-desc">Tests whether two metabolites associated with ACY1 deficiency alter mitochondrial enzymes and ATP synthesis.</span>
+
+
 
 
 
@@ -6872,6 +7374,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6894,10 +7397,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -6924,6 +7428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6965,6 +7470,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37871522" target="_blank">PMID:37871522</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7015,15 +7521,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             zebrafish
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_7955" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:7955">NCBITaxon:7955</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_7955" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-23">NCBITaxon:7955</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-23">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in zebrafish, annotated with Danio rerio (NCBITaxon:7955). NCBITaxon:7955 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7046,14 +7557,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-auditory-hair-cell-developmental-impairment">Auditory Hair-Cell Developmental Impairment</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-auditory-hair-cell-developmental-impairment">Auditory Hair-Cell Developmental Impairment</a>
+
+
+
+                <span class="crosslink-desc">Tests auditory hair-cell number, function, developmental-gene expression, and allele-specific rescue after acy1 knockdown.</span>
+
+
 
 
 
@@ -7068,6 +7584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7090,10 +7607,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7120,6 +7638,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7162,6 +7681,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322530" target="_blank">PMID:42322530</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7186,6 +7706,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9048,5 +9571,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

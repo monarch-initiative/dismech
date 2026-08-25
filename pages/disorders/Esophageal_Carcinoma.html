@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Esophageal Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Esophageal Carcinoma</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3840,7 +4044,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-escc">
 
                     <div class="item-name">
                         Esophageal Squamous Cell Carcinoma
@@ -3874,6 +4078,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052061" target="_blank">PMID:28052061</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3900,7 +4105,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-eac">
 
                     <div class="item-name">
                         Esophageal Adenocarcinoma
@@ -3933,6 +4138,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3988,16 +4194,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002252">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4024,16 +4235,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4060,19 +4276,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4122,6 +4344,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4143,6 +4366,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052061" target="_blank">PMID:28052061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4176,16 +4400,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002252">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4212,16 +4441,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epithelial cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030855" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030855">GO:0030855</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030855" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030855</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epithelial cell differentiation (GO:0030855). GO:0030855 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4248,19 +4482,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4326,6 +4566,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874980" target="_blank">PMID:40874980</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4348,6 +4589,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4369,6 +4611,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37298253" target="_blank">PMID:37298253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4402,16 +4645,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         epithelial cell of esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002252">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4438,16 +4686,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4474,19 +4727,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4504,6 +4763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38001670" target="_blank">PMID:38001670</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4526,6 +4786,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052061" target="_blank">PMID:28052061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4566,16 +4827,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002710">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4605,6 +4871,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4616,6 +4883,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30684971" target="_blank">PMID:30684971</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4639,6 +4907,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31724072" target="_blank">PMID:31724072</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4660,6 +4929,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38566201" target="_blank">PMID:38566201</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4696,7 +4966,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-barrett-esophagus-precursor-lesion">
                 <div class="item-name">
                     Barrett Esophagus (Precursor Lesion)
 
@@ -4717,6 +4987,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874980" target="_blank">PMID:40874980</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4773,7 +5044,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clinically meaningful subset of advanced esophageal carcinoma (both ESCC and EAC, including Barrett-associated dysplastic and invasive lesions) expresses PD-L1 on tumor cells and tumor-infiltrating immune cells, consistent with a checkpoint-mediated adaptive immune-resistance state targetable with PD-1 blockade.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"]}}, {\"id\": \"Adjuvant Nivolumab After Trimodality Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with resected esophageal or gastroesophageal junction cancer who have residual pathologic disease after neoadjuvant chemoradiotherapy, adjuvant nivolumab significantly prolongs disease-free survival.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"Alcohol Consumption\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alcohol use is a major risk factor for ESCC and acts synergistically with tobacco, with acetaldehyde and ALDH2-dependent susceptibility contributing to mutational burden in esophageal squamous epithelium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Barrett Esophagus (Precursor Lesion)\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Barrett Metaplasia to EAC Sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In esophageal adenocarcinoma, chronic gastroesophageal reflux drives columnar (Barrett) metaplasia of the distal esophageal mucosa, which progresses through dysplasia to invasive adenocarcinoma. The transition is accompanied by progressive TP53 inactivation and accumulating chromosomal instability with recurrent copy-number changes including ERBB2 amplification.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"epithelial cell differentiation\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chromosomal Instability and Mutator Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both histologic subtypes of esophageal carcinoma, and EAC in particular, are dominated by a chromosomally unstable, mutator-phenotype genome: near-universal TP53 inactivation removes DNA-damage-checkpoint control, and accumulating somatic mutations plus large-scale chromosomal structural rearrangements drive the aneuploid, copy-number-driven landscape that resembles the chromosomally unstable variant of gastric adenocarcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA repair\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chronic Gastroesophageal Reflux Disease\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic GERD drives Barrett metaplasia of the distal esophagus and is the principal modifiable upstream exposure for esophageal adenocarcinoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive difficulty swallowing solids, then liquids, is the most common presenting symptom of esophageal carcinoma due to luminal narrowing by tumor.\", \"meta\": {\"term_id\": \"HP:0002015\"}}, {\"id\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In esophageal squamous cell carcinoma, chronic exposure of stratified squamous epithelium to tobacco-derived carcinogens and acetaldehyde from alcohol metabolism produces DNA damage and mutational burden that selects for TP53 loss-of-function and recurrent alterations in cell-cycle, squamous differentiation, and NOTCH signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA repair\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"First-Line Pembrolizumab Plus Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adding the anti-PD-1 antibody pembrolizumab to first-line fluoropyrimidine-platinum chemotherapy improves overall and progression-free survival in advanced esophageal carcinoma, with the largest benefit in ESCC and in PD-L1 CPS-high disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\", \"cisplatin\", \"fluorouracil\"]}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is a major modifiable risk factor, especially for ESCC, exposing the esophageal epithelium to carcinogens that cooperate with alcohol in upper aerodigestive carcinogenesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss is a frequent presenting feature, reflecting both impaired oral intake from dysphagia and cancer cachexia.\", \"meta\": {\"term_id\": \"HP:0001824\"}}, {\"id\": \"Western Lifestyle / Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Rising obesity prevalence in Western nations is a principal driver of the epidemiologic shift toward EAC predominance over ESCC.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding ESCC tumors acquire PD-L1-linked checkpoint programs that enable immune escape.\"}, {\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth progressively narrows the esophageal lumen and impairs swallowing.\"}, {\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor burden and impaired oral intake contribute to weight loss.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Barrett Esophagus (Precursor Lesion)\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Columnar (Barrett) metaplasia of the distal esophageal mucosa is the obligate histologic precursor of EAC.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Chromosomal Instability and Mutator Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive TP53 inactivation across the metaplasia-dysplasia-EAC sequence drives the chromosomally unstable, mutator-phenotype genome.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive EAC subsets acquire PD-L1-linked checkpoint programs that enable immune escape.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth progressively narrows the esophageal lumen and impairs swallowing.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor burden and impaired oral intake contribute to weight loss.\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Tobacco carcinogens act on squamous epithelium directly, which is why smoking drives the squamous-cell arm of this disease rather than the adenocarcinoma arm that reflux and obesity feed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alcohol Consumption\", \"target\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ethanol is not itself the carcinogen: it is oxidised to acetaldehyde, which forms DNA adducts in squamous mucosa. That intermediate is why ALDH2 variants that slow acetaldehyde clearance raise risk so sharply.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Gastroesophageal Reflux Disease\", \"target\": \"Barrett Metaplasia to EAC Sequence\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Repeated acid and bile exposure drives the columnar metaplasia this node names, which is the adenocarcinoma pathway and mechanistically separate from the squamous one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Western Lifestyle / Obesity\", \"target\": \"Barrett Metaplasia to EAC Sequence\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Central obesity raises intra-abdominal pressure and reflux, and the epidemiology tracks it: the histological balance in Western countries has shifted from squamous to adenocarcinoma as obesity has risen.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"First-Line Pembrolizumab Plus Chemotherapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Nivolumab After Trimodality Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": [\"Barrett Esophagus (Precursor Lesion)\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clinically meaningful subset of advanced esophageal carcinoma (both ESCC and EAC, including Barrett-associated dysplastic and invasive lesions) expresses PD-L1 on tumor cells and tumor-infiltrating immune cells, consistent with a checkpoint-mediated adaptive immune-resistance state targetable with PD-1 blockade.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"negative regulation of T cell mediated immunity\"]}}, {\"id\": \"Adjuvant Nivolumab After Trimodality Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with resected esophageal or gastroesophageal junction cancer who have residual pathologic disease after neoadjuvant chemoradiotherapy, adjuvant nivolumab significantly prolongs disease-free survival.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"Barrett Esophagus (Precursor Lesion)\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Barrett Metaplasia to EAC Sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In esophageal adenocarcinoma, chronic gastroesophageal reflux drives columnar (Barrett) metaplasia of the distal esophageal mucosa, which progresses through dysplasia to invasive adenocarcinoma. The transition is accompanied by progressive TP53 inactivation and accumulating chromosomal instability with recurrent copy-number changes including ERBB2 amplification.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"epithelial cell differentiation\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chromosomal Instability and Mutator Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both histologic subtypes of esophageal carcinoma, and EAC in particular, are dominated by a chromosomally unstable, mutator-phenotype genome: near-universal TP53 inactivation removes DNA-damage-checkpoint control, and accumulating somatic mutations plus large-scale chromosomal structural rearrangements drive the aneuploid, copy-number-driven landscape that resembles the chromosomally unstable variant of gastric adenocarcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA repair\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Chronic Gastroesophageal Reflux Disease\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic GERD drives Barrett metaplasia of the distal esophagus and is the principal modifiable upstream exposure for esophageal adenocarcinoma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive difficulty swallowing solids, then liquids, is the most common presenting symptom of esophageal carcinoma due to luminal narrowing by tumor.\", \"meta\": {\"term_id\": \"HP:0002015\"}}, {\"id\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In esophageal squamous cell carcinoma, chronic exposure of stratified squamous epithelium to tobacco-derived carcinogens and acetaldehyde from alcohol metabolism produces DNA damage and mutational burden that selects for TP53 loss-of-function and recurrent alterations in cell-cycle, squamous differentiation, and NOTCH signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of esophagus\"], \"biological_processes\": [\"DNA repair\"], \"locations\": [\"esophagus\"]}}, {\"id\": \"Ethanol Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alcohol use is a major risk factor for ESCC and acts synergistically with tobacco, with acetaldehyde and ALDH2-dependent susceptibility contributing to mutational burden in esophageal squamous epithelium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"First-Line Pembrolizumab Plus Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adding the anti-PD-1 antibody pembrolizumab to first-line fluoropyrimidine-platinum chemotherapy improves overall and progression-free survival in advanced esophageal carcinoma, with the largest benefit in ESCC and in PD-L1 CPS-high disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\", \"cisplatin\", \"fluorouracil\"]}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is a major modifiable risk factor, especially for ESCC, exposing the esophageal epithelium to carcinogens that cooperate with alcohol in upper aerodigestive carcinogenesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss is a frequent presenting feature, reflecting both impaired oral intake from dysphagia and cancer cachexia.\", \"meta\": {\"term_id\": \"HP:0001824\"}}, {\"id\": \"Western Lifestyle / Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Rising obesity prevalence in Western nations is a principal driver of the epidemiologic shift toward EAC predominance over ESCC.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding ESCC tumors acquire PD-L1-linked checkpoint programs that enable immune escape.\"}, {\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth progressively narrows the esophageal lumen and impairs swallowing.\"}, {\"source\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor burden and impaired oral intake contribute to weight loss.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Barrett Esophagus (Precursor Lesion)\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Columnar (Barrett) metaplasia of the distal esophageal mucosa is the obligate histologic precursor of EAC.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Chromosomal Instability and Mutator Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive TP53 inactivation across the metaplasia-dysplasia-EAC sequence drives the chromosomally unstable, mutator-phenotype genome.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive EAC subsets acquire PD-L1-linked checkpoint programs that enable immune escape.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth progressively narrows the esophageal lumen and impairs swallowing.\"}, {\"source\": \"Barrett Metaplasia to EAC Sequence\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor burden and impaired oral intake contribute to weight loss.\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Tobacco carcinogens act on squamous epithelium directly, which is why smoking drives the squamous-cell arm of this disease rather than the adenocarcinoma arm that reflux and obesity feed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ethanol Exposure\", \"target\": \"ESCC Carcinogen-Driven Squamous Transformation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ethanol is not itself the carcinogen: it is oxidised to acetaldehyde, which forms DNA adducts in squamous mucosa. That intermediate is why ALDH2 variants that slow acetaldehyde clearance raise risk so sharply.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Gastroesophageal Reflux Disease\", \"target\": \"Barrett Metaplasia to EAC Sequence\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Repeated acid and bile exposure drives the columnar metaplasia this node names, which is the adenocarcinoma pathway and mechanistically separate from the squamous one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Western Lifestyle / Obesity\", \"target\": \"Barrett Metaplasia to EAC Sequence\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Central obesity raises intra-abdominal pressure and reflux, and the epidemiology tracks it: the histological balance in Western countries has shifted from squamous to adenocarcinoma as obesity has risen.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"First-Line Pembrolizumab Plus Chemotherapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Nivolumab After Trimodality Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": [\"Barrett Esophagus (Precursor Lesion)\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4814,14 +5085,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4841,14 +5119,21 @@
                         Odynophagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Odynophagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032043" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032043">HP:0032043</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0032043</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Odynophagia (HP:0032043). HP:0032043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4877,14 +5162,21 @@
                         Weight Loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4913,14 +5205,21 @@
                         Hematemesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hematemesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002248" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002248">HP:0002248</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002248</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematemesis (HP:0002248). HP:0002248 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4986,13 +5285,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5013,6 +5317,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5035,6 +5340,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41986343" target="_blank">PMID:41986343</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5072,13 +5378,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5099,6 +5410,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5136,13 +5448,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ERBB2
 
 
-    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3430">hgnc:3430</a>
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:3430</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5163,6 +5480,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052061" target="_blank">PMID:28052061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5200,13 +5518,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7881">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5227,6 +5550,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41986343" target="_blank">PMID:41986343</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5264,13 +5588,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NFE2L2 (NRF2)
 
 
-    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7782">hgnc:7782</a>
+    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:7782</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NFE2L2 (NRF2), annotated with NFE2L2 (hgnc:7782). hgnc:7782 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5291,6 +5620,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41986343" target="_blank">PMID:41986343</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5322,6 +5652,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5337,7 +5670,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">esophagectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">esophagectomy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is esophagectomy (NCIT:C15357). NCIT:C15357 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Esophagectomy</span>
 
 
@@ -5386,6 +5724,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28648400" target="_blank">PMID:28648400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5417,7 +5756,12 @@ of locally advanced oesophageal cancer."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemoradiotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemoradiotherapy</span>
 
 
@@ -5448,17 +5792,24 @@ of locally advanced oesophageal cancer."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cisplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         fluorouracil
@@ -5466,10 +5817,13 @@ of locally advanced oesophageal cancer."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:46345">CHEBI:46345</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:46345</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fluorouracil, annotated with 5-fluorouracil (CHEBI:46345). CHEBI:46345 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5494,6 +5848,7 @@ of locally advanced oesophageal cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28648400" target="_blank">PMID:28648400</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5526,7 +5881,12 @@ of locally advanced oesophageal cancer."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5556,17 +5916,24 @@ of locally advanced oesophageal cancer."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cisplatin
@@ -5574,11 +5941,16 @@ of locally advanced oesophageal cancer."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         fluorouracil
@@ -5586,10 +5958,13 @@ of locally advanced oesophageal cancer."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:46345">CHEBI:46345</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:46345</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fluorouracil, annotated with 5-fluorouracil (CHEBI:46345). CHEBI:46345 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5633,6 +6008,7 @@ of locally advanced oesophageal cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454674" target="_blank">PMID:34454674</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5665,7 +6041,12 @@ overall survival and progression-free survival in patients with oesophageal..."<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -5696,16 +6077,21 @@ overall survival and progression-free survival in patients with oesophageal..."<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nivolumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C68814">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C68814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5749,6 +6135,7 @@ overall survival and progression-free survival in patients with oesophageal..."<
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33789008" target="_blank">PMID:33789008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5778,7 +6165,12 @@ overall survival and progression-free survival in patients with oesophageal..."<
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5808,16 +6200,21 @@ overall survival and progression-free survival in patients with oesophageal..."<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         trastuzumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231601" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:231601">CHEBI:231601</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231601" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:231601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trastuzumab (CHEBI:231601). CHEBI:231601 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5843,6 +6240,7 @@ overall survival and progression-free survival in patients with oesophageal..."<
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20728210" target="_blank">PMID:20728210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5866,6 +6264,7 @@ gastro-oesophageal junction cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28052061" target="_blank">PMID:28052061</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5907,21 +6306,30 @@ gastro-oesophageal junction cancer."</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to tobacco smoking
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-32">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -5940,6 +6348,7 @@ gastro-oesophageal junction cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5990,6 +6399,7 @@ gastro-oesophageal junction cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6017,10 +6427,12 @@ gastro-oesophageal junction cancer."</div>
 
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-alcohol-consumption" data-dismech-node="Alcohol Consumption" data-dismech-type="environmental">
-                <div class="item-name">Alcohol Consumption</div>
+            <div class="item-box environmental-box anchor-target" id="environmental-ethanol-exposure" data-dismech-node="Ethanol Exposure" data-dismech-type="environmental">
+                <div class="item-name">Ethanol Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
 
                     <span class="tag tag-env">
                         exposure to ethanol
@@ -6028,16 +6440,25 @@ gastro-oesophageal junction cancer."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000027" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9000027">ECTO:9000027</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000027" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-33">ECTO:9000027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ethanol (ECTO:9000027). ECTO:9000027 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
 
+
+
+
+
+
+                <div class="item-desc">Named and bound for the chemical (ECTO:9000027, which involves CHEBI ethanol) rather than the drinking behaviour (ECTO:0001082) because the mechanism curated here is ethanol oxidation to acetaldehyde. Renamed from &#34;Alcohol Consumption&#34; so the binding is derivable from the entry&#39;s own name.</div>
 
 
                 <div class="item-desc">Alcohol use is a major risk factor for ESCC and acts synergistically with tobacco, with acetaldehyde and ALDH2-dependent susceptibility contributing to mutational burden in esophageal squamous epithelium.</div>
@@ -6055,6 +6476,7 @@ gastro-oesophageal junction cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6105,6 +6527,7 @@ gastro-oesophageal junction cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20224883" target="_blank">PMID:20224883</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6137,6 +6560,10 @@ gastro-oesophageal junction cancer."</div>
 
 
 
+
+
+
+
                 <div class="item-desc">Chronic GERD drives Barrett metaplasia of the distal esophagus and is the principal modifiable upstream exposure for esophageal adenocarcinoma.</div>
 
 
@@ -6152,6 +6579,7 @@ gastro-oesophageal junction cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6202,6 +6630,7 @@ gastro-oesophageal junction cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34503107" target="_blank">PMID:34503107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6234,6 +6663,10 @@ gastro-oesophageal junction cancer."</div>
 
 
 
+
+
+
+
                 <div class="item-desc">Rising obesity prevalence in Western nations is a principal driver of the epidemiologic shift toward EAC predominance over ESCC.</div>
 
 
@@ -6249,6 +6682,7 @@ gastro-oesophageal junction cancer."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37812328" target="_blank">PMID:37812328</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6299,6 +6733,7 @@ gastro-oesophageal junction cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37812328" target="_blank">PMID:37812328</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6344,7 +6779,7 @@ gastro-oesophageal junction cancer."</div>
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse203067">
                 <div class="item-name">
                     Single-Cell Transcriptomic Analysis of Primary and Metastatic Tumor Ecosystems in Esophageal Squamous Cell Carcinoma
 
@@ -6387,7 +6822,7 @@ gastro-oesophageal junction cancer."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse225178">
                 <div class="item-name">
                     Association of immune related expression profile with sensitivity to neoadjuvant chemotherapy using docetaxel, cisplatin and 5-fluorouracil in esophageal squamous cell carcinoma.
 
@@ -6430,7 +6865,7 @@ gastro-oesophageal junction cancer."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse312063">
                 <div class="item-name">
                     Characterization of esophageal squamous cell carcinoma cell lines sensitivity to Palbociclib
 
@@ -6473,7 +6908,7 @@ gastro-oesophageal junction cancer."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001001259">
                 <div class="item-name">
                     WES sequencing of 100 human esophageal carcinoma cases
 
@@ -6520,7 +6955,7 @@ gastro-oesophageal junction cancer."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03189719">
                 <div class="item-name">
                     NCT03189719
 
@@ -6548,6 +6983,7 @@ gastro-oesophageal junction cancer."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34454674" target="_blank">PMID:34454674</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6572,7 +7008,7 @@ NCT03189719, and is closed to recruitment."</div>
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02743494">
                 <div class="item-name">
                     NCT02743494
 
@@ -6599,6 +7035,7 @@ NCT03189719, and is closed to recruitment."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33789008" target="_blank">PMID:33789008</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6629,6 +7066,9 @@ NCT03189719, and is closed to recruitment."</div>
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6645,7 +7085,6 @@ NCT03189719, and is closed to recruitment."</div>
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Esophageal Carcinoma
 creation_date: &#34;2026-05-13T00:00:00Z&#34;
-updated_date: &#34;2026-05-13T12:00:00Z&#34;
 description: &gt;-
   Esophageal carcinoma is a heterogeneous epithelial malignancy of the esophagus
   comprising two biologically and epidemiologically distinct histologic
@@ -6939,7 +7378,7 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Both alcohol consumption and cigarette smoking are major risk factors for the development of ESCC.&#34;
     explanation: Identifies cigarette smoking as a major ESCC risk factor.
-- name: Alcohol Consumption
+- name: Ethanol Exposure
   influences_mechanisms:
   - target: ESCC Carcinogen-Driven Squamous Transformation
     environmental_effect: TRIGGERS
@@ -6962,6 +7401,11 @@ environmental:
     Alcohol use is a major risk factor for ESCC and acts synergistically with
     tobacco, with acetaldehyde and ALDH2-dependent susceptibility contributing
     to mutational burden in esophageal squamous epithelium.
+  notes: &gt;-
+    Named and bound for the chemical (ECTO:9000027, which involves CHEBI ethanol)
+    rather than the drinking behaviour (ECTO:0001082) because the mechanism curated
+    here is ethanol oxidation to acetaldehyde. Renamed from &#34;Alcohol Consumption&#34; so
+    the binding is derivable from the entry&#39;s own name.
   effect: HARMFUL
   exposure_term:
     preferred_term: exposure to ethanol
@@ -8111,7 +8555,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Esophageal Carcinoma", "mondoId": "MONDO:0019086", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Esophageal_Carcinoma", "yamlRevision": "21b3e71deff7"};
+        const OS_CONFIG = {"diseaseName": "Esophageal Carcinoma", "mondoId": "MONDO:0019086", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Esophageal_Carcinoma", "yamlRevision": "d11fedc59ee2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8530,5 +8974,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

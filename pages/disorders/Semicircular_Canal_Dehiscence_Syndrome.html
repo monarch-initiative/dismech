@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Semicircular Canal Dehiscence Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Semicircular Canal Dehiscence Syndrome</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3721,6 +3925,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathograph">
@@ -3816,6 +4028,178 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="scds_opg_resorption_model_mismatch">
+                <div class="item-name">Does loss of OPG-mediated suppression of otic capsule bone remodeling actually operate in human SCDS, given that the OPG-knockout mouse resorbs its otic capsule while the human temporal bone examined at a dehiscence showed no osteoclastic activity at all?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">scds_opg_resorption_model_mismatch</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-loss-of-opg-mediated-suppression-of-otic-capsule-bone-remodeling">pathophysiology#Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The OPG/RANKL route is the only proposed molecular mechanism for an acquired &#34;Hit 2&#34; in SCDS, and it is the mechanism through which post-menopausal estrogen decline is hypothesized to act. Its entire positive evidence base is a constitutive whole-body OPG knockout, in which the capsule never experiences normal suppression, rather than a capsule that loses suppression after having developed under it. Against that, the single human temporal bone studied histopathologically at a dehiscence showed no osteoclastic process, which is the observation the entry&#39;s developmental (Hit 1) account rests on. The mismatch matters because the two readings support different disease models: an actively remodeling capsule would make SCDS partly a metabolic bone disease with a hormonal modifier and a potential antiresorptive target, whereas a static thin capsule makes it purely developmental with mechanical triggers. One human specimen is also too few to settle the question, and resorption may have preceded the specimen&#39;s examination.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Osteoclast and OPG survey of a temporal bone series with and without dehiscence</div>
+
+            </div>
+
+            <div class="experiment-id">scds_temporal_bone_osteoclast_series</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Examine a temporal bone collection of SCDS and control specimens for osteoclast markers (TRAP, cathepsin K) and OPG/RANKL immunolocalization at the superior canal roof, stratified by sex and age, rather than relying on the single reported case.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Osteoclasts or reduced OPG at the canal roof in dehiscent specimens, particularly in post-menopausal women, would show the node operating in humans.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Absent osteoclast markers and preserved OPG across dehiscent specimens would confirm the single-case finding and retire the acquired-resorption route in favour of the developmental account.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Adult-onset conditional OPG loss in a normally developed otic capsule</div>
+
+            </div>
+
+            <div class="experiment-id">scds_conditional_adult_opg_loss</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Delete OPG (or block it pharmacologically) after otic capsule maturation is complete, so the capsule develops under normal suppression and only then loses it, and image the canal roof longitudinally for thinning or dehiscence.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Canal roof thinning or dehiscence following adult-onset loss would show that a mature capsule can be resorbed, which the constitutive knockout cannot demonstrate.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>An unchanged mature capsule would indicate the knockout phenotype is developmental, weakening the acquired Hit-2 reading in humans.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3835,16 +4219,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3871,16 +4260,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         endochondral ossification of the otic capsule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased endochondral ossification of the otic capsule, annotated with endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3907,17 +4301,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         superior semicircular canal
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001841">UBERON:0001841</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in superior semicircular canal, annotated with anterior semicircular canal (UBERON:0001841). UBERON:0001841 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         otic capsule
@@ -3925,13 +4326,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005411" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005411">UBERON:0005411</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005411" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0005411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in otic capsule, annotated with bony otic capsule (UBERON:0005411). UBERON:0005411 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3965,6 +4370,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10680863" target="_blank">PMID:10680863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3987,6 +4393,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10680863" target="_blank">PMID:10680863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4008,6 +4415,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25406876" target="_blank">PMID:25406876</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4050,16 +4458,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         endochondral ossification at the otic capsule-tegmen junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves endochondral ossification at the otic capsule-tegmen junction, annotated with endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4082,17 +4495,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         superior semicircular canal
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001841">UBERON:0001841</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in superior semicircular canal, annotated with anterior semicircular canal (UBERON:0001841). UBERON:0001841 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         tegmen tympani
@@ -4100,11 +4520,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006837" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006837">UBERON:0006837</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006837" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0006837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tegmen tympani (UBERON:0006837). UBERON:0006837 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         middle cranial fossa
@@ -4112,13 +4537,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003722" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003722">UBERON:0003722</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003722" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0003722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in middle cranial fossa (UBERON:0003722). UBERON:0003722 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4152,6 +4581,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26738982" target="_blank">PMID:26738982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4174,6 +4604,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26738982" target="_blank">PMID:26738982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4195,6 +4626,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37777625" target="_blank">PMID:37777625</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4240,17 +4672,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         superior semicircular canal
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001841">UBERON:0001841</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in superior semicircular canal, annotated with anterior semicircular canal (UBERON:0001841). UBERON:0001841 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         otic capsule
@@ -4258,13 +4697,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005411" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005411">UBERON:0005411</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005411" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0005411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in otic capsule, annotated with bony otic capsule (UBERON:0005411). UBERON:0005411 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4297,6 +4740,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4337,16 +4781,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vestibular receptor stimulus detection
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050973" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050973">GO:0050973</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050973" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0050973</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves vestibular receptor stimulus detection, annotated with detection of mechanical stimulus involved in equilibrioception (GO:0050973). GO:0050973 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4363,6 +4812,7 @@
 
 
                 </div>
+
 
 
 
@@ -4431,6 +4881,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4452,6 +4903,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18223508" target="_blank">PMID:18223508</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4485,16 +4937,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vestibular hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000609" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000609">CL:0000609</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000609" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vestibular hair cell (CL:0000609). CL:0000609 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4511,6 +4968,7 @@
 
 
                 </div>
+
 
 
 
@@ -4570,6 +5028,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4591,6 +5050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4615,14 +5075,16 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-otic-capsule-bone-biology" data-dismech-node="Otic Capsule Bone Biology" data-dismech-type="pathophysiology">
-                <div class="item-name">Otic Capsule Bone Biology</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-opg-mediated-suppression-of-otic-capsule-bone-remodeling" data-dismech-node="Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling" data-dismech-type="pathophysiology">
+                <div class="item-name">Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling</div>
 
-                <div class="item-desc">The otic capsule exhibits unique bone physiology with greatly suppressed remodeling, maintained at least in part by extremely high local levels of osteoprotegerin (OPG) secreted by cochlear soft tissue and reaching the surrounding bone via a lacunocanalicular network. OPG inhibits osteoclastogenesis, preserving the otic capsule against the bone resorption that affects other skeletal sites. In SCDS, histopathological examination shows absence of active bone resorption around the dehiscence, supporting developmental thin-bone predisposition rather than ongoing active resorption — though loss of OPG-mediated suppression in animal models is sufficient to produce abnormal otic capsule remodeling and progressive hearing loss, suggesting a candidate Hit-2 amplification pathway when this protection fails.</div>
+                <div class="item-desc">The otic capsule resists bone remodeling to a degree seen nowhere else in the skeleton, a suppression maintained at least in part by extremely high local levels of osteoprotegerin (OPG) secreted by cochlear soft tissue and reaching the surrounding bone through a lacunocanalicular network, where it inhibits osteoclastogenesis. This node models the failure of that protection rather than the protection itself: where OPG-mediated suppression is lost, the capsule becomes competent to resorb, which is the candidate &#34;Hit 2&#34; by which constitutionally thin bone would be converted into frank dehiscence. The claim is hypothetical in humans. It rests on an OPG-knockout mouse in which loss of suppression is sufficient to produce abnormal otic capsule remodeling and progressive hearing loss, while the one human temporal bone examined histopathologically at a dehiscence showed no active resorption at all (see the scds_opg_resorption_model_mismatch discussion). This is also the node on which post-menopausal estrogen decline is proposed to act, via the estrogen-OPG-RANKL axis.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         osteoclast
@@ -4630,11 +5092,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4655,10 +5122,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4685,23 +5155,62 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        bone remodeling
+                        osteoclast differentiation in the otic capsule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoclast differentiation in the otic capsule, annotated with osteoclast differentiation (GO:0030316). GO:0030316 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ↓ DECREASED
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        otic capsule bone resorption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0045453</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased otic capsule bone resorption, annotated with bone resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
     </span>
 
 
@@ -4719,6 +5228,28 @@
 
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        otic capsule
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005411" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0005411</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in otic capsule, annotated with bony otic capsule (UBERON:0005411). UBERON:0005411 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
 
 
 
@@ -4729,7 +5260,7 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Bony Dehiscence of Semicircular Canal</span>
 
-	                            <span class="crosslink-desc">Congenitally thin or underdeveloped otic capsule bone provides the structural substrate for subsequent dehiscence formation.</span>
+	                            <span class="crosslink-desc">Where OPG-mediated suppression fails, osteoclastic resorption of the otic capsule becomes possible and could thin an already deficient canal roof to the point of dehiscence. The intermediates between an unsuppressed capsule and a focal dehiscence over the superior canal are not established, and the supporting evidence is a knockout mouse rather than a human observation.</span>
 
 
 	                        </div>
@@ -4745,35 +5276,14 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22312921" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"No osteoclastic process was evident within the otic capsule bone surrounding the dehiscence."</div>
-
-
-                <div class="evidence-explanation">Histopathological examination showed absence of active bone resorption, supporting developmental thin-bone predisposition rather than active resorption.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15630389" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:15630389" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15630389" target="_blank">PMID:15630389</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4783,19 +5293,20 @@
                 <div class="evidence-snippet">"OPG, a powerful inhibitor of bone remodeling, was expressed at extremely high levels within the soft tissue of the cochlea and was present in the perilymph at very high concentrations."</div>
 
 
-                <div class="evidence-explanation">Establishes the OPG-rich inner-ear environment that mechanistically explains the otic capsule&#39;s exceptional remodeling suppression.</div>
+                <div class="evidence-explanation">Establishes the OPG-rich inner-ear environment whose loss is the failure this node models.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15630389" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:15630389" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15630389" target="_blank">PMID:15630389</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4805,7 +5316,30 @@
                 <div class="evidence-snippet">"OPG, a potent inhibitor of osteoclast formation and function, is expressed at high levels within the inner ear and is secreted into the perilymph and the surrounding bone and may serve to inhibit active bone remodeling within the otic capsule"</div>
 
 
-                <div class="evidence-explanation">Author synthesis frames OPG diffusion from cochlear fluid into otic capsule bone as the molecular basis of the capsule&#39;s suppressed remodeling.</div>
+                <div class="evidence-explanation">Author synthesis frames OPG diffusion from cochlear fluid into otic capsule bone as the molecular basis of the suppression whose failure this node models.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16467704" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16467704" target="_blank">PMID:16467704</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Osteoprotegerin knockout mice demonstrated abnormal remodeling of bone within the otic capsule with multiple foci showing osteoclastic bone resorption and formation of new bone."</div>
+
+
+                <div class="evidence-explanation">Loss-of-function model shows that removing OPG-mediated suppression is sufficient for the otic capsule to undergo osteoclastic resorption, which is the state this node asserts.</div>
 
 
 
@@ -4845,7 +5379,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Sound and Pressure Transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sounds and pressure changes that normally would not affect the vestibular system can now stimulate the superior semicircular canal, leading to vestibular symptoms triggered by loud sounds (Tullio phenomenon) or pressure changes (Hennebert sign). Sound energy diverted toward the dehiscence generates pressure differences across the membranous vestibular labyrinth that excite traveling waves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vestibular hair cell\"]}}, {\"id\": \"Autophony\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally loud perception of one\u0027s own voice, breathing, heartbeat, or eye movements due to enhanced bone conduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:6000032\"}}, {\"id\": \"Bony Dehiscence of Semicircular Canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An abnormal opening or thinning in the bone overlying the superior semicircular canal creates a pathological third mobile window in the inner ear, in addition to the oval and round windows. Dehiscence is best understood as the product of two hits: a congenital developmental thin-bone substrate (failure of postnatal otic capsule ossification, generalized skull base deficiency) and an acquired second hit from age-related remodeling or environmental triggers (trauma, Valsalva-type pressure events, noise/pressure exposure).\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"superior semicircular canal\", \"otic capsule\"]}}, {\"id\": \"Chronic Disequilibrium\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent sensation of imbalance or unsteadiness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002141\"}}, {\"id\": \"Chronic Occupational Noise and Pressure Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Repeated occupational exposure to loud noise and ambient pressure changes is reported by a substantial fraction of SCDS patients and is hypothesized to contribute to chronic micro-injury of thin SSC bone, accelerating the transition from thinning to dehiscence.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Predisposing\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-frequency conductive hearing loss due to shunting of acoustic energy through the dehiscence rather than to the cochlea. Characterized by air-bone gap with sometimes supranormal bone conduction thresholds.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Developmental Otic Capsule Bone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Incomplete postnatal ossification of the bone overlying the superior semicircular canal produces a constitutionally thin otic capsule that persists into adulthood in a subset of individuals. The bone over the superior canal is uniformly thin at birth and normally thickens through early childhood; failure of this maturation leaves a stable population of adults with thin (but not yet dehiscent) bone that is the substrate for later acquired dehiscence (\\\"Hit 1\\\" of the two-hit model). The deficiency is not focal: SCDS patients show generalized thinning of the otic capsule and skull base.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"endochondral ossification of the otic capsule\"], \"locations\": [\"superior semicircular canal\", \"otic capsule\"]}}, {\"id\": \"Elevated Intracranial Pressure / Idiopathic Intracranial Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A possible role for chronically elevated intracranial pressure (ICP), typified by idiopathic intracranial hypertension (IIH), as a contributor to SSC bone erosion is contested. Some studies report higher rates of SSC thinning and dehiscence in IIH patients but no dose-response relationship between CSF pressure and bone thickness, and other studies find no association at all. SCDS patients differ from spontaneous CSF-leak patients in lacking obesity-related risk factors, weakening the analogy.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Predisposing\"}}, {\"id\": \"Endochondral-Intramembranous Junction Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The superior semicircular canal sits at an embryologic junction: the tegmental prolongation of the tegmen tympani and the superior semicircular canal arise from the same otic capsule and undergo endochondral ossification, while the squamous prolongation of the tegmen ossifies intramembranously. The shared otic-capsule origin and common periosteum at this junction explain the striking co-occurrence of tegmen tympani dehiscence and SSCD, and identify a focal anatomical weak point.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"endochondral ossification at the otic capsule-tegmen junction\"], \"locations\": [\"superior semicircular canal\", \"tegmen tympani\", \"middle cranial fossa\"]}}, {\"id\": \"Hyperacusis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased sensitivity to bone-conducted sounds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010780\"}}, {\"id\": \"Loud Sound and Pressure Changes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Loud sounds and pressure maneuvers (coughing, sneezing, straining, Valsalva) frequently provoke vestibular symptoms in patients with established dehiscence and may also serve as precipitating events for symptom onset by acutely fracturing or disrupting pre-thinned bone. In the largest surgical cohort to date, internal Valsalva-type events were the most common identified preceding event among patients reporting a clear trigger. The exposure_term is bound to sound radiation; the pressure component is not separately ontology-bound (no clean ECTO term for Valsalva-type acute pressure events).\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Triggering\"}}, {\"id\": \"Minor Head Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Minor head trauma may precipitate symptom onset in anatomically predisposed individuals with thin superior canal bone.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Triggering\"}}, {\"id\": \"Oscillopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual disturbance in which objects appear to oscillate, particularly during movement or exposure to triggering stimuli.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034773\"}}, {\"id\": \"Otic Capsule Bone Biology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The otic capsule exhibits unique bone physiology with greatly suppressed remodeling, maintained at least in part by extremely high local levels of osteoprotegerin (OPG) secreted by cochlear soft tissue and reaching the surrounding bone via a lacunocanalicular network. OPG inhibits osteoclastogenesis, preserving the otic capsule against the bone resorption that affects other skeletal sites. In SCDS, histopathological examination shows absence of active bone resorption around the dehiscence, supporting developmental thin-bone predisposition rather than ongoing active resorption \\u2014 though loss of OPG-mediated suppression in animal models is sufficient to produce abnormal otic capsule remodeling and progressive hearing loss, suggesting a candidate Hit-2 amplification pathway when this protection fails.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoclast\", \"osteoblast\"], \"biological_processes\": [\"bone remodeling\"]}}, {\"id\": \"Post-Menopausal Estrogen Decline\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Post-menopausal estrogen decline is hypothesized to accelerate otic capsule bone loss through reduced OPG-mediated suppression of osteoclastogenesis (see \\\"Otic Capsule Bone Biology\\\" pathophysiology node). Selective SSC bone thinning has been observed in women over 45, consistent with menopausal contribution; SCDS surgical cohorts show a consistent female predominance (~57-66% female across series). However, cross-sectional CT cohorts have not detected an overall sex difference in baseline SSC bone thickness, indicating that any hormonal effect is likely age-restricted rather than constitutive.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Modifying\"}}, {\"id\": \"Pulsatile Tinnitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perception of rhythmic sounds synchronous with the heartbeat.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008629\"}}, {\"id\": \"Sound-Induced Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular symptoms including eye movements (nystagmus) induced by loud sounds, also known as Tullio phenomenon.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Third Window Effect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dehiscence acts as a third mobile window that shunts acoustic energy away from the cochlea and toward the vestibular system. A third window introduces a low mechanical impedance, shunting part of the inner ear fluid pressure and fluid volume flow at the site of the window.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vestibular receptor stimulus detection\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic vertigo triggered by loud sounds or pressure changes such as coughing, sneezing, or straining.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"Developmental Otic Capsule Bone Deficiency\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent thin otic capsule bone provides the structural substrate on which environmental insults (Hit 2) produce frank dehiscence.\"}, {\"source\": \"Endochondral-Intramembranous Junction Vulnerability\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shared embryologic origin and protrusion of the SSC into the middle cranial fossa concentrate developmental and mechanical vulnerability at the otic-capsule/tegmen junction, predisposing to SSC dehiscence.\"}, {\"source\": \"Bony Dehiscence of Semicircular Canal\", \"target\": \"Third Window Effect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bony defect creates a pathological third mobile window in the inner ear labyrinth.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Abnormal Sound and Pressure Transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The low-impedance third window allows sound and pressure energy to aberrantly stimulate vestibular end-organs.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acoustic energy is shunted away from the cochlea through the dehiscence, worsening air conduction while enhancing bone conduction.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Autophony\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced bone conduction through the third window amplifies perception of body-generated sounds including voice, breathing, and heartbeat.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Hyperacusis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased sensitivity to bone-conducted sounds due to the low-impedance third window pathway.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Pulsatile Tinnitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial vascular pulsations are transmitted to the cochlea via the third window.\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sound and pressure inappropriately deflect the cupula of the superior semicircular canal, triggering vestibular responses.\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Sound-Induced Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vestibular stimulation by loud sounds drives the vestibulo-ocular reflex, producing nystagmus (Tullio phenomenon).\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Chronic Disequilibrium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent low-level vestibular stimulation from ambient sound and pressure fluctuations causes ongoing imbalance.\"}, {\"source\": \"Otic Capsule Bone Biology\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenitally thin or underdeveloped otic capsule bone provides the structural substrate for subsequent dehiscence formation.\"}, {\"source\": \"Vertigo\", \"target\": \"Chronic Disequilibrium\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Recurrent vertigo episodes contribute to persistent sensation of imbalance.\"}, {\"source\": \"Sound-Induced Nystagmus\", \"target\": \"Oscillopsia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Involuntary eye movements driven by vestibular stimulation cause perception of visual oscillation.\"}, {\"source\": \"Minor Head Trauma\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Trauma too trivial to fracture normal bone can complete or unmask a dehiscence in an already-thin otic capsule, which is why symptoms often date from a minor injury rather than a significant one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loud Sound and Pressure Changes\", \"target\": \"Abnormal Sound and Pressure Transmission\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Distinct from the exposures above: these do not create the dehiscence, they provoke symptoms through it. Sound and pressure entering the third window is the Tullio and Hennebert phenomenon, which is why this targets the transmission node rather than the bony one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Occupational Noise and Pressure Exposure\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Repeated occupational noise and pressure exposure is over-represented among affected patients, but whether it contributes to the bony defect or merely brings existing dehiscence to attention is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Intracranial Pressure / Idiopathic Intracranial Hypertension\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Raised intracranial pressure is associated with a thinner bony roof over the canal, but its causal role is contested and this entry treats it as predisposing rather than causative. Roof thickness does not correlate with measured cerebrospinal fluid pressure, and a separate cohort found no radiographic dehiscence at all among patients with idiopathic intracranial hypertension.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Post-Menopausal Estrogen Decline\", \"target\": \"Otic Capsule Bone Biology\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The otic capsule normally resists remodelling, and loss of oestrogen is proposed to weaken that resistance. Recorded as predisposing because the canal roof is measured thinner in women past 45 on cross-sectional imaging while menopause itself is only proposed as the cause, with no hormonal measure and no longitudinal thinning data.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Sound and Pressure Transmission\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sounds and pressure changes that normally would not affect the vestibular system can now stimulate the superior semicircular canal, leading to vestibular symptoms triggered by loud sounds (Tullio phenomenon) or pressure changes (Hennebert sign). Sound energy diverted toward the dehiscence generates pressure differences across the membranous vestibular labyrinth that excite traveling waves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vestibular hair cell\"]}}, {\"id\": \"Autophony\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally loud perception of one\u0027s own voice, breathing, heartbeat, or eye movements due to enhanced bone conduction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:6000032\"}}, {\"id\": \"Bony Dehiscence of Semicircular Canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An abnormal opening or thinning in the bone overlying the superior semicircular canal creates a pathological third mobile window in the inner ear, in addition to the oval and round windows. Dehiscence is best understood as the product of two hits: a congenital developmental thin-bone substrate (failure of postnatal otic capsule ossification, generalized skull base deficiency) and an acquired second hit from age-related remodeling or environmental triggers (trauma, Valsalva-type pressure events, noise/pressure exposure).\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"superior semicircular canal\", \"otic capsule\"]}}, {\"id\": \"Chronic Disequilibrium\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent sensation of imbalance or unsteadiness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002141\"}}, {\"id\": \"Chronic Occupational Noise and Pressure Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Repeated occupational exposure to loud noise and ambient pressure changes is reported by a substantial fraction of SCDS patients and is hypothesized to contribute to chronic micro-injury of thin SSC bone, accelerating the transition from thinning to dehiscence.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Predisposing\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-frequency conductive hearing loss due to shunting of acoustic energy through the dehiscence rather than to the cochlea. Characterized by air-bone gap with sometimes supranormal bone conduction thresholds.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Developmental Otic Capsule Bone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Incomplete postnatal ossification of the bone overlying the superior semicircular canal produces a constitutionally thin otic capsule that persists into adulthood in a subset of individuals. The bone over the superior canal is uniformly thin at birth and normally thickens through early childhood; failure of this maturation leaves a stable population of adults with thin (but not yet dehiscent) bone that is the substrate for later acquired dehiscence (\\\"Hit 1\\\" of the two-hit model). The deficiency is not focal: SCDS patients show generalized thinning of the otic capsule and skull base.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"endochondral ossification of the otic capsule\"], \"locations\": [\"superior semicircular canal\", \"otic capsule\"]}}, {\"id\": \"Elevated Intracranial Pressure / Idiopathic Intracranial Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A possible role for chronically elevated intracranial pressure (ICP), typified by idiopathic intracranial hypertension (IIH), as a contributor to SSC bone erosion is contested. Some studies report higher rates of SSC thinning and dehiscence in IIH patients but no dose-response relationship between CSF pressure and bone thickness, and other studies find no association at all. SCDS patients differ from spontaneous CSF-leak patients in lacking obesity-related risk factors, weakening the analogy.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Predisposing\"}}, {\"id\": \"Endochondral-Intramembranous Junction Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The superior semicircular canal sits at an embryologic junction: the tegmental prolongation of the tegmen tympani and the superior semicircular canal arise from the same otic capsule and undergo endochondral ossification, while the squamous prolongation of the tegmen ossifies intramembranously. The shared otic-capsule origin and common periosteum at this junction explain the striking co-occurrence of tegmen tympani dehiscence and SSCD, and identify a focal anatomical weak point.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"endochondral ossification at the otic capsule-tegmen junction\"], \"locations\": [\"superior semicircular canal\", \"tegmen tympani\", \"middle cranial fossa\"]}}, {\"id\": \"Hyperacusis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased sensitivity to bone-conducted sounds.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010780\"}}, {\"id\": \"Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The otic capsule resists bone remodeling to a degree seen nowhere else in the skeleton, a suppression maintained at least in part by extremely high local levels of osteoprotegerin (OPG) secreted by cochlear soft tissue and reaching the surrounding bone through a lacunocanalicular network, where it inhibits osteoclastogenesis. This node models the failure of that protection rather than the protection itself: where OPG-mediated suppression is lost, the capsule becomes competent to resorb, which is the candidate \\\"Hit 2\\\" by which constitutionally thin bone would be converted into frank dehiscence. The claim is hypothetical in humans. It rests on an OPG-knockout mouse in which loss of suppression is sufficient to produce abnormal otic capsule remodeling and progressive hearing loss, while the one human temporal bone examined histopathologically at a dehiscence showed no active resorption at all (see the scds_opg_resorption_model_mismatch discussion). This is also the node on which post-menopausal estrogen decline is proposed to act, via the estrogen-OPG-RANKL axis.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"osteoclast\", \"osteoblast\"], \"biological_processes\": [\"osteoclast differentiation in the otic capsule\", \"otic capsule bone resorption\"], \"locations\": [\"otic capsule\"]}}, {\"id\": \"Loud Sound and Pressure Changes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Loud sounds and pressure maneuvers (coughing, sneezing, straining, Valsalva) frequently provoke vestibular symptoms in patients with established dehiscence and may also serve as precipitating events for symptom onset by acutely fracturing or disrupting pre-thinned bone. In the largest surgical cohort to date, internal Valsalva-type events were the most common identified preceding event among patients reporting a clear trigger. The exposure_term is bound to sound radiation; the pressure component is not separately ontology-bound (no clean ECTO term for Valsalva-type acute pressure events).\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Triggering\"}}, {\"id\": \"Minor Head Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Minor head trauma may precipitate symptom onset in anatomically predisposed individuals with thin superior canal bone.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Triggering\"}}, {\"id\": \"Oscillopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Visual disturbance in which objects appear to oscillate, particularly during movement or exposure to triggering stimuli.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0034773\"}}, {\"id\": \"Post-Menopausal Estrogen Decline\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Post-menopausal estrogen decline is hypothesized to accelerate otic capsule bone loss through reduced OPG-mediated suppression of osteoclastogenesis (see the \\\"Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling\\\" pathophysiology node). Selective SSC bone thinning has been observed in women over 45, consistent with menopausal contribution; SCDS surgical cohorts show a consistent female predominance (~57-66% female across series). However, cross-sectional CT cohorts have not detected an overall sex difference in baseline SSC bone thickness, indicating that any hormonal effect is likely age-restricted rather than constitutive.\", \"meta\": {\"evidence_count\": 4, \"presence\": \"Modifying\"}}, {\"id\": \"Pulsatile Tinnitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perception of rhythmic sounds synchronous with the heartbeat.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008629\"}}, {\"id\": \"Sound-Induced Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular symptoms including eye movements (nystagmus) induced by loud sounds, also known as Tullio phenomenon.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Third Window Effect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dehiscence acts as a third mobile window that shunts acoustic energy away from the cochlea and toward the vestibular system. A third window introduces a low mechanical impedance, shunting part of the inner ear fluid pressure and fluid volume flow at the site of the window.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vestibular receptor stimulus detection\"]}}, {\"id\": \"Vertigo\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic vertigo triggered by loud sounds or pressure changes such as coughing, sneezing, or straining.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002321\"}}], \"edges\": [{\"source\": \"Developmental Otic Capsule Bone Deficiency\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent thin otic capsule bone provides the structural substrate on which environmental insults (Hit 2) produce frank dehiscence.\"}, {\"source\": \"Endochondral-Intramembranous Junction Vulnerability\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shared embryologic origin and protrusion of the SSC into the middle cranial fossa concentrate developmental and mechanical vulnerability at the otic-capsule/tegmen junction, predisposing to SSC dehiscence.\"}, {\"source\": \"Bony Dehiscence of Semicircular Canal\", \"target\": \"Third Window Effect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bony defect creates a pathological third mobile window in the inner ear labyrinth.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Abnormal Sound and Pressure Transmission\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The low-impedance third window allows sound and pressure energy to aberrantly stimulate vestibular end-organs.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acoustic energy is shunted away from the cochlea through the dehiscence, worsening air conduction while enhancing bone conduction.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Autophony\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced bone conduction through the third window amplifies perception of body-generated sounds including voice, breathing, and heartbeat.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Hyperacusis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased sensitivity to bone-conducted sounds due to the low-impedance third window pathway.\"}, {\"source\": \"Third Window Effect\", \"target\": \"Pulsatile Tinnitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial vascular pulsations are transmitted to the cochlea via the third window.\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Vertigo\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sound and pressure inappropriately deflect the cupula of the superior semicircular canal, triggering vestibular responses.\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Sound-Induced Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vestibular stimulation by loud sounds drives the vestibulo-ocular reflex, producing nystagmus (Tullio phenomenon).\"}, {\"source\": \"Abnormal Sound and Pressure Transmission\", \"target\": \"Chronic Disequilibrium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent low-level vestibular stimulation from ambient sound and pressure fluctuations causes ongoing imbalance.\"}, {\"source\": \"Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Where OPG-mediated suppression fails, osteoclastic resorption of the otic capsule becomes possible and could thin an already deficient canal roof to the point of dehiscence. The intermediates between an unsuppressed capsule and a focal dehiscence over the superior canal are not established, and the supporting evidence is a knockout mouse rather than a human observation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vertigo\", \"target\": \"Chronic Disequilibrium\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Recurrent vertigo episodes contribute to persistent sensation of imbalance.\"}, {\"source\": \"Sound-Induced Nystagmus\", \"target\": \"Oscillopsia\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Involuntary eye movements driven by vestibular stimulation cause perception of visual oscillation.\"}, {\"source\": \"Minor Head Trauma\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Trauma too trivial to fracture normal bone can complete or unmask a dehiscence in an already-thin otic capsule, which is why symptoms often date from a minor injury rather than a significant one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loud Sound and Pressure Changes\", \"target\": \"Abnormal Sound and Pressure Transmission\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Distinct from the exposures above: these do not create the dehiscence, they provoke symptoms through it. Sound and pressure entering the third window is the Tullio and Hennebert phenomenon, which is why this targets the transmission node rather than the bony one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Occupational Noise and Pressure Exposure\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Repeated occupational noise and pressure exposure is over-represented among affected patients, but whether it contributes to the bony defect or merely brings existing dehiscence to attention is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Intracranial Pressure / Idiopathic Intracranial Hypertension\", \"target\": \"Bony Dehiscence of Semicircular Canal\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Raised intracranial pressure is associated with a thinner bony roof over the canal, but its causal role is contested and this entry treats it as predisposing rather than causative. Roof thickness does not correlate with measured cerebrospinal fluid pressure, and a separate cohort found no radiographic dehiscence at all among patients with idiopathic intracranial hypertension.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Post-Menopausal Estrogen Decline\", \"target\": \"Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The otic capsule normally resists remodelling, and loss of oestrogen is proposed to weaken that resistance. Recorded as predisposing because the canal roof is measured thinner in women past 45 on cross-sectional imaging while menopause itself is only proposed as the cause, with no hormonal measure and no longitudinal thinning data.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4888,14 +5422,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4922,6 +5463,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4956,14 +5498,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autophony
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000032" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000032">HP:6000032</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000032" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:6000032</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autophony (HP:6000032). HP:6000032 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4983,6 +5532,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5017,14 +5567,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulsatile tinnitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008629" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008629">HP:0008629</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0008629</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulsatile tinnitus (HP:0008629). HP:0008629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5044,6 +5601,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5078,14 +5636,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
+
+                        <span class="phenotype-term-label">Conductive hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5105,6 +5672,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18223508" target="_blank">PMID:18223508</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5127,6 +5695,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5170,14 +5739,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5204,6 +5780,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5238,14 +5815,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oscillopsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034773">HP:0034773</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0034773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oscillopsia (HP:0034773). HP:0034773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5265,6 +5849,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5308,14 +5893,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait imbalance
+
+                        <span class="phenotype-term-label">Gait imbalance</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002141">HP:0002141</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002141</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait imbalance (HP:0002141). HP:0002141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5335,6 +5929,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5369,14 +5964,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperacusis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010780" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010780">HP:0010780</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010780" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010780</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperacusis (HP:0010780). HP:0010780 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5396,6 +5998,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5474,13 +6077,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDH23
 
 
-    <a href="https://bioregistry.io/hgnc:13733" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13733">hgnc:13733</a>
+    <a href="https://bioregistry.io/hgnc:13733" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:13733</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDH23 (hgnc:13733). hgnc:13733 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5501,6 +6109,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27631835" target="_blank">PMID:27631835</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5524,6 +6133,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27631835" target="_blank">PMID:27631835</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5545,6 +6155,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27631835" target="_blank">PMID:27631835</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5582,13 +6193,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH2
 
 
-    <a href="https://bioregistry.io/hgnc:7882" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7882">hgnc:7882</a>
+    <a href="https://bioregistry.io/hgnc:7882" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7882</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH2 (hgnc:7882). hgnc:7882 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5609,6 +6225,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41326232" target="_blank">PMID:41326232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5632,6 +6249,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41326232" target="_blank">PMID:41326232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5653,6 +6271,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32143606" target="_blank">PMID:32143606</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5703,6 +6322,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28484680" target="_blank">PMID:28484680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5725,6 +6345,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28484680" target="_blank">PMID:28484680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5746,6 +6367,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30385359" target="_blank">PMID:30385359</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5802,6 +6424,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22936282" target="_blank">PMID:22936282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5823,6 +6446,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22936282" target="_blank">PMID:22936282</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5877,6 +6501,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31804144" target="_blank">PMID:31804144</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5898,6 +6523,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31804144" target="_blank">PMID:31804144</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5929,6 +6555,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5944,7 +6573,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">avoid destabilizing activities</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">avoid destabilizing activities<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is avoid destabilizing activities, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -5993,6 +6627,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6022,7 +6657,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">middle cranial fossa craniotomy with canal plugging</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">middle cranial fossa craniotomy with canal plugging<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is middle cranial fossa craniotomy with canal plugging, annotated with Craniotomy (NCIT:C15214). NCIT:C15214 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Craniotomy</span>
 
 
@@ -6071,6 +6711,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6092,6 +6733,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6122,7 +6764,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">middle cranial fossa craniotomy with canal resurfacing</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">middle cranial fossa craniotomy with canal resurfacing<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is middle cranial fossa craniotomy with canal resurfacing, annotated with Craniotomy (NCIT:C15214). NCIT:C15214 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Craniotomy</span>
 
 
@@ -6171,6 +6818,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6192,6 +6840,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36742050" target="_blank">PMID:36742050</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6222,7 +6871,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">transmastoid canal plugging</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">transmastoid canal plugging<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transmastoid canal plugging, annotated with Mastoidectomy (NCIT:C51751). NCIT:C51751 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mastoidectomy</span>
 
 
@@ -6271,6 +6925,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39812476" target="_blank">PMID:39812476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6292,6 +6947,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39812476" target="_blank">PMID:39812476</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6322,7 +6978,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">round window reinforcement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">round window reinforcement<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is round window reinforcement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6371,6 +7032,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6411,21 +7073,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         head trauma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0010003" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0010003">ECTO:0010003</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0010003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-33">ECTO:0010003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is head trauma, annotated with exposure to environmental physical object quality (ECTO:0010003). ECTO:0010003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6444,6 +7115,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6467,6 +7139,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6488,6 +7161,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30928582" target="_blank">PMID:30928582</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6540,6 +7214,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22312921" target="_blank">PMID:22312921</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6572,21 +7247,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         loud sound exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000044">ECTO:8000044</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-34">ECTO:8000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is loud sound exposure, annotated with exposure to sound radiation (ECTO:8000044). ECTO:8000044 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6605,6 +7289,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6628,6 +7313,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6649,6 +7335,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41063339" target="_blank">PMID:41063339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6701,6 +7388,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6733,21 +7421,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         chronic occupational noise exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000044">ECTO:8000044</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-35">ECTO:8000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is chronic occupational noise exposure, annotated with exposure to sound radiation (ECTO:8000044). ECTO:8000044 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -6766,6 +7463,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41063339" target="_blank">PMID:41063339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6788,6 +7486,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41063339" target="_blank">PMID:41063339</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6838,6 +7537,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41063339" target="_blank">PMID:41063339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6870,6 +7570,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">A possible role for chronically elevated intracranial pressure (ICP), typified by idiopathic intracranial hypertension (IIH), as a contributor to SSC bone erosion is contested. Some studies report higher rates of SSC thinning and dehiscence in IIH patients but no dose-response relationship between CSF pressure and bone thickness, and other studies find no association at all. SCDS patients differ from spontaneous CSF-leak patients in lacking obesity-related risk factors, weakening the analogy.</div>
 
 
@@ -6885,6 +7589,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34424380" target="_blank">PMID:34424380</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6908,6 +7613,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34424380" target="_blank">PMID:34424380</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6929,6 +7635,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28833207" target="_blank">PMID:28833207</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -6981,6 +7688,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34424380" target="_blank">PMID:34424380</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7011,9 +7719,36 @@
             <div class="item-box environmental-box anchor-target" id="environmental-post-menopausal-estrogen-decline" data-dismech-node="Post-Menopausal Estrogen Decline" data-dismech-type="environmental">
                 <div class="item-name">Post-Menopausal Estrogen Decline</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                <div class="item-desc">Post-menopausal estrogen decline is hypothesized to accelerate otic capsule bone loss through reduced OPG-mediated suppression of osteoclastogenesis (see &#34;Otic Capsule Bone Biology&#34; pathophysiology node). Selective SSC bone thinning has been observed in women over 45, consistent with menopausal contribution; SCDS surgical cohorts show a consistent female predominance (~57-66% female across series). However, cross-sectional CT cohorts have not detected an overall sex difference in baseline SSC bone thickness, indicating that any hormonal effect is likely age-restricted rather than constitutive.</div>
+
+                    <span class="tag tag-env">
+                        low endogenous estrogen exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-36">ECTO:9000010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is decreased low endogenous estrogen exposure, annotated with exposure to estrogens (ECTO:9000010). ECTO:9000010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-desc">Post-menopausal estrogen decline is hypothesized to accelerate otic capsule bone loss through reduced OPG-mediated suppression of osteoclastogenesis (see the &#34;Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling&#34; pathophysiology node). Selective SSC bone thinning has been observed in women over 45, consistent with menopausal contribution; SCDS surgical cohorts show a consistent female predominance (~57-66% female across series). However, cross-sectional CT cohorts have not detected an overall sex difference in baseline SSC bone thickness, indicating that any hormonal effect is likely age-restricted rather than constitutive.</div>
 
 
 
@@ -7028,6 +7763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36573139" target="_blank">PMID:36573139</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7051,6 +7787,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36573139" target="_blank">PMID:36573139</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7072,6 +7809,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19121641" target="_blank">PMID:19121641</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7106,7 +7844,7 @@
                             PREDISPOSES
                         </span>
 
-                        <strong style="color: #115e59;">Otic Capsule Bone Biology</strong>
+                        <strong style="color: #115e59;">Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling</strong>
 
                         <span style="color: #0d9488;"> &mdash; The otic capsule normally resists remodelling, and loss of oestrogen is proposed to weaken that resistance. Recorded as predisposing because the canal roof is measured thinner in women past 45 on cross-sectional imaging while menopause itself is only proposed as the cause, with no hormonal measure and no longitudinal thinning data.</span>
 
@@ -7123,6 +7861,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36573139" target="_blank">PMID:36573139</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7189,6 +7928,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36820155" target="_blank">PMID:36820155</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7238,6 +7978,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36820155" target="_blank">PMID:36820155</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
@@ -7278,7 +8019,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-meniere-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Meniere&#39;s_Disease.html">Meniere Disease</a>
@@ -7327,6 +8068,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7352,7 +8094,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cholesteatoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Cholesteatoma.html">Cholesteatoma</a>
@@ -7399,6 +8141,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7424,7 +8167,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-otosclerosis">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Otosclerosis</span>
@@ -7472,6 +8215,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18223508" target="_blank">PMID:18223508</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7497,7 +8241,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-benign-paroxysmal-positional-vertigo">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Benign Paroxysmal Positional Vertigo</span>
@@ -7545,6 +8289,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32982922" target="_blank">PMID:32982922</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7580,7 +8325,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-16222184">
                 <div class="item-name">
                     Clinical manifestations of superior semicircular canal dehiscence
 
@@ -7605,9 +8350,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         superior semicircular canal
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0001841</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples superior semicircular canal, annotated with anterior semicircular canal (UBERON:0001841). UBERON:0001841 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7647,6 +8406,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7668,6 +8428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7717,6 +8478,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16222184" target="_blank">PMID:16222184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7740,7 +8502,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-36742050">
                 <div class="item-name">
                     New model of superior semicircular canal dehiscence with reversible diagnostic findings characteristic of patients with the disorder
 
@@ -7765,9 +8527,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         superior semicircular canal
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001841" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-38">UBERON:0001841</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples superior semicircular canal, annotated with anterior semicircular canal (UBERON:0001841). UBERON:0001841 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7809,6 +8585,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36742050" target="_blank">PMID:36742050</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7830,6 +8607,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36742050" target="_blank">PMID:36742050</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7879,6 +8657,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36742050" target="_blank">PMID:36742050</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7911,6 +8690,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7927,7 +8709,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Semicircular Canal Dehiscence Syndrome
 creation_date: &#39;2026-01-08T22:33:12Z&#39;
-updated_date: &#39;2026-05-11T00:00:00Z&#39;
 description: &gt;-
   Semicircular canal dehiscence syndrome is a vestibular disorder caused by an
   abnormal opening in the bony covering of a semicircular canal, most commonly
@@ -8441,18 +9222,30 @@ pathophysiology:
         disequilibrium, oscillopsia
       explanation: &gt;-
         Review includes chronic disequilibrium in the vestibular symptom profile of SSCD.
-- name: Otic Capsule Bone Biology
+- name: Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling
+  mechanism_confidence: HYPOTHETICAL
+  biological_scale: CELLULAR
   description: &gt;-
-    The otic capsule exhibits unique bone physiology with greatly suppressed remodeling,
-    maintained at least in part by extremely high local levels of osteoprotegerin (OPG)
-    secreted by cochlear soft tissue and reaching the surrounding bone via a
-    lacunocanalicular network. OPG inhibits osteoclastogenesis, preserving the otic
-    capsule against the bone resorption that affects other skeletal sites. In SCDS,
-    histopathological examination shows absence of active bone resorption around the
-    dehiscence, supporting developmental thin-bone predisposition rather than ongoing
-    active resorption — though loss of OPG-mediated suppression in animal models is
-    sufficient to produce abnormal otic capsule remodeling and progressive hearing loss,
-    suggesting a candidate Hit-2 amplification pathway when this protection fails.
+    The otic capsule resists bone remodeling to a degree seen nowhere else in the
+    skeleton, a suppression maintained at least in part by extremely high local
+    levels of osteoprotegerin (OPG) secreted by cochlear soft tissue and reaching
+    the surrounding bone through a lacunocanalicular network, where it inhibits
+    osteoclastogenesis. This node models the failure of that protection rather than
+    the protection itself: where OPG-mediated suppression is lost, the capsule
+    becomes competent to resorb, which is the candidate &#34;Hit 2&#34; by which
+    constitutionally thin bone would be converted into frank dehiscence. The claim
+    is hypothetical in humans. It rests on an OPG-knockout mouse in which loss of
+    suppression is sufficient to produce abnormal otic capsule remodeling and
+    progressive hearing loss, while the one human temporal bone examined
+    histopathologically at a dehiscence showed no active resorption at all (see the
+    scds_opg_resorption_model_mismatch discussion). This is also the node on which
+    post-menopausal estrogen decline is proposed to act, via the
+    estrogen-OPG-RANKL axis.
+  locations:
+  - preferred_term: otic capsule
+    term:
+      id: UBERON:0005411
+      label: bony otic capsule
   cell_types:
   - preferred_term: osteoclast
     term:
@@ -8463,36 +9256,31 @@ pathophysiology:
       id: CL:0000062
       label: osteoblast
   biological_processes:
-  - preferred_term: bone remodeling
+  - preferred_term: osteoclast differentiation in the otic capsule
     term:
-      id: GO:0046849
-      label: bone remodeling
-    modifier: DECREASED
+      id: GO:0030316
+      label: osteoclast differentiation
+    modifier: INCREASED
+  - preferred_term: otic capsule bone resorption
+    term:
+      id: GO:0045453
+      label: bone resorption
+    modifier: INCREASED
   evidence:
-  - reference: PMID:22312921
-    reference_title: &#34;Histopathology of the temporal bone in a case of superior canal dehiscence syndrome.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      No osteoclastic process was evident within the otic capsule bone surrounding
-      the dehiscence.
-    explanation: &gt;-
-      Histopathological examination showed absence of active bone resorption,
-      supporting developmental thin-bone predisposition rather than active resorption.
   - reference: PMID:15630389
     reference_title: &#34;Osteoprotegerin in the inner ear may inhibit bone remodeling in the otic capsule.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &gt;-
       OPG, a powerful inhibitor of bone remodeling, was expressed at extremely
       high levels within the soft tissue of the cochlea and was present in the
       perilymph at very high concentrations.
     explanation: &gt;-
-      Establishes the OPG-rich inner-ear environment that mechanistically
-      explains the otic capsule&#39;s exceptional remodeling suppression.
+      Establishes the OPG-rich inner-ear environment whose loss is the failure
+      this node models.
   - reference: PMID:15630389
     reference_title: &#34;Osteoprotegerin in the inner ear may inhibit bone remodeling in the otic capsule.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: IN_VITRO
     snippet: &gt;-
       OPG, a potent inhibitor of osteoclast formation and function, is expressed
@@ -8500,8 +9288,8 @@ pathophysiology:
       the surrounding bone and may serve to inhibit active bone remodeling within
       the otic capsule
     explanation: &gt;-
-      Author synthesis frames OPG diffusion from cochlear fluid into otic
-      capsule bone as the molecular basis of the capsule&#39;s suppressed remodeling.
+      Author synthesis frames OPG diffusion from cochlear fluid into otic capsule
+      bone as the molecular basis of the suppression whose failure this node models.
   - reference: PMID:16467704
     reference_title: &#34;Osteoprotegrin knockout mice demonstrate abnormal remodeling of the otic capsule and progressive hearing loss.&#34;
     supports: SUPPORT
@@ -8511,9 +9299,9 @@ pathophysiology:
       within the otic capsule with multiple foci showing osteoclastic bone
       resorption and formation of new bone.
     explanation: &gt;-
-      Loss-of-function model demonstrates that without OPG-mediated suppression
-      the otic capsule undergoes pathological remodeling, identifying the
-      pathway whose failure could contribute to acquired bone erosion.
+      Loss-of-function model shows that removing OPG-mediated suppression is
+      sufficient for the otic capsule to undergo osteoclastic resorption, which
+      is the state this node asserts.
   - reference: PMID:16467704
     reference_title: &#34;Osteoprotegrin knockout mice demonstrate abnormal remodeling of the otic capsule and progressive hearing loss.&#34;
     supports: SUPPORT
@@ -8523,26 +9311,41 @@ pathophysiology:
       mice support the hypothesis that OPG is important in the inhibition of
       bone remodeling within the otic capsule
     explanation: &gt;-
-      Authors directly conclude OPG is required to maintain otic capsule bone
-      integrity, providing the mechanistic basis for the OPG/RANKL pathway as
-      a candidate modifier in human otic capsule disorders.
+      Authors conclude OPG is required to maintain otic capsule bone integrity,
+      giving the OPG/RANKL pathway as the candidate modifier this node names.
+  - reference: PMID:22312921
+    reference_title: &#34;Histopathology of the temporal bone in a case of superior canal dehiscence syndrome.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      No osteoclastic process was evident within the otic capsule bone surrounding
+      the dehiscence.
+    explanation: &gt;-
+      The only human temporal bone examined at a dehiscence showed no active
+      resorption, arguing against this node operating in human SCDS and pointing
+      instead to developmental thin bone. This is why the node is marked
+      HYPOTHETICAL.
   downstream:
   - target: Bony Dehiscence of Semicircular Canal
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: &gt;-
-      Congenitally thin or underdeveloped otic capsule bone provides the structural
-      substrate for subsequent dehiscence formation.
+      Where OPG-mediated suppression fails, osteoclastic resorption of the otic
+      capsule becomes possible and could thin an already deficient canal roof to
+      the point of dehiscence. The intermediates between an unsuppressed capsule
+      and a focal dehiscence over the superior canal are not established, and the
+      supporting evidence is a knockout mouse rather than a human observation.
     evidence:
-    - reference: PMID:22312921
-      reference_title: &#34;Histopathology of the temporal bone in a case of superior canal dehiscence syndrome.&#34;
+    - reference: PMID:16467704
+      reference_title: &#34;Osteoprotegrin knockout mice demonstrate abnormal remodeling of the otic capsule and progressive hearing loss.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: MODEL_ORGANISM
       snippet: &gt;-
-        The findings were consistent with the hypothesis put forth by Carey and colleagues
-        that SCD may arise from a failure of postnatal bone development, and that
-        minor trauma may disrupt thin bone or stable dura over the superior canal.
+        Osteoprotegerin knockout mice demonstrated abnormal remodeling of bone
+        within the otic capsule with multiple foci showing osteoclastic bone
+        resorption and formation of new bone.
       explanation: &gt;-
-        Histopathology-based conclusion supports developmental thin-bone predisposition
-        contributing to dehiscence formation.
+        Shows that loss of OPG suppression produces the otic capsule bone
+        resorption this edge relies on, in an animal model.
 phenotypes:
 - category: Vestibular
   name: Vertigo
@@ -9324,8 +10127,14 @@ environmental:
     explanation: &gt;-
       Authors directly conclude no IIH-SSCD association in their cohort.
 - name: Post-Menopausal Estrogen Decline
+  exposure_term:
+    preferred_term: low endogenous estrogen exposure
+    modifier: DECREASED
+    term:
+      id: ECTO:9000010
+      label: exposure to estrogens
   influences_mechanisms:
-  - target: Otic Capsule Bone Biology
+  - target: Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling
     environmental_effect: PREDISPOSES
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: &gt;-
@@ -9349,9 +10158,10 @@ environmental:
   description: &gt;-
     Post-menopausal estrogen decline is hypothesized to accelerate otic
     capsule bone loss through reduced OPG-mediated suppression of
-    osteoclastogenesis (see &#34;Otic Capsule Bone Biology&#34; pathophysiology
-    node). Selective SSC bone thinning has been observed in women over 45,
-    consistent with menopausal contribution; SCDS surgical cohorts show a
+    osteoclastogenesis (see the &#34;Loss of OPG-Mediated Suppression of Otic
+    Capsule Bone Remodeling&#34; pathophysiology node). Selective SSC bone
+    thinning has been observed in women over 45, consistent with menopausal
+    contribution; SCDS surgical cohorts show a
     consistent female predominance (~57-66% female across series). However,
     cross-sectional CT cohorts have not detected an overall sex difference
     in baseline SSC bone thickness, indicating that any hormonal effect is
@@ -9838,6 +10648,66 @@ datasets:
         values.
       explanation: &gt;-
         Supports reversibility of physiological abnormalities with spontaneous resurfacing.
+discussions:
+- discussion_id: scds_opg_resorption_model_mismatch
+  prompt: &gt;-
+    Does loss of OPG-mediated suppression of otic capsule bone remodeling
+    actually operate in human SCDS, given that the OPG-knockout mouse resorbs
+    its otic capsule while the human temporal bone examined at a dehiscence
+    showed no osteoclastic activity at all?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Loss of OPG-Mediated Suppression of Otic Capsule Bone Remodeling
+  rationale: &gt;-
+    The OPG/RANKL route is the only proposed molecular mechanism for an acquired
+    &#34;Hit 2&#34; in SCDS, and it is the mechanism through which post-menopausal
+    estrogen decline is hypothesized to act. Its entire positive evidence base is
+    a constitutive whole-body OPG knockout, in which the capsule never
+    experiences normal suppression, rather than a capsule that loses suppression
+    after having developed under it. Against that, the single human temporal bone
+    studied histopathologically at a dehiscence showed no osteoclastic process,
+    which is the observation the entry&#39;s developmental (Hit 1) account rests on.
+    The mismatch matters because the two readings support different disease
+    models: an actively remodeling capsule would make SCDS partly a metabolic
+    bone disease with a hormonal modifier and a potential antiresorptive target,
+    whereas a static thin capsule makes it purely developmental with mechanical
+    triggers. One human specimen is also too few to settle the question, and
+    resorption may have preceded the specimen&#39;s examination.
+  proposed_experiments:
+  - experiment_id: scds_temporal_bone_osteoclast_series
+    name: Osteoclast and OPG survey of a temporal bone series with and without dehiscence
+    description: &gt;-
+      Examine a temporal bone collection of SCDS and control specimens for
+      osteoclast markers (TRAP, cathepsin K) and OPG/RANKL immunolocalization at
+      the superior canal roof, stratified by sex and age, rather than relying on
+      the single reported case.
+    supporting_outcome:
+    - &gt;-
+      Osteoclasts or reduced OPG at the canal roof in dehiscent specimens,
+      particularly in post-menopausal women, would show the node operating in
+      humans.
+    refuting_outcome:
+    - &gt;-
+      Absent osteoclast markers and preserved OPG across dehiscent specimens
+      would confirm the single-case finding and retire the acquired-resorption
+      route in favour of the developmental account.
+  - experiment_id: scds_conditional_adult_opg_loss
+    name: Adult-onset conditional OPG loss in a normally developed otic capsule
+    description: &gt;-
+      Delete OPG (or block it pharmacologically) after otic capsule maturation
+      is complete, so the capsule develops under normal suppression and only then
+      loses it, and image the canal roof longitudinally for thinning or
+      dehiscence.
+    supporting_outcome:
+    - &gt;-
+      Canal roof thinning or dehiscence following adult-onset loss would show
+      that a mature capsule can be resorbed, which the constitutive knockout
+      cannot demonstrate.
+    refuting_outcome:
+    - &gt;-
+      An unchanged mature capsule would indicate the knockout phenotype is
+      developmental, weakening the acquired Hit-2 reading in humans.
 notes: &gt;-
   Superior semicircular canal dehiscence syndrome was first described by Lloyd
   Minor and colleagues in 1998. The condition is also known as Minor syndrome.
@@ -10304,7 +11174,7 @@ Key molecular players (HGNC) and related entities
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Semicircular Canal Dehiscence Syndrome", "mondoId": "MONDO:0018484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Semicircular_Canal_Dehiscence_Syndrome", "yamlRevision": "ad5c7f7d8afc"};
+        const OS_CONFIG = {"diseaseName": "Semicircular Canal Dehiscence Syndrome", "mondoId": "MONDO:0018484", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Semicircular_Canal_Dehiscence_Syndrome", "yamlRevision": "22e3f1e0470f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10723,5 +11593,73 @@ Key molecular players (HGNC) and related entities
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

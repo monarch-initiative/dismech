@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Cystinuria</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Cystinuria</h1>
             <div class="header-meta">
 
@@ -3704,6 +3906,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3810,6 +4014,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3903,7 +4115,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-cystinuria-definition">
                 <div class="item-name">Orphanet cystinuria definition</div>
 
                 <div class="item-desc">A rare renal tubular amino acid transport disorder characterized by recurrent cystine kidney stone formation.
@@ -3948,6 +4160,7 @@
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3984,7 +4197,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-and-semi-dominant-inheritance">
                 <div class="item-name">
                     Autosomal recessive and semi-dominant inheritance
 
@@ -3997,6 +4210,7 @@
                 </div>
 
                 <div class="item-desc">Cystinuria is usually autosomal recessive, with incompletely dominant or semi-dominant expression recognized particularly for some SLC7A9 heterozygotes.
+A digenic type AB genotype exists - double compound heterozygotes carrying mutations in both SLC3A1 and SLC7A9 - but this entry deliberately does NOT bind a digenic inheritance term (HP:0010984) and is not a member of the Digenic and Oligogenic Disorders grouping. The International Cystinuria Consortium found it in two of 164 families and reported that its contribution is limited to raising aminoaciduria values, a partial biochemical phenotype, rather than causing the stone-forming disease. The second locus adds to a quantitative trait; it is not required for cystinuria. This is recorded explicitly because OLIDA scores the cystinuria combination at its maximum confidence, so an automated import from that database would bind the term here on evidence that, read directly, argues against doing so.
 </div>
 
 
@@ -4020,7 +4234,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4029,6 +4243,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4052,6 +4267,7 @@
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4068,28 +4284,31 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32066273" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:15635077" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32066273" target="_blank">PMID:32066273</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15635077" target="_blank">PMID:15635077</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Cystinuria is a genetic disorder with both autosomal recessive and incompletely dominant inheritance."</div>
+                <div class="evidence-snippet">"Digenic inheritance is an exception (two of 164 families), with a limited contribution to the aminoaciduria values (partial phenotype) in cystinuria."</div>
 
 
-                <div class="evidence-explanation">Consensus statement confirms recessive and incompletely dominant inheritance patterns.</div>
+                <div class="evidence-explanation">The International Cystinuria Consortium&#39;s own assessment of the type AB genotype, and the basis for not binding a digenic inheritance term here.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4127,7 +4346,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cystinuria-type-a">
 
                     <div class="item-name">
                         Cystinuria type A
@@ -4168,6 +4387,7 @@
                         <a href="https://bioregistry.io/ORPHA:93612" target="_blank">ORPHA:93612</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4189,6 +4409,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:93612" target="_blank">ORPHA:93612</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4216,7 +4437,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cystinuria-type-b">
 
                     <div class="item-name">
                         Cystinuria type B
@@ -4257,6 +4478,7 @@
                         <a href="https://bioregistry.io/ORPHA:93613" target="_blank">ORPHA:93613</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4278,6 +4500,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:93613" target="_blank">ORPHA:93613</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4334,16 +4557,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Epithelial cell of proximal tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4370,16 +4598,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SLC3A1
 
 
-    <a href="https://bioregistry.io/hgnc:11025" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11025">hgnc:11025</a>
+    <a href="https://bioregistry.io/hgnc:11025" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11025</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC3A1 (hgnc:11025). hgnc:11025 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4407,10 +4646,13 @@
         SLC7A9
 
 
-    <a href="https://bioregistry.io/hgnc:11067" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11067">hgnc:11067</a>
+    <a href="https://bioregistry.io/hgnc:11067" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11067</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC7A9 (hgnc:11067). hgnc:11067 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4438,16 +4680,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-cystine transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015811" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015811">GO:0015811</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015811" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0015811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-cystine transport (GO:0015811). GO:0015811 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4456,6 +4703,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4473,10 +4722,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003333">GO:0003333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased amino acid transmembrane transport (GO:0003333). GO:0003333 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4501,16 +4753,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         amino acid transmembrane transporter activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015171" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015171">GO:0015171</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015171" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0015171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased amino acid transmembrane transporter activity (GO:0015171). GO:0015171 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4531,6 +4788,7 @@
 
 
                 </div>
+
 
 
 
@@ -4621,6 +4879,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20517292" target="_blank">PMID:20517292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4642,6 +4901,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4671,6 +4931,7 @@
 
                 <div class="item-desc">High urinary cystine concentration exceeds cystine solubility, especially when urine volume is low or pH is not sufficiently alkaline, producing cystine crystalluria.
 </div>
+
 
 
 
@@ -4735,6 +4996,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36900678" target="_blank">PMID:36900678</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4756,6 +5018,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4785,6 +5048,7 @@
 
                 <div class="item-desc">Co-occurring urinary stone-risk chemistries in cystinuria include low urinary citrate and elevated urinary calcium or uric acid, which may modify stone propensity alongside cystine supersaturation.
 </div>
+
 
 
 
@@ -4858,6 +5122,7 @@
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4880,6 +5145,7 @@
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4901,6 +5167,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4930,6 +5197,7 @@
 
                 <div class="item-desc">Cystine crystals nucleate, grow, and aggregate in urine, converting supersaturation and crystalluria into clinically significant stones.
 </div>
+
 
 
 
@@ -4976,6 +5244,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5004,6 +5273,7 @@
 
                 <div class="item-desc">Cystine stones form repeatedly in the kidney and urinary tract, causing renal colic, hematuria, obstruction, and recurrent intervention.
 </div>
+
 
 
 
@@ -5104,6 +5374,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20517292" target="_blank">PMID:20517292</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5137,16 +5408,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Epithelial cell of proximal tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5163,6 +5439,7 @@
 
 
                 </div>
+
 
 
 
@@ -5215,6 +5492,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5313,14 +5591,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5340,6 +5625,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5362,6 +5648,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5405,14 +5692,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5432,6 +5726,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5475,14 +5770,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5502,6 +5804,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5536,14 +5839,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5563,6 +5873,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5597,14 +5908,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000083">HP:0000083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5624,6 +5942,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5658,14 +5977,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal urinary odor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012088" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012088">HP:0012088</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012088</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal urinary odor (HP:0012088). HP:0012088 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5685,6 +6011,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5728,14 +6055,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperuricemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002149">HP:0002149</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002149</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperuricemia (HP:0002149). HP:0002149 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5755,6 +6089,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5798,14 +6133,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flank pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030157">HP:0030157</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030157" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0030157</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5825,6 +6167,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5868,14 +6211,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cystinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003131">HP:0003131</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003131</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystinuria (HP:0003131). HP:0003131 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5895,6 +6245,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5927,14 +6278,21 @@
                         Argininuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Argininuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003268" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003268">HP:0003268</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003268</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Argininuria (HP:0003268). HP:0003268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5954,6 +6312,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10074888" target="_blank">PMID:10074888</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5986,14 +6345,21 @@
                         Hyperlysinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperlysinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003297">HP:0003297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperlysinuria (HP:0003297). HP:0003297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6013,6 +6379,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10074888" target="_blank">PMID:10074888</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6045,14 +6412,21 @@
                         Ornithinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ornithinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003532">HP:0003532</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003532</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ornithinuria (HP:0003532). HP:0003532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6072,6 +6446,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10074888" target="_blank">PMID:10074888</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6104,14 +6479,21 @@
                         Recurrent urinary tract infections
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent urinary tract infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000010">HP:0000010</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6131,6 +6513,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41264765" target="_blank">PMID:41264765</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6165,14 +6548,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of amino acid metabolism
+
+                        <span class="phenotype-term-label">Abnormality of amino acid metabolism</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004337">HP:0004337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of amino acid metabolism (HP:0004337). HP:0004337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6192,6 +6584,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6226,14 +6619,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cystine crystalluria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033067" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033067">HP:0033067</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0033067</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystine crystalluria (HP:0033067). HP:0033067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6253,6 +6653,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6287,14 +6688,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypocitraturia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012405">HP:0012405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypocitraturia (HP:0012405). HP:0012405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6314,6 +6722,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6348,14 +6757,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypercalciuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002150">HP:0002150</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002150</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercalciuria (HP:0002150). HP:0002150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6375,6 +6791,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6409,14 +6826,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperuricosuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003149" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003149">HP:0003149</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003149</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperuricosuria (HP:0003149). HP:0003149 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6436,6 +6860,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6470,14 +6895,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Echogenic fetal colon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000916" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000916">HP:6000916</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000916" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:6000916</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Echogenic fetal colon (HP:6000916). HP:6000916 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6497,6 +6929,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6575,13 +7008,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC3A1
 
 
-    <a href="https://bioregistry.io/hgnc:11025" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11025">hgnc:11025</a>
+    <a href="https://bioregistry.io/hgnc:11025" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11025</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC3A1 (hgnc:11025). hgnc:11025 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6602,6 +7040,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:93612" target="_blank">ORPHA:93612</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6625,6 +7064,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480232" target="_blank">PMID:22480232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6646,6 +7086,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18752446" target="_blank">PMID:18752446</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6685,13 +7126,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC7A9
 
 
-    <a href="https://bioregistry.io/hgnc:11067" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11067">hgnc:11067</a>
+    <a href="https://bioregistry.io/hgnc:11067" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11067</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC7A9 (hgnc:11067). hgnc:11067 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6712,6 +7158,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:93613" target="_blank">ORPHA:93613</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6735,6 +7182,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480232" target="_blank">PMID:22480232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6756,6 +7204,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24045899" target="_blank">PMID:24045899</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6789,6 +7238,106 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-cystinuria-record">
+
+
+    <div class="item-name">Orphanet cystinuria record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=214" target="_blank" rel="noopener noreferrer" title="Open ORPHA:214">ORPHA:214</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:214 structured record provides the definition, inheritance, prevalence bands, exact MONDO and OMIM mappings, and HPO annotations used as structured assertions in this curation.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0009067 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:214 exactly to the MONDO identifier used here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:214" target="_blank">ORPHA:214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:220100 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:220100 as an exact external cross-reference.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6804,7 +7353,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -6863,6 +7417,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6904,6 +7459,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32066273" target="_blank">PMID:32066273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6933,7 +7489,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6963,16 +7524,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         potassium citrate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64733" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64733">CHEBI:64733</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64733" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:64733</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses potassium citrate, annotated with potassium citrate (anhydrous) (CHEBI:64733). CHEBI:64733 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7007,6 +7573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7049,6 +7616,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32066273" target="_blank">PMID:32066273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7070,6 +7638,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7100,7 +7669,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7130,17 +7704,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tiopronin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47758" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47758">NCIT:C47758</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47758" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C47758</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tiopronin (NCIT:C47758). NCIT:C47758 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         D-penicillamine
@@ -7148,10 +7729,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7959" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7959">CHEBI:7959</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7959" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:7959</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses D-penicillamine (CHEBI:7959). CHEBI:7959 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7186,6 +7770,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7228,6 +7813,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32066273" target="_blank">PMID:32066273</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7249,6 +7835,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7279,7 +7866,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">calculi removal</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">calculi removal<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is calculi removal, annotated with Endourologic Procedure (NCIT:C157838). NCIT:C157838 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Endourologic Procedure</span>
 
 
@@ -7317,16 +7909,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrolithiasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000787</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7345,6 +7942,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38814457" target="_blank">PMID:38814457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7375,7 +7973,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7405,16 +8008,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         alpha-lipoic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16494">CHEBI:16494</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16494" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:16494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses alpha-lipoic acid, annotated with lipoic acid (CHEBI:16494). CHEBI:16494 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7449,6 +8057,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28165480" target="_blank">PMID:28165480</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7491,6 +8100,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28165480" target="_blank">PMID:28165480</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7512,6 +8122,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02910531" target="_blank">clinicaltrials:NCT02910531</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7639,6 +8250,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10074888" target="_blank">PMID:10074888</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7678,6 +8290,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10074888" target="_blank">PMID:10074888</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7700,6 +8313,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41766659" target="_blank">PMID:41766659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7721,6 +8335,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40412536" target="_blank">PMID:40412536</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7829,6 +8444,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16501494" target="_blank">PMID:16501494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7868,6 +8484,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16501494" target="_blank">PMID:16501494</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7889,6 +8506,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16501494" target="_blank">PMID:16501494</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7928,7 +8546,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000079546">
                 <div class="item-name">
                     Proteomic analysis of urinary exosomes in cystinuria patients
 
@@ -7973,7 +8591,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02910531">
                 <div class="item-name">
                     NCT02910531
 
@@ -7991,16 +8609,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Nephrolithiasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000787</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8018,6 +8641,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT02910531" target="_blank">clinicaltrials:NCT02910531</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8042,7 +8666,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03663855">
                 <div class="item-name">
                     NCT03663855
 
@@ -8060,16 +8684,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cystinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003131" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003131">HP:0003131</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003131</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Cystinuria (HP:0003131). HP:0003131 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8087,6 +8716,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03663855" target="_blank">clinicaltrials:NCT03663855</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8117,6 +8747,265 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-slc3a1-knockout-mouse" data-dismech-node="Slc3a1 knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Slc3a1 knockout Mouse
+
+                </div>
+
+                <div class="item-desc">Slc3a1 knockout mice model type A cystinuria with crystalluria and stone formation, enabling testing of cystine solubility and crystal-growth therapies such as alpha-lipoic acid.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Slc3a1 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLC3A1
+
+
+    <a href="https://bioregistry.io/hgnc:11025" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11025</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SLC3A1 (hgnc:11025). hgnc:11025 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28165480" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28165480" target="_blank">PMID:28165480</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the Slc3a1-/- mouse model which develops cystine urolithiasis"</div>
+
+
+                <div class="evidence-explanation">Study uses Slc3a1 knockout mice as a cystinuria model with cystine urolithiasis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-slc7a9-knockout-mouse" data-dismech-node="Slc7a9 knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Slc7a9 knockout Mouse
+
+                </div>
+
+                <div class="item-desc">Slc7a9 knockout mice model type B cystinuria and show elevated cystine and dibasic amino acid excretion with cystine stone formation.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Slc7a9 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SLC7A9
+
+
+    <a href="https://bioregistry.io/hgnc:11067" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11067</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SLC7A9 (hgnc:11067). hgnc:11067 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30515543" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30515543" target="_blank">PMID:30515543</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Slc7a9 knockout mice also showed elevated excretion of COLA"</div>
+
+
+                <div class="evidence-explanation">Review summarizes Slc7a9 knockout mouse biochemical phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8134,7 +9023,6 @@
                 <pre class="yaml-preview">name: Cystinuria
 category: Mendelian
 creation_date: &#39;2026-05-05T15:29:06Z&#39;
-updated_date: &#39;2026-05-19T09:45:30Z&#39;
 synonyms:
 - Cystinuria-lysinuria syndrome
 description: &gt;
@@ -8271,6 +9159,19 @@ inheritance:
     Cystinuria is usually autosomal recessive, with incompletely dominant or
     semi-dominant expression recognized particularly for some SLC7A9
     heterozygotes.
+
+    A digenic type AB genotype exists - double compound heterozygotes carrying
+    mutations in both SLC3A1 and SLC7A9 - but this entry deliberately does NOT
+    bind a digenic inheritance term (HP:0010984) and is not a member of the
+    Digenic and Oligogenic Disorders grouping. The International Cystinuria
+    Consortium found it in two of 164 families and reported that its
+    contribution is limited to raising aminoaciduria values, a partial
+    biochemical phenotype, rather than causing the stone-forming disease. The
+    second locus adds to a quantitative trait; it is not required for
+    cystinuria. This is recorded explicitly because OLIDA scores the cystinuria
+    combination at its maximum confidence, so an automated import from that
+    database would bind the term here on evidence that, read directly, argues
+    against doing so.
   inheritance_term:
     preferred_term: Autosomal recessive inheritance
     term:
@@ -8289,6 +9190,16 @@ inheritance:
     evidence_source: OTHER
     snippet: &#34;Semi-dominant&#34;
     explanation: Orphanet also records semi-dominant inheritance.
+  - reference: PMID:15635077
+    reference_title: &#34;New insights into cystinuria: 40 new mutations, genotype-phenotype correlation, and digenic inheritance causing partial phenotype.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Digenic inheritance is an exception (two of 164 families), with a limited
+      contribution to the aminoaciduria values (partial phenotype) in cystinuria.
+    explanation: &gt;-
+      The International Cystinuria Consortium&#39;s own assessment of the type AB
+      genotype, and the basis for not binding a digenic inheritance term here.
   - reference: PMID:32066273
     reference_title: &#34;Evaluation and Medical Management of Patients with Cystine Nephrolithiasis: A Consensus Statement.&#34;
     supports: SUPPORT
@@ -10199,7 +11110,7 @@ inhibitors remain investigational in the cited evidence.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cystinuria", "mondoId": "MONDO:0009067", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystinuria", "yamlRevision": "087dcb2722ed"};
+        const OS_CONFIG = {"diseaseName": "Cystinuria", "mondoId": "MONDO:0009067", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystinuria", "yamlRevision": "3f8dda7b5870"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10618,5 +11529,73 @@ inhibitors remain investigational in the cited evidence.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

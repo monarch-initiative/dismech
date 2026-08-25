@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Raynaud Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Raynaud Disease</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Raynaud%20Disease"
@@ -3696,6 +3898,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3725,7 +3929,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3807,7 +4011,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-primary-raynaud-phenomenon">
 
                     <div class="item-name">
                         Primary Raynaud Phenomenon
@@ -3842,6 +4046,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3866,7 +4071,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-secondary-raynaud-phenomenon">
 
                     <div class="item-name">
                         Secondary Raynaud Phenomenon
@@ -3900,6 +4105,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3954,16 +4160,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3988,15 +4199,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ADRA2C
 
 
-    <a href="https://bioregistry.io/hgnc:283" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:283">hgnc:283</a>
+    <a href="https://bioregistry.io/hgnc:283" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:283</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADRA2C (hgnc:283). hgnc:283 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4024,17 +4242,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4055,10 +4280,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070417">GO:0070417</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070417" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0070417</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cellular Response to Cold (GO:0070417). GO:0070417 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4081,19 +4309,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Digital Artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004552" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004552">UBERON:0004552</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004552" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0004552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Digital Artery (UBERON:0004552). UBERON:0004552 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4127,6 +4361,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4146,6 +4381,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4185,16 +4421,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Vascular Smooth Muscle Contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014829" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014829">GO:0014829</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014829" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0014829</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Vascular Smooth Muscle Contraction, annotated with vascular associated smooth muscle contraction (GO:0014829). GO:0014829 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4220,6 +4461,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4231,6 +4473,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4276,6 +4519,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4287,6 +4531,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4319,16 +4564,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4355,17 +4605,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Vasodilation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042311" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042311">GO:0042311</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042311" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042311</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Vasodilation (GO:0042311). GO:0042311 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4386,10 +4643,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006809">GO:0006809</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006809</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Nitric Oxide Biosynthesis, annotated with nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4406,6 +4666,7 @@
 
 
                 </div>
+
 
 
 
@@ -4427,6 +4688,7 @@
                         <a href="https://bioregistry.io/DOI:10.3390/ijms241814385" target="_blank">DOI:10.3390/ijms241814385</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4446,6 +4708,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061331" target="_blank">DOI:10.3390/biomedicines12061331</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4478,16 +4741,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Sympathetic Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011103">CL:0011103</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0011103</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sympathetic Neuron (CL:0011103). CL:0011103 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4513,6 +4781,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Temperature Homeostasis
@@ -4520,10 +4790,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001659">GO:0001659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Temperature Homeostasis (GO:0001659). GO:0001659 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4546,19 +4819,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Manual Digit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002389">UBERON:0002389</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002389</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Manual Digit (UBERON:0002389). UBERON:0002389 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4576,6 +4855,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4608,16 +4888,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Platelet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4644,16 +4929,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Platelet Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Platelet Activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4670,6 +4960,7 @@
 
 
                 </div>
+
 
 
 
@@ -4691,6 +4982,7 @@
                         <a href="https://bioregistry.io/DOI:10.1515/tjb-2023-0197" target="_blank">DOI:10.1515/tjb-2023-0197</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4710,6 +5002,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1515/tjb-2023-0197" target="_blank">DOI:10.1515/tjb-2023-0197</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4749,16 +5042,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to Oxidative Stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4784,6 +5082,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4795,6 +5094,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4842,7 +5142,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cold triggers alpha-2C adrenoceptor (ADRA2C) activation in microvascular smooth muscle cells, mediating local cooling-induced vasoconstriction of digital arteries and arterioles. Alpha-2C-AR is the sole mediator of cold-induced vasoconstriction in the peripheral vasculature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Vasoconstriction\", \"Cellular Response to Cold\"], \"genes\": [\"ADRA2C\"], \"gene_terms\": [{\"label\": \"ADRA2C\", \"id\": \"hgnc:283\"}], \"locations\": [\"Digital Artery\"]}}, {\"id\": \"RhoA/ROCK Potentiation of Vasospasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RhoA/ROCK signaling potentiates alpha-2C adrenoceptor-mediated vasoconstriction and reactive oxygen species generation in vascular smooth muscle cells, amplifying the vasospastic response to cold.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vascular Smooth Muscle Contraction\"]}}], \"edges\": [{\"source\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"target\": \"RhoA/ROCK Potentiation of Vasospasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-2C-AR activation is potentiated by RhoA/ROCK signaling.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cold triggers alpha-2C adrenoceptor (ADRA2C) activation in microvascular smooth muscle cells, mediating local cooling-induced vasoconstriction of digital arteries and arterioles. Alpha-2C-AR is the sole mediator of cold-induced vasoconstriction in the peripheral vasculature.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Vasoconstriction\", \"Cellular Response to Cold\"], \"genes\": [\"ADRA2C\"], \"gene_terms\": [{\"label\": \"ADRA2C\", \"id\": \"hgnc:283\"}], \"locations\": [\"Digital Artery\"]}}, {\"id\": \"Cold Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cold ambient temperature or direct contact with cold objects is the primary trigger for vasospastic episodes. Cold triggers alpha-2C adrenoceptor-mediated vasoconstriction in digital smooth muscle cells.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Emotional Stress\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Psychological stress and emotional disturbance can trigger vasospastic episodes through sympathetic nervous system activation, independent of cold exposure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RhoA/ROCK Potentiation of Vasospasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RhoA/ROCK signaling potentiates alpha-2C adrenoceptor-mediated vasoconstriction and reactive oxygen species generation in vascular smooth muscle cells, amplifying the vasospastic response to cold.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Vascular Smooth Muscle Contraction\"]}}, {\"id\": \"Sympathetic Nervous System Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased sympathetic adrenergic control of digital resistance vessels contributes to exaggerated cold-induced vasoconstriction. The pathogenesis involves a complex interaction between the vascular wall, nerves, hormones, and humoral factors disrupting the balance between vasoconstriction and vasodilation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sympathetic Neuron\"], \"biological_processes\": [\"Temperature Homeostasis\"], \"locations\": [\"Manual Digit\"]}}], \"edges\": [{\"source\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"target\": \"RhoA/ROCK Potentiation of Vasospasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-2C-AR activation is potentiated by RhoA/ROCK signaling.\"}, {\"source\": \"Cold Exposure\", \"target\": \"Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The closest exposure-to-node fit in this tranche: the node is named for cold-induced vasoconstriction, and the first item names the receptor as the sole mediator of local cooling-induced vasoconstriction. Exposure and mechanism are in the same clause, which is why this one is direct where the others are not. Direct is recorded knowing that cold reaches the receptor through mitochondrial reactive oxygen species and RhoA/ROCK, which this entry models as a separate node: those steps sit inside the cold-induced vasoconstriction this node is named for rather than on the edge into it, so they are internal to the target and not intermediates the edge steps over. Noted so the question is not reopened later.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Emotional Stress\", \"target\": \"Sympathetic Nervous System Dysregulation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Pointed at sympathetic dysregulation rather than at the cold-receptor node, because that is the route this entry gives a stressor that is not cold, and the node\u0027s own description places increased sympathetic adrenergic control on the digital resistance vessels. The intermediates are recorded as known on the strength of that mapped route rather than of the quoted sentence, which stops at the vasospasm and does not name the nerves.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4885,14 +5185,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Raynaud phenomenon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030880">HP:0030880</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0030880</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4913,6 +5220,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4932,6 +5240,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4964,14 +5273,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Digital ischemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033402">HP:0033402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0033402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Digital ischemia (HP:0033402). HP:0033402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4991,6 +5307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5032,14 +5349,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acrocyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001063">HP:0001063</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001063</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5059,6 +5383,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5091,14 +5416,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Digital ulcer
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031917" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031917">HP:0031917</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031917</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Digital ulcer (HP:0031917). HP:0031917 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5119,6 +5451,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5138,6 +5471,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5179,14 +5513,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5206,6 +5547,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29237099" target="_blank">PMID:29237099</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5267,6 +5609,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5282,7 +5627,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5312,17 +5662,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nifedipine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7565">CHEBI:7565</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:7565</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         amlodipine
@@ -5330,10 +5687,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2668">CHEBI:2668</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:2668</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amlodipine (CHEBI:2668). CHEBI:2668 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5360,6 +5720,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5379,6 +5740,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29237099" target="_blank">PMID:29237099</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5409,7 +5771,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5459,6 +5826,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25770637" target="_blank">PMID:25770637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5486,7 +5854,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5516,17 +5889,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sildenafil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9139">CHEBI:9139</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:9139</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         tadalafil
@@ -5534,10 +5914,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71940">CHEBI:71940</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:71940</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tadalafil (CHEBI:71940). CHEBI:71940 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5564,6 +5947,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5583,6 +5967,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28281457" target="_blank">PMID:28281457</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5613,7 +5998,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5643,16 +6033,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         iloprost
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63916" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63916">CHEBI:63916</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63916" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:63916</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses iloprost (CHEBI:63916). CHEBI:63916 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5678,6 +6073,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5706,7 +6102,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5737,16 +6138,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bosentan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:51450">CHEBI:51450</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:51450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bosentan (CHEBI:51450). CHEBI:51450 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5772,6 +6178,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5800,7 +6207,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5850,6 +6262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39040029" target="_blank">PMID:39040029</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5888,21 +6301,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to decreased temperature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0001057">ECTO:0001057</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-33">ECTO:0001057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to decreased temperature (ECTO:0001057). ECTO:0001057 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -5922,6 +6344,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5943,6 +6366,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5963,11 +6387,112 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The closest exposure-to-node fit in this tranche: the node is named for cold-induced vasoconstriction, and the first item names the receptor as the sole mediator of local cooling-induced vasoconstriction. Exposure and mechanism are in the same clause, which is why this one is direct where the others are not. Direct is recorded knowing that cold reaches the receptor through mitochondrial reactive oxygen species and RhoA/ROCK, which this entry models as a separate node: those steps sit inside the cold-induced vasoconstriction this node is named for rather than on the edge into it, so they are internal to the target and not intermediates the edge steps over. Noted so the question is not reopened later.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40506673" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"estrogen plays a fundamental role in potentiating the expression and function of α2C adrenoceptor (α2C-AR), the sole mediator of local cooling-induced vasoconstriction"</div>
+
+
+                <div class="evidence-explanation">Names alpha-2C adrenoceptor as the sole mediator of local cooling-induced vasoconstriction, which is this node&#39;s content and names the exposure that drives it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40506673" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40506673" target="_blank">PMID:40506673</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Raynaud&#39;s phenomenon is a peripheral vascular disorder characterized by exaggerated vasoconstrictive response to certain stimuli, most typically cold exposure and emotional stress."</div>
+
+
+                <div class="evidence-explanation">Characterises the disorder as an exaggerated vasoconstrictive response to stimuli, most typically cold. It supports cold as the usual trigger of the response, but it is a definition of the disorder rather than a finding about this receptor, which is why it is partial while the same paper&#39;s mechanistic sentence above is not.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-emotional-stress" data-dismech-node="Emotional Stress" data-dismech-type="environmental">
                 <div class="item-name">Emotional Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to emotional stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-34">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to emotional stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Checked ECTO for an exposure_term binding (issue #8430); ECTO has no specific psychological/emotional-stress exposure term (the closest hit, ExO:0000000 &#34;exposure stressor&#34;, is an unbound upper-level material-entity class for any stress-causing agent, not a term for the stress exposure itself). Bound instead to XCO:0001265 &#34;stress&#34;, a direct child of the ExposureTerm enum&#39;s XCO:0000000 root, whose definition names &#34;a physical, chemical, or emotional factor that causes bodily or mental tension and may be a factor in disease causation.&#34;</div>
 
 
                 <div class="item-desc">Psychological stress and emotional disturbance can trigger vasospastic episodes through sympathetic nervous system activation, independent of cold exposure.
@@ -5986,6 +6511,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6007,6 +6533,57 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Sympathetic Nervous System Dysregulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at sympathetic dysregulation rather than at the cold-receptor node, because that is the route this entry gives a stressor that is not cold, and the node&#39;s own description places increased sympathetic adrenergic control on the digital resistance vessels. The intermediates are recorded as known on the strength of that mapped route rather than of the quoted sentence, which stops at the vasospasm and does not name the nerves.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24418302" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24418302" target="_blank">PMID:24418302</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"recurrent episodes of digital vasospasm triggered by exposure to physical/chemical or emotional stress"</div>
+
+
+                <div class="evidence-explanation">Names emotional stress among the triggers of recurrent digital vasospasm. It reaches the spasm at the end of the chain rather than the sympathetic step this link targets, so it supports the longer path through this node without isolating it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6025,6 +6602,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6199,10 +6779,12 @@ pathophysiology:
       label: nitric oxide biosynthetic process
   evidence:
   - reference: DOI:10.3390/ijms241814385
+    reference_title: &#34;Endothelial Dysfunction in Systemic Sclerosis&#34;
     supports: SUPPORT
     snippet: &#34;Endothelial damage and activation occur early, possibly triggered by various infectious agents and autoantibodies. Endothelial dysfunction, along with defects in endothelial progenitor cells, leads to defective angiogenesis and vasculogenesis.&#34;
     explanation: Endothelial dysfunction is an early event driving vascular pathology.
   - reference: DOI:10.3390/biomedicines12061331
+    reference_title: &#34;Recent Insights into Cellular and Molecular Mechanisms of Defective Angiogenesis in Systemic Sclerosis&#34;
     supports: SUPPORT
     snippet: &#34;once damaged, endothelial cells can be dysfunctionally activated, thus becoming unable to undergo angiogenesis and promoting perivascular inflammation. They can also undergo apoptosis, transdifferentiate into profibrotic myofibroblasts&#34;
     explanation: Describes mechanisms of endothelial dysfunction including EndoMT and failed angiogenesis in SSc-associated RP.
@@ -6252,10 +6834,12 @@ pathophysiology:
       label: platelet activation
   evidence:
   - reference: DOI:10.1515/tjb-2023-0197
+    reference_title: &#34;Determination of molecular pathways and gene ontology of genes associated with Raynaud’s phenomenon&#34;
     supports: SUPPORT
     snippet: &#34;A significant enrichment by gene ontology enrichment analysis was detected in a subset of genes involved in biological processes including cellular response to luteinizing hormone stimulus, negative regulation of fibrinolysis, negative regulation of smooth muscle cell apoptotic process, plasminogen activation&#34;
     explanation: GO analysis of RP-associated genes shows enrichment in coagulation/fibrinolysis pathways relevant to intravascular abnormalities.
   - reference: DOI:10.1515/tjb-2023-0197
+    reference_title: &#34;Determination of molecular pathways and gene ontology of genes associated with Raynaud’s phenomenon&#34;
     supports: SUPPORT
     snippet: &#34;Through the use of KEGG pathways, we were able to identify many molecular processes that contribute to RP, including the AGE-RAGE signaling pathway in diabetic complications, complement and coagulation cascades, fluid shear stress, atherosclerosis.&#34;
     explanation: KEGG analysis confirms complement/coagulation cascade involvement in RP.
@@ -6378,6 +6962,41 @@ phenotypes:
     explanation: Digital pallor reflects ischemia from vasospasm-induced blood flow reduction.
 environmental:
 - name: Cold Exposure
+  influences_mechanisms:
+  - target: Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The closest exposure-to-node fit in this tranche: the node is named for
+      cold-induced vasoconstriction, and the first item names the receptor as
+      the sole mediator of local cooling-induced vasoconstriction. Exposure
+      and mechanism are in the same clause, which is why this one is direct
+      where the others are not. Direct is recorded knowing that cold reaches
+      the receptor through mitochondrial reactive oxygen species and
+      RhoA/ROCK, which this entry models as a separate node: those steps sit
+      inside the cold-induced vasoconstriction this node is named for rather
+      than on the edge into it, so they are internal to the target and not
+      intermediates the edge steps over. Noted so the question is not
+      reopened later.
+    evidence:
+    - reference: PMID:40506673
+      reference_title: &#34;Cold responses and hormonal echoes: a comprehensive view of Raynaud&#39;s vascular dysfunction.&#34;
+      supports: SUPPORT
+      snippet: &#34;estrogen plays a fundamental role in potentiating the expression and function of α2C adrenoceptor (α2C-AR), the sole mediator of local cooling-induced vasoconstriction&#34;
+      explanation: &gt;-
+        Names alpha-2C adrenoceptor as the sole mediator of local
+        cooling-induced vasoconstriction, which is this node&#39;s content and
+        names the exposure that drives it.
+    - reference: PMID:40506673
+      reference_title: &#34;Cold responses and hormonal echoes: a comprehensive view of Raynaud&#39;s vascular dysfunction.&#34;
+      supports: PARTIAL
+      snippet: &#34;Raynaud&#39;s phenomenon is a peripheral vascular disorder characterized by exaggerated vasoconstrictive response to certain stimuli, most typically cold exposure and emotional stress.&#34;
+      explanation: &gt;-
+        Characterises the disorder as an exaggerated vasoconstrictive response
+        to stimuli, most typically cold. It supports cold as the usual trigger
+        of the response, but it is a definition of the disorder rather than a
+        finding about this receptor, which is why it is partial while the same
+        paper&#39;s mechanistic sentence above is not.
   description: &gt;
     Cold ambient temperature or direct contact with cold objects is the primary trigger
     for vasospastic episodes. Cold triggers alpha-2C adrenoceptor-mediated vasoconstriction
@@ -6399,15 +7018,51 @@ environmental:
     snippet: &#34;estrogen plays a fundamental role in potentiating the expression and function of α2C adrenoceptor (α2C-AR), the sole mediator of local cooling-induced vasoconstriction&#34;
     explanation: Cold exposure activates alpha-2C-AR-mediated vasoconstriction.
 - name: Emotional Stress
+  influences_mechanisms:
+  - target: Sympathetic Nervous System Dysregulation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at sympathetic dysregulation rather than at the cold-receptor
+      node, because that is the route this entry gives a stressor that is not
+      cold, and the node&#39;s own description places increased sympathetic
+      adrenergic control on the digital resistance vessels. The intermediates
+      are recorded as known on the strength of that mapped route rather than
+      of the quoted sentence, which stops at the vasospasm and does not name
+      the nerves.
+    evidence:
+    - reference: PMID:24418302
+      reference_title: &#34;Raynaud&#39;s phenomenon: from molecular pathogenesis to therapy.&#34;
+      supports: PARTIAL
+      snippet: &#34;recurrent episodes of digital vasospasm triggered by exposure to physical/chemical or emotional stress&#34;
+      explanation: &gt;-
+        Names emotional stress among the triggers of recurrent digital
+        vasospasm. It reaches the spasm at the end of the chain rather than
+        the sympathetic step this link targets, so it supports the longer path
+        through this node without isolating it.
   description: &gt;
     Psychological stress and emotional disturbance can trigger vasospastic episodes
     through sympathetic nervous system activation, independent of cold exposure.
+  exposure_term:
+    preferred_term: exposure to emotional stress
+    term:
+      id: XCO:0001265
+      label: stress
   evidence:
   - reference: PMID:24418302
     reference_title: &#34;Raynaud&#39;s phenomenon: from molecular pathogenesis to therapy.&#34;
     supports: SUPPORT
     snippet: &#34;recurrent episodes of digital vasospasm triggered by exposure to physical/chemical or emotional stress&#34;
     explanation: Emotional stress is a recognized trigger alongside physical stimuli.
+  notes: &gt;-
+    Checked ECTO for an exposure_term binding (issue #8430); ECTO has no
+    specific psychological/emotional-stress exposure term (the closest hit,
+    ExO:0000000 &#34;exposure stressor&#34;, is an unbound upper-level material-entity
+    class for any stress-causing agent, not a term for the stress exposure
+    itself). Bound instead to XCO:0001265 &#34;stress&#34;, a direct child of the
+    ExposureTerm enum&#39;s XCO:0000000 root, whose definition names &#34;a physical,
+    chemical, or emotional factor that causes bodily or mental tension and may
+    be a factor in disease causation.&#34;
 treatments:
 - name: Calcium Channel Blockers
   description: &gt;
@@ -6555,7 +7210,6 @@ notes: &gt;
   hormonal factors (particularly estrogen) are likely contributors, and GWAS-identified
   genes are enriched in vascular damage and fibrosis pathways.
 datasets:
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
 </pre>
             </div>
         </div>
@@ -6836,7 +7490,7 @@ Some mechanistic facets, such as specific risk loci from recent GWAS and the mag
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Raynaud Disease", "mondoId": "MONDO:0008364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raynaud_Disease", "yamlRevision": "e2850a79053c"};
+        const OS_CONFIG = {"diseaseName": "Raynaud Disease", "mondoId": "MONDO:0008364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Raynaud_Disease", "yamlRevision": "ce3a8815da50"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7255,5 +7909,73 @@ Some mechanistic facets, such as specific risk loci from recent GWAS and the mag
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

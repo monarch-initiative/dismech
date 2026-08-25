@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Rothmund-Thomson Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Rothmund-Thomson Syndrome</h1>
             <div class="header-meta">
 
@@ -3701,6 +3903,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3807,31 +4011,127 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
 
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">NIH Highlighted Topic</div>
+
+
+
+                <div class="tag-list">
 
 
 
 
+
+                    <span class="tag tag-classification" title="Pathophysiology conforms to the genomic instability module(s) — hallmark-of-aging mechanism(s) — making this entry a relevant model for NIH Highlighted Topic 89 (cellular quiescence, senescence, and cell death in aging and disease).">NIH HT 89 cellular quiescence senescence cell death in</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3904,7 +4204,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3929,6 +4229,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3950,6 +4251,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4004,7 +4306,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
 
                     <div class="item-name">
                         RTS Type 1 (ANAPC1-related)
@@ -4033,7 +4335,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2">
 
                     <div class="item-name">
                         RTS Type 2 (RECQL4-related)
@@ -4091,16 +4393,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4127,15 +4434,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RECQL4
 
 
-    <a href="https://bioregistry.io/hgnc:9949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9949">hgnc:9949</a>
+    <a href="https://bioregistry.io/hgnc:9949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9949</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RECQL4 (hgnc:9949). hgnc:9949 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4163,16 +4477,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         RecQ DNA helicase-dependent DNA replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006260">GO:0006260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased RecQ DNA helicase-dependent DNA replication, annotated with DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4193,6 +4512,7 @@
 
 
                 </div>
+
 
 
 
@@ -4230,6 +4550,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4251,6 +4572,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4292,16 +4614,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006260">GO:0006260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4321,16 +4648,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4351,6 +4683,7 @@
 
 
                 </div>
+
 
 
 
@@ -4388,6 +4721,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4421,16 +4755,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4457,15 +4796,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ANAPC1
 
 
-    <a href="https://bioregistry.io/hgnc:19988" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19988">hgnc:19988</a>
+    <a href="https://bioregistry.io/hgnc:19988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:19988</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ANAPC1 (hgnc:19988). hgnc:19988 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4493,16 +4839,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         anaphase-promoting complex-dependent catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031145" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031145">GO:0031145</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031145" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0031145</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased anaphase-promoting complex-dependent catabolic process (GO:0031145). GO:0031145 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4532,6 +4883,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4543,6 +4895,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4565,6 +4918,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4599,16 +4953,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4635,16 +4994,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         double-strand break repair via homologous recombination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000724">GO:0000724</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000724</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased double-strand break repair via homologous recombination (GO:0000724). GO:0000724 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4665,6 +5029,7 @@
 
 
                 </div>
+
 
 
 
@@ -4702,6 +5067,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4735,16 +5101,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4777,6 +5148,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4788,6 +5160,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12734318" target="_blank">PMID:12734318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4837,7 +5210,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANAPC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"ANAPC1 Anaphase-Promoting Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ANAPC1 mutations reduce levels of a scaffold subunit of the anaphase-promoting complex/cyclosome (APC/C). A deep intronic splicing mutation activates a 95 bp pseudoexon, producing transcripts with premature termination codons subject to nonsense-mediated decay, decreased ANAPC1 protein, and prolongation of interphase. APC/C deficiency causes RTS type 1 and is associated with juvenile cataracts.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"anaphase-promoting complex-dependent catabolic process\"], \"genes\": [\"ANAPC1\"], \"gene_terms\": [{\"label\": \"ANAPC1\", \"id\": \"hgnc:19988\"}]}}, {\"id\": \"Genomic Instability and Chromosomal Rearrangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells from RTS patients show genomic instability often associated with chromosomal rearrangements that cause acquired somatic mosaicism. This instability is the proximate driver of the cancer predisposition, particularly osteosarcoma, that characterizes RTS type 2.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"double-strand break repair via homologous recombination\"]}}, {\"id\": \"Impaired DNA Replication and Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RECQL4 deficiency compromises DNA replication and repair. Both RECQL4 and the APC/C (deficient in RTS type 1) are involved in DNA repair and replication, providing a possible mechanistic link between the two RTS types.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA replication\", \"DNA repair\"]}}, {\"id\": \"Osteosarcoma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RTS, especially type 2 with truncating RECQL4 mutations, carries a markedly increased risk of osteosarcoma. Osteosarcoma incidence is essentially zero in truncating-mutation-negative patients but elevated in those carrying truncating RECQL4 mutations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"]}}, {\"id\": \"RECQL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\"}}, {\"id\": \"RECQL4 DNA Helicase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in RECQL4 cause loss of a RecQ-family DNA helicase that unwinds double-stranded DNA into single strands. RECQL4 is one of the human RecQ helicases (alongside WRN and BLM, mutated in Werner and Bloom syndromes) and functions in DNA replication and repair. Its deficiency underlies RTS type 2.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"RecQ DNA helicase-dependent DNA replication\"], \"genes\": [\"RECQL4\"], \"gene_terms\": [{\"label\": \"RECQL4\", \"id\": \"hgnc:9949\"}]}}], \"edges\": [{\"source\": \"RECQL4 DNA Helicase Deficiency\", \"target\": \"Impaired DNA Replication and Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RECQL4 helicase function impairs DNA replication and DNA repair, since RECQL4 participates in both processes.\\n\"}, {\"source\": \"Impaired DNA Replication and Repair\", \"target\": \"Genomic Instability and Chromosomal Rearrangements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective replication and repair lead to accumulation of DNA damage and chromosomal instability.\\n\"}, {\"source\": \"Genomic Instability and Chromosomal Rearrangements\", \"target\": \"Osteosarcoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability in mesenchymal/osteoblastic lineages drives osteosarcoma, the hallmark malignancy of RTS type 2.\\n\"}, {\"source\": \"RECQL4\", \"target\": \"RECQL4 DNA Helicase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANAPC1\", \"target\": \"ANAPC1 Anaphase-Promoting Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANAPC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANAPC1\"], \"gene_terms\": [{\"label\": \"ANAPC1\", \"id\": \"hgnc:19988\"}], \"association\": \"Causative\"}}, {\"id\": \"ANAPC1 Anaphase-Promoting Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ANAPC1 mutations reduce levels of a scaffold subunit of the anaphase-promoting complex/cyclosome (APC/C). A deep intronic splicing mutation activates a 95 bp pseudoexon, producing transcripts with premature termination codons subject to nonsense-mediated decay, decreased ANAPC1 protein, and prolongation of interphase. APC/C deficiency causes RTS type 1 and is associated with juvenile cataracts.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"anaphase-promoting complex-dependent catabolic process\"], \"genes\": [\"ANAPC1\"], \"gene_terms\": [{\"label\": \"ANAPC1\", \"id\": \"hgnc:19988\"}]}}, {\"id\": \"Genomic Instability and Chromosomal Rearrangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells from RTS patients show genomic instability often associated with chromosomal rearrangements that cause acquired somatic mosaicism. This instability is the proximate driver of the cancer predisposition, particularly osteosarcoma, that characterizes RTS type 2.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"double-strand break repair via homologous recombination\"]}}, {\"id\": \"Impaired DNA Replication and Repair\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RECQL4 deficiency compromises DNA replication and repair. Both RECQL4 and the APC/C (deficient in RTS type 1) are involved in DNA repair and replication, providing a possible mechanistic link between the two RTS types.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA replication\", \"DNA repair\"]}}, {\"id\": \"Osteosarcoma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RTS, especially type 2 with truncating RECQL4 mutations, carries a markedly increased risk of osteosarcoma. Osteosarcoma incidence is essentially zero in truncating-mutation-negative patients but elevated in those carrying truncating RECQL4 mutations.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"]}}, {\"id\": \"RECQL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RECQL4\"], \"gene_terms\": [{\"label\": \"RECQL4\", \"id\": \"hgnc:9949\"}], \"association\": \"Causative\"}}, {\"id\": \"RECQL4 DNA Helicase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function mutations in RECQL4 cause loss of a RecQ-family DNA helicase that unwinds double-stranded DNA into single strands. RECQL4 is one of the human RecQ helicases (alongside WRN and BLM, mutated in Werner and Bloom syndromes) and functions in DNA replication and repair. Its deficiency underlies RTS type 2.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"RecQ DNA helicase-dependent DNA replication\"], \"genes\": [\"RECQL4\"], \"gene_terms\": [{\"label\": \"RECQL4\", \"id\": \"hgnc:9949\"}]}}], \"edges\": [{\"source\": \"RECQL4 DNA Helicase Deficiency\", \"target\": \"Impaired DNA Replication and Repair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of RECQL4 helicase function impairs DNA replication and DNA repair, since RECQL4 participates in both processes.\\n\"}, {\"source\": \"Impaired DNA Replication and Repair\", \"target\": \"Genomic Instability and Chromosomal Rearrangements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective replication and repair lead to accumulation of DNA damage and chromosomal instability.\\n\"}, {\"source\": \"Genomic Instability and Chromosomal Rearrangements\", \"target\": \"Osteosarcoma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability in mesenchymal/osteoblastic lineages drives osteosarcoma, the hallmark malignancy of RTS type 2.\\n\"}, {\"source\": \"RECQL4\", \"target\": \"RECQL4 DNA Helicase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANAPC1\", \"target\": \"ANAPC1 Anaphase-Promoting Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4888,14 +5261,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the gastrointestinal tract
+
+                        <span class="phenotype-term-label">Abnormality of the gastrointestinal tract</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011024">HP:0011024</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4915,6 +5297,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11471165" target="_blank">PMID:11471165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4956,14 +5339,21 @@
                         Juvenile Cataracts
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Juvenile cataract, annotated with Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4983,6 +5373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5005,6 +5396,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5046,14 +5438,21 @@
                         Sparse Scalp Hair
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sparse scalp hair
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002209" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002209">HP:0002209</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002209</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sparse scalp hair (HP:0002209). HP:0002209 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5073,6 +5472,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5105,14 +5505,23 @@
                         Dental Abnormalities
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the dentition
+
+                        <span class="phenotype-term-label">Abnormality of the dentition</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000164">HP:0000164</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000164</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5132,6 +5541,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5175,14 +5585,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poikiloderma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001029">HP:0001029</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001029</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poikiloderma (HP:0001029), qualified as course progressive. HP:0001029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5221,6 +5638,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11471165" target="_blank">PMID:11471165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5254,14 +5672,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperkeratosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000962">HP:0000962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkeratosis (HP:0000962). HP:0000962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5281,6 +5706,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5315,14 +5741,23 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the skin
+
+                        <span class="phenotype-term-label">Neoplasm of the skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008069" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008069">HP:0008069</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0008069</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the skin (HP:0008069). HP:0008069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5342,6 +5777,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11471165" target="_blank">PMID:11471165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5383,14 +5819,21 @@
                         Osteopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5410,6 +5853,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5444,14 +5888,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteosarcoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002669">HP:0002669</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002669</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteosarcoma (HP:0002669). HP:0002669 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5471,6 +5922,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11471165" target="_blank">PMID:11471165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5493,6 +5945,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12734318" target="_blank">PMID:12734318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5534,14 +5987,21 @@
                         Short Stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5561,6 +6021,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5602,14 +6063,21 @@
                         Cutaneous Telangiectasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cutaneous telangiectasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034697" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034697">HP:0034697</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034697" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0034697</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous telangiectasia (HP:0034697). HP:0034697 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5629,6 +6097,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5661,14 +6130,21 @@
                         Sparse Eyelashes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sparse eyelashes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000653">HP:0000653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sparse eyelashes (HP:0000653). HP:0000653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5688,6 +6164,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5720,14 +6197,21 @@
                         Sparse Eyebrows
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sparse eyebrow
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045075">HP:0045075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0045075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sparse eyebrow (HP:0045075). HP:0045075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5747,6 +6231,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5781,14 +6266,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Radial ray deficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006433">HP:0006433</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006433</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Radial ray deficiency (HP:0006433). HP:0006433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5808,6 +6300,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11471165" target="_blank">PMID:11471165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5840,14 +6333,21 @@
                         Patellar Aplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Patellar aplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006443" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006443">HP:0006443</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0006443</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patellar aplasia (HP:0006443). HP:0006443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5867,6 +6367,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5941,6 +6442,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RECQL4
+
+
+    <a href="https://bioregistry.io/hgnc:9949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9949</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RECQL4 (hgnc:9949). hgnc:9949 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -5961,6 +6484,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10319867" target="_blank">PMID:10319867</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5983,6 +6507,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12734318" target="_blank">PMID:12734318</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6016,6 +6541,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ANAPC1
+
+
+    <a href="https://bioregistry.io/hgnc:19988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:19988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ANAPC1 (hgnc:19988). hgnc:19988 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -6036,6 +6583,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31303264" target="_blank">PMID:31303264</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6067,6 +6615,92 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-rts-type-1-anapc1">
+
+
+    <div class="item-name">OMIM RTS Type 1 (ANAPC1)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:618625" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:618625">OMIM:618625</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for Rothmund-Thomson syndrome type 1 (ANAPC1-related), associated with juvenile cataracts.</div>
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-omim-rts-type-2-recql4">
+
+
+    <div class="item-name">OMIM RTS Type 2 (RECQL4)</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">OMIM</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">disease record</span>
+
+
+
+
+
+
+
+
+
+    <a href="https://bioregistry.io/OMIM:268400" target="_blank" class="curie-chip curie-chip-omim" title="Open OMIM:268400">OMIM:268400</a>
+
+
+
+
+    </div>
+
+    <div class="item-desc">OMIM phenotype entry for Rothmund-Thomson syndrome type 2 (RECQL4-related), characterized by skeletal anomalies and osteosarcoma risk.</div>
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6082,7 +6716,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6132,6 +6771,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6161,7 +6801,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pulsed dye laser therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">pulsed dye laser therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pulsed dye laser therapy, annotated with Laser Therapy (NCIT:C15466). NCIT:C15466 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Laser Therapy</span>
 
 
@@ -6211,6 +6856,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6240,7 +6886,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6290,6 +6941,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6319,7 +6971,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surveillance for malignancies</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
@@ -6369,6 +7026,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6398,7 +7056,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cancer therapeutic procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">cancer therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cancer therapeutic procedure (NCIT:C16212). NCIT:C16212 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Therapeutic Procedure</span>
 
 
@@ -6448,6 +7111,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301415" target="_blank">PMID:20301415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6490,6 +7154,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7060,6 +7727,11 @@ phenotypes:
     explanation: Documents skin cancer in 1/41 (2%) of an RTS cohort, consistent with a very rare frequency band in this pediatric-ascertained series.
 genetic:
 - name: RECQL4
+  gene_term:
+    preferred_term: RECQL4
+    term:
+      id: hgnc:9949
+      label: RECQL4
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -7089,6 +7761,11 @@ genetic:
     snippet: &#34;Twenty-three RTS patients, including all 11 osteosarcoma patients, carried at least one of 19 truncating mutations in their RECQL4 genes.&#34;
     explanation: Demonstrates that truncating RECQL4 mutations are present in all osteosarcoma patients in the cohort.
 - name: ANAPC1
+  gene_term:
+    preferred_term: ANAPC1
+    term:
+      id: hgnc:19988
+      label: ANAPC1
   association: Causative
   inheritance:
   - name: Autosomal recessive
@@ -7902,7 +8579,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rothmund-Thomson Syndrome", "mondoId": "MONDO:0010002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rothmund-Thomson_Syndrome", "yamlRevision": "62442fd9e7d1"};
+        const OS_CONFIG = {"diseaseName": "Rothmund-Thomson Syndrome", "mondoId": "MONDO:0010002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rothmund-Thomson_Syndrome", "yamlRevision": "a35d41fbc935"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8321,5 +8998,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

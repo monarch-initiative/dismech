@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development</h1>
             <div class="header-meta">
 
@@ -3699,6 +3901,8 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3797,27 +4001,121 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
 
 
 
 
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glutamate/glutamine and aspartate/asparagine metabolism&#34; under category &#34;Disorders of amino acid metabolism&#34;. This entity is the gain-of-function counterpart within that group — an inborn error of glutamate metabolism caused by excessive rather than deficient glutaminase activity.">glu gln and asp asn</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3835,7 +4133,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-de-novo">
                 <div class="item-name">
                     Autosomal dominant (de novo)
 
@@ -3881,6 +4179,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3903,6 +4202,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4016,6 +4316,12 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4032,6 +4338,12 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Assess whether the impaired reactive-oxygen-species detoxification already curated for the lens also operates in skin, since that defect is not tissue-restricted and the review links reduced redox buffer capacity to cataract. Patient fibroblasts are already available and showed the amino acid imbalance, making them the natural test system.</div>
+
+
+
+
+
+
 
 
 
@@ -4084,6 +4396,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4177,6 +4490,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4206,6 +4520,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4228,6 +4543,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4271,16 +4587,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutaminase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004359" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004359">GO:0004359</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004359" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0004359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves glutaminase activity (GO:0004359), qualified as gain of function. GO:0004359 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4301,6 +4622,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
                 </div>
+
 
 
 
@@ -4344,6 +4666,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4366,6 +4689,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4412,6 +4736,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4440,6 +4765,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4482,16 +4808,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-glutamine catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006543">GO:0006543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased L-glutamine catabolic process (GO:0006543). GO:0006543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4511,16 +4842,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
+
                     <span class="tag tag-bio">
                         L-glutamate biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097054" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097054">GO:0097054</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097054" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0097054</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased L-glutamate biosynthetic process (GO:0097054). GO:0097054 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4541,6 +4877,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
                 </div>
+
 
 
 
@@ -4593,6 +4930,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4616,6 +4954,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4638,6 +4977,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4680,16 +5020,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutamate metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006536">GO:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006536" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006536</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamate metabolic process (GO:0006536). GO:0006536 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4719,6 +5064,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4730,6 +5076,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31734463" target="_blank">PMID:31734463</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4754,6 +5101,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31734463" target="_blank">PMID:31734463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4776,6 +5124,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31734463" target="_blank">PMID:31734463</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4811,16 +5160,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4837,6 +5191,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
                 </div>
+
 
 
 
@@ -4888,6 +5243,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4910,6 +5266,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4952,16 +5309,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4989,6 +5351,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4996,7 +5359,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Lens Opacification</span>
 
-	                            <span class="crosslink-desc">Oxidative stress in the lens drives crystallin damage and opacification.</span>
+	                            <span class="crosslink-desc">Reduced reactive-oxygen-species detoxification provides the proposed redox route from Ser482Cys-GLS expression to cataract formation.</span>
 
 
 	                        </div>
@@ -5017,6 +5380,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5040,6 +5404,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5075,16 +5440,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         lens fiber cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011004" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011004">CL:0011004</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011004" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0011004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves lens fiber cell (CL:0011004). CL:0011004 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5101,6 +5471,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
                 </div>
+
 
 
 
@@ -5143,6 +5514,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5191,6 +5563,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5202,6 +5575,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5250,6 +5624,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5261,6 +5636,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5309,6 +5685,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5320,6 +5697,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5343,6 +5721,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5393,7 +5772,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Broad Metabolic Network Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glutaminase sits at the junction of many pathways, its hyperactivity remodels the metabolome well beyond the glutamine/glutamate pair. In a HEK293 model tuning GLS activity, 109 endogenously relevant metabolite features were significantly affected: TCA-cycle intermediates rose with a truncation of the cycle at citrate; transamination products, proline and ornithine synthesis, and GABA metabolism increased; and asparagine and nucleotide metabolites \\u2014 notably pyrimidine/thymine metabolites \\u2014 fell in step with glutamine. This positions the disorder as a broad metabolic perturbation rather than a single-metabolite excess, and plausibly underlies the mild hyperammonemia and the raised brain alanine and lactate reported in the patient.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glutamate metabolic process\"]}}, {\"id\": \"Cerebral White Matter Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural white matter involvement on neuroimaging. The review offers a mechanistic reading of why this recurs across inborn errors of glutamate metabolism: glutamate induces myelination of axons, so disturbed glutamate metabolism plausibly disturbs myelin.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"De Novo GLS p.Ser482Cys Hypermorphic Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a heterozygous de novo missense variant, p.Ser482Cys, in GLS. Ser482 is not itself a catalytic residue but is conserved to the same degree as the catalytic residues across roughly 12,000 GLS sequences from more than 1,000 genera \\u2014 evidence that its identity is under strong selection precisely because it tunes enzyme activity downward.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early-Onset Bilateral Cataract\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataract of early onset, one of the two title features of the disorder. The review\u0027s clinical table further records it as bilateral and neonatal in onset, while the original report titles it an infantile cataract; that laterality and timing detail comes from a table cell rather than a quotable sentence, so it is described here rather than carried as an evidence snippet.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failed Homeostatic Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells mount a two-armed homeostatic response to the hyperactive enzyme: compensatory downregulation of GLS expression, and upregulation of the counteracting enzyme glutamine synthetase, which runs the reverse reaction (glutamate to glutamine). The persistence of severe glutamate excess and glutamine depletion in patient tissues shows this compensation to be insufficient. The presence of the compensatory response is itself part of the evidence for pathogenicity, since it demonstrates the cell registers the variant as a perturbation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GLS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GLS\"], \"gene_terms\": [{\"label\": \"GLS\", \"id\": \"hgnc:4331\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\", \"variant_count\": 1}}, {\"id\": \"GLS p.Ser482Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo heterozygous missense variant substituting cysteine for the highly conserved serine at position 482 of glutaminase. Not a catalytic residue, but conserved to the same degree as the catalytic residues; the substitution is proposed to improve the electrostatic environment of the catalytic site and thereby raise activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLS\"], \"gene_terms\": [{\"label\": \"GLS\", \"id\": \"hgnc:4331\"}]}}, {\"id\": \"Glutamate Excess and Glutamine Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactive glutaminase drives excessive conversion of glutamine to glutamate. Increased glutamate with decreased glutamine was measured in urine and in fibroblasts, and the imbalance is far more extreme in brain, where magnetic resonance spectroscopic imaging showed extremely high glutamate in both grey and white matter with glutamine almost undetectable. This is the exact biochemical inverse of the hyperglutaminemia of glutaminase deficiency. Notably the imbalance is compartment-dependent: cerebrospinal-fluid glutamate and glutamine were reported as unremarkable even while brain-tissue spectroscopy was grossly abnormal, so a normal CSF amino acid profile does not exclude the diagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-glutamine catabolic process\", \"L-glutamate biosynthetic process\"]}}, {\"id\": \"Glutamate Neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamate is neurotoxic in excess (excitotoxicity), and the brain glutamate concentrations measured in this patient were strikingly high. The original authors advance this as the explanation for the profound developmental delay. Note the direction of the claim: this is the same neurotransmitter whose deficiency is invoked in GLS loss-of-function disease, so glutaminase disorders damage the brain from either direction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Glutaminase Inhibition (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacological GLS inhibition is the mechanistically rational therapy for a hypermorphic GLS allele, and glutaminase inhibitors already exist in oncology. Proof of concept is limited to the zebrafish model, where GLS inhibition alleviated the cataract phenotype. This has NOT been tested in humans with this disorder, and no dosing, safety, or efficacy data in patients exist \\u2014 it is recorded here as a mechanistic lead, not a treatment recommendation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Reactive Oxygen Species Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the hypermorphic Ser482Cys allele reduces the capacity to detoxify reactive oxygen species. Because cataract is a known consequence of oxidative stress, this provides the mechanistic route from a glutamine metabolism defect to a lens phenotype \\u2014 a connection that is otherwise non-obvious.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Intrinsic Glutaminase Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ser482Cys is proposed to improve the electrostatic environment of the glutaminase catalytic site, intrinsically inducing hyperactivity. This is a qualitative change in regulation rather than a simple quantitative increase: the enzyme is driven above the submaximal activity that evolutionary constraint on Ser482 appears designed to maintain, and the cell\u0027s homeostatic responses (see the compensatory node) fail to restore balance.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"glutaminase activity\"]}}, {\"id\": \"Lens Opacification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of lens transparency producing bilateral cataract of early onset. The causal chain from the GLS variant was demonstrated experimentally in zebrafish: cataract was evoked by expressing hypermorphic Ser482Cys-GLS, and \\u2014 importantly for therapeutic reasoning \\u2014 was alleviated by inhibition of GLS.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lens fiber cell\"]}}, {\"id\": \"Profound Developmental Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound impairment of development, the dominant clinical burden of the disorder, accompanied by axial hypotonia, kyphosis, and agitated and self-injuring behaviour.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"De Novo GLS p.Ser482Cys Hypermorphic Variant\", \"target\": \"Intrinsic Glutaminase Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution alters the catalytic site environment, intrinsically raising enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrinsic Glutaminase Hyperactivity\", \"target\": \"Failed Homeostatic Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell responds by downregulating GLS and upregulating glutamine synthetase, but the compensation is insufficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrinsic Glutaminase Hyperactivity\", \"target\": \"Glutamate Excess and Glutamine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive glutaminase over-converts glutamine to glutamate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Homeostatic Compensation\", \"target\": \"Glutamate Excess and Glutamine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compensation is insufficient to prevent the amino acid imbalance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Glutamate Neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess brain glutamate is neurotoxic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Impaired Reactive Oxygen Species Detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermorphic GLS expression reduces the capacity to detoxify reactive oxygen species.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Broad Metabolic Network Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glutamine-to-glutamate shift propagates through the TCA cycle, transamination, and nucleotide metabolism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutamate Neurotoxicity\", \"target\": \"Profound Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glutamate excitotoxicity impairs neurodevelopment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Neurotoxicity\", \"target\": \"Cerebral White Matter Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White matter is affected, consistent with the elevated glutamate measured in white matter as well as grey matter.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Reactive Oxygen Species Detoxification\", \"target\": \"Lens Opacification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress in the lens drives crystallin damage and opacification.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lens Opacification\", \"target\": \"Early-Onset Bilateral Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens opacification manifests clinically as early-onset bilateral cataract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutaminase Inhibition (investigational)\", \"target\": \"Intrinsic Glutaminase Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLS p.Ser482Cys\", \"target\": \"GLS\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Broad Metabolic Network Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because glutaminase sits at the junction of many pathways, its hyperactivity remodels the metabolome well beyond the glutamine/glutamate pair. In a HEK293 model tuning GLS activity, 109 endogenously relevant metabolite features were significantly affected: TCA-cycle intermediates rose with a truncation of the cycle at citrate; transamination products, proline and ornithine synthesis, and GABA metabolism increased; and asparagine and nucleotide metabolites \\u2014 notably pyrimidine/thymine metabolites \\u2014 fell in step with glutamine. This positions the disorder as a broad metabolic perturbation rather than a single-metabolite excess, and plausibly underlies the mild hyperammonemia and the raised brain alanine and lactate reported in the patient.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"glutamate metabolic process\"]}}, {\"id\": \"Cerebral White Matter Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural white matter involvement on neuroimaging. The review offers a mechanistic reading of why this recurs across inborn errors of glutamate metabolism: glutamate induces myelination of axons, so disturbed glutamate metabolism plausibly disturbs myelin.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"De Novo GLS p.Ser482Cys Hypermorphic Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is a heterozygous de novo missense variant, p.Ser482Cys, in GLS. Ser482 is not itself a catalytic residue but is conserved to the same degree as the catalytic residues across roughly 12,000 GLS sequences from more than 1,000 genera \\u2014 evidence that its identity is under strong selection precisely because it tunes enzyme activity downward.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early-Onset Bilateral Cataract\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataract of early onset, one of the two title features of the disorder. The review\u0027s clinical table further records it as bilateral and neonatal in onset, while the original report titles it an infantile cataract; that laterality and timing detail comes from a table cell rather than a quotable sentence, so it is described here rather than carried as an evidence snippet.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failed Homeostatic Compensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cells mount a two-armed homeostatic response to the hyperactive enzyme: compensatory downregulation of GLS expression, and upregulation of the counteracting enzyme glutamine synthetase, which runs the reverse reaction (glutamate to glutamine). The persistence of severe glutamate excess and glutamine depletion in patient tissues shows this compensation to be insufficient. The presence of the compensatory response is itself part of the evidence for pathogenicity, since it demonstrates the cell registers the variant as a perturbation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GLS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GLS\"], \"gene_terms\": [{\"label\": \"GLS\", \"id\": \"hgnc:4331\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\", \"variant_count\": 1}}, {\"id\": \"GLS p.Ser482Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo heterozygous missense variant substituting cysteine for the highly conserved serine at position 482 of glutaminase. Not a catalytic residue, but conserved to the same degree as the catalytic residues; the substitution is proposed to improve the electrostatic environment of the catalytic site and thereby raise activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLS\"], \"gene_terms\": [{\"label\": \"GLS\", \"id\": \"hgnc:4331\"}]}}, {\"id\": \"Glutamate Excess and Glutamine Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperactive glutaminase drives excessive conversion of glutamine to glutamate. Increased glutamate with decreased glutamine was measured in urine and in fibroblasts, and the imbalance is far more extreme in brain, where magnetic resonance spectroscopic imaging showed extremely high glutamate in both grey and white matter with glutamine almost undetectable. This is the exact biochemical inverse of the hyperglutaminemia of glutaminase deficiency. Notably the imbalance is compartment-dependent: cerebrospinal-fluid glutamate and glutamine were reported as unremarkable even while brain-tissue spectroscopy was grossly abnormal, so a normal CSF amino acid profile does not exclude the diagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-glutamine catabolic process\", \"L-glutamate biosynthetic process\"]}}, {\"id\": \"Glutamate Neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glutamate is neurotoxic in excess (excitotoxicity), and the brain glutamate concentrations measured in this patient were strikingly high. The original authors advance this as the explanation for the profound developmental delay. Note the direction of the claim: this is the same neurotransmitter whose deficiency is invoked in GLS loss-of-function disease, so glutaminase disorders damage the brain from either direction.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Glutaminase Inhibition (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pharmacological GLS inhibition is the mechanistically rational therapy for a hypermorphic GLS allele, and glutaminase inhibitors already exist in oncology. Proof of concept is limited to the zebrafish model, where GLS inhibition alleviated the cataract phenotype. This has NOT been tested in humans with this disorder, and no dosing, safety, or efficacy data in patients exist \\u2014 it is recorded here as a mechanistic lead, not a treatment recommendation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Reactive Oxygen Species Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the hypermorphic Ser482Cys allele reduces the capacity to detoxify reactive oxygen species. Because cataract is a known consequence of oxidative stress, this provides the mechanistic route from a glutamine metabolism defect to a lens phenotype \\u2014 a connection that is otherwise non-obvious.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Intrinsic Glutaminase Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ser482Cys is proposed to improve the electrostatic environment of the glutaminase catalytic site, intrinsically inducing hyperactivity. This is a qualitative change in regulation rather than a simple quantitative increase: the enzyme is driven above the submaximal activity that evolutionary constraint on Ser482 appears designed to maintain, and the cell\u0027s homeostatic responses (see the compensatory node) fail to restore balance.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"glutaminase activity\"]}}, {\"id\": \"Lens Opacification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of lens transparency producing bilateral cataract of early onset. The causal chain from the GLS variant was demonstrated experimentally in zebrafish: cataract was evoked by expressing hypermorphic Ser482Cys-GLS, and \\u2014 importantly for therapeutic reasoning \\u2014 was alleviated by inhibition of GLS.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"lens fiber cell\"]}}, {\"id\": \"Profound Developmental Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profound impairment of development, the dominant clinical burden of the disorder, accompanied by axial hypotonia, kyphosis, and agitated and self-injuring behaviour.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"De Novo GLS p.Ser482Cys Hypermorphic Variant\", \"target\": \"Intrinsic Glutaminase Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution alters the catalytic site environment, intrinsically raising enzyme activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrinsic Glutaminase Hyperactivity\", \"target\": \"Failed Homeostatic Compensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cell responds by downregulating GLS and upregulating glutamine synthetase, but the compensation is insufficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrinsic Glutaminase Hyperactivity\", \"target\": \"Glutamate Excess and Glutamine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive glutaminase over-converts glutamine to glutamate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Homeostatic Compensation\", \"target\": \"Glutamate Excess and Glutamine Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Compensation is insufficient to prevent the amino acid imbalance.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Glutamate Neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess brain glutamate is neurotoxic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Impaired Reactive Oxygen Species Detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermorphic GLS expression reduces the capacity to detoxify reactive oxygen species.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Excess and Glutamine Depletion\", \"target\": \"Broad Metabolic Network Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The glutamine-to-glutamate shift propagates through the TCA cycle, transamination, and nucleotide metabolism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutamate Neurotoxicity\", \"target\": \"Profound Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glutamate excitotoxicity impairs neurodevelopment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glutamate Neurotoxicity\", \"target\": \"Cerebral White Matter Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White matter is affected, consistent with the elevated glutamate measured in white matter as well as grey matter.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Reactive Oxygen Species Detoxification\", \"target\": \"Lens Opacification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced reactive-oxygen-species detoxification provides the proposed redox route from Ser482Cys-GLS expression to cataract formation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Lens Opacification\", \"target\": \"Early-Onset Bilateral Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens opacification manifests clinically as early-onset bilateral cataract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutaminase Inhibition (investigational)\", \"target\": \"Intrinsic Glutaminase Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GLS p.Ser482Cys\", \"target\": \"GLS\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5438,14 +5817,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Cataract
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cataract
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000518">HP:0000518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infantile cataract, annotated with Cataract (HP:0000518), qualified as infantile onset. HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5495,6 +5881,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5517,6 +5904,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5559,14 +5947,23 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Skin abnormality
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the skin
+
+                        <span class="phenotype-term-label">Abnormality of the skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000951">HP:0000951</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000951</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin abnormality, annotated with Abnormality of the skin (HP:0000951). HP:0000951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5586,6 +5983,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5628,14 +6026,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Kyphosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002808">HP:0002808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5655,6 +6060,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5697,14 +6103,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Profound global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Profound global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012736">HP:0012736</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012736</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Profound global developmental delay (HP:0012736). HP:0012736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5724,6 +6137,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5757,14 +6171,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Self-injurious behavior
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Self-injurious behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5784,6 +6205,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5817,14 +6239,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Abnormal cerebral white matter morphology
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cerebral white matter morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002500">HP:0002500</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002500</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral white matter involvement, annotated with Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5844,6 +6273,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5886,14 +6316,21 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         Axial hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Axial hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008936">HP:0008936</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008936</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5913,6 +6350,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5990,13 +6428,18 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GLS
 
 
-    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4331">hgnc:4331</a>
+    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:4331</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLS (hgnc:4331). hgnc:4331 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6022,6 +6465,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6044,6 +6488,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6083,13 +6528,18 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: GLS
 
 
-    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4331">hgnc:4331</a>
+    <a href="https://bioregistry.io/hgnc:4331" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:4331</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in GLS (hgnc:4331). hgnc:4331 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6099,6 +6549,8 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
     <div class="item-desc">De novo heterozygous missense variant substituting cysteine for the highly conserved serine at position 482 of glutaminase. Not a catalytic residue, but conserved to the same degree as the catalytic residues; the substitution is proposed to improve the electrostatic environment of the catalytic site and thereby raise activity.</div>
+
+
 
 
 
@@ -6117,6 +6569,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6154,6 +6607,9 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6169,7 +6625,12 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6216,7 +6677,12 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -6263,7 +6729,12 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6329,6 +6800,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6396,6 +6868,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6446,6 +6919,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6498,6 +6972,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30239721" target="_blank">PMID:30239721</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6520,6 +6995,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6572,6 +7048,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6594,6 +7071,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31603991" target="_blank">PMID:31603991</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6632,6 +7110,9 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6996,10 +7477,23 @@ pathophysiology:
       shared driver of cataract across inborn errors of glutamate metabolism.
   downstream:
   - target: Lens Opacification
-    description: Oxidative stress in the lens drives crystallin damage and opacification.
+    description: &gt;-
+      Reduced reactive-oxygen-species detoxification provides the proposed redox
+      route from Ser482Cys-GLS expression to cataract formation.
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:30239721
+      reference_title: &#34;GLS hyperactivity causes glutamate excess, infantile cataract and profound developmental delay.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;The capacity to detoxify reactive oxygen species was reduced upon Ser482Cys-GLS expression, providing an explanation for cataract formation.&#34;
+      explanation: &gt;-
+        Directly supports reduced reactive-oxygen-species detoxification as the
+        proposed link between the hypermorphic GLS allele and cataract without
+        asserting a crystallin-aggregation intermediate.
 
 - name: Lens Opacification
+  conforms_to: &#34;cataract_lens_opacification#Loss of Lens Refractive Transparency and Light Scattering&#34;
   biological_scale: TISSUE
   description: &gt;
     Loss of lens transparency producing bilateral cataract of early onset. The
@@ -7598,7 +8092,7 @@ discussions:
     excluding contiguous-gene-deletion syndromes.
   posed_by: curator
 
-notes: &gt;
+notes: &gt;-
   Naming: the acronym CASGID is used for this entity. The dismech entry name
   follows the full OMIM/MONDO descriptive name for consistency with the sibling
   GLS entry Global Developmental Delay, Progressive Ataxia, and Elevated
@@ -7772,7 +8266,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development", "mondoId": "MONDO:0032685", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile_Cataract,_Skin_Abnormalities,_Glutamate_Excess,_and_Impaired_Intellectual_Development", "yamlRevision": "455b5a88f9f8"};
+        const OS_CONFIG = {"diseaseName": "Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development", "mondoId": "MONDO:0032685", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile_Cataract,_Skin_Abnormalities,_Glutamate_Excess,_and_Impaired_Intellectual_Development", "yamlRevision": "a4c9ab140213"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8191,5 +8685,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

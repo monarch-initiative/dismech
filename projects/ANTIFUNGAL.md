@@ -5,6 +5,7 @@ description: 'Extends the antimicrobial drug–bug mechanism layer to antifungal
 diseases:
 - Chromoblastomycosis
 - Coccidioidomycosis
+- Invasive Candidiasis
 - Mycetoma
 - Otomycosis
 modules:
@@ -30,9 +31,10 @@ recurrent *fungus-property × drug-class* interactions are captured once as
 term + independent snippet-substring verification of every evidence quote): four
 drug-target modules (ergosterol synthesis, polyene membrane binding, echinocandin
 β-glucan synthesis, flucytosine antimetabolite) plus the species-level
-intrinsic-resistance gating module. The remaining work is **wiring conforming
-disease entries** and creating the missing flagship entries (cryptococcal
-meningitis, invasive candidiasis), tracked in §7.
+intrinsic-resistance gating module. Invasive candidiasis is now the first
+target-only echinocandin conformer. The remaining work is wiring additional
+conforming disease entries and creating the cryptococcal-meningitis flagship,
+tracked in §7.
 
 Antifungal pharmacology has a tighter, more conserved target set than antivirals
 because fungi are eukaryotes — selective toxicity hinges on a handful of
@@ -43,7 +45,7 @@ cell wall mammalian cells lack).
 |---|---|---|---|
 | `fungal_ergosterol_synthesis_inhibition` | Ergosterol biosynthesis: lanosterol 14α-demethylase (CYP51/ERG11, azole target) and squalene epoxidase (ERG1, allylamine target) | triazoles, imidazoles, allylamines | Otomycosis (clotrimazole, fluconazole), Coccidioidomycosis (fluconazole/itraconazole), Chromoblastomycosis (itraconazole/terbinafine), Mycetoma (itraconazole) |
 | `fungal_membrane_ergosterol_binding` | Direct ergosterol binding → membrane pore / oxidative damage | polyenes | Coccidioidomycosis (amphotericin B for severe/disseminated), Mycetoma |
-| `fungal_cell_wall_glucan_synthesis_inhibition` | β-1,3-glucan synthase (FKS1) — fungal-specific wall target, cleanest selectivity story | echinocandins | (candidemia/invasive candidiasis entry needed — see Next Steps) |
+| `fungal_cell_wall_glucan_synthesis_inhibition` | β-1,3-glucan synthase (principally FKS1; FKS2 additionally in species such as *C. glabrata*) — fungal-specific wall target | echinocandins | Invasive Candidiasis / Candidemia (anidulafungin) |
 | `fungal_nucleic_acid_antimetabolite` | Intracellular conversion to 5-FU by fungal cytosine deaminase → DNA/RNA synthesis disruption (mammals lack the enzyme → selectivity) | flucytosine | (cryptococcal meningitis entry needed — AmB + flucytosine induction) |
 | `antifungal_intrinsic_resistance_gating` | **Gating, not a drug target.** Species-level target absence/insensitivity excludes whole drug classes | (explains why empiric choice depends on organism ID) | Otomycosis (Aspergillus is intrinsically fluconazole-resistant) |
 
@@ -57,10 +59,10 @@ antibacterial side):
   **and** `antifungal_intrinsic_resistance_gating` because *Cryptococcus* is
   intrinsically echinocandin-resistant (β-glucan synthase is present but not a
   viable target), explaining why the cell-wall module does **not** apply.
-- **Invasive candidiasis** (entry to be created): echinocandin
-  (`fungal_cell_wall_glucan_synthesis_inhibition`) first-line vs azole
-  (`fungal_ergosterol_synthesis_inhibition`) step-down, gated by *Candida*
-  species / *C. auris* resistance.
+- **Invasive candidiasis**: the target-only first tranche now models
+  anidulafungin inhibition of Fks glucan synthase via
+  `fungal_cell_wall_glucan_synthesis_inhibition`. Azole step-down and
+  species/*C. auris* resistance gating remain future multi-module extensions.
 
 ## 0. Scope and Positioning (what this is and is NOT)
 
@@ -124,7 +126,8 @@ synthase is essential and accessible (Candida, Aspergillus) — not in
 agent therapy as appropriate) or `NCIT:C15986` (Pharmacotherapy) /
 `NCIT:C15986` (Pharmacotherapy) + `therapeutic_agent` (CHEBI for the
 drug, e.g. `CHEBI:3764` clotrimazole, plus fluconazole/itraconazole/amphotericin
-B/caspofungin/flucytosine) + `therapeutic_modality: SMALL_MOLECULE`. Says
+B/caspofungin/flucytosine) + the modality appropriate to that agent (usually
+`SMALL_MOLECULE`; echinocandins such as anidulafungin are `PEPTIDE`). Says
 "clotrimazole is used for otomycosis."
 
 **Tier 2 — the mechanistic edge (the depth).** Add a pathophysiology node for the
@@ -132,7 +135,7 @@ targeted fungal step and link `target_mechanisms` to it: an azole → "Ergostero
 Biosynthesis — Lanosterol 14α-Demethylase (CYP51/ERG11)"; terbinafine →
 "Ergosterol Biosynthesis — Squalene Epoxidase (ERG1)"; amphotericin B →
 "Ergosterol Membrane Integrity"; an echinocandin → "β-1,3-Glucan Cell-Wall
-Synthesis (FKS1)"; flucytosine → "Fungal DNA/RNA Synthesis (cytosine-deaminase
+Synthesis by Fks glucan synthase"; flucytosine → "Fungal DNA/RNA Synthesis (cytosine-deaminase
 activation)". Use `target_phenotypes` for adjuncts (surgical debridement, immune
 reconstitution).
 
@@ -148,7 +151,7 @@ the module set is small and high-coverage.
 |---|---|---|
 | **Ergosterol vs cholesterol membrane** | the selective-toxicity basis for both azoles (block synthesis) and polyenes (bind it); also the source of polyene host toxicity | all mycoses — Coccidioidomycosis (amphotericin B) |
 | **Druggable CYP51 / ERG11** | azole target; point mutations or overexpression (and environmental TR34/L98H in *Aspergillus*) abolish activity | Otomycosis, Coccidioidomycosis, Chromoblastomycosis |
-| **β-1,3-glucan cell wall (FKS1)** | fungal-specific echinocandin target — present/essential in *Candida*/*Aspergillus*, **not** a viable target in *Cryptococcus* or the Mucorales | future invasive-candidiasis entry; absence explains echinocandin failure in cryptococcosis |
+| **β-1,3-glucan cell wall (Fks glucan synthase)** | fungal-specific echinocandin target — encoded principally by FKS1, with FKS2 additionally important in species such as *C. glabrata*; present/essential in *Candida*/*Aspergillus*, **not** a viable target in *Cryptococcus* or the Mucorales | Invasive Candidiasis; target non-viability explains echinocandin failure in cryptococcosis |
 | **Cytosine deaminase / permease** | flucytosine needs fungal activation; rapid monotherapy resistance mandates combination use | future cryptococcal-meningitis entry (AmB + flucytosine) |
 | **Intrinsic species resistance** | whole classes excluded a priori by organism ID | Otomycosis (*Aspergillus* intrinsically fluconazole-resistant); Mucorales (voriconazole/echinocandin-resistant → isavuconazole/AmB); *Cryptococcus* (echinocandin-resistant) |
 | **CNS / compartment penetration (PK)** | fluconazole, flucytosine, voriconazole reach CSF; echinocandins and lipid AmB penetrate poorly | cryptococcal/coccidioidal meningitis → fluconazole consolidation; Coccidioidomycosis (coccidioidal meningitis subtype) |
@@ -201,10 +204,11 @@ folate module holds distinct DHPS and DHFR nodes.
       (membrane ergosterol as the polyene binding target → permeabilization /
       fungicidal killing → rare resistance via reduced ergosterol). Evidence:
       31643715 (LiverTox), Anderson 24681535 (sterol-sponge), Czajka 37998390.
-- [x] Draft `fungal_cell_wall_glucan_synthesis_inhibition` (echinocandins, FKS1).
-      Built: four nodes (β-1,3-glucan synthase target → cell-wall integrity
-      failure / osmotic lysis → FKS-mediated resistance → intrinsic resistance in
-      Cryptococcus/Mucorales). Evidence: Perlin 26190298 / 26567278, Emri
+- [x] Draft `fungal_cell_wall_glucan_synthesis_inhibition` (echinocandins,
+      Fks glucan synthase). Built: five nodes (β-1,3-glucan synthase target → normal
+      cell-wall assembly, plus intervention-conditional integrity failure /
+      osmotic lysis, FKS-mediated resistance, and intrinsic resistance in
+      Cryptococcus). Evidence: Perlin 26190298 / 26567278, Emri
       23463246, Aruanno 31138565, Cappelletty 21694887, Iyer 33558691.
 - [x] Draft `fungal_nucleic_acid_antimetabolite` (flucytosine). Built: three
       nodes (fungal cytosine-deaminase activation of 5-FC to 5-FU → disruption of
@@ -217,8 +221,9 @@ folate module holds distinct DHPS and DHFR nodes.
       Mucorales/voriconazole+echinocandin → acquired multidrug resistance in
       *Candida auris*). Evidence: 33558691, 38445857, 31159914, 33091071,
       28911043.
-- [ ] **Wire conforming disease entries** (modules exist but no fungal disorder
-      yet `conforms_to` them). **Otomycosis** first: add an ergosterol-synthesis
+- [ ] **Wire additional conforming disease entries.** Invasive Candidiasis now
+      provides the first target-only conformer. **Otomycosis** next: add an
+      ergosterol-synthesis
       (CYP51/ERG11) drug-target node, `conforms_to` the module, `target_mechanisms`
       from clotrimazole/miconazole/fluconazole, and connect the existing
       biofilm/resistance node to `antifungal_intrinsic_resistance_gating`
@@ -226,11 +231,13 @@ folate module holds distinct DHPS and DHFR nodes.
       (azole) + ergosterol-membrane (amphotericin B) target nodes; cross-link the
       existing dectin-1/CLEC7A β-glucan host-recognition node to the β-glucan
       drug-target node.
-- [ ] Create the missing flagship entries that unlock the multi-module
-      conformers: **Cryptococcal_Meningitis** (AmB + flucytosine induction →
-      fluconazole consolidation; echinocandin-resistant) and **Invasive
-      Candidiasis / Candidemia** (echinocandin first-line; *C. auris* resistance).
-      These do not yet exist in `kb/disorders/` and are the worked-example payoff.
+- [ ] Create **Cryptococcal_Meningitis**, the remaining missing flagship
+      conformer (AmB + flucytosine induction → fluconazole consolidation;
+      echinocandin-resistant).
+- [x] Create **Invasive_Candidiasis** with Candidemia as a subtype and the
+      minimal Fks glucan-synthase target-only conformer: anidulafungin → INHIBITS → fungal
+      beta-1,3-glucan synthase. Azole step-down and acquired-resistance wiring
+      remain later extensions.
 - [ ] Wire **Chromoblastomycosis** and **Mycetoma** (eumycetoma) as the
       surgery-plus-prolonged-azole, drug-refractory cases — itraconazole/
       terbinafine `target_mechanisms` onto the ergosterol-synthesis node, with

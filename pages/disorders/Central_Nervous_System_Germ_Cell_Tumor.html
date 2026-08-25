@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Central Nervous System Germ Cell Tumor</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Central Nervous System Germ Cell Tumor</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3776,7 +3980,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -3809,27 +4013,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3844,7 +4125,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-cns-germ-cell-tumor-literature-scope">
                 <div class="item-name">CNS germ cell tumor literature scope</div>
 
                 <div class="item-desc">A CNS germ cell tumor family that primarily affects children and adolescents and is divided clinically into germinoma and NGGCT; individual components range from mature teratoma to malignant histologies.</div>
@@ -3890,6 +4171,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42419530" target="_blank">PMID:42419530</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -3926,7 +4208,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
 
@@ -3951,7 +4233,11 @@
 
 
 
-                <div class="item-box subtype-box">
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-central-nervous-system-germinoma">
 
                     <div class="item-name">
                         CNS germinoma
@@ -3987,6 +4273,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank">PMID:28078450</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4013,7 +4300,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">
 
                     <div class="item-name">
                         CNS NGGCT
@@ -4049,6 +4336,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35137206" target="_blank">PMID:35137206</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4075,7 +4363,70 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-central-nervous-system-embryonal-carcinoma">
+
+                    <div class="item-name">
+                        CNS embryonal carcinoma
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0018843" target="_blank">MONDO:0018843</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The embryonal carcinoma histology within the CNS NGGCT spectrum, previously named only in this entry&#39;s prose. It is the least differentiated non-germinomatous component, and its disease-level mechanism is curated in the Embryonal Carcinoma entry rather than duplicated here.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42115464" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42115464" target="_blank">PMID:42115464</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NGGCTs include embryonal carcinoma, yolk sac tumor, choriocarcinoma, and teratomas and often secrete tumor markers like alpha-fetoprotein (AFP) and beta-hCG, which guide diagnosis and treatment without biopsy."</div>
+
+
+                <div class="evidence-explanation">Names embryonal carcinoma as one of the intracranial NGGCT histologies, supporting it as a subtype of this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-central-nervous-system-teratoma">
 
                     <div class="item-name">
                         CNS teratoma
@@ -4110,6 +4461,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452948" target="_blank">PMID:37452948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4218,6 +4570,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank">PMID:28078450</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4240,6 +4593,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank">PMID:28078450</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4261,6 +4615,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20582452" target="_blank">PMID:20582452</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4351,6 +4706,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218656" target="_blank">PMID:35218656</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4373,6 +4729,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218656" target="_blank">PMID:35218656</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4394,6 +4751,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42488730" target="_blank">PMID:42488730</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4484,6 +4842,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29036598" target="_blank">PMID:29036598</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4506,6 +4865,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29036598" target="_blank">PMID:29036598</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4527,6 +4887,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36768818" target="_blank">PMID:36768818</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4584,7 +4945,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
 
 
@@ -4610,10 +4971,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         spatial single-cell multi-omic lineage study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type spatial single-cell multi-omic lineage study.</span>
     </span>
 
 
@@ -4654,6 +5021,7 @@
 
 
 
+
         </div>
 
 
@@ -4671,6 +5039,7 @@
         <div>Use ethically sourced published and prospectively generated reference profiles spanning primordial germ-cell specification and migration, neural stem and progenitor states, and early embryonic differentiation without treating nearest-neighbor similarity as proof of ancestry.</div>
 
         <div class="item-meta">
+
 
 
 
@@ -4697,7 +5066,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
     </div>
 
@@ -4740,7 +5109,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
     </div>
 
@@ -4761,10 +5130,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         single-cell DNA and RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by single-cell DNA and RNA sequencing.</span>
     </span>
 
 
@@ -4788,10 +5163,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         single-cell methylome and chromatin accessibility profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by single-cell methylome and chromatin accessibility profiling.</span>
     </span>
 
 
@@ -4815,10 +5196,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         spatial transcriptomics
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by spatial transcriptomics.</span>
     </span>
 
 
@@ -4901,7 +5288,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
 
 
@@ -4918,12 +5305,18 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4945,10 +5338,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-5">
 
         isogenic developmental-stage causal epistasis study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment is of type this experiment type
+This experiment is of type isogenic developmental-stage causal epistasis study.</span>
     </span>
 
 
@@ -4989,6 +5388,7 @@
 
 
 
+
         </div>
 
 
@@ -5006,6 +5406,7 @@
         <div>Establish centrally reviewed germinoma and NGGCT organoids with isogenic correction or introduction of candidate lesions.</div>
 
         <div class="item-meta">
+
 
 
 
@@ -5032,7 +5433,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
     </div>
 
@@ -5075,7 +5476,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
     </div>
 
@@ -5096,10 +5497,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         longitudinal multi-omic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by longitudinal multi-omic profiling.</span>
     </span>
 
 
@@ -5123,10 +5530,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         clonogenic transformation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by clonogenic transformation assay.</span>
     </span>
 
 
@@ -5195,7 +5608,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
 
 
@@ -5212,12 +5625,18 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</span>
+    <a class="entity-ref-chip" href="#hypothesis-common-ancestry-developmental-state-divergence">mechanistic_hypothesis#common_ancestry_developmental_state_divergence</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5247,6 +5666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank">PMID:28078450</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5292,21 +5712,21 @@
 
 
 
-    <span class="entity-ref-chip">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</span>
+    <a class="entity-ref-chip" href="#subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</span>
+    <a class="entity-ref-chip" href="#hypothesis-mir214-bcl2l11-cisplatin-response-candidate">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</a>
 
 
 
@@ -5332,10 +5752,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-8">
 
         prospective longitudinal tumor evolution study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal tumor evolution study.</span>
     </span>
 
 
@@ -5376,6 +5802,7 @@
 
 
 
+
         </div>
 
 
@@ -5393,6 +5820,7 @@
         <div>Include durable responders matched on stage, histology, markers, radiation field, age, sex, location, and treatment regimen.</div>
 
         <div class="item-meta">
+
 
 
 
@@ -5419,7 +5847,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5462,7 +5890,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5483,10 +5911,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
 
         single-cell and bulk multi-omic sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+This readout is measured by single-cell and bulk multi-omic sequencing.</span>
     </span>
 
 
@@ -5510,10 +5944,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         spatial pathology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by spatial pathology.</span>
     </span>
 
 
@@ -5552,7 +5992,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5573,10 +6013,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-11">
 
         cerebrospinal-fluid circulating tumor DNA assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this readout is measured by this assay
+This readout is measured by cerebrospinal-fluid circulating tumor DNA assay.</span>
     </span>
 
 
@@ -5600,10 +6046,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-12">
 
         serial tumor-marker measurement
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Relation: this readout is measured by this assay
+This readout is measured by serial tumor-marker measurement.</span>
     </span>
 
 
@@ -5686,7 +6138,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
 
 
@@ -5703,12 +6155,18 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5730,10 +6188,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-13">
 
         patient-derived resistance epistasis and rescue study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Relation: this experiment is of type this experiment type
+This experiment is of type patient-derived resistance epistasis and rescue study.</span>
     </span>
 
 
@@ -5774,6 +6238,7 @@
 
 
 
+
         </div>
 
 
@@ -5791,6 +6256,7 @@
         <div>Introduce or correct candidate alterations in multiple genetic and histologic backgrounds rather than relying on one cell line.</div>
 
         <div class="item-meta">
+
 
 
 
@@ -5817,7 +6283,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5853,7 +6319,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5889,7 +6355,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</span>
+    <a class="entity-ref-chip" href="#hypothesis-mir214-bcl2l11-cisplatin-response-candidate">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</a>
 
     </div>
 
@@ -5932,7 +6398,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
     </div>
 
@@ -5953,10 +6419,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-14">
 
         clonal barcode tracking
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Relation: this readout is measured by this assay
+This readout is measured by clonal barcode tracking.</span>
     </span>
 
 
@@ -5980,10 +6452,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-15">
 
         drug and radiation response assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this readout is measured by this assay
+This readout is measured by drug and radiation response assay.</span>
     </span>
 
 
@@ -6052,14 +6530,14 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</span>
+    <a class="entity-ref-chip" href="#hypothesis-mir214-bcl2l11-cisplatin-response-candidate">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</a>
 
 
 
@@ -6076,19 +6554,25 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</span>
+    <a class="entity-ref-chip" href="#hypothesis-nggct-failure-state-specific-persistence-and-evolution">mechanistic_hypothesis#nggct_failure_state_specific_persistence_and_evolution</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</span>
+    <a class="entity-ref-chip" href="#hypothesis-mir214-bcl2l11-cisplatin-response-candidate">mechanistic_hypothesis#mir214_bcl2l11_cisplatin_response_candidate</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -6119,6 +6603,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218656" target="_blank">PMID:35218656</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6140,6 +6625,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39189644" target="_blank">PMID:39189644</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6185,7 +6671,7 @@
 
 
 
-    <span class="entity-ref-chip">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</span>
+    <a class="entity-ref-chip" href="#subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</a>
 
 
 
@@ -6211,10 +6697,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-16">
 
         randomized risk-adapted radiation field trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this experiment is of type this experiment type
+This experiment is of type randomized risk-adapted radiation field trial.</span>
     </span>
 
 
@@ -6255,6 +6747,7 @@
 
 
 
+
         </div>
 
 
@@ -6278,7 +6771,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</span>
+    <a class="entity-ref-chip" href="#subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</a>
 
     </div>
 
@@ -6321,7 +6814,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</span>
+    <a class="entity-ref-chip" href="#subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</a>
 
     </div>
 
@@ -6342,10 +6835,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-17">
 
         magnetic resonance surveillance
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Relation: this readout is measured by this assay
+This readout is measured by magnetic resonance surveillance.</span>
     </span>
 
 
@@ -6369,10 +6868,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         cerebrospinal-fluid molecular residual-disease assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by cerebrospinal-fluid molecular residual-disease assay.</span>
     </span>
 
 
@@ -6411,7 +6916,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</span>
+    <a class="entity-ref-chip" href="#subtype-central-nervous-system-nongerminomatous-germ-cell-tumor">subtype#Central Nervous System Nongerminomatous Germ Cell Tumor</a>
 
     </div>
 
@@ -6432,10 +6937,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         longitudinal late-effect assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by longitudinal late-effect assessment.</span>
     </span>
 
 
@@ -6520,6 +7031,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -6543,6 +7060,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31545689" target="_blank">PMID:31545689</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6565,6 +7083,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34990779" target="_blank">PMID:34990779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6586,6 +7105,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218656" target="_blank">PMID:35218656</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6640,16 +7160,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KIT
 
 
-    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6342">hgnc:6342</a>
+    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:6342</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6677,11 +7208,18 @@
         KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6407">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6407</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6709,10 +7247,13 @@
         NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7989</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6746,6 +7287,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6757,6 +7299,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24896186" target="_blank">PMID:24896186</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6779,6 +7322,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38409885" target="_blank">PMID:38409885</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6819,15 +7363,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         AKT1
 
 
-    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:391">hgnc:391</a>
+    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:391</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6861,6 +7412,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6872,6 +7424,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24896186" target="_blank">PMID:24896186</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6918,6 +7471,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6929,6 +7483,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank">PMID:28078450</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6975,6 +7530,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6986,6 +7542,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34698864" target="_blank">PMID:34698864</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7008,6 +7565,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34698864" target="_blank">PMID:34698864</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7051,19 +7609,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         neurohypophysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002198" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002198">UBERON:0002198</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002198" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in neurohypophysis (UBERON:0002198). UBERON:0002198 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7097,6 +7661,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25266413" target="_blank">PMID:25266413</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7118,6 +7683,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25266413" target="_blank">PMID:25266413</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7162,6 +7728,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7190,6 +7757,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452948" target="_blank">PMID:37452948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7236,6 +7804,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7247,6 +7816,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7270,6 +7840,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7291,6 +7862,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32642701" target="_blank">PMID:32642701</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7387,14 +7959,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central diabetes insipidus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000863">HP:0000863</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000863</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central diabetes insipidus (HP:0000863). HP:0000863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7414,6 +7993,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39035740" target="_blank">PMID:39035740</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7436,6 +8016,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25266413" target="_blank">PMID:25266413</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7479,14 +8060,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7506,6 +8094,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39035740" target="_blank">PMID:39035740</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7547,14 +8136,21 @@
                         Elevated Circulating Alpha-Fetoprotein Concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating alpha-fetoprotein concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006254">HP:0006254</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006254</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alpha-fetoprotein concentration (HP:0006254). HP:0006254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7574,6 +8170,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7617,14 +8214,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7644,6 +8248,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37452948" target="_blank">PMID:37452948</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7687,14 +8292,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Precocious puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000826">HP:0000826</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000826</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7714,6 +8326,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39035740" target="_blank">PMID:39035740</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7746,14 +8359,21 @@
                         Elevated Circulating Beta Chorionic Gonadotropin Concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating beta chorionic gonadotropin concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000485">HP:6000485</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:6000485</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating beta chorionic gonadotropin concentration (HP:6000485). HP:6000485 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7773,6 +8393,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7851,13 +8472,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KIT
 
 
-    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6342">hgnc:6342</a>
+    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6342</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7880,6 +8506,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38409885" target="_blank">PMID:38409885</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7917,13 +8544,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KRAS
 
 
-    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6407">hgnc:6407</a>
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:6407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7946,6 +8578,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24896186" target="_blank">PMID:24896186</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7983,13 +8616,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:7989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8012,6 +8650,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24896186" target="_blank">PMID:24896186</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8049,13 +8688,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AKT1
 
 
-    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:391">hgnc:391</a>
+    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8078,6 +8722,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24896186" target="_blank">PMID:24896186</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8109,6 +8754,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8124,7 +8772,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemoradiotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8172,6 +8825,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42234858" target="_blank">PMID:42234858</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8201,7 +8855,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemoradiotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8231,17 +8890,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31355">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -8249,11 +8915,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ifosfamide
@@ -8261,10 +8932,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5864">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:5864</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8290,6 +8964,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31545689" target="_blank">PMID:31545689</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8311,6 +8986,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31545689" target="_blank">PMID:31545689</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8341,7 +9017,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -8390,6 +9071,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23824533" target="_blank">PMID:23824533</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8411,6 +9093,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23824533" target="_blank">PMID:23824533</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8441,7 +9124,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure on nervous system</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">surgical procedure on nervous system<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure on nervous system, annotated with Neurosurgical Procedure (NCIT:C15656). NCIT:C15656 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Neurosurgical Procedure</span>
 
 
@@ -8489,6 +9177,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42488730" target="_blank">PMID:42488730</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8552,6 +9241,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8599,6 +9289,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36995447" target="_blank">PMID:36995447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8643,6 +9334,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32642701" target="_blank">PMID:32642701</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8689,6 +9381,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39189644" target="_blank">PMID:39189644</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8725,6 +9418,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8868,6 +9564,30 @@ has_subtypes:
     explanation: &gt;-
       Integrative human tumor profiling supports molecular and developmental
       state differences between germinoma and NGGCT.
+- name: Central Nervous System Embryonal Carcinoma
+  display_name: CNS embryonal carcinoma
+  subtype_term:
+    preferred_term: embryonal carcinoma of the central nervous system
+    term:
+      id: MONDO:0018843
+      label: embryonal carcinoma of the central nervous system
+  description: &gt;-
+    The embryonal carcinoma histology within the CNS NGGCT spectrum, previously
+    named only in this entry&#39;s prose. It is the least differentiated
+    non-germinomatous component, and its disease-level mechanism is curated in
+    the Embryonal Carcinoma entry rather than duplicated here.
+  evidence:
+  - reference: PMID:42115464
+    reference_title: &#34;Germinomas and Non-germinomatous Germ Cell Tumors.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      NGGCTs include embryonal carcinoma, yolk sac tumor, choriocarcinoma, and
+      teratomas and often secrete tumor markers like alpha-fetoprotein (AFP) and
+      beta-hCG, which guide diagnosis and treatment without biopsy.
+    explanation: &gt;-
+      Names embryonal carcinoma as one of the intracranial NGGCT histologies,
+      supporting it as a subtype of this entry.
 - name: Central Nervous System Teratoma
   display_name: CNS teratoma
   subtype_term:
@@ -10966,7 +11686,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Central Nervous System Germ Cell Tumor", "mondoId": "MONDO:0003000", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Nervous_System_Germ_Cell_Tumor", "yamlRevision": "82c362ea3a27"};
+        const OS_CONFIG = {"diseaseName": "Central Nervous System Germ Cell Tumor", "mondoId": "MONDO:0003000", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Nervous_System_Germ_Cell_Tumor", "yamlRevision": "800d65bc76af"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11385,5 +12105,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

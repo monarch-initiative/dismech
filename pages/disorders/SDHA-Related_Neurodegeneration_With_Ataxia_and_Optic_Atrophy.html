@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>SDHA-Related Neurodegeneration With Ataxia and Optic Atrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>SDHA-Related Neurodegeneration With Ataxia and Optic Atrophy</h1>
             <div class="header-meta">
 
@@ -3700,6 +3902,8 @@ NDAXOA is one of at least four distinct disease entities that MONDO assigns to S
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3790,6 +3994,14 @@ NDAXOA is one of at least four distinct disease entities that MONDO assigns to S
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3814,36 +4026,138 @@ NDAXOA is one of at least four distinct disease entities that MONDO assigns to S
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="The defining and most consistently reported morbidity is neurological and neuro-ophthalmological: progressive optic atrophy, cerebellar and gait ataxia, myopathy and, in one pedigree, a progressive polyneuropathy with psychiatric involvement. The optic neuropathy is a lesion of retinal ganglion cells and their axons, that is, of central nervous system tissue, rather than an ophthalmological disease of the globe. Cardiomyopathy is real and was lethal in one infant in the second pedigree, but it is not the presenting or defining feature of the entity, so a second CARDIOVASCULAR assignment is deliberately not made.">NEUROLOGIC</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-mechanistic">mitochondrial disease</span>
+
+
+
+
+                    <span class="tag tag-mechanistic" title="A nuclear-encoded oxidative-phosphorylation disorder. The lesion is in a nuclear gene but the failing organelle and the failing chemistry are mitochondrial.">mitochondrial disease</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
 
 
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD category 7, nuclear-encoded disorders of oxidative phosphorylation, subgroup complex II subunit and assembly-factor defects. SDHA encodes the catalytic flavoprotein subunit of complex II. Note that the ICIMD classification does not distinguish the dominant neurodegenerative phenotype curated here from the recessive infantile phenotype; both fall in the same ICIMD cell, which is precisely why the MONDO-level split is worth preserving.">complex ii subunits and assembly factors</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3861,7 +4175,7 @@ NDAXOA is one of at least four distinct disease entities that MONDO assigns to S
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3912,6 +4226,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3934,6 +4249,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3955,6 +4271,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4076,6 +4393,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4110,6 +4433,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4126,6 +4455,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Compare a heterozygous missense knock-in with a heterozygous null on the same background, phenotyping the visual pathway, cerebellum, muscle and myocardium longitudinally. If only the missense heterozygote degenerates, the dominant-negative model is established in vivo.</div>
+
+
+
+
+
+
 
 
 
@@ -4225,6 +4560,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4241,6 +4582,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Test p.Arg451Cys and p.Arg662Cys alongside the paraganglioma-associated p.Arg451His in the assays that define SDHx tumour behaviour, namely succinate accumulation, HIF stabilisation and 5-hydroxymethylcytosine loss, to establish whether the neurodegenerative alleles engage the oncometabolite arm at all.</div>
+
+
+
+
+
+
 
 
 
@@ -4281,6 +4628,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33960148" target="_blank">PMID:33960148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4372,6 +4720,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4414,7 +4768,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
-    <span class="entity-ref-chip">phenotypes#Optic atrophy</span>
+    <a class="entity-ref-chip" href="#phenotype-optic-atrophy">phenotypes#Optic atrophy</a>
 
 
 
@@ -4442,6 +4796,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Prospectively phenotype all identified carriers of dominant SDHA missense alleles from childhood, with serial echocardiography, optical coherence tomography and cerebellar imaging, to establish whether the cardiac and neurological arms are sequential stages of one natural history or separate allele- or modifier-determined outcomes.</div>
+
+
+
+
+
+
 
 
 
@@ -4495,7 +4855,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
-    <span class="entity-ref-chip">genetic#SDHA</span>
+    <a class="entity-ref-chip" href="#genetic-sdha">genetic#SDHA</a>
 
 
 
@@ -4523,6 +4883,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Express both alleles in the same SDHA-null human cell background and compare covalent flavinylation, complex II assembly, residual enzyme activity and succinate accumulation. Concordant behaviour would support merging them into one allelic series for this entity; divergent behaviour would support keeping the Arg662Cys phenotype separate.</div>
+
+
+
+
+
+
 
 
 
@@ -4631,6 +4997,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4647,6 +5019,12 @@ Expressivity within a single pedigree is extreme. In the second family the same 
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Derive the affected cell types from carriers and measure complex II activity, oxygen consumption and survival, in the cells the disease actually damages rather than in the fibroblasts that may not even express the defect.</div>
+
+
+
+
+
+
 
 
 
@@ -4707,15 +5085,22 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10680</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4735,6 +5120,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
 
 
                 </div>
+
 
 
 
@@ -4776,6 +5162,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4797,6 +5184,7 @@ Expressivity within a single pedigree is extreme. In the second family the same 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4838,15 +5226,22 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10680</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4873,6 +5268,8 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         covalent flavinylation of the SDHA subunit
@@ -4880,10 +5277,13 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018293" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0018293">GO:0018293</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018293" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0018293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased covalent flavinylation of the SDHA subunit, annotated with protein-FAD linkage (GO:0018293). GO:0018293 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4907,6 +5307,8 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         flavin adenine dinucleotide binding
@@ -4914,10 +5316,13 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050660" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050660">GO:0050660</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050660" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0050660</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased flavin adenine dinucleotide binding (GO:0050660). GO:0050660 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4942,19 +5347,25 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrial inner membrane (GO:0005743). GO:0005743 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4997,6 +5408,7 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5019,6 +5431,7 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5040,6 +5453,7 @@ That convergence is not a coincidence of two arginines. Yeast mutagenesis of Sdh
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043141" target="_blank">PMID:23043141</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5083,15 +5497,22 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:10680</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5118,16 +5539,21 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         respiratory chain complex II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045273" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045273">GO:0045273</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045273" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045273</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves abnormal respiratory chain complex II, annotated with respiratory chain complex II (succinate dehydrogenase) (GO:0045273). GO:0045273 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5135,16 +5561,21 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial respiratory chain complex II assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034553" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034553">GO:0034553</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034553" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0034553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrial respiratory chain complex II assembly (GO:0034553). GO:0034553 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5165,6 +5596,7 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
 
 
                 </div>
+
 
 
 
@@ -5201,6 +5633,7 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15989954" target="_blank">PMID:15989954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5223,6 +5656,7 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5244,6 +5678,7 @@ The alternative reading, simple haploinsufficiency, would predict the same 50% a
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39321216" target="_blank">PMID:39321216</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5285,16 +5720,21 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tricarboxylic acid cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006099">GO:0006099</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5314,16 +5754,21 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
 
 
+
+
                     <span class="tag tag-bio">
                         electron transport chain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022900">GO:0022900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0022900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased electron transport chain (GO:0022900). GO:0022900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5348,16 +5793,21 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         succinate dehydrogenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000104" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000104">GO:0000104</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000104" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0000104</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased succinate dehydrogenase activity (GO:0000104). GO:0000104 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5378,6 +5828,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
 
                 </div>
+
 
 
 
@@ -5421,6 +5872,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5443,6 +5895,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5464,6 +5917,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5506,16 +5960,21 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5541,19 +6000,25 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5598,6 +6063,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15989954" target="_blank">PMID:15989954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5619,6 +6085,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5652,16 +6119,21 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5691,19 +6163,25 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         optic nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000941">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic nerve, annotated with cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5721,6 +6199,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14766317" target="_blank">PMID:14766317</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5744,6 +6223,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14766317" target="_blank">PMID:14766317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5765,6 +6245,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14766317" target="_blank">PMID:14766317</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5810,19 +6291,25 @@ Tissue expression of the defect is genuinely inconsistent between the two report
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5840,6 +6327,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5862,6 +6350,7 @@ Tissue expression of the defect is genuinely inconsistent between the two report
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33960148" target="_blank">PMID:33960148</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5896,16 +6385,21 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5935,17 +6429,24 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         heart
@@ -5953,13 +6454,17 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5977,6 +6482,7 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6000,6 +6506,7 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6021,6 +6528,7 @@ The accompanying methylglutaconic aciduria in the two affected children is the e
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6062,15 +6570,22 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:10680</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6098,16 +6613,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         hypoxia-inducible factor-1alpha signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097411">GO:0097411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0097411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased hypoxia-inducible factor-1alpha signaling pathway (GO:0097411). GO:0097411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6137,6 +6657,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6148,6 +6669,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33112834" target="_blank">PMID:33112834</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6171,6 +6693,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781757" target="_blank">PMID:24781757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6192,6 +6715,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781757" target="_blank">PMID:24781757</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6288,14 +6812,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001638</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6318,6 +6849,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6339,6 +6871,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6371,14 +6904,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Congestive heart failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6400,6 +6940,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6441,14 +6982,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Optic atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648), qualified as course progressive. HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6489,6 +7037,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6511,6 +7060,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6532,6 +7082,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6564,14 +7115,23 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Ocular motility disorder
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of eye movement
+
+                        <span class="phenotype-term-label">Abnormality of eye movement</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000496">HP:0000496</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000496</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular movement disorder, annotated with Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6593,6 +7153,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6634,14 +7195,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Myopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathy (HP:0003198), qualified as course progressive. HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6679,6 +7247,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6720,14 +7289,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251), qualified as course progressive. HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6768,6 +7344,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6799,14 +7376,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Cerebellar atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001272</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course progressive. HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6846,14 +7430,23 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Psychiatric involvement
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychiatric involvement, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6875,6 +7468,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6907,14 +7501,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6936,6 +7537,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6968,14 +7570,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6997,6 +7606,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7038,14 +7648,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Myalgia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7076,14 +7693,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Polyneuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyneuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001271">HP:0001271</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001271" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001271</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyneuropathy (HP:0001271), qualified as course progressive. HP:0001271 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7124,6 +7748,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7155,14 +7780,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         3-Methylglutaconic aciduria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        3-Methylglutaconic aciduria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003535">HP:0003535</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 3-Methylglutaconic aciduria (HP:0003535). HP:0003535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7184,6 +7816,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7216,14 +7849,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         Decreased activity of mitochondrial complex II
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased activity of mitochondrial complex II
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008314" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008314">HP:0008314</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008314</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased activity of mitochondrial complex II (HP:0008314). HP:0008314 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7246,6 +7886,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7267,6 +7908,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7345,13 +7987,18 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:10680</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7381,6 +8028,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7402,6 +8050,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7453,13 +8102,18 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10680</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7490,6 +8144,8 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7501,6 +8157,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10976639" target="_blank">PMID:10976639</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7523,6 +8180,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39321216" target="_blank">PMID:39321216</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7563,13 +8221,18 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SDHA
 
 
-    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10680">hgnc:10680</a>
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:10680</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7600,6 +8263,8 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7611,6 +8276,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33471299" target="_blank">PMID:33471299</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7633,6 +8299,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39321216" target="_blank">PMID:39321216</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7662,6 +8329,9 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
         </div>
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7679,7 +8349,12 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7727,7 +8402,12 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">disease screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">disease screening<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Disease Screening</span>
 
 
@@ -7776,6 +8456,7 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7807,7 +8488,12 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7838,16 +8524,21 @@ The empirical position, as of this curation, is that mitochondrial-disease SDHx 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         riboflavin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17015">CHEBI:17015</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:17015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7892,6 +8583,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16737791" target="_blank">PMID:16737791</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7913,6 +8605,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16737791" target="_blank">PMID:16737791</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7945,7 +8638,12 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7994,6 +8692,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33960148" target="_blank">PMID:33960148</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8015,6 +8714,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781757" target="_blank">PMID:24781757</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8102,6 +8802,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8967754" target="_blank">PMID:8967754</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8159,6 +8860,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683074" target="_blank">PMID:27683074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8199,7 +8901,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mitochondrial-complex-ii-deficiency-nuclear-type-1">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Mitochondrial_Complex_II_Deficiency,_Nuclear_Type_1.html">Mitochondrial complex II deficiency, nuclear type 1</a>
@@ -8252,6 +8954,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781757" target="_blank">PMID:24781757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8273,6 +8976,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33960148" target="_blank">PMID:33960148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8299,7 +9003,7 @@ Whether any of that transfers to NDAXOA is unknown and this entry does not claim
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pheochromocytoma-paraganglioma-syndrome-5">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Pheochromocytoma/paraganglioma syndrome 5</span>
@@ -8354,6 +9058,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781757" target="_blank">PMID:24781757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8375,6 +9080,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33960148" target="_blank">PMID:33960148</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8401,7 +9107,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-dilated-cardiomyopathy-1gg">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Dilated cardiomyopathy 1GG</span>
@@ -8444,7 +9150,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-behr-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Behr_Syndrome.html">Behr syndrome</a>
@@ -8488,7 +9194,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autosomal-dominant-optic-atrophy-plus-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Autosomal_Dominant_Optic_Atrophy_Plus.html">Autosomal dominant optic atrophy plus syndrome</a>
@@ -8539,6 +9245,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39423307" target="_blank">PMID:39423307</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8564,7 +9271,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-leber-hereditary-optic-neuropathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Leber_Hereditary_Optic_Neuropathy.html">Leber hereditary optic neuropathy</a>
@@ -8615,6 +9322,7 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14766317" target="_blank">PMID:14766317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8648,6 +9356,177 @@ The overlap is not merely theoretical and it creates a live clinical problem. Co
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-sdh1-c-terminal-arginine-substitutions-arg582-arg638-with-cys630-saccharomyces-cerevisiae" data-dismech-node="SDH1 C-terminal arginine substitutions (Arg582, Arg638 with Cys630) Saccharomyces cerevisiae" data-dismech-type="animal_model">
+                <div class="item-name">
+                    SDH1 C-terminal arginine substitutions (Arg582, Arg638 with Cys630) Saccharomyces cerevisiae
+
+                    <span class="tag tag-exp-model-type">Site-directed mutagenesis of the orthologous flavoprotein subunit</span>
+
+                </div>
+
+                <div class="item-desc">Budding yeast is the only tractable system in which the flavinylation chemistry proposed for this disorder has been dissected genetically. Mutation of C-terminal arginine residues of Sdh1, the SDHA orthologue, prevents covalent flavinylation and, for one residue, prevents assembly of the tetramer, while showing that assembly requires FAD binding but not necessarily the covalent linkage. The authors state that their results document the basis for the SDH deficiency and pathology seen with mutations in human Sdh1.
+Its limits should be stated plainly. The residues mutated are yeast Arg582 and Arg638, not the human residues that cause this disease, and no alignment establishing correspondence to human Arg451 or Arg662 was performed here or asserted. The yeast work is therefore evidence that this class of lesion exists and behaves as modelled, not evidence about the human alleles. No animal model of NDAXOA exists in any species: there is no heterozygous Sdha knock-in mouse carrying either human allele, and homozygous Sdha disruption in mammals models the recessive disorder rather than this one.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Loss of covalent flavinylation of the Sdh1 flavoprotein subunit</span>
+
+                    <span class="tag tag-phenotype">Failure of succinate dehydrogenase tetramer assembly (Arg582)</span>
+
+                    <span class="tag tag-phenotype">Destabilisation of the flavinylation factor Sdh5</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Saccharomyces cerevisiae</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">SDH1 C-terminal arginine substitutions (Arg582, Arg638 with Cys630)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SDHA
+
+
+    <a href="https://bioregistry.io/hgnc:10680" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:10680</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SDHA (hgnc:10680). hgnc:10680 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23043141" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043141" target="_blank">PMID:23043141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutation of Arg(582) in yeast Sdh1 precludes flavinylation as well as assembly of the tetrameric enzyme complex."</div>
+
+
+                <div class="evidence-explanation">The direct genetic demonstration that a single C-terminal arginine substitution in the flavoprotein subunit can abolish covalent flavinylation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23043141" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043141" target="_blank">PMID:23043141</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results document the basis for the SDH deficiency and pathology seen with mutations in human Sdh1."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own translation of their yeast result to human SDHA disease. Marked PARTIAL because it is an interpretive claim about human pathology made from yeast data on non-corresponding residues.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -12165,5 +13044,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

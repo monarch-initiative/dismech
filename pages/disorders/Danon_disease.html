@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Danon disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Danon disease</h1>
             <div class="header-meta">
 
@@ -3674,6 +3876,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3822,7 +4026,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-dominant">
                 <div class="item-name">
                     X-linked dominant
 
@@ -3849,6 +4053,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/nan.12587" target="_blank">DOI:10.1111/nan.12587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3907,17 +4112,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3938,10 +4150,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3966,15 +4181,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         LAMP2
 
 
-    <a href="https://bioregistry.io/hgnc:6501" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6501">hgnc:6501</a>
+    <a href="https://bioregistry.io/hgnc:6501" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6501</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMP2 (hgnc:6501). hgnc:6501 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4002,16 +4224,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lysosome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007040">GO:0007040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4032,16 +4259,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein-macromolecule adaptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030674" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030674">GO:0030674</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030674" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030674</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves protein-macromolecule adaptor activity (GO:0030674). GO:0030674 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4058,6 +4290,7 @@
 
 
                 </div>
+
 
 
 
@@ -4094,6 +4327,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4116,6 +4350,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4137,6 +4372,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/nan.12587" target="_blank">DOI:10.1111/nan.12587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4171,17 +4407,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4202,10 +4445,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4232,17 +4478,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macroautophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016236">GO:0016236</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0016236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves macroautophagy (GO:0016236). GO:0016236 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4263,10 +4516,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097352" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097352">GO:0097352</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097352" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0097352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagosome maturation (GO:0097352). GO:0097352 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4283,6 +4539,7 @@
 
 
                 </div>
+
 
 
 
@@ -4329,6 +4586,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4350,6 +4608,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/cddis.2016.475" target="_blank">DOI:10.1038/cddis.2016.475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4384,17 +4643,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4415,10 +4681,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4445,16 +4714,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macroautophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016236">GO:0016236</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016236" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0016236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves macroautophagy (GO:0016236). GO:0016236 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4471,6 +4745,7 @@
 
 
                 </div>
+
 
 
 
@@ -4526,6 +4801,7 @@
                         <a href="https://bioregistry.io/DOI:10.3390/biom14101272" target="_blank">DOI:10.3390/biom14101272</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4547,6 +4823,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/cddis.2016.475" target="_blank">DOI:10.1038/cddis.2016.475</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4581,16 +4858,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4607,6 +4889,7 @@
 
 
                 </div>
+
 
 
 
@@ -4682,6 +4965,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4703,6 +4987,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4737,16 +5022,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4763,6 +5053,7 @@
 
 
                 </div>
+
 
 
 
@@ -4838,6 +5129,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4859,6 +5151,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4888,6 +5181,7 @@
 
                 <div class="item-desc">Danon disease can involve brain and retinal tissues, producing intellectual impairment as part of the classic male triad and less common retinal disease such as cone-rod dystrophy with visual impairment.
 </div>
+
 
 
 
@@ -4941,6 +5235,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4962,6 +5257,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14081539" target="_blank">DOI:10.3390/genes14081539</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4996,16 +5292,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5032,16 +5333,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000423">GO:0000423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0000423</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitophagy (GO:0000423). GO:0000423 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5058,6 +5364,7 @@
 
 
                 </div>
+
 
 
 
@@ -5095,6 +5402,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28526246" target="_blank">PMID:28526246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5128,16 +5436,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5164,16 +5477,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5190,6 +5508,7 @@
 
 
                 </div>
+
 
 
 
@@ -5227,6 +5546,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28526246" target="_blank">PMID:28526246</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5250,6 +5570,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28526246" target="_blank">PMID:28526246</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5286,7 +5607,7 @@ mitochondrial respiration."</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-autophagic-vacuoles-with-sarcolemmal-features">
                 <div class="item-name">
                     Autophagic vacuoles with sarcolemmal features
 
@@ -5308,6 +5629,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biom14101272" target="_blank">DOI:10.3390/biom14101272</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5403,14 +5725,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertrophic cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5430,6 +5759,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5453,6 +5783,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5474,6 +5805,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5508,14 +5840,21 @@ mitochondrial respiration."</div>
                         Wolff-Parkinson-White syndrome
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wolff-Parkinson-White syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001716">HP:0001716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5535,6 +5874,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5558,6 +5898,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5579,6 +5920,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14081539" target="_blank">DOI:10.3390/genes14081539</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5611,14 +5953,21 @@ mitochondrial respiration."</div>
                         Left ventricular hypertrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001712">HP:0001712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5638,6 +5987,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5672,14 +6022,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5699,6 +6056,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5722,6 +6080,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5743,6 +6102,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5784,14 +6144,21 @@ mitochondrial respiration."</div>
                         Retinal dystrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal dystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000556">HP:0000556</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000556</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5811,6 +6178,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14081539" target="_blank">DOI:10.3390/genes14081539</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5852,14 +6220,21 @@ mitochondrial respiration."</div>
                         Elevated circulating creatine kinase concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating creatine kinase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003236</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5879,6 +6254,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5911,14 +6287,21 @@ mitochondrial respiration."</div>
                         Elevated circulating hepatic transaminase concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5938,6 +6321,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5979,14 +6363,21 @@ mitochondrial respiration."</div>
                         Skeletal myopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6006,6 +6397,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6029,6 +6421,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6050,6 +6443,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/nan.12587" target="_blank">DOI:10.1111/nan.12587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6093,14 +6487,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6120,6 +6521,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6143,6 +6545,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6164,6 +6567,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6200,14 +6604,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6227,6 +6638,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6270,14 +6682,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle flaccidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010547" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010547">HP:0010547</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010547" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010547</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle flaccidity (HP:0010547). HP:0010547 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6297,6 +6716,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6331,14 +6751,21 @@ mitochondrial respiration."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cardiorespiratory arrest
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006543">HP:0006543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0006543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiorespiratory arrest (HP:0006543). HP:0006543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6358,6 +6785,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:34587" target="_blank">ORPHA:34587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6436,13 +6864,18 @@ mitochondrial respiration."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LAMP2
 
 
-    <a href="https://bioregistry.io/hgnc:6501" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6501">hgnc:6501</a>
+    <a href="https://bioregistry.io/hgnc:6501" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6501</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMP2 (hgnc:6501). hgnc:6501 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6463,6 +6896,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6486,6 +6920,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6507,6 +6942,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6557,6 +6993,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6579,6 +7016,7 @@ mitochondrial respiration."</div>
                         <a href="https://bioregistry.io/DOI:10.1111/nan.12587" target="_blank">DOI:10.1111/nan.12587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6600,6 +7038,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/genes14081539" target="_blank">DOI:10.3390/genes14081539</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6631,6 +7070,9 @@ mitochondrial respiration."</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6646,7 +7088,12 @@ mitochondrial respiration."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -6696,6 +7143,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25589223" target="_blank">PMID:25589223</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6718,6 +7166,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19318653" target="_blank">PMID:19318653</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6739,6 +7188,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/nan.12587" target="_blank">DOI:10.1111/nan.12587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6769,7 +7219,12 @@ mitochondrial respiration."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -6819,6 +7274,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737089" target="_blank">PMID:34737089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6840,6 +7296,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/biom14101272" target="_blank">DOI:10.3390/biom14101272</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6925,6 +7382,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6964,6 +7422,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7034,6 +7493,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7073,6 +7533,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7143,6 +7604,7 @@ mitochondrial respiration."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7182,6 +7644,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33680117" target="_blank">PMID:33680117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7224,7 +7687,7 @@ mitochondrial respiration."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03882437">
                 <div class="item-name">
                     NCT03882437
 
@@ -7240,16 +7703,21 @@ mitochondrial respiration."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertrophic cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001639</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7267,6 +7735,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT03882437" target="_blank">clinicaltrials:NCT03882437</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7291,7 +7760,7 @@ mitochondrial respiration."</div>
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06092034">
                 <div class="item-name">
                     NCT06092034
 
@@ -7309,16 +7778,21 @@ mitochondrial respiration."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertrophic cardiomyopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001639</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7336,6 +7810,7 @@ mitochondrial respiration."</div>
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06092034" target="_blank">clinicaltrials:NCT06092034</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7366,6 +7841,9 @@ mitochondrial respiration."</div>
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7382,7 +7860,6 @@ mitochondrial respiration."</div>
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Danon disease
 creation_date: &#39;2026-02-03T19:04:58Z&#39;
-updated_date: &#39;2026-05-19T12:13:45Z&#39;
 category: Mendelian
 disease_term:
   preferred_term: Danon disease
@@ -7419,6 +7896,7 @@ inheritance:
     cardiac manifestations later in life.
   evidence:
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;inherited as an X&#34;
@@ -7435,6 +7913,7 @@ prevalence:
     status.
   evidence:
   - reference: PMID:30857840
+    reference_title: &#34;Danon disease: Gender differences in presentation and outcomes&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7453,6 +7932,7 @@ prevalence:
     hypertrophy and electrocardiographic preexcitation.
   evidence:
   - reference: PMID:30929317
+    reference_title: &#34;Prevalence and clinical characteristics of Danon disease among patients with left ventricular hypertrophy and concomitant electrocardiographic preexcitation&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Three (3/10, 30%) patients&#34;
@@ -7509,6 +7989,7 @@ pathophysiology:
     snippet: &#34;LAMP-2 protein deficiency, mainly LAMP-2B&#34;
     explanation: Confirms LAMP-2B isoform deficiency as the primary molecular defect.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;causes disruption of autophagy&#34;
@@ -7554,6 +8035,7 @@ pathophysiology:
     snippet: &#34;impairment due to LAMP-2 deficiency&#34;
     explanation: Confirms that LAMP-2 deficiency causes autophagy impairment and autophagic vacuole accumulation.
   - reference: DOI:10.1038/cddis.2016.475
+    reference_title: &#34;Autophagy dysregulation in Danon disease&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;DD is characterized by mutations in the lysosome-associated membrane protein 2 (LAMP2) gene. The DD mouse model suggests that inefficient lysosome biogenesis/maturation and impairment of autophagosome-lysosome fusion contribute to the pathogenesis of muscle wasting.&#34;
@@ -7604,11 +8086,13 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
   evidence:
   - reference: DOI:10.3390/biom14101272
+    reference_title: &#34;History and Perspective of LAMP-2 Deficiency (Danon Disease)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Pathologically, the disease is characterized by the appearance of unique autophagic vacuoles with sarcolemmal features (AVSFs).&#34;
     explanation: Confirms AVSFs as a pathological hallmark of Danon disease.
   - reference: DOI:10.1038/cddis.2016.475
+    reference_title: &#34;Autophagy dysregulation in Danon disease&#34;
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Among them, Danon Disease (DD) and glycogen storage disease type II (GSDII) are due to primary lysosomal protein defects.&#34;
@@ -7644,6 +8128,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001639 | Hypertrophic cardiomyopathy | Very frequent (99-80%)&#34;
@@ -7656,6 +8141,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001644 | Dilated cardiomyopathy | Very frequent (99-80%)&#34;
@@ -7665,6 +8151,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0006543 | Cardiorespiratory arrest | Very frequent (99-80%)&#34;
@@ -7704,6 +8191,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001288 | Gait disturbance | Very frequent (99-80%)&#34;
@@ -7713,6 +8201,7 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0010547 | Muscle flaccidity | Very frequent (99-80%)&#34;
@@ -7736,6 +8225,7 @@ pathophysiology:
     snippet: &#34;In brain, pale granular neurons and neurons with lipofuscin-like&#34;
     explanation: Human pathology review supports brain involvement in Danon disease.
   - reference: DOI:10.3390/genes14081539
+    reference_title: &#34;Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;visual impairment due to cone–rod dystrophy.&#34;
@@ -7746,6 +8236,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:34587
+      reference_title: &#34;Danon disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001249 | Intellectual disability | Very frequent (99-80%)&#34;
@@ -7831,6 +8322,7 @@ phenotypes:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001639 | Hypertrophic cardiomyopathy | Very frequent (99-80%)&#34;
@@ -7848,6 +8340,7 @@ phenotypes:
     snippet: &#34;progressive clinical deterioration leading rapidly to cardiac death&#34;
     explanation: Prospective study of 7 LAMP2 patients documenting severe cardiac disease leading to death before age 25.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Danon disease is a severe multisystem disorder clinically characterized by hypertrophic cardiomyopathy, skeletal myopathy and mental retardation in male patients&#34;
@@ -7877,6 +8370,7 @@ phenotypes:
     snippet: &#34;small basophilic granules scattered in myofibers&#34;
     explanation: Describes characteristic muscle biopsy findings of autophagic vacuoles with sarcolemmal features in skeletal muscle.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Danon disease is a severe multisystem disorder clinically characterized by hypertrophic cardiomyopathy, skeletal myopathy and mental retardation in male patients&#34;
@@ -7895,6 +8389,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001249 | Intellectual disability | Very frequent (99-80%)&#34;
@@ -7912,6 +8407,7 @@ phenotypes:
     snippet: &#34;hypertrophic cardiomyopathy, myopathy, and intellectual disability.&#34;
     explanation: Confirms intellectual disability as part of the classic clinical triad.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Danon disease is a severe multisystem disorder clinically characterized by hypertrophic cardiomyopathy, skeletal myopathy and mental retardation in male patients&#34;
@@ -7941,6 +8437,7 @@ phenotypes:
     snippet: &#34;ECG at diagnosis, 6 patients had ventricular pre-excitation patterns&#34;
     explanation: Documents ventricular pre-excitation in 6 of 7 Danon disease patients at diagnosis.
   - reference: DOI:10.3390/genes14081539
+    reference_title: &#34;Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;mild ventricular pre-excitation known as&#34;
@@ -7958,6 +8455,7 @@ phenotypes:
       label: Retinal dystrophy
   evidence:
   - reference: DOI:10.3390/genes14081539
+    reference_title: &#34;Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;visual impairment due to&#34;
@@ -7996,6 +8494,7 @@ phenotypes:
       label: Dilated cardiomyopathy
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001644 | Dilated cardiomyopathy | Very frequent (99-80%)&#34;
@@ -8025,6 +8524,7 @@ phenotypes:
       label: Gait disturbance
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001288 | Gait disturbance | Very frequent (99-80%)&#34;
@@ -8042,6 +8542,7 @@ phenotypes:
       label: Muscle flaccidity
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0010547 | Muscle flaccidity | Very frequent (99-80%)&#34;
@@ -8059,6 +8560,7 @@ phenotypes:
       label: Cardiorespiratory arrest
   evidence:
   - reference: ORPHA:34587
+    reference_title: &#34;Danon disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006543 | Cardiorespiratory arrest | Very frequent (99-80%)&#34;
@@ -8218,6 +8720,7 @@ histopathology:
       label: Morphologic Finding
   evidence:
   - reference: DOI:10.3390/biom14101272
+    reference_title: &#34;History and Perspective of LAMP-2 Deficiency (Danon Disease)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Pathologically, the disease is characterized by the appearance of unique autophagic vacuoles with sarcolemmal features (AVSFs).&#34;
@@ -8256,11 +8759,13 @@ genetic:
     snippet: &#34;loss-of-function mutation in the lysosome-associated&#34;
     explanation: Confirms LAMP2 loss-of-function as the molecular cause.
   - reference: DOI:10.3390/biom14101272
+    reference_title: &#34;History and Perspective of LAMP-2 Deficiency (Danon Disease)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Danon disease, an X-linked dominant vacuolar cardiomyopathy and skeletal myopathy, is caused by a primary deficiency of lysosome-associated membrane protein-2 (LAMP-2).&#34;
     explanation: Confirms LAMP-2 deficiency as the cause of Danon disease.
   - reference: DOI:10.3390/genes14081539
+    reference_title: &#34;Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Genetic testing revealed an Xq24 microdeletion encompassing the entire LAMP2 gene.&#34;
@@ -8288,11 +8793,13 @@ genetic:
     snippet: &#34;7 female LAMP2 obligate carriers&#34;
     explanation: Documents striking phenotypic differences between female carriers and affected males.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Danon disease is a severe multisystem disorder clinically characterized by hypertrophic cardiomyopathy, skeletal myopathy and mental retardation in male patients, and by a milder phenotype (predominantly involving cardiac muscle) in female patients.&#34;
     explanation: Documents distinct phenotypic presentations between males and females.
   - reference: DOI:10.3390/genes14081539
+    reference_title: &#34;Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Danon disease is typically lethal by the mid-twenties in male patients due to cardiomyopathy and heart failure. Female patients usually present with milder and variable symptoms.&#34;
@@ -8325,6 +8832,7 @@ treatments:
     snippet: &#34;early intervention with heart&#34;
     explanation: Prospective study supporting early consideration of heart transplantation for LAMP2 patients.
   - reference: DOI:10.1111/nan.12587
+    reference_title: &#34;Review: Danon disease: Review of natural history and recent advances&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;in male patients, the prognosis is poor due to rapid progression towards heart failure, and only heart transplantation modifies the disease course.&#34;
@@ -8350,6 +8858,7 @@ treatments:
     snippet: &#34;gene therapies anticipate&#34;
     explanation: Confirms gene therapy clinical trials are underway for Danon disease.
   - reference: DOI:10.3390/biom14101272
+    reference_title: &#34;History and Perspective of LAMP-2 Deficiency (Danon Disease)&#34;
     supports: PARTIAL
     evidence_source: OTHER
     snippet: &#34;Although the pathogenetic mechanism of Danon disease remains unestablished, the first clinical trials using AAV vectors have finally begun in recent years. The development of novel therapies is expected in the future.&#34;
@@ -8368,6 +8877,7 @@ clinical_trials:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: clinicaltrials:NCT03882437
+    reference_title: &#34;A Clinical Study Evaluating a Recombinant Adeno-Associated Virus Serotype 9 (rAAV9) Capsid Containing the Human Lysosome-Associated Membrane Protein 2 Isoform B (LAMP2B) Transgene (RP-A501; AAV9.LAMP2B) in Male Patients With DD&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This is a non-randomized open-label Phase 1 study to evaluate the safety and toxicity of gene therapy using a recombinant adeno-associated virus serotype 9 (AAV9) containing the human lysosome-associated membrane protein 2 isoform B (LAMP2B) transgene (investigational product (IP), RP-A501) in male patients with Danon Disease (DD).&#34;
@@ -8385,6 +8895,7 @@ clinical_trials:
       label: Hypertrophic cardiomyopathy
   evidence:
   - reference: clinicaltrials:NCT06092034
+    reference_title: &#34;Gene Therapy for Danon Disease: A Phase 2 Study Evaluating the Efficacy and Safety of Intravenously Administered Adeno-Associated Virus Serotype 9 (rAAV9) Vector Containing the Human LAMP2 Isoform B Transgene (RP-A501; AAV9.LAMP2B) in Male Patients With Danon Disease&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This is a single arm Phase 2 trial to evaluate the efficacy and safety of RP-A501, a recombinant adeno-associated virus serotype 9 (AAV9) containing the human lysosome-associated membrane protein 2 isoform B (LAMP2B) transgene, in male patients with Danon Disease.&#34;
@@ -8720,7 +9231,7 @@ Danon disease is caused by loss-of-function variants in LAMP2, with the LAMP-2B 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Danon disease", "mondoId": "MONDO:0010281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Danon_disease", "yamlRevision": "802de00d65f3"};
+        const OS_CONFIG = {"diseaseName": "Danon disease", "mondoId": "MONDO:0010281", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Danon_disease", "yamlRevision": "e0351fafc468"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9139,5 +9650,73 @@ Danon disease is caused by loss-of-function variants in LAMP2, with the LAMP-2B 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

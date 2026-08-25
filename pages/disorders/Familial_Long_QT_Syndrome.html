@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Familial Long QT Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Familial Long QT Syndrome</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3855,6 +4059,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3864,16 +4138,25 @@
 
 
 
-
-
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Channelopathy</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-mechanistic">cardiac channelopathy</span>
+
                 </div>
+
             </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3943,7 +4226,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-qt-prolonging-drug-associated-torsade-marked-qtc-case-finding-query-for-latent-congenital-lqts-carriers">
                 <div class="item-name">QT-prolonging-drug-associated torsade/marked-QTc case-finding query for latent congenital LQTS carriers</div>
 
                 <div class="item-desc">EHR/OMOP case-finding query: identify individuals who develop marked QTc prolongation or torsades de pointes after exposure to a known QT-prolonging (IKr/hERG-blocking) drug, without a prior LQTS diagnosis, as candidates for latent congenital LQTS warranting off-drug QTc reassessment and genetic evaluation. This is the pharmacological-trigger member of the trigger-provoked-latent-disease archetype (cf. the Timothy and Brugada fever queries); because drug-unmasking is established, derivation_basis is ESTABLISHED_CRITERIA.</div>
@@ -4056,6 +4339,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11997281" target="_blank">PMID:11997281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4094,7 +4378,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -4138,6 +4422,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10348966" target="_blank">PMID:10348966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4248,7 +4533,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
 
                     <div class="item-name">
                         Long QT Syndrome 1
@@ -4278,7 +4563,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2">
 
                     <div class="item-name">
                         Long QT Syndrome 2
@@ -4308,7 +4593,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-3">
 
                     <div class="item-name">
                         Long QT Syndrome 3
@@ -4338,7 +4623,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-4">
 
                     <div class="item-name">
                         Long QT Syndrome 4
@@ -4368,7 +4653,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-5">
 
                     <div class="item-name">
                         Long QT Syndrome 5
@@ -4398,7 +4683,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-6">
 
                     <div class="item-name">
                         Long QT Syndrome 6
@@ -4428,7 +4713,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-8">
 
                     <div class="item-name">
                         Long QT Syndrome 8
@@ -4458,7 +4743,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-9">
 
                     <div class="item-name">
                         Long QT Syndrome 9
@@ -4488,7 +4773,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-10">
 
                     <div class="item-name">
                         Long QT Syndrome 10
@@ -4518,7 +4803,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-11">
 
                     <div class="item-name">
                         Long QT Syndrome 11
@@ -4548,7 +4833,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-12">
 
                     <div class="item-name">
                         Long QT Syndrome 12
@@ -4578,7 +4863,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-13">
 
                     <div class="item-name">
                         Long QT Syndrome 13
@@ -4608,7 +4893,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-14">
 
                     <div class="item-name">
                         Long QT Syndrome 14
@@ -4638,7 +4923,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-15">
 
                     <div class="item-name">
                         Long QT Syndrome 15
@@ -4668,7 +4953,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-16">
 
                     <div class="item-name">
                         Long QT Syndrome 16
@@ -4698,7 +4983,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-other-rare-gene-familial-lqts">
 
                     <div class="item-name">
                         Other rare-gene familial LQTS
@@ -4789,10 +5074,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         CiPA in-vitro/in-silico proarrhythmia assay with iPSC-cardiomyocytes
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type CiPA in-vitro/in-silico proarrhythmia assay with iPSC-cardiomyocytes.</span>
     </span>
 
 
@@ -4835,9 +5126,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4847,10 +5143,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4889,9 +5188,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4901,10 +5205,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-3">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4940,6 +5247,7 @@
         <div class="item-meta">
 
             <span class="tag tag-exp-model-type">OTHER</span>
+
 
 
 
@@ -5073,35 +5381,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>The variant genuinely reduces repolarization reserve, confirming a query hit as a true latent congenital LQTS carrier.</li>
 
-
-
-    <span class="entity-ref-chip">The variant genuinely reduces repolarization reserve, confirming a query hit as a true latent congenital LQTS carrier.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>No functional deficit, indicating the query hit is not explained by that variant (incidental finding).</li>
 
-
-
-    <span class="entity-ref-chip">No functional deficit, indicating the query hit is not explained by that variant (incidental finding).</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -5145,16 +5449,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5181,16 +5490,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KCNQ1
 
 
-    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6294">hgnc:6294</a>
+    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6294</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5218,10 +5538,13 @@
         KCNH2
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:6251</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5249,16 +5572,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         potassium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071805" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071805">GO:0071805</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071805" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0071805</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased potassium ion transmembrane transport (GO:0071805). GO:0071805 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5278,16 +5606,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         membrane repolarization during cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086013">GO:0086013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0086013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated membrane repolarization during cardiac muscle cell action potential (GO:0086013). GO:0086013 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5312,16 +5645,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         monoatomic ion channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005216">GO:0005216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal monoatomic ion channel activity (GO:0005216). GO:0005216 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5347,19 +5685,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5393,6 +5737,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16001794" target="_blank">PMID:16001794</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5414,6 +5759,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42154296" target="_blank">PMID:42154296</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5447,16 +5793,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5483,15 +5834,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10593">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:10593</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5519,16 +5877,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         sodium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035725">GO:0035725</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035725" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0035725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal sodium ion transmembrane transport (GO:0035725). GO:0035725 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5548,16 +5911,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         membrane repolarization during cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086013">GO:0086013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0086013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated membrane repolarization during cardiac muscle cell action potential (GO:0086013). GO:0086013 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5582,16 +5950,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         monoatomic ion channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005216">GO:0005216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal monoatomic ion channel activity (GO:0005216). GO:0005216 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5617,19 +5990,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5671,6 +6050,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377081" target="_blank">PMID:10377081</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5692,6 +6072,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10377081" target="_blank">PMID:10377081</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5725,16 +6106,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5761,16 +6147,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         membrane repolarization during cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086013">GO:0086013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0086013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated membrane repolarization during cardiac muscle cell action potential (GO:0086013). GO:0086013 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5797,19 +6188,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5888,6 +6285,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28670758" target="_blank">PMID:28670758</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5920,16 +6318,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5956,16 +6359,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0086001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5985,16 +6393,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6021,19 +6434,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6085,6 +6504,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28670758" target="_blank">PMID:28670758</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6106,6 +6526,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10348966" target="_blank">PMID:10348966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6134,6 +6555,7 @@
                 <div class="item-name">Adrenergic Trigger Susceptibility</div>
 
                 <div class="item-desc">Life-threatening events in familial LQTS are shaped by genotype-specific triggering circumstances. The classical LQT1-LQT3 subtypes differ in whether episodes cluster during exercise or rest/sleep, which informs risk stratification and anti-adrenergic management.</div>
+
 
 
 
@@ -6179,6 +6601,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11136691" target="_blank">PMID:11136691</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6211,16 +6634,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6245,15 +6673,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KCNH2
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6251</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6281,16 +6716,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         membrane repolarization during cardiac muscle cell action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086013">GO:0086013</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0086013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased membrane repolarization during cardiac muscle cell action potential (GO:0086013). GO:0086013 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6315,16 +6755,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         monoatomic ion channel activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005216">GO:0005216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0005216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal monoatomic ion channel activity (GO:0005216). GO:0005216 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6350,19 +6795,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6404,6 +6855,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11997281" target="_blank">PMID:11997281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6425,6 +6877,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24561134" target="_blank">PMID:24561134</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6458,16 +6911,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6494,16 +6952,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0061337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6524,6 +6987,7 @@
 
 
                 </div>
+
 
 
 
@@ -6610,6 +7074,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9272508" target="_blank">PMID:9272508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6631,6 +7096,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10348966" target="_blank">PMID:10348966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6664,16 +7130,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6703,19 +7174,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6733,6 +7210,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9272508" target="_blank">PMID:9272508</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6755,6 +7233,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10348966" target="_blank">PMID:10348966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6804,7 +7283,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal T-Wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal T-wave morphology on ECG is a frequent electrocardiographic feature of familial LQTS and contributes to clinical recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005135\"}}, {\"id\": \"Adrenergic Trigger Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Life-threatening events in familial LQTS are shaped by genotype-specific triggering circumstances. The classical LQT1-LQT3 subtypes differ in whether episodes cluster during exercise or rest/sleep, which informs risk stratification and anti-adrenergic management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Allele-Specific RNA Interference\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emerging precision therapeutic strategy targeting loss-of-function KCNH2 variants in LQT2 patients. RNA interference selectively suppresses mutant KCNH2 transcript while preserving wild-type expression, alleviating dominant-negative effects and restoring hERG current density.\", \"meta\": {\"therapeutic_agents\": [\"siRNA therapeutic agent\"]}}, {\"id\": \"Beta-Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line anti-adrenergic therapy for most patients with inherited long QT syndrome.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"beta-adrenergic antagonist\"]}}, {\"id\": \"Cardiac Arrest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes or degeneration to ventricular fibrillation can cause resuscitated or fatal cardiac arrest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001695\"}}, {\"id\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Regulatory in-silico proarrhythmia model built on the O\u0027Hara-Rudy ORd model by replacing the I_Kr formulation with a Markov model of dynamic drug-hERG (I_Kr) binding. Combined with multi-channel pharmacology (up to seven currents), it computes the net-charge metric qNet to stratify drug-induced torsades de pointes (TdP) risk. This is the acquired (drug-induced) long QT / proarrhythmia arm and is the consensus cell model of the FDA/HESI CiPA initiative.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:28878692\"}}, {\"id\": \"Early Afterdepolarizations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged ventricular action potential duration promotes plateau oscillations and early afterdepolarizations that trigger torsades de pointes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"heart\"], \"computational_models\": [{\"name\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"I_Kr block during slow pacing induces early afterdepolarizations in the model, reproducing the arrhythmogenic trigger.\"}]}}, {\"id\": \"KCNH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"subtypes\": [\"Type 2\"], \"association\": \"Causative\"}}, {\"id\": \"KCNQ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNQ1\"], \"gene_terms\": [{\"label\": \"KCNQ1\", \"id\": \"hgnc:6294\"}], \"subtypes\": [\"Type 1\"], \"association\": \"Causative\"}}, {\"id\": \"Left Cardiac Sympathetic Denervation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical anti-adrenergic escalation when recurrent syncope or major events persist despite full-dose beta-blockade.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mexiletine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Precision pharmacotherapy most relevant to the SCN5A/LQT3 subtype, where late sodium current blockade shortens QTc and lowers arrhythmic event burden.\", \"meta\": {\"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Foundational system of ordinary differential equations for the undiseased human ventricular cardiomyocyte action potential, fit to human myocyte data for the major ionic currents (I_CaL, I_Kr, I_Ks, I_K1, I_to, late I_Na, I_NaCa, I_NaK) with intracellular Ca2+ and CaMKII handling. Long QT syndrome is simulated by reducing repolarizing K+ conductance (I_Kr for LQT2, I_Ks for LQT1) or increasing the persistent late Na+ current (LQT3); each perturbation prolongs action potential duration and, during slow pacing, generates early afterdepolarizations, the cellular substrate for torsades de pointes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"publication\": \"PMID:21637795\"}}, {\"id\": \"Persistent Late Sodium Current in LQT3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the SCN5A-mediated subtype, defective sodium-channel inactivation leaves a small persistent inward current during depolarization, further delaying myocardial repolarization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"sodium ion transmembrane transport\", \"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"Prolonged QTc Interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Baseline QT prolongation on ECG is the defining diagnostic sign of inherited long QT syndrome, although some gene carriers may have borderline or intermittently normal QTc measurements.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005184\"}}, {\"id\": \"Prolonged Ventricular Action Potential Duration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced repolarization reserve and persistent inward sodium current prolong ventricular action potential duration and delay ventricular repolarization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"membrane repolarization during cardiac muscle cell action potential\"], \"role\": \"central_effector\", \"locations\": [\"heart\"], \"computational_models\": [{\"name\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"APD90 computed from the simulated action potential is the single-cell correlate of prolonged ventricular repolarization in LQTS.\"}, {\"name\": \"ToR-ORd Human Ventricular Myocyte Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"Multiscale validation includes repolarization abnormalities and drug-induced I_Kr block relevant to LQTS.\"}]}}, {\"id\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A QT-prolonging drug \\u2014 most often an IKr/hERG (KCNH2) blocker \\u2014 superimposed on a subclinical reduction in repolarization reserve precipitates marked QT prolongation and torsades de pointes. Individuals with a latent congenital LQTS genotype have diminished reserve, so a QT-prolonging drug can unmask an otherwise subclinical channelopathy. Drug-associated (\\\"acquired\\\") LQTS thus acts as a pharmacological provocation that surfaces latent congenital LQTS carriers; congenital LQTS gene variants are enriched among such patients. Unlike the Timothy-syndrome fever hypothesis, this drug-unmasking mechanism is well established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"Reduced Repolarizing Potassium Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many inherited long-QT subtypes reduce outward delayed rectifier potassium currents in cardiomyocytes, diminishing repolarization reserve and delaying completion of the ventricular action potential.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"potassium ion transmembrane transport\", \"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"KCNQ1\", \"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNQ1\", \"id\": \"hgnc:6294\"}, {\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"SCN5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"subtypes\": [\"Type 3\"], \"association\": \"Causative\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizure-like episodes can be recorded in familial LQTS, often reflecting cerebral hypoperfusion during malignant arrhythmia rather than primary epilepsy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sinus Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sinus bradycardia can occur in familial LQTS and is captured as a frequent Orphanet phenotype for Romano-Ward syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001688\"}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death results from untreated or refractory torsades de pointes degenerating to ventricular fibrillation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent syncopal episodes reflect transient hemodynamic compromise from torsades de pointes or related malignant ventricular arrhythmias.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Syncope and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of effective cardiac output during sustained torsades de pointes causes transient cerebral hypoperfusion (syncope) and, when the malignant ventricular arrhythmia does not terminate, sudden cardiac death. These are the shared sentinel clinical endpoints of inherited long QT syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"role\": \"outcome\", \"locations\": [\"heart\"]}}, {\"id\": \"ToR-ORd Human Ventricular Myocyte Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Tomek-Rodriguez-O\u0027Hara-Rudy refinement of the ORd model, recalibrated and independently validated across health, disease, and drug block, with a reformulated L-type Ca2+ current and a replaced hERG (I_Kr) current. It scales from single-cell ionic dynamics to whole-organ simulation including the electrocardiogram, and is a current reference human ventricular model for LQTS repolarization and drug-block studies.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"publication\": \"PMID:31868580\"}}, {\"id\": \"Torsades de Pointes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The signature malignant ventricular tachyarrhythmia of long QT syndrome is torsades de pointes, arising from prolonged repolarization and early afterdepolarizations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001664\", \"computational_models\": [{\"name\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"model_type\": \"KINETIC\", \"description\": \"The qNet metric derived from this model classifies drug-induced torsades de pointes risk.\"}]}}], \"edges\": [{\"source\": \"Reduced Repolarizing Potassium Current\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced repolarization reserve prolongs the ventricular action potential and creates an arrhythmogenic substrate.\"}, {\"source\": \"Persistent Late Sodium Current in LQT3\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inward sodium current prolongs ventricular repolarization and feeds the common arrhythmogenic substrate.\"}, {\"source\": \"Persistent Late Sodium Current in LQT3\", \"target\": \"Sinus Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LQTS3 sodium-channel dysfunction can affect sinoatrial-node pacemaker activity and present with sinus bradycardia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired sinoatrial-node pacemaker activity\"]}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Early Afterdepolarizations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged ventricular action potential duration permits early afterdepolarizations to emerge from the plateau.\"}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Prolonged QTc Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed ventricular repolarization is recorded clinically as QT-interval prolongation on basal electrocardiography.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Abnormal T-Wave\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ventricular repolarization can produce abnormal T-wave morphology on the electrocardiogram.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early Afterdepolarizations\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early afterdepolarization-triggered ventricular tachyarrhythmias produce syncope, cardiac arrest, and sudden death.\"}, {\"source\": \"Adrenergic Trigger Susceptibility\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genotype-specific triggering circumstances precipitate malignant ventricular arrhythmias against the repolarization substrate.\"}, {\"source\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A QT-prolonging drug reduces net repolarizing current on a background of diminished reserve, prolonging the ventricular action potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked drug-induced QT prolongation on a susceptible substrate precipitates torsades de pointes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early afterdepolarizations\"]}, {\"source\": \"Torsades de Pointes\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Torsades de pointes commonly presents as transient loss of consciousness from arrhythmic cerebral hypoperfusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arrhythmic loss-of-consciousness events in LQTS can present clinically as seizure or seizure-like episodes before the cardiac diagnosis is recognized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Cardiac Arrest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes or degeneration to ventricular fibrillation can progress to cardiac arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated torsades de pointes can degenerate to a fatal ventricular arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Syncope and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes abolishes effective cardiac output, causing arrhythmic syncope and, when the rhythm does not terminate, sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beta-Blocker Therapy\", \"target\": \"Adrenergic Trigger Susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Left Cardiac Sympathetic Denervation\", \"target\": \"Adrenergic Trigger Susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mexiletine\", \"target\": \"Persistent Late Sodium Current in LQT3\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allele-Specific RNA Interference\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"target\": \"Early Afterdepolarizations\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"target\": \"Torsades de Pointes\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ToR-ORd Human Ventricular Myocyte Model\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"KCNQ1\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNH2\", \"target\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNH2\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN5A\", \"target\": \"Persistent Late Sodium Current in LQT3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal T-Wave\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal T-wave morphology on ECG is a frequent electrocardiographic feature of familial LQTS and contributes to clinical recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005135\"}}, {\"id\": \"Adrenergic Trigger Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Life-threatening events in familial LQTS are shaped by genotype-specific triggering circumstances. The classical LQT1-LQT3 subtypes differ in whether episodes cluster during exercise or rest/sleep, which informs risk stratification and anti-adrenergic management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Allele-Specific RNA Interference\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emerging precision therapeutic strategy targeting loss-of-function KCNH2 variants in LQT2 patients. RNA interference selectively suppresses mutant KCNH2 transcript while preserving wild-type expression, alleviating dominant-negative effects and restoring hERG current density.\", \"meta\": {\"therapeutic_agents\": [\"siRNA therapeutic agent\"]}}, {\"id\": \"Beta-Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line anti-adrenergic therapy for most patients with inherited long QT syndrome.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"beta-adrenergic antagonist\"]}}, {\"id\": \"Cardiac Arrest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes or degeneration to ventricular fibrillation can cause resuscitated or fatal cardiac arrest.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001695\"}}, {\"id\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Regulatory in-silico proarrhythmia model built on the O\u0027Hara-Rudy ORd model by replacing the I_Kr formulation with a Markov model of dynamic drug-hERG (I_Kr) binding. Combined with multi-channel pharmacology (up to seven currents), it computes the net-charge metric qNet to stratify drug-induced torsades de pointes (TdP) risk. This is the acquired (drug-induced) long QT / proarrhythmia arm and is the consensus cell model of the FDA/HESI CiPA initiative.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:28878692\"}}, {\"id\": \"Early Afterdepolarizations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prolonged ventricular action potential duration promotes plateau oscillations and early afterdepolarizations that trigger torsades de pointes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle cell action potential\", \"cardiac conduction\"], \"role\": \"amplifier\", \"locations\": [\"heart\"], \"computational_models\": [{\"name\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"I_Kr block during slow pacing induces early afterdepolarizations in the model, reproducing the arrhythmogenic trigger.\"}]}}, {\"id\": \"KCNH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"subtypes\": [\"Type 2\"], \"association\": \"Causative\"}}, {\"id\": \"KCNQ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNQ1\"], \"gene_terms\": [{\"label\": \"KCNQ1\", \"id\": \"hgnc:6294\"}], \"subtypes\": [\"Type 1\"], \"association\": \"Causative\"}}, {\"id\": \"Left Cardiac Sympathetic Denervation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical anti-adrenergic escalation when recurrent syncope or major events persist despite full-dose beta-blockade.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mexiletine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Precision pharmacotherapy most relevant to the SCN5A/LQT3 subtype, where late sodium current blockade shortens QTc and lowers arrhythmic event burden.\", \"meta\": {\"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Foundational system of ordinary differential equations for the undiseased human ventricular cardiomyocyte action potential, fit to human myocyte data for the major ionic currents (I_CaL, I_Kr, I_Ks, I_K1, I_to, late I_Na, I_NaCa, I_NaK) with intracellular Ca2+ and CaMKII handling. Long QT syndrome is simulated by reducing repolarizing K+ conductance (I_Kr for LQT2, I_Ks for LQT1) or increasing the persistent late Na+ current (LQT3); each perturbation prolongs action potential duration and, during slow pacing, generates early afterdepolarizations, the cellular substrate for torsades de pointes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"publication\": \"PMID:21637795\"}}, {\"id\": \"Persistent Late Sodium Current in LQT3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the SCN5A-mediated subtype, defective sodium-channel inactivation leaves a small persistent inward current during depolarization, further delaying myocardial repolarization.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"sodium ion transmembrane transport\", \"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"Prolonged QTc Interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Baseline QT prolongation on ECG is the defining diagnostic sign of inherited long QT syndrome, although some gene carriers may have borderline or intermittently normal QTc measurements.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0005184\"}}, {\"id\": \"Prolonged Ventricular Action Potential Duration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced repolarization reserve and persistent inward sodium current prolong ventricular action potential duration and delay ventricular repolarization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"membrane repolarization during cardiac muscle cell action potential\"], \"role\": \"central_effector\", \"locations\": [\"heart\"], \"computational_models\": [{\"name\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"APD90 computed from the simulated action potential is the single-cell correlate of prolonged ventricular repolarization in LQTS.\"}, {\"name\": \"ToR-ORd Human Ventricular Myocyte Model\", \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"description\": \"Multiscale validation includes repolarization abnormalities and drug-induced I_Kr block relevant to LQTS.\"}]}}, {\"id\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A QT-prolonging drug \\u2014 most often an IKr/hERG (KCNH2) blocker \\u2014 superimposed on a subclinical reduction in repolarization reserve precipitates marked QT prolongation and torsades de pointes. Individuals with a latent congenital LQTS genotype have diminished reserve, so a QT-prolonging drug can unmask an otherwise subclinical channelopathy. Drug-associated (\\\"acquired\\\") LQTS thus acts as a pharmacological provocation that surfaces latent congenital LQTS carriers; congenital LQTS gene variants are enriched among such patients. Unlike the Timothy-syndrome fever hypothesis, this drug-unmasking mechanism is well established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"Reduced Repolarizing Potassium Current\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many inherited long-QT subtypes reduce outward delayed rectifier potassium currents in cardiomyocytes, diminishing repolarization reserve and delaying completion of the ventricular action potential.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"potassium ion transmembrane transport\", \"membrane repolarization during cardiac muscle cell action potential\"], \"molecular_functions\": [\"monoatomic ion channel activity\"], \"genes\": [\"KCNQ1\", \"KCNH2\"], \"gene_terms\": [{\"label\": \"KCNQ1\", \"id\": \"hgnc:6294\"}, {\"label\": \"KCNH2\", \"id\": \"hgnc:6251\"}], \"role\": \"trigger\", \"locations\": [\"heart\"]}}, {\"id\": \"SCN5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SCN5A\"], \"gene_terms\": [{\"label\": \"SCN5A\", \"id\": \"hgnc:10593\"}], \"subtypes\": [\"Type 3\"], \"association\": \"Causative\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizure-like episodes can be recorded in familial LQTS, often reflecting cerebral hypoperfusion during malignant arrhythmia rather than primary epilepsy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sinus Bradycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sinus bradycardia can occur in familial LQTS and is captured as a frequent Orphanet phenotype for Romano-Ward syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001688\"}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden cardiac death results from untreated or refractory torsades de pointes degenerating to ventricular fibrillation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001645\"}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent syncopal episodes reflect transient hemodynamic compromise from torsades de pointes or related malignant ventricular arrhythmias.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Syncope and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of effective cardiac output during sustained torsades de pointes causes transient cerebral hypoperfusion (syncope) and, when the malignant ventricular arrhythmia does not terminate, sudden cardiac death. These are the shared sentinel clinical endpoints of inherited long QT syndrome.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiomyocyte\"], \"role\": \"outcome\", \"locations\": [\"heart\"]}}, {\"id\": \"ToR-ORd Human Ventricular Myocyte Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Tomek-Rodriguez-O\u0027Hara-Rudy refinement of the ORd model, recalibrated and independently validated across health, disease, and drug block, with a reformulated L-type Ca2+ current and a replaced hERG (I_Kr) current. It scales from single-cell ionic dynamics to whole-organ simulation including the electrocardiogram, and is a current reference human ventricular model for LQTS repolarization and drug-block studies.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_format\": \"CellML\", \"publication\": \"PMID:31868580\"}}, {\"id\": \"Torsades de Pointes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The signature malignant ventricular tachyarrhythmia of long QT syndrome is torsades de pointes, arising from prolonged repolarization and early afterdepolarizations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001664\", \"computational_models\": [{\"name\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"model_type\": \"KINETIC\", \"description\": \"The qNet metric derived from this model classifies drug-induced torsades de pointes risk.\"}]}}], \"edges\": [{\"source\": \"Reduced Repolarizing Potassium Current\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced repolarization reserve prolongs the ventricular action potential and creates an arrhythmogenic substrate.\"}, {\"source\": \"Persistent Late Sodium Current in LQT3\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inward sodium current prolongs ventricular repolarization and feeds the common arrhythmogenic substrate.\"}, {\"source\": \"Persistent Late Sodium Current in LQT3\", \"target\": \"Sinus Bradycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LQTS3 sodium-channel dysfunction can affect sinoatrial-node pacemaker activity and present with sinus bradycardia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired sinoatrial-node pacemaker activity\"]}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Early Afterdepolarizations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged ventricular action potential duration permits early afterdepolarizations to emerge from the plateau.\"}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Prolonged QTc Interval\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed ventricular repolarization is recorded clinically as QT-interval prolongation on basal electrocardiography.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged Ventricular Action Potential Duration\", \"target\": \"Abnormal T-Wave\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ventricular repolarization can produce abnormal T-wave morphology on the electrocardiogram.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early Afterdepolarizations\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early afterdepolarization-triggered ventricular tachyarrhythmias produce syncope, cardiac arrest, and sudden death.\"}, {\"source\": \"Adrenergic Trigger Susceptibility\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genotype-specific triggering circumstances precipitate malignant ventricular arrhythmias against the repolarization substrate.\"}, {\"source\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A QT-prolonging drug reduces net repolarizing current on a background of diminished reserve, prolonging the ventricular action potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"target\": \"Torsades de Pointes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked drug-induced QT prolongation on a susceptible substrate precipitates torsades de pointes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"early afterdepolarizations\"]}, {\"source\": \"Torsades de Pointes\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Torsades de pointes commonly presents as transient loss of consciousness from arrhythmic cerebral hypoperfusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arrhythmic loss-of-consciousness events in LQTS can present clinically as seizure or seizure-like episodes before the cardiac diagnosis is recognized.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Cardiac Arrest\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes or degeneration to ventricular fibrillation can progress to cardiac arrest.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated torsades de pointes can degenerate to a fatal ventricular arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Torsades de Pointes\", \"target\": \"Syncope and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained torsades de pointes abolishes effective cardiac output, causing arrhythmic syncope and, when the rhythm does not terminate, sudden cardiac death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Beta-Blocker Therapy\", \"target\": \"Adrenergic Trigger Susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Left Cardiac Sympathetic Denervation\", \"target\": \"Adrenergic Trigger Susceptibility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mexiletine\", \"target\": \"Persistent Late Sodium Current in LQT3\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allele-Specific RNA Interference\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"APD90 computed from the simulated action potential is the single-cell correlate of prolonged ventricular repolarization in LQTS.\"}, {\"source\": \"O\u0027Hara-Rudy (ORd) Human Ventricular Action Potential Model\", \"target\": \"Early Afterdepolarizations\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"I_Kr block during slow pacing induces early afterdepolarizations in the model, reproducing the arrhythmogenic trigger.\"}, {\"source\": \"CiPA IKr-Dynamic ORd Proarrhythmia Model\", \"target\": \"Torsades de Pointes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The qNet metric derived from this model classifies drug-induced torsades de pointes risk.\"}, {\"source\": \"ToR-ORd Human Ventricular Myocyte Model\", \"target\": \"Prolonged Ventricular Action Potential Duration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Multiscale validation includes repolarization abnormalities and drug-induced I_Kr block relevant to LQTS.\"}, {\"source\": \"KCNQ1\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNH2\", \"target\": \"QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNH2\", \"target\": \"Reduced Repolarizing Potassium Current\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SCN5A\", \"target\": \"Persistent Late Sodium Current in LQT3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6847,14 +7326,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prolonged QTc interval
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005184" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005184">HP:0005184</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005184" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005184</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is prolonged QTc interval (HP:0005184). HP:0005184 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6874,6 +7360,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6896,6 +7383,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6930,14 +7418,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001279</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6957,6 +7452,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6979,6 +7475,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7011,14 +7508,21 @@
                         Cardiac Arrest
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cardiac arrest
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001695">HP:0001695</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001695</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cardiac arrest (HP:0001695). HP:0001695 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7038,6 +7542,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7072,14 +7577,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001645</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7099,6 +7611,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9272508" target="_blank">PMID:9272508</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7121,6 +7634,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7164,14 +7678,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7191,6 +7712,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7234,14 +7756,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Torsade de pointes
+
+                        <span class="phenotype-term-label">Torsade de pointes</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001664">HP:0001664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is torsade de pointes (HP:0001664). HP:0001664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7261,6 +7792,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28670758" target="_blank">PMID:28670758</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7283,6 +7815,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7317,14 +7850,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sinus bradycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001688">HP:0001688</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001688" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001688</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is sinus bradycardia (HP:0001688). HP:0001688 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7344,6 +7884,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7378,14 +7919,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal T-wave
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005135">HP:0005135</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005135" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005135</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal T-wave (HP:0005135). HP:0005135 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7405,6 +7953,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10348966" target="_blank">PMID:10348966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7427,6 +7976,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7505,13 +8055,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNQ1
 
 
-    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6294">hgnc:6294</a>
+    <a href="https://bioregistry.io/hgnc:6294" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:6294</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNQ1 (hgnc:6294). hgnc:6294 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7532,6 +8087,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16001794" target="_blank">PMID:16001794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7554,6 +8110,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_dff8874e-98a1-472b-9cc2-3f441b1c1064-2018-09-25T040000.000Z" target="_blank">CGGV:assertion_dff8874e-98a1-472b-9cc2-3f441b1c1064-2018-09-25T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7591,13 +8148,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNH2
 
 
-    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6251">hgnc:6251</a>
+    <a href="https://bioregistry.io/hgnc:6251" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:6251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNH2 (hgnc:6251). hgnc:6251 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7618,6 +8180,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16001794" target="_blank">PMID:16001794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7640,6 +8203,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_462eeb4e-357d-4c3d-89f0-e386ac0d011b-2018-09-25T040000.000Z" target="_blank">CGGV:assertion_462eeb4e-357d-4c3d-89f0-e386ac0d011b-2018-09-25T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7677,13 +8241,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10593">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:10593</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7704,6 +8273,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16001794" target="_blank">PMID:16001794</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7741,13 +8311,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALG10B
 
 
-    <a href="https://bioregistry.io/hgnc:31088" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:31088">hgnc:31088</a>
+    <a href="https://bioregistry.io/hgnc:31088" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:31088</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG10B (hgnc:31088). hgnc:31088 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7768,6 +8343,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_6499e6e2-af96-4868-bfd5-18ab35f61847-2026-01-15T010000.000Z" target="_blank">CGGV:assertion_6499e6e2-af96-4868-bfd5-18ab35f61847-2026-01-15T010000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7805,13 +8381,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1C
 
 
-    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1390">hgnc:1390</a>
+    <a href="https://bioregistry.io/hgnc:1390" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:1390</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1C (hgnc:1390). hgnc:1390 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7832,6 +8413,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_c496551d-c7a7-4e49-ad41-8cfd49840dc1-2020-04-24T040000.000Z" target="_blank">CGGV:assertion_c496551d-c7a7-4e49-ad41-8cfd49840dc1-2020-04-24T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7869,13 +8451,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM1
 
 
-    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1442">hgnc:1442</a>
+    <a href="https://bioregistry.io/hgnc:1442" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:1442</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM1 (hgnc:1442). hgnc:1442 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7896,6 +8483,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_4a150cd9-e16b-4992-8cc7-5ccec44b4d6b-2018-09-25T160000.000Z" target="_blank">CGGV:assertion_4a150cd9-e16b-4992-8cc7-5ccec44b4d6b-2018-09-25T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7933,13 +8521,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM2
 
 
-    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1445">hgnc:1445</a>
+    <a href="https://bioregistry.io/hgnc:1445" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:1445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM2 (hgnc:1445). hgnc:1445 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7960,6 +8553,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_86e4b783-3b60-4a1d-ab34-e61d27751ca6-2018-09-25T160000.000Z" target="_blank">CGGV:assertion_86e4b783-3b60-4a1d-ab34-e61d27751ca6-2018-09-25T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7997,13 +8591,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CALM3
 
 
-    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1449">hgnc:1449</a>
+    <a href="https://bioregistry.io/hgnc:1449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:1449</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CALM3 (hgnc:1449). hgnc:1449 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8024,6 +8623,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_3cc2a1ae-5f3d-445c-b124-f3d38fdd070a-2018-09-25T160000.000Z" target="_blank">CGGV:assertion_3cc2a1ae-5f3d-445c-b124-f3d38fdd070a-2018-09-25T160000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8061,13 +8661,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAV3
 
 
-    <a href="https://bioregistry.io/hgnc:1529" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1529">hgnc:1529</a>
+    <a href="https://bioregistry.io/hgnc:1529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:1529</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAV3 (hgnc:1529). hgnc:1529 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8088,6 +8693,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_74aabddc-3402-46de-ba1e-f66aa273cd9c-2020-12-15T002855.870Z" target="_blank">CGGV:assertion_74aabddc-3402-46de-ba1e-f66aa273cd9c-2020-12-15T002855.870Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8125,13 +8731,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ2
 
 
-    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6263">hgnc:6263</a>
+    <a href="https://bioregistry.io/hgnc:6263" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:6263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ2 (hgnc:6263). hgnc:6263 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8152,6 +8763,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_5dc2acbc-8dbe-4142-8f71-89f1576dde08-2020-12-15T002535.799Z" target="_blank">CGGV:assertion_5dc2acbc-8dbe-4142-8f71-89f1576dde08-2020-12-15T002535.799Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8189,13 +8801,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRDN
 
 
-    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12261">hgnc:12261</a>
+    <a href="https://bioregistry.io/hgnc:12261" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:12261</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRDN (hgnc:12261). hgnc:12261 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8216,6 +8833,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/CGGV:assertion_1278bd6a-6ac7-4556-87ea-f860027b2da5-2020-04-24T040000.000Z" target="_blank">CGGV:assertion_1278bd6a-6ac7-4556-87ea-f860027b2da5-2020-04-24T040000.000Z</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8247,6 +8865,82 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-romano-ward-syndrome-disease-record">
+
+
+    <div class="item-name">Orphanet Romano-Ward syndrome disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=101016" target="_blank" rel="noopener noreferrer" title="Open ORPHA:101016">ORPHA:101016</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:101016 structured record for Romano-Ward syndrome provides the familial LQTS definition, inheritance, epidemiology, gene table, HPO phenotype frequencies, and cross-references used to align this inherited LQTS root entry.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:101016" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:101016" target="_blank">ORPHA:101016</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A form of familial long QT syndrome (LQTS) characterized by syncopal episodes and electrocardiographic abnormalities (QT prolongation, T-wave abnormalities and torsade de pointes (TdP) ventricular tachycardia)."</div>
+
+
+                <div class="evidence-explanation">Orphanet defines Romano-Ward syndrome as a familial LQTS form with the core electrocardiographic and syncopal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8262,7 +8956,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta-blocker therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">beta-blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8293,16 +8992,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         beta-adrenergic antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29576">NCIT:C29576</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C29576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8336,6 +9040,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10673253" target="_blank">PMID:10673253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8378,6 +9083,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8399,6 +9105,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10673253" target="_blank">PMID:10673253</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8429,7 +9136,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">left cardiac sympathetic denervation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">left cardiac sympathetic denervation<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is left cardiac sympathetic denervation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8487,6 +9199,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8528,6 +9241,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18606002" target="_blank">PMID:18606002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8557,7 +9271,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Implantable Cardioverter-Defibrillator Placement</span>
 
 
@@ -8606,6 +9325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15191637" target="_blank">PMID:15191637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8635,7 +9355,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8665,16 +9390,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         mexiletine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6916">CHEBI:6916</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:6916</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mexiletine (CHEBI:6916). CHEBI:6916 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8708,6 +9438,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26940925" target="_blank">PMID:26940925</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8747,7 +9478,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">allele-specific RNA interference therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">allele-specific RNA interference therapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is allele-specific RNA interference therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8778,16 +9514,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         siRNA therapeutic agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C201688" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C201688">NCIT:C201688</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C201688" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C201688</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses siRNA therapeutic agent (NCIT:C201688). NCIT:C201688 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8821,6 +9562,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42154296" target="_blank">PMID:42154296</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8877,7 +9619,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acquired-long-qt-syndrome">
                 <div class="item-name">
 
                     Acquired long QT syndrome
@@ -8918,6 +9660,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15191637" target="_blank">PMID:15191637</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8939,6 +9682,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15191637" target="_blank">PMID:15191637</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8965,7 +9709,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-brugada-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Brugada_syndrome.html">Brugada syndrome</a>
@@ -9012,6 +9756,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18451998" target="_blank">PMID:18451998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9047,7 +9792,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse288082">
                 <div class="item-name">
                     Modeling long QT syndrome using gene-edited pigs
 
@@ -9074,9 +9819,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         left ventricular myocardium
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-60">UBERON:0002084</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples left ventricular myocardium, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9113,6 +9872,7 @@
                         <a href="https://bioregistry.io/GEO:GSE288082" target="_blank">GEO:GSE288082</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9148,7 +9908,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01648205">
                 <div class="item-name">
                     NCT01648205
 
@@ -9165,16 +9925,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         prolonged QT interval
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001657">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9192,6 +9957,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01648205" target="_blank">clinicaltrials:NCT01648205</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9216,7 +9982,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05906732">
                 <div class="item-name">
                     NCT05906732
 
@@ -9233,16 +9999,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         prolonged QT interval
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001657">HP:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets prolonged QT interval (HP:0001657). HP:0001657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9260,6 +10031,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05906732" target="_blank">clinicaltrials:NCT05906732</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9288,6 +10060,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9425,32 +10200,42 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-prolonged-ventricular-action-potential-duration">Prolonged Ventricular Action Potential Duration</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">APD90 computed from the simulated action potential is the single-cell correlate of prolonged ventricular repolarization in LQTS.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-prolonged-ventricular-action-potential-duration">Prolonged Ventricular Action Potential Duration</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-early-afterdepolarizations">Early Afterdepolarizations</a>
-
-                            <span class="crosslink-desc">I_Kr block during slow pacing induces early afterdepolarizations in the model, reproducing the arrhythmogenic trigger.</span>
+                <span class="crosslink-desc">APD90 computed from the simulated action potential is the single-cell correlate of prolonged ventricular repolarization in LQTS.</span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-early-afterdepolarizations">Early Afterdepolarizations</a>
+
+
+
+                <span class="crosslink-desc">I_Kr block during slow pacing induces early afterdepolarizations in the model, reproducing the arrhythmogenic trigger.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9475,6 +10260,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21637795" target="_blank">PMID:21637795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9518,6 +10304,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21637795" target="_blank">PMID:21637795</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9619,22 +10406,28 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-torsades-de-pointes">Torsades de Pointes</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The qNet metric derived from this model classifies drug-induced torsades de pointes risk.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-torsades-de-pointes">Torsades de Pointes</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">The qNet metric derived from this model classifies drug-induced torsades de pointes risk.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9659,6 +10452,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28878692" target="_blank">PMID:28878692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9702,6 +10496,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28878692" target="_blank">PMID:28878692</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9744,6 +10539,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28878692" target="_blank">PMID:28878692</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9896,22 +10692,28 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-prolonged-ventricular-action-potential-duration">Prolonged Ventricular Action Potential Duration</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Multiscale validation includes repolarization abnormalities and drug-induced I_Kr block relevant to LQTS.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-prolonged-ventricular-action-potential-duration">Prolonged Ventricular Action Potential Duration</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Multiscale validation includes repolarization abnormalities and drug-induced I_Kr block relevant to LQTS.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -9936,6 +10738,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31868580" target="_blank">PMID:31868580</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9980,6 +10783,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31868580" target="_blank">PMID:31868580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10019,7 +10823,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Familial Long QT Syndrome
 creation_date: &#39;2026-04-14T05:37:14Z&#39;
-updated_date: &#39;2026-05-09T11:04:37Z&#39;
 description: &gt;-
   Familial long QT syndrome (LQTS) is a heritable cardiac channelopathy of
   ventricular repolarization characterized by QT prolongation, torsades de
@@ -11515,6 +12318,7 @@ clinical_trials:
       label: Prolonged QT interval
   evidence:
   - reference: clinicaltrials:NCT01648205
+    reference_title: &#34;Efficacy of Ranolazine in LQT3 Patients&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -11538,6 +12342,7 @@ clinical_trials:
   notes: ClinicalTrials.gov classifies this as a combined Phase 1b/2a program.
   evidence:
   - reference: clinicaltrials:NCT05906732
+    reference_title: &#34;A Phase 1b/2a, 2-Part Study; Part 1: Randomized, Double-Blind, Crossover, Dose-Escalation, Placebo-Controlled Study to Evaluate the Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of SGK-1 Kinase Inhibition by LQT-1213 on Dofetilide-Induced QTc Prolongation in Healthy Adult Subjects. Part 2: Single-Blind, Multiple-Dose, Safety Study to Evaluate the Safety, Tolerability, and Pharmacokinetics of LQT-1213 in Patients Diagnosed With Type 2 or 3 Long QT Syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -11577,6 +12382,7 @@ datasets:
     type ventricular tissue in a large-animal LQT2 model.
   evidence:
   - reference: GEO:GSE288082
+    reference_title: &#34;Modeling long QT syndrome using gene-edited pigs&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -11940,11 +12746,11 @@ discussions:
       Concordant reduction of repolarizing current, drug-induced APD
       prolongation/EADs, and an elevated in-silico torsade metric for a candidate
       variant versus isogenic control.
-    would_support:
+    supporting_outcome:
     - &gt;-
       The variant genuinely reduces repolarization reserve, confirming a query hit
       as a true latent congenital LQTS carrier.
-    would_refute:
+    refuting_outcome:
     - &gt;-
       No functional deficit, indicating the query hit is not explained by that
       variant (incidental finding).
@@ -12833,7 +13639,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Familial Long QT Syndrome", "mondoId": "MONDO:0019171", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Long_QT_Syndrome", "yamlRevision": "d892f4936699"};
+        const OS_CONFIG = {"diseaseName": "Familial Long QT Syndrome", "mondoId": "MONDO:0019171", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Long_QT_Syndrome", "yamlRevision": "581808808279"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13252,5 +14058,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

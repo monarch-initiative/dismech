@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Major Depressive Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Major Depressive Disorder</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Major%20Depressive%20Disorder"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3946,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3751,11 +3955,19 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -3819,27 +4031,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3890,7 +4179,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-melancholic-depression">
 
                     <div class="item-name">
                         Melancholic Depression
@@ -3918,7 +4207,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-atypical-depression">
 
                     <div class="item-name">
                         Atypical Depression
@@ -3946,7 +4235,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-psychotic-depression">
 
                     <div class="item-name">
                         Psychotic Depression
@@ -3974,7 +4263,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-seasonal-affective-disorder">
 
                     <div class="item-name">
                         Seasonal Affective Disorder
@@ -4002,7 +4291,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-peripartum-depression">
 
                     <div class="item-name">
                         Peripartum Depression
@@ -4039,6 +4328,23 @@
                 <h2 class="card-title">Comorbidities</h2>
             </div>
             <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Major_Depressive_Disorder__Type_2_Diabetes_Mellitus.html">Major Depressive Disorder &lt;-&gt; Type 2 Diabetes Mellitus</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease A</span>
+
+
+                        <span class="tag tag-classification">BIDIRECTIONAL</span>
+
+
+                        <span class="tag tag-mechanistic">CURATED</span>
+
+                    </div>
+                </div>
 
                 <div class="mapping-item">
                     <div class="mapping-title">
@@ -4134,6 +4440,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42421017" target="_blank">PMID:42421017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4156,6 +4463,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42421017" target="_blank">PMID:42421017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4177,6 +4485,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42421017" target="_blank">PMID:42421017</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4236,7 +4545,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
 
 
@@ -4276,10 +4585,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         multi-region postmortem molecular pathology study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type multi-region postmortem molecular pathology study.</span>
     </span>
 
 
@@ -4322,9 +4637,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4334,10 +4654,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4366,15 +4689,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         astrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000127</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4415,7 +4745,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -4436,10 +4766,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         spatial transcriptomics
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by spatial transcriptomics.</span>
     </span>
 
 
@@ -4463,10 +4799,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         multiplex immunofluorescence
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by multiplex immunofluorescence.</span>
     </span>
 
 
@@ -4503,7 +4845,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -4521,16 +4863,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         apoptotic process
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -4558,10 +4911,13 @@
         pyroptotic inflammatory response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070269">GO:0070269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070269</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on pyroptotic inflammatory response (GO:0070269). GO:0070269 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4592,10 +4948,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         design-based stereology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by design-based stereology.</span>
     </span>
 
 
@@ -4619,10 +4981,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
 
         terminal deoxynucleotidyl transferase dUTP nick end labeling assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+This readout is measured by terminal deoxynucleotidyl transferase dUTP nick end labeling assay.</span>
     </span>
 
 
@@ -4717,7 +5085,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
 
 
@@ -4734,12 +5102,18 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -4761,10 +5135,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-10">
 
         cross-species genetic epistasis and rescue experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this experiment is of type this experiment type
+This experiment is of type cross-species genetic epistasis and rescue experiment.</span>
     </span>
 
 
@@ -4807,9 +5187,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4819,10 +5204,13 @@
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-11">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4851,16 +5239,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         astrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000127</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -4888,11 +5287,18 @@
         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -4920,10 +5326,13 @@
         microglial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000129</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4961,9 +5370,14 @@
 
 
 
+
         </div>
 
         <div class="item-meta">
+
+
+
+
 
 
 
@@ -4973,10 +5387,13 @@
         mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-15">NCBITaxon:10090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -5005,15 +5422,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         astrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000127</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -5052,7 +5476,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -5067,15 +5491,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         FGF13
 
 
-    <a href="https://bioregistry.io/hgnc:3670" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3670">hgnc:3670</a>
+    <a href="https://bioregistry.io/hgnc:3670" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:3670</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets FGF13 (hgnc:3670). hgnc:3670 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5124,7 +5555,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -5139,15 +5570,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MAPK8IP2
 
 
-    <a href="https://bioregistry.io/hgnc:6883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6883">hgnc:6883</a>
+    <a href="https://bioregistry.io/hgnc:6883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:6883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets MAPK8IP2 (hgnc:6883). hgnc:6883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5196,7 +5634,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -5239,7 +5677,7 @@
         <div class="entity-ref-list">
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
     </div>
 
@@ -5257,16 +5695,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         apoptotic process
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006915</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -5294,10 +5743,13 @@
         pyroptotic inflammatory response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070269">GO:0070269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0070269</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on pyroptotic inflammatory response (GO:0070269). GO:0070269 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5328,10 +5780,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-21">
 
         co-immunoprecipitation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">Relation: this readout is measured by this assay
+This readout is measured by co-immunoprecipitation assay.</span>
     </span>
 
 
@@ -5355,10 +5813,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-22">
 
         live-cell lineage imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">Relation: this readout is measured by this assay
+This readout is measured by live-cell lineage imaging.</span>
     </span>
 
 
@@ -5416,10 +5880,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-23">
 
         cytokine quantification
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">Relation: this readout is measured by this assay
+This readout is measured by cytokine quantification.</span>
     </span>
 
 
@@ -5443,10 +5913,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-24">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -5470,10 +5946,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-25">
 
         blood-brain barrier permeability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">Relation: this readout is measured by this assay
+This readout is measured by blood-brain barrier permeability assay.</span>
     </span>
 
 
@@ -5531,10 +6013,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-26">
 
         behavioral phenotyping
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">Relation: this readout is measured by this assay
+This readout is measured by behavioral phenotyping.</span>
     </span>
 
 
@@ -5629,7 +6117,7 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
 
 
@@ -5660,12 +6148,18 @@
 
 
 
-    <span class="entity-ref-chip">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</span>
+    <a class="entity-ref-chip" href="#hypothesis-astrocytic-fgf13-jip2-jnk-cell-death-model">mechanistic_hypothesis#astrocytic_fgf13_jip2_jnk_cell_death_model</a>
 
 
 
         </div>
     </div>
+
+
+
+
+
+
 
 
 
@@ -5696,6 +6190,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42421017" target="_blank">PMID:42421017</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5718,6 +6213,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39332965" target="_blank">PMID:39332965</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5739,6 +6235,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32341540" target="_blank">PMID:32341540</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5826,10 +6323,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-27">
 
         postmortem brain tissue analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Relation: this experiment is of type this experiment type
+This experiment is of type postmortem brain tissue analysis.</span>
     </span>
 
 
@@ -5873,6 +6376,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5887,10 +6396,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-28">
 
         in vivo electrophysiology and optogenetics
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Relation: this experiment is of type this experiment type
+This experiment is of type in vivo electrophysiology and optogenetics.</span>
     </span>
 
 
@@ -5934,6 +6449,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5948,10 +6469,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-29">
 
         in vivo neuroimaging and electrophysiology during pharmacological intervention
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this experiment is of type this experiment type
+This experiment is of type in vivo neuroimaging and electrophysiology during pharmacological intervention.</span>
     </span>
 
 
@@ -5995,6 +6522,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -6018,6 +6551,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42372880" target="_blank">PMID:42372880</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6039,6 +6573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42372880" target="_blank">PMID:42372880</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6131,10 +6666,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-30">
 
         cell-type-specific perturbation with longitudinal imaging and behavioral phenotyping
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Relation: this experiment is of type this experiment type
+This experiment is of type cell-type-specific perturbation with longitudinal imaging and behavioral phenotyping.</span>
     </span>
 
 
@@ -6197,10 +6738,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-31">
 
         diffusion tensor imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Relation: this readout is measured by this assay
+This readout is measured by diffusion tensor imaging.</span>
     </span>
 
 
@@ -6224,10 +6771,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-32">
 
         myelin histopathology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">Relation: this readout is measured by this assay
+This readout is measured by myelin histopathology.</span>
     </span>
 
 
@@ -6288,10 +6841,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-33">
 
         glial activation immunostaining
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">Relation: this readout is measured by this assay
+This readout is measured by glial activation immunostaining.</span>
     </span>
 
 
@@ -6315,10 +6874,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-34">
 
         cytokine quantification
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">Relation: this readout is measured by this assay
+This readout is measured by cytokine quantification.</span>
     </span>
 
 
@@ -6379,10 +6944,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-35">
 
         depression behavioral battery
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">Relation: this readout is measured by this assay
+This readout is measured by depression behavioral battery.</span>
     </span>
 
 
@@ -6455,6 +7026,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -6478,6 +7055,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41730818" target="_blank">PMID:41730818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6499,6 +7077,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41730818" target="_blank">PMID:41730818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6577,10 +7156,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-36">
 
         prospective longitudinal multimodal cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal multimodal cohort study.</span>
     </span>
 
 
@@ -6752,6 +7337,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -6766,10 +7357,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-37">
 
         human cell-specific causal perturbation and rescue study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">Relation: this experiment is of type this experiment type
+This experiment is of type human cell-specific causal perturbation and rescue study.</span>
     </span>
 
 
@@ -7014,6 +7611,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -7037,6 +7640,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30528503" target="_blank">PMID:30528503</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7059,6 +7663,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42418414" target="_blank">PMID:42418414</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7080,6 +7685,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42418414" target="_blank">PMID:42418414</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7128,17 +7734,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Serotonergic Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000850">CL:0000850</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000850</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Serotonergic Neuron (CL:0000850). CL:0000850 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7159,11 +7772,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000700">CL:0000700</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dopaminergic Neuron (CL:0000700). CL:0000700 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7184,10 +7802,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008025">CL:0008025</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0008025</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:0008025 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7214,17 +7835,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Serotonin Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007210" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007210">GO:0007210</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007210" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0007210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Serotonin Signaling, annotated with serotonin receptor signaling pathway (GO:0007210). GO:0007210 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7245,10 +7873,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007212">GO:0007212</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007212" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0007212</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Dopamine Signaling, annotated with G protein-coupled dopamine receptor signaling pathway (GO:0007212). GO:0007212 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7265,6 +7896,7 @@
 
 
                 </div>
+
 
 
 
@@ -7286,6 +7918,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7306,6 +7939,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7325,6 +7959,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7357,17 +7992,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         GABAergic Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic Neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7388,10 +8030,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pyramidal Neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7418,16 +8063,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         GABA Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0007214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated GABA Signaling, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7436,6 +8086,8 @@
     <span class="tag tag-modifier">
         ↕ DYSREGULATED
     </span>
+
+
 
 
 
@@ -7453,10 +8105,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-46">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Glutamate Signaling, annotated with glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7476,16 +8131,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Synaptic Plasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-47">GO:0048167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Synaptic Plasticity, annotated with regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7515,6 +8175,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7526,6 +8187,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42372880" target="_blank">PMID:42372880</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7549,6 +8211,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42372880" target="_blank">PMID:42372880</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7570,6 +8233,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42372880" target="_blank">PMID:42372880</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7604,16 +8268,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Corticotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002309" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002309">CL:0002309</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002309" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0002309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Corticotroph (CL:0002309). CL:0002309 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7640,16 +8309,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cortisol Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071385" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071385">GO:0071385</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071385" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0071385</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cortisol Response, annotated with cellular response to glucocorticoid stimulus (GO:0071385). GO:0071385 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7675,6 +8349,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7686,6 +8361,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7718,16 +8394,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-50">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7754,16 +8435,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Synaptic Plasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0048167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Synaptic Plasticity, annotated with regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7780,6 +8466,7 @@
 
 
                 </div>
+
 
 
 
@@ -7801,6 +8488,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7821,6 +8509,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7840,6 +8529,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7872,16 +8562,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Microglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7898,6 +8593,7 @@
 
 
                 </div>
+
 
 
 
@@ -7926,6 +8622,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7946,6 +8643,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7965,6 +8663,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8012,6 +8711,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8023,6 +8723,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38256041" target="_blank">PMID:38256041</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8044,6 +8745,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38256041" target="_blank">PMID:38256041</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8063,6 +8765,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38256041" target="_blank">PMID:38256041</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8095,16 +8798,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-53">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8131,16 +8839,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cognition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050890">GO:0050890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050890" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0050890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cognition (GO:0050890). GO:0050890 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8157,6 +8870,7 @@
 
 
                 </div>
+
 
 
 
@@ -8178,6 +8892,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42150067" target="_blank">PMID:42150067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8198,6 +8913,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42150067" target="_blank">PMID:42150067</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8217,6 +8933,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42150067" target="_blank">PMID:42150067</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8251,17 +8968,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8282,11 +9006,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-56">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Oligodendrocyte Precursor Cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8307,11 +9036,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-57">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8332,11 +9066,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-58">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8357,10 +9096,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-59">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8387,16 +9129,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-60">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8405,6 +9152,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -8422,10 +9171,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-61">GO:0048167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Synaptic Plasticity, annotated with regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8445,16 +9197,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Axon Ensheathment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008366">GO:0008366</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008366" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-62">GO:0008366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Axon Ensheathment (GO:0008366). GO:0008366 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8471,6 +9228,7 @@
 
 
                 </div>
+
 
 
 
@@ -8511,6 +9269,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41730818" target="_blank">PMID:41730818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8533,6 +9292,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41730818" target="_blank">PMID:41730818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8554,6 +9314,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41730818" target="_blank">PMID:41730818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8603,7 +9364,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Electroconvulsive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most effective treatment for severe or treatment-resistant depression.\"}, {\"id\": \"Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cortex-wide excitation-inhibition (E/I) balance in prefrontal-cingulate cortices, reflecting dysregulation of GABAergic inhibitory and glutamatergic excitatory neurotransmission. E/I imbalance is implicated in depressive symptoms and ketamine treatment response in treatment-resistant depression.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"GABAergic Neuron\", \"Pyramidal Neuron\"], \"biological_processes\": [\"GABA Signaling\", \"Glutamate Signaling\", \"Synaptic Plasticity\"]}}, {\"id\": \"Ketamine/Esketamine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid-acting treatment for treatment-resistant depression.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ketamine\", \"esketamine\"]}}, {\"id\": \"Lithium Augmentation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive lithium added to an antidepressant is an evidence-based augmentation strategy for treatment-resistant depression, sharing the mood-stabilizer mechanism used first-line in bipolar disorder.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"lithium carbonate\"]}}, {\"id\": \"Monoamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced serotonin, norepinephrine, and dopamine neurotransmission in key brain circuits. While oversimplified, this remains a foundation for antidepressant pharmacotherapy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Serotonergic Neuron\", \"Dopaminergic Neuron\", \"Noradrenergic Neuron\"], \"biological_processes\": [\"Serotonin Signaling\", \"Dopamine Signaling\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated inflammatory cytokines (IL-6, TNF-alpha, CRP) observed in depression. Inflammation may contribute to monoamine depletion and neuroplasticity deficits.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Microglia\"]}}, {\"id\": \"Neuroplasticity Deficits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced BDNF and impaired synaptic plasticity in prefrontal cortex and hippocampus. Successful treatments restore neuroplasticity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Synaptic Plasticity\"]}}, {\"id\": \"Oligodendrocyte Dysfunction and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oligodendrocyte (OL) dysfunction and myelin abnormalities contribute to depression pathophysiology through multiple mechanisms: impaired myelination reduces conduction velocity and disrupts neural circuit function; loss of OL-derived metabolic support decreases neuronal energy supply; compromised OL-glial crosstalk with microglia and astrocytes amplifies neuroinflammation. These dysfunctions are associated with altered brain connectivity and emotional processing deficits, and may represent a targetable node for therapeutic remyelination strategies.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Oligodendrocyte\", \"Oligodendrocyte Precursor Cell\", \"Neuron\", \"Microglia\", \"Astrocyte\"], \"biological_processes\": [\"Myelination\", \"Synaptic Plasticity\", \"Axon Ensheathment\"]}}, {\"id\": \"Selective Serotonin Reuptake Inhibitors (SSRIs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line pharmacotherapy (sertraline, escitalopram, fluoxetine).\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sertraline\", \"escitalopram\", \"fluoxetine\"]}}, {\"id\": \"Serotonin-Norepinephrine Reuptake Inhibitors (SNRIs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Venlafaxine, duloxetine for depression with pain or fatigue.\", \"meta\": {\"therapeutic_agents\": [\"venlafaxine\", \"duloxetine\"]}}, {\"id\": \"Transcranial Magnetic Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-invasive neuromodulation for treatment-resistant depression.\"}], \"edges\": [{\"source\": \"Oligodendrocyte Dysfunction and Demyelination\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"OL dysfunction and myelin abnormalities impair neural plasticity through loss of metabolic and trophic support to neurons.\"]}, {\"source\": \"Oligodendrocyte Dysfunction and Demyelination\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"OL-microglia and OL-astrocyte interactions link oligodendrocyte dysfunction to neuroinflammatory signaling in MDD.\"]}, {\"source\": \"Selective Serotonin Reuptake Inhibitors (SSRIs)\", \"target\": \"Monoamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serotonin-Norepinephrine Reuptake Inhibitors (SNRIs)\", \"target\": \"Monoamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electroconvulsive Therapy\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketamine/Esketamine\", \"target\": \"Excitation-Inhibition Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcranial Magnetic Stimulation\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lithium Augmentation\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"C-511T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"IL1B\"], \"gene_terms\": [{\"label\": \"IL1B\"}]}}, {\"id\": \"Electroconvulsive Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most effective treatment for severe or treatment-resistant depression.\"}, {\"id\": \"Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cortex-wide excitation-inhibition (E/I) balance in prefrontal-cingulate cortices, reflecting dysregulation of GABAergic inhibitory and glutamatergic excitatory neurotransmission. E/I imbalance is implicated in depressive symptoms and ketamine treatment response in treatment-resistant depression.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"GABAergic Neuron\", \"Pyramidal Neuron\"], \"biological_processes\": [\"GABA Signaling\", \"Glutamate Signaling\", \"Synaptic Plasticity\"]}}, {\"id\": \"IL1B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"IL1B\"], \"gene_terms\": [{\"label\": \"IL1B\", \"id\": \"hgnc:5992\"}], \"association\": \"Severity modifier and antidepressant-response marker, not an established susceptibility locus. For the C-511T (rs16944) variant the CC genotype is associated with greater MDD symptom severity and the TT genotype with antidepressant treatment response; the source review states these two associations are not equivalent in terms of susceptibility to disease onset.\", \"relationship_type\": \"MODIFIER\", \"variant_count\": 1}}, {\"id\": \"Ketamine/Esketamine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rapid-acting treatment for treatment-resistant depression.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ketamine\", \"esketamine\"]}}, {\"id\": \"Lithium Augmentation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive lithium added to an antidepressant is an evidence-based augmentation strategy for treatment-resistant depression, sharing the mood-stabilizer mechanism used first-line in bipolar disorder.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"lithium carbonate\"]}}, {\"id\": \"Monoamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced serotonin, norepinephrine, and dopamine neurotransmission in key brain circuits. While oversimplified, this remains a foundation for antidepressant pharmacotherapy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Serotonergic Neuron\", \"Dopaminergic Neuron\", \"Noradrenergic Neuron\"], \"biological_processes\": [\"Serotonin Signaling\", \"Dopamine Signaling\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated inflammatory cytokines (IL-6, TNF-alpha, CRP) observed in depression. Inflammation may contribute to monoamine depletion and neuroplasticity deficits.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Microglia\"]}}, {\"id\": \"Neuroplasticity Deficits\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced BDNF and impaired synaptic plasticity in prefrontal cortex and hippocampus. Successful treatments restore neuroplasticity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Synaptic Plasticity\"]}}, {\"id\": \"Oligodendrocyte Dysfunction and Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oligodendrocyte (OL) dysfunction and myelin abnormalities contribute to depression pathophysiology through multiple mechanisms: impaired myelination reduces conduction velocity and disrupts neural circuit function; loss of OL-derived metabolic support decreases neuronal energy supply; compromised OL-glial crosstalk with microglia and astrocytes amplifies neuroinflammation. These dysfunctions are associated with altered brain connectivity and emotional processing deficits, and may represent a targetable node for therapeutic remyelination strategies.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Oligodendrocyte\", \"Oligodendrocyte Precursor Cell\", \"Neuron\", \"Microglia\", \"Astrocyte\"], \"biological_processes\": [\"Myelination\", \"Synaptic Plasticity\", \"Axon Ensheathment\"]}}, {\"id\": \"Selective Serotonin Reuptake Inhibitors (SSRIs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line pharmacotherapy (sertraline, escitalopram, fluoxetine).\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sertraline\", \"escitalopram\", \"fluoxetine\"]}}, {\"id\": \"Serotonin-Norepinephrine Reuptake Inhibitors (SNRIs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Venlafaxine, duloxetine for depression with pain or fatigue.\", \"meta\": {\"therapeutic_agents\": [\"venlafaxine\", \"duloxetine\"]}}, {\"id\": \"Transcranial Magnetic Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Non-invasive neuromodulation for treatment-resistant depression.\"}], \"edges\": [{\"source\": \"Oligodendrocyte Dysfunction and Demyelination\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"OL dysfunction and myelin abnormalities impair neural plasticity through loss of metabolic and trophic support to neurons.\"]}, {\"source\": \"Oligodendrocyte Dysfunction and Demyelination\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"OL-microglia and OL-astrocyte interactions link oligodendrocyte dysfunction to neuroinflammatory signaling in MDD.\"]}, {\"source\": \"Selective Serotonin Reuptake Inhibitors (SSRIs)\", \"target\": \"Monoamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serotonin-Norepinephrine Reuptake Inhibitors (SNRIs)\", \"target\": \"Monoamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electroconvulsive Therapy\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketamine/Esketamine\", \"target\": \"Excitation-Inhibition Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcranial Magnetic Stimulation\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lithium Augmentation\", \"target\": \"Neuroplasticity Deficits\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"C-511T\", \"target\": \"IL1B\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8646,14 +9407,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poor appetite
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004396">HP:0004396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0004396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor Appetite (HP:0004396). HP:0004396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8686,14 +9454,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
+
+                        <span class="phenotype-term-label">Depression</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8715,14 +9492,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anhedonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012154" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012154">HP:0012154</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0012154</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8746,14 +9530,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8777,14 +9568,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
+
+                        <span class="phenotype-term-label">Cognitive impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8806,20 +9606,29 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Choreoathetosis
+
+                        <span class="phenotype-term-label">Agitation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001266">HP:0001266</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000713</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychomotor agitation, annotated with Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Retardation or agitation</div>
+                    <div class="item-desc">Psychomotor agitation or retardation. The ontology term captures the agitation pole; psychomotor retardation currently lacks a non-obsolete HPO term.</div>
 
 
 
@@ -8846,14 +9655,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8904,7 +9720,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-slc6a4" data-dismech-node="SLC6A4" data-dismech-type="genetic">
@@ -8912,6 +9728,28 @@
                     SLC6A4
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SLC6A4
+
+
+    <a href="https://bioregistry.io/hgnc:11050" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:11050</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC6A4 (hgnc:11050). hgnc:11050 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -8930,6 +9768,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BDNF
+
+
+    <a href="https://bioregistry.io/hgnc:1033" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:1033</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BDNF (hgnc:1033). hgnc:1033 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -8942,6 +9802,28 @@
                     FKBP5
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FKBP5
+
+
+    <a href="https://bioregistry.io/hgnc:3721" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:3721</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FKBP5 (hgnc:3721). hgnc:3721 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -8960,6 +9842,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: HTR2A
+
+
+    <a href="https://bioregistry.io/hgnc:5293" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:5293</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HTR2A (hgnc:5293). hgnc:5293 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -8967,10 +9871,194 @@
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-il1b" data-dismech-node="IL1B" data-dismech-type="genetic">
+                <div class="item-name">
+                    IL1B
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Severity modifier and antidepressant-response marker, not an established susceptibility locus. For the C-511T (rs16944) variant the CC genotype is associated with greater MDD symptom severity and the TT genotype with antidepressant treatment response; the source review states these two associations are not equivalent in terms of susceptibility to disease onset.)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL1B
+
+
+    <a href="https://bioregistry.io/hgnc:5992" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:5992</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL1B (hgnc:5992). hgnc:5992 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: MODIFIER</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42450240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42450240" target="_blank">PMID:42450240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the CC genotype was more frequently associated with greater MDD symptom severity, whereas the TT genotype was predominantly associated with antidepressant treatment response"</div>
+
+
+                <div class="evidence-explanation">Systematic review of the IL1B C-511T variant reporting distinct clinical outcomes by genotype: symptom severity for CC and antidepressant treatment response for TT.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42450240" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42450240" target="_blank">PMID:42450240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"thus, these associations should not be considered equivalent in terms of susceptibility to disease onset"</div>
+
+
+                <div class="evidence-explanation">The same review explicitly declines to treat the severity and treatment-response findings as evidence of susceptibility to MDD onset, which is why this gene is curated as a MODIFIER rather than a risk factor.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42450240" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42450240" target="_blank">PMID:42450240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"other studies have found no significant association between this genetic variant and MDD"</div>
+
+
+                <div class="evidence-explanation">Counterweight from the same review documenting non-replication, recorded so the association is not read as settled.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-511t" data-dismech-node="C-511T" data-dismech-type="genetic">
+
+    <div class="item-name">
+        C-511T
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: IL1B
+            <span class="pill-tip" role="tooltip" id="pill-tip-75">Relation: this variant is in this gene
+This variant is in IL1B.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Also known as:</strong>
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">rs16944</span>
+
+    </div>
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Identifiers:</strong>
+
+
+
+
+    <a href="https://bioregistry.io/dbSNP:rs16944" target="_blank" class="curie-chip curie-chip-dbsnp" title="Open dbSNP:rs16944">dbSNP:rs16944</a>
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
         </div>
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8988,7 +10076,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">SSRI therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">SSRI therapy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is SSRI therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9019,17 +10112,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sertraline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9123">CHEBI:9123</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9123" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-77">CHEBI:9123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sertraline (CHEBI:9123). CHEBI:9123 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         escitalopram
@@ -9037,11 +10137,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_36791" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36791">CHEBI:36791</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36791" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-78">CHEBI:36791</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses escitalopram (CHEBI:36791). CHEBI:36791 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         fluoxetine
@@ -9049,10 +10154,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5118" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5118">CHEBI:5118</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5118" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-79">CHEBI:5118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fluoxetine (CHEBI:5118). CHEBI:5118 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9096,6 +10204,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9115,6 +10224,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42066210" target="_blank">PMID:42066210</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9145,7 +10255,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">SNRI therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">SNRI therapy<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is SNRI therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9176,17 +10291,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         venlafaxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9943" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9943">CHEBI:9943</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9943" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-81">CHEBI:9943</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses venlafaxine (CHEBI:9943). CHEBI:9943 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         duloxetine
@@ -9194,10 +10316,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36796">CHEBI:36796</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-82">CHEBI:36796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9238,7 +10363,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cognitive behavioral therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-83">cognitive behavioral therapy<span class="pill-tip" role="tooltip" id="pill-tip-83">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cognitive behavioral therapy, annotated with Cognitive Behavior Therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cognitive Behavior Therapy</span>
 
 
@@ -9284,7 +10414,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">electroconvulsive therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-84">electroconvulsive therapy<span class="pill-tip" role="tooltip" id="pill-tip-84">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is electroconvulsive therapy (NCIT:C93303). NCIT:C93303 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Electroconvulsive Therapy</span>
 
 
@@ -9348,7 +10483,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">ketamine/esketamine therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">ketamine/esketamine therapy<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ketamine/esketamine therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9379,17 +10519,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ketamine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6121" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6121">CHEBI:6121</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6121" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-86">CHEBI:6121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         esketamine
@@ -9397,10 +10544,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_60799" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:60799">CHEBI:60799</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_60799" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-87">CHEBI:60799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses esketamine (CHEBI:60799). CHEBI:60799 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9434,6 +10584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9474,6 +10625,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9494,6 +10646,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9513,6 +10666,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39150594" target="_blank">PMID:39150594</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9541,7 +10695,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">transcranial magnetic stimulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-88">transcranial magnetic stimulation<span class="pill-tip" role="tooltip" id="pill-tip-88">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transcranial magnetic stimulation (NCIT:C116655). NCIT:C116655 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Transcranial Magnetic Stimulation</span>
 
 
@@ -9605,7 +10764,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-89">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-89">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9635,16 +10799,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         lithium carbonate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6504" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6504">CHEBI:6504</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6504" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-90">CHEBI:6504</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lithium carbonate (CHEBI:6504). CHEBI:6504 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9688,6 +10857,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986373" target="_blank">PMID:34986373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9717,7 +10887,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral activation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-91">behavioral activation<span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral activation, annotated with Behavioral Intervention (NCIT:C15184). NCIT:C15184 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Intervention</span>
 
 
@@ -9772,11 +10947,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-childhood-trauma" data-dismech-node="Childhood Trauma" data-dismech-type="environmental">
                 <div class="item-name">Childhood Trauma</div>
 
-
-                <div class="item-desc">Strong risk factor for adult depression</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-92">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Strong risk factor for adult depression, and additionally for an earlier onset and a more chronic or treatment-resistant course.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27908895" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27908895" target="_blank">PMID:27908895</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Childhood maltreatment, especially emotional abuse and neglect, represents a risk factor for severe, early-onset, treatment-resistant depression with a chronic course"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 184 studies; maltreated individuals were 2.66 to 3.73 times more likely to develop adult depression, and twice as likely to develop a chronic or treatment-resistant course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -9784,6 +11019,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-chronic-stress" data-dismech-node="Chronic Stress" data-dismech-type="environmental">
                 <div class="item-name">Chronic Stress</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-93">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Major precipitant</div>
@@ -9797,13 +11059,14 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38331979" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38331979" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                 </div>
@@ -9811,7 +11074,7 @@
                 <div class="evidence-snippet">"The currently widely accepted theories of MDD pathogenesis include the neurotransmitter and receptor hypothesis, hypothalamic-pituitary-adrenal (HPA) axis hypothesis, cytokine hypothesis, neuroplasticity hypothesis and systemic influence hypothesis"</div>
 
 
-                <div class="evidence-explanation">The HPA axis hypothesis directly relates to stress response dysregulation, supporting chronic stress as a major environmental precipitant of MDD.</div>
+                <div class="evidence-explanation">The review lists the HPA-axis hypothesis but does not itself assert a stress-to-depression relationship; it supports chronic stress as a precipitant only indirectly via the HPA axis.</div>
 
 
 
@@ -9829,10 +11092,70 @@
                 <div class="item-name">Social Isolation</div>
 
 
-                <div class="item-desc">Risk factor and consequence</div>
 
 
 
+
+                <div class="item-desc">Risk factor and consequence - loneliness and isolation predict later depressive symptoms, and depressive symptoms in turn predict later social loneliness and isolation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35583561" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35583561" target="_blank">PMID:35583561</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our meta-analysis found a pooled adjusted odds ratio of 2.33 (95% CI 1.62-3.34) for risk of new onset depression in adults who were often lonely compared with people who were not often lonely"</div>
+
+
+                <div class="evidence-explanation">Systematic review of 32 longitudinal general-population studies, meta-analysing eight cohorts, for the risk of new onset depression in adults who were often lonely. Supports the risk-factor direction. The authors attach a caution to this pooled estimate in the same abstract, saying it should be interpreted with caution given evidence of heterogeneity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39036816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39036816" target="_blank">PMID:39036816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"increases in emotional and social loneliness as well as social isolation predicted higher depression levels on later timepoints. Increases in depressive symptoms also predicted increases in subsequent social loneliness"</div>
+
+
+                <div class="evidence-explanation">Random intercept cross-lagged panel models over three timepoints in 1,357 young adults. Supports the consequence direction as well as the risk direction; the sample is a university cohort in emerging adulthood, so it is not a general-population estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -9841,11 +11164,94 @@
             <div class="item-box environmental-box anchor-target" id="environmental-substance-abuse" data-dismech-node="Substance Abuse" data-dismech-type="environmental">
                 <div class="item-name">Substance Abuse</div>
 
-
-                <div class="item-desc">Bidirectional relationship</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        substance abuse
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000007" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-94">ECTO:6000007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is substance abuse, annotated with exposure to substance abuse (ECTO:6000007). ECTO:6000007 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Bidirectional relationship. The evidence is for alcohol dependence specifically - non-dependent drinking, including binge drinking, did not predict depressive episodes in the cohort below.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22987574" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22987574" target="_blank">PMID:22987574</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Associations between alcohol consumption and MDE were not observed except when dependence was indicated. Alcohol dependence increased the risk of MDE, and MDE increased the risk of alcohol dependence, but only in men"</div>
+
+
+                <div class="evidence-explanation">Twelve-year Canadian National Population Health Survey cohort. Evidences both directions, and its finding that the association held only for dependence is the qualification added to the note.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24246605" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24246605" target="_blank">PMID:24246605</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"adolescent AUD predicted early adult MDD, while early adult MDD predicted adult AUD"</div>
+
+
+                <div class="evidence-explanation">Prospective study of 816 participants interviewed at ages 16, 17, 24 and 30. Shows the bidirectionality is developmentally staged rather than simultaneous.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -9883,13 +11289,14 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38331979" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38331979" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38331979" target="_blank">PMID:38331979</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                 </div>
@@ -9897,7 +11304,7 @@
                 <div class="evidence-snippet">"The currently widely accepted theories of MDD pathogenesis include the neurotransmitter and receptor hypothesis, hypothalamic-pituitary-adrenal (HPA) axis hypothesis, cytokine hypothesis, neuroplasticity hypothesis and systemic influence hypothesis"</div>
 
 
-                <div class="evidence-explanation">The HPA axis hypothesis supports elevated cortisol as a key biochemical feature of MDD.</div>
+                <div class="evidence-explanation">The review lists the HPA-axis hypothesis among accepted MDD theories; it names the axis but does not itself report that cortisol is elevated, so this supports the mechanism only indirectly.</div>
 
 
 
@@ -9930,13 +11337,14 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38474387" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38474387" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                 </div>
@@ -9944,7 +11352,7 @@
                 <div class="evidence-snippet">"neuroinflammation and gut dysbiosis induce alterations in tryptophan metabolism, culminating in decreased serotonin synthesis, impairments in neuroplasticity-related mechanisms, and glutamate-mediated excitotoxicity."</div>
 
 
-                <div class="evidence-explanation">This demonstrates how neuroplasticity-related mechanisms are impaired in MDD, which is consistent with decreased BDNF as a neuroplasticity marker.</div>
+                <div class="evidence-explanation">The snippet describes impaired neuroplasticity-related mechanisms generally but does not mention BDNF specifically, so it supports the decreased-BDNF claim only indirectly.</div>
 
 
 
@@ -9965,7 +11373,7 @@
 
                 </div>
 
-                <div class="item-desc">Context: IL-6, CRP, TNF-alpha</div>
+                <div class="item-desc">Context: IL-1β, IL-6, IL-18, CRP, TNF-alpha</div>
 
 
 
@@ -9973,7 +11381,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -9983,6 +11391,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38474387" target="_blank">PMID:38474387</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9991,7 +11400,30 @@
                 <div class="evidence-snippet">"The increase of pro-inflammatory cytokines (interleukin (IL)-1β, IL-6, IL-18, and TNF-α) in individuals with depression may elicit neuroinflammatory processes and peripheral inflammation"</div>
 
 
-                <div class="evidence-explanation">This directly confirms elevated inflammatory cytokines including IL-6 and TNF-α in MDD patients.</div>
+                <div class="evidence-explanation">This directly confirms elevated pro-inflammatory cytokines including IL-1β, IL-6, IL-18, and TNF-α in MDD patients, and links that increase to neuroinflammatory and peripheral inflammatory processes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42450240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42450240" target="_blank">PMID:42450240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a regulatory cytokine of the immune and nervous systems that acts on several processes, including mood regulation"</div>
+
+
+                <div class="evidence-explanation">Separate source for the mood-regulation role of IL-1β specifically, which the PMID:38474387 snippet above does not itself state. This is the review&#39;s background characterization of IL-1β biology rather than a study result, hence evidence_source OTHER.</div>
 
 
 
@@ -10019,7 +11451,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse255685">
                 <div class="item-name">
                     Age-related transcriptomic differences in peripheral blood of adolescents with major depressive disorder
 
@@ -10062,7 +11494,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse149871">
                 <div class="item-name">
                     Epigenetic profiling of neuronal and non-neuronal signal in major depressive disorder
 
@@ -10105,7 +11537,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse301868">
                 <div class="item-name">
                     Whole-blood transcriptomic response to whole-body hyperthermia in participants with major depressive disorder
 
@@ -10148,7 +11580,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002818">
                 <div class="item-name">
                     Whole-exome ultra-high throughput sequencing in brain samples of suicide victims who had suffered from major depressive disorder and control subjects who had died from other causes
 
@@ -10183,7 +11615,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001003081">
                 <div class="item-name">
                     Whole-exome ultra-high throughput sequencing in brain samples of suicide victims who had suffered from major depressive disorder and control subjects who had died from other causes.
 
@@ -10218,7 +11650,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001008306">
                 <div class="item-name">
                     Toward PRecisiOn Medicine for the Prediction of Treatment Response in Major Depressive Disorder through Stratification of Combined Clinical and Omics Signatures
 
@@ -10262,6 +11694,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -10278,7 +11713,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Major Depressive Disorder
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Major depressive disorder (MDD) is a common, often recurrent psychiatric mood
   disorder defined by persistent depressed mood and/or anhedonia accompanied by
@@ -10825,14 +12259,17 @@ phenotypes:
       id: HP:0100543
       label: Cognitive impairment
 - name: Psychomotor Changes
-  category: Neurological
+  category: Psychiatric
   frequency: OCCASIONAL
-  notes: Retardation or agitation
+  notes: &gt;-
+    Psychomotor agitation or retardation. The ontology term captures the
+    agitation pole; psychomotor retardation currently lacks a non-obsolete
+    HPO term.
   phenotype_term:
-    preferred_term: Psychomotor Abnormality
+    preferred_term: Psychomotor agitation
     term:
-      id: HP:0001266
-      label: Choreoathetosis
+      id: HP:0000713
+      label: Agitation
 biochemical:
 - name: Cortisol
   presence: Elevated
@@ -10840,29 +12277,30 @@ biochemical:
   evidence:
   - reference: PMID:38331979
     reference_title: &#34;Major depressive disorder: hypothesis, mechanism, prevention and treatment.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     snippet: &#34;The currently widely accepted theories of MDD pathogenesis include the
       neurotransmitter and receptor hypothesis, hypothalamic-pituitary-adrenal (HPA)
       axis hypothesis, cytokine hypothesis, neuroplasticity hypothesis and systemic
       influence hypothesis&#34;
-    explanation: The HPA axis hypothesis supports elevated cortisol as a key
-      biochemical feature of MDD.
+    explanation: The review lists the HPA-axis hypothesis among accepted MDD
+      theories; it names the axis but does not itself report that cortisol is
+      elevated, so this supports the mechanism only indirectly.
 - name: BDNF
   presence: Decreased
   context: Reduced neuroplasticity marker
   evidence:
   - reference: PMID:38474387
     reference_title: &#34;Role of Inflammatory Mechanisms in Major Depressive Disorder: From Etiology to Potential Pharmacological Targets.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     snippet: &#34;neuroinflammation and gut dysbiosis induce alterations in tryptophan
       metabolism, culminating in decreased serotonin synthesis, impairments in neuroplasticity-related
       mechanisms, and glutamate-mediated excitotoxicity.&#34;
-    explanation: This demonstrates how neuroplasticity-related mechanisms are
-      impaired in MDD, which is consistent with decreased BDNF as a
-      neuroplasticity marker.
+    explanation: The snippet describes impaired neuroplasticity-related mechanisms
+      generally but does not mention BDNF specifically, so it supports the
+      decreased-BDNF claim only indirectly.
 - name: Inflammatory Markers
   presence: Elevated
-  context: IL-6, CRP, TNF-alpha
+  context: IL-1β, IL-6, IL-18, CRP, TNF-alpha
   evidence:
   - reference: PMID:38474387
     reference_title: &#34;Role of Inflammatory Mechanisms in Major Depressive Disorder: From Etiology to Potential Pharmacological Targets.&#34;
@@ -10870,41 +12308,189 @@ biochemical:
     snippet: &#34;The increase of pro-inflammatory cytokines (interleukin (IL)-1β, IL-6,
       IL-18, and TNF-α) in individuals with depression may elicit neuroinflammatory
       processes and peripheral inflammation&#34;
-    explanation: This directly confirms elevated inflammatory cytokines
-      including IL-6 and TNF-α in MDD patients.
+    explanation: This directly confirms elevated pro-inflammatory cytokines
+      including IL-1β, IL-6, IL-18, and TNF-α in MDD patients, and links that
+      increase to neuroinflammatory and peripheral inflammatory processes.
+  - reference: PMID:42450240
+    reference_title: &#34;Interleukin-1β (C-511T) Genetic Variant and Major Depressive Disorder: A Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      a regulatory cytokine of the immune and nervous systems that acts on
+      several processes, including mood regulation
+    explanation: &gt;-
+      Separate source for the mood-regulation role of IL-1β specifically, which
+      the PMID:38474387 snippet above does not itself state. This is the review&#39;s
+      background characterization of IL-1β biology rather than a study result,
+      hence evidence_source OTHER.
 genetic:
 - name: SLC6A4
+  gene_term:
+    preferred_term: SLC6A4
+    term:
+      id: hgnc:11050
+      label: SLC6A4
   association: Risk Factor
   notes: Serotonin transporter gene
 - name: BDNF
+  gene_term:
+    preferred_term: BDNF
+    term:
+      id: hgnc:1033
+      label: BDNF
   association: Risk Factor
   notes: Val66Met polymorphism
 - name: FKBP5
+  gene_term:
+    preferred_term: FKBP5
+    term:
+      id: hgnc:3721
+      label: FKBP5
   association: Risk Factor
   notes: HPA axis regulation
 - name: HTR2A
+  gene_term:
+    preferred_term: HTR2A
+    term:
+      id: hgnc:5293
+      label: HTR2A
   association: Risk Factor
   notes: Serotonin receptor gene
+- name: IL1B
+  association: &gt;-
+    Severity modifier and antidepressant-response marker, not an established
+    susceptibility locus. For the C-511T (rs16944) variant the CC genotype is
+    associated with greater MDD symptom severity and the TT genotype with
+    antidepressant treatment response; the source review states these two
+    associations are not equivalent in terms of susceptibility to disease onset.
+  relationship_type: MODIFIER
+  notes: &gt;-
+    C-511T (rs16944). Contested: other studies report no significant association
+    between this variant and MDD, and the source systematic review calls for
+    further study across populations before the polymorphism&#39;s role in etiology
+    can be settled. Curated as MODIFIER rather than RISK_FACTOR because the
+    evidence speaks to symptom severity and treatment response rather than to
+    risk of disease onset.
+  gene_term:
+    preferred_term: IL1B
+    term:
+      id: hgnc:5992
+      label: IL1B
+  variants:
+  - name: C-511T
+    gene:
+      preferred_term: IL1B
+    synonyms:
+    - rs16944
+    identifiers:
+    - dbSNP:rs16944
+  evidence:
+  - reference: PMID:42450240
+    reference_title: &#34;Interleukin-1β (C-511T) Genetic Variant and Major Depressive Disorder: A Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the CC genotype was more frequently associated with greater MDD symptom
+      severity, whereas the TT genotype was predominantly associated with
+      antidepressant treatment response
+    explanation: &gt;-
+      Systematic review of the IL1B C-511T variant reporting distinct clinical
+      outcomes by genotype: symptom severity for CC and antidepressant treatment
+      response for TT.
+  - reference: PMID:42450240
+    reference_title: &#34;Interleukin-1β (C-511T) Genetic Variant and Major Depressive Disorder: A Systematic Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      thus, these associations should not be considered equivalent in terms of
+      susceptibility to disease onset
+    explanation: &gt;-
+      The same review explicitly declines to treat the severity and
+      treatment-response findings as evidence of susceptibility to MDD onset,
+      which is why this gene is curated as a MODIFIER rather than a risk factor.
+  - reference: PMID:42450240
+    reference_title: &#34;Interleukin-1β (C-511T) Genetic Variant and Major Depressive Disorder: A Systematic Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      other studies have found no significant association between this genetic
+      variant and MDD
+    explanation: &gt;-
+      Counterweight from the same review documenting non-replication, recorded so
+      the association is not read as settled.
 environmental:
 - name: Childhood Trauma
-  notes: Strong risk factor for adult depression
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
+  notes: Strong risk factor for adult depression, and additionally for an earlier
+    onset and a more chronic or treatment-resistant course.
+  evidence:
+  - reference: PMID:27908895
+    reference_title: &#34;Childhood maltreatment and characteristics of adult depression: meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Childhood maltreatment, especially emotional abuse and neglect, represents a risk factor for severe, early-onset, treatment-resistant depression with a chronic course&#34;
+    explanation: &#34;Meta-analysis of 184 studies; maltreated individuals were 2.66 to 3.73 times more likely to develop adult depression, and twice as likely to develop a chronic or treatment-resistant course.&#34;
 - name: Chronic Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Major precipitant
   evidence:
   - reference: PMID:38331979
     reference_title: &#34;Major depressive disorder: hypothesis, mechanism, prevention and treatment.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     snippet: &#34;The currently widely accepted theories of MDD pathogenesis include the
       neurotransmitter and receptor hypothesis, hypothalamic-pituitary-adrenal (HPA)
       axis hypothesis, cytokine hypothesis, neuroplasticity hypothesis and systemic
       influence hypothesis&#34;
-    explanation: The HPA axis hypothesis directly relates to stress response
-      dysregulation, supporting chronic stress as a major environmental
-      precipitant of MDD.
+    explanation: The review lists the HPA-axis hypothesis but does not itself
+      assert a stress-to-depression relationship; it supports chronic stress as
+      a precipitant only indirectly via the HPA axis.
 - name: Social Isolation
-  notes: Risk factor and consequence
+  notes: Risk factor and consequence - loneliness and isolation predict later
+    depressive symptoms, and depressive symptoms in turn predict later social
+    loneliness and isolation.
+  evidence:
+  - reference: PMID:35583561
+    reference_title: &#34;Loneliness and the onset of new mental health problems in the general population.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our meta-analysis found a pooled adjusted odds ratio of 2.33 (95% CI 1.62-3.34) for risk of new onset depression in adults who were often lonely compared with people who were not often lonely&#34;
+    explanation: &#34;Systematic review of 32 longitudinal general-population studies, meta-analysing eight cohorts, for the risk of new onset depression in adults who were often lonely. Supports the risk-factor direction. The authors attach a caution to this pooled estimate in the same abstract, saying it should be interpreted with caution given evidence of heterogeneity.&#34;
+  - reference: PMID:39036816
+    reference_title: &#34;Temporal associations of emotional and social loneliness and psychosocial functioning in emerging adulthood.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;increases in emotional and social loneliness as well as social isolation predicted higher depression levels on later timepoints. Increases in depressive symptoms also predicted increases in subsequent social loneliness&#34;
+    explanation: &#34;Random intercept cross-lagged panel models over three timepoints in 1,357 young adults. Supports the consequence direction as well as the risk direction; the sample is a university cohort in emerging adulthood, so it is not a general-population estimate.&#34;
 - name: Substance Abuse
-  notes: Bidirectional relationship
+  exposure_term:
+    preferred_term: substance abuse
+    term:
+      id: ECTO:6000007
+      label: exposure to substance abuse
+  notes: Bidirectional relationship. The evidence is for alcohol dependence
+    specifically - non-dependent drinking, including binge drinking, did not predict
+    depressive episodes in the cohort below.
+  evidence:
+  - reference: PMID:22987574
+    reference_title: &#34;Alcohol consumption and major depression in the general population: the critical importance of dependence.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Associations between alcohol consumption and MDE were not observed except when dependence was indicated. Alcohol dependence increased the risk of MDE, and MDE increased the risk of alcohol dependence, but only in men&#34;
+    explanation: &#34;Twelve-year Canadian National Population Health Survey cohort. Evidences both directions, and its finding that the association held only for dependence is the qualification added to the note.&#34;
+  - reference: PMID:24246605
+    reference_title: &#34;Comorbidity between major depression and alcohol use disorder from adolescence to adulthood.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;adolescent AUD predicted early adult MDD, while early adult MDD predicted adult AUD&#34;
+    explanation: &#34;Prospective study of 816 participants interviewed at ages 16, 17, 24 and 30. Shows the bidirectionality is developmentally staged rather than simultaneous.&#34;
 treatments:
 - name: Selective Serotonin Reuptake Inhibitors (SSRIs)
   description: First-line pharmacotherapy (sertraline, escitalopram,
@@ -13059,7 +14645,7 @@ MDD is a heterogeneous, systems‑level brain disorder arising from convergent d
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Major Depressive Disorder", "mondoId": "MONDO:0002009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Major_Depressive_Disorder", "yamlRevision": "4642630da98a"};
+        const OS_CONFIG = {"diseaseName": "Major Depressive Disorder", "mondoId": "MONDO:0002009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Major_Depressive_Disorder", "yamlRevision": "06855174b612"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13478,5 +15064,73 @@ MDD is a heterogeneous, systems‑level brain disorder arising from convergent d
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

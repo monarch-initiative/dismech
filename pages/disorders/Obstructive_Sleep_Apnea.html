@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Obstructive Sleep Apnea</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Obstructive Sleep Apnea</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3723,7 +3927,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3785,27 +3989,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3832,7 +4113,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="kgap_osa_pap_cardiovascular_mechanism">
@@ -3856,14 +4137,14 @@
 
 
 
-    <span class="entity-ref-chip">treatments#CPAP</span>
+    <a class="entity-ref-chip" href="#treatment-cpap">treatments#CPAP</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatments#BiPAP</span>
+    <a class="entity-ref-chip" href="#treatment-bipap">treatments#BiPAP</a>
 
 
 
@@ -3889,10 +4170,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         endotype-stratified randomized controlled trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type endotype-stratified randomized controlled trial.</span>
     </span>
 
 
@@ -3936,6 +4223,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -3950,10 +4243,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-2">
 
         adherence dose-response cohort analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment is of type this experiment type
+This experiment is of type adherence dose-response cohort analysis.</span>
     </span>
 
 
@@ -3997,6 +4296,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4020,6 +4325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42276457" target="_blank">PMID:42276457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4029,6 +4335,448 @@
 
 
                 <div class="evidence-explanation">The cited review documents the discrepancy between PAP&#39;s effects on intermediate markers and inconsistent RCT evidence for hard cardiovascular outcomes, highlighting the mechanistic uncertainty about whether PAP-induced improvement in intermediate parameters translates to cardiovascular event prevention.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="kgap_osa_multiorgan_fibrosis">
+                <div class="item-name">What are the causal pathways by which intermittent hypoxia and sleep fragmentation in OSA drive fibrotic remodeling in the lungs, liver, kidneys, and heart, and which organ-specific TGF-beta, myofibroblast, and ECM-deposition mechanisms are cell-type specific versus shared across tissues?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">kgap_osa_multiorgan_fibrosis</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intermittent-hypoxia">pathophysiology#Intermittent Hypoxia</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-sleep-fragmentation">pathophysiology#Sleep Fragmentation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-systemic-inflammation">pathophysiology#Systemic Inflammation</a>
+
+
+
+
+
+
+    <span class="entity-ref-chip">fibrotic_response:pathophysiology#Mesenchymal Cell Activation</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Obstructive sleep apnea has established pathophysiological mechanisms linking intermittent hypoxia and sleep fragmentation to systemic inflammation and oxidative stress. However, the causal contribution of OSA to multi-organ fibrotic remodeling remains undercharacterized. Clinical and experimental evidence suggests OSA may promote fibrosis in the lungs, liver, kidneys, and heart, but the mechanistic details—how intermittent hypoxia-reoxygenation initiates TGF-beta signaling, myofibroblast activation, and ECM deposition in each organ—are incompletely defined. The degree to which fibrotic remodeling is reversible with therapy (e.g., CPAP) and the relative contributions of intermittent hypoxia versus sleep fragmentation to fibrotic progression remain understudied. Furthermore, organ-specific differences in fibrotic susceptibility and the role of tissue-resident macrophages, fibroblasts, and endothelial cells in OSA-driven remodeling require clarification. The TGF-beta → myofibroblast activation → ECM-deposition chain at issue is the conserved process modeled by the `fibrotic_response` module, so this gap is also anchored there as a candidate `conforms_to` target should the organ-specific evidence mature.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Prospective clinical study of OSA-related organ fibrosis progression by tissue type</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-3">
+
+        prospective longitudinal imaging cohort study
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal imaging cohort study.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_osa_fibrosis_tissue_responders</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Enroll OSA patients with serial imaging (high-resolution CT for lung, MRI for hepatic/renal fibrosis staging, echocardiography for cardiac fibrosis/stiffness) at baseline and 2-5 years, stratified by hypoxic burden and OSA severity, to quantify organ-specific fibrosis progression rates and identify which patients develop clinically significant remodeling.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">A hypoxic-burden-dependent increase in organ-specific fibrosis staging over 2-5 years (dose-response with OSA severity) supports intermittent hypoxia as a causal driver of remodeling; no progression above age-matched expectation argues against a causal OSA contribution at that organ.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intermittent-hypoxia">pathophysiology#Intermittent Hypoxia</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">fibrotic_response:pathophysiology#Mesenchymal Cell Activation</span>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Mechanistic study of intermittent hypoxia-induced fibroblast activation in organ-specific contexts</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-4">
+
+        organ-specific fibroblast hypoxia-reoxygenation model
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment is of type this experiment type
+This experiment is of type organ-specific fibroblast hypoxia-reoxygenation model.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_osa_ih_fibroblast_activation</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Expose primary fibroblasts isolated from lung, liver, kidney, and cardiac tissue to intermittent hypoxia-reoxygenation ex vivo, measuring TGF-beta autocrine signaling, α-smooth muscle actin (α-SMA) differentiation, pro-fibrotic gene expression (COL1A1, FN1, TIMP1/MMP2 ratio), and responses to anti-fibrotic therapies (pirfenidone, nintedanib). Test whether organ-specific fibroblast phenotypes show differential sensitivity to hypoxic cycles.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Intermittent hypoxia-reoxygenation cycles inducing TGF-beta signaling and α-SMA+ myofibroblast conversion above normoxic controls establish that the hypoxia signal is sufficient to activate the conserved fibrotic program at the fibroblast level; absence of activation localizes the defect upstream (systemic/paracrine) rather than to a cell-autonomous fibroblast response.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">fibrotic_response:pathophysiology#Mesenchymal Cell Activation</span>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intermittent-hypoxia">pathophysiology#Intermittent Hypoxia</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Randomized trial of OSA therapy efficacy on fibrotic progression</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-5">
+
+        randomized controlled trial with biomarker endpoints
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment is of type this experiment type
+This experiment is of type randomized controlled trial with biomarker endpoints.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_osa_fibrosis_therapy_reversibility</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Enroll newly diagnosed moderate-to-severe OSA patients and randomize to PAP therapy versus control, with serial tissue biomarkers (circulating procollagen III, hyaluronic acid, tissue inhibitors of metalloproteinases) and imaging endpoints (fibrosis staging) at 6, 12, and 24 months. Determine whether therapy-induced reductions in intermittent hypoxia and sleep fragmentation arrest or reverse early fibrotic changes.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Fibrosis-stage regression or biomarker decline in the PAP arm relative to control at 24 months supports OSA-driven remodeling being at least partly reversible and hypoxia/fragmentation being active causal drivers; no between-arm difference argues the remodeling is fixed or driven by OSA-independent comorbidity.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-intermittent-hypoxia">pathophysiology#Intermittent Hypoxia</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-sleep-fragmentation">pathophysiology#Sleep Fragmentation</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">fibrotic_response:pathophysiology#Mesenchymal Cell Activation</span>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42534659" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42534659" target="_blank">PMID:42534659</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Within this broader framework, fibrosis-linked structural remodeling emerges as an important yet under-supported dimension of OSA pathobiology"</div>
+
+
+                <div class="evidence-explanation">The cited narrative review explicitly identifies fibrosis-linked remodeling as an emerging but under-supported dimension of OSA pathobiology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42534659" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42534659" target="_blank">PMID:42534659</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Experimental and clinical evidence suggests that OSA may contribute to remodeling of the lungs, liver, kidneys, and heart, although the strength of the evidence and the degree of causal inference vary across organs."</div>
+
+
+                <div class="evidence-explanation">Acknowledges that OSA may contribute to multi-organ fibrotic remodeling, but notes substantial variation in evidence strength and causal clarity across tissues.</div>
 
 
 
@@ -4063,16 +4811,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Genioglossus pharyngeal dilator muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002673" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002673">CL:0002673</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002673" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0002673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Genioglossus pharyngeal dilator muscle cell, annotated with tongue muscle cell (CL:0002673). CL:0002673 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4099,16 +4852,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Muscle Relaxation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006939">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Muscle Relaxation, annotated with smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4125,6 +4883,7 @@
 
 
                 </div>
+
 
 
 
@@ -4146,6 +4905,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4165,6 +4925,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982552" target="_blank">PMID:36982552</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4204,16 +4965,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to Hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4230,6 +4996,7 @@
 
 
                 </div>
+
 
 
 
@@ -4251,6 +5018,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4271,6 +5039,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982552" target="_blank">PMID:36982552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4290,6 +5059,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39694586" target="_blank">PMID:39694586</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4329,16 +5099,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sleep Regulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030431" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030431">GO:0030431</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030431" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030431</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sleep Regulation, annotated with sleep (GO:0030431). GO:0030431 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4364,6 +5139,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4375,6 +5151,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4407,16 +5184,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Sympathetic postganglionic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011103">CL:0011103</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011103" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0011103</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sympathetic postganglionic neuron, annotated with sympathetic neuron (CL:0011103). CL:0011103 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4433,6 +5215,7 @@
 
 
                 </div>
+
 
 
 
@@ -4461,6 +5244,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4480,6 +5264,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39595069" target="_blank">PMID:39595069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4512,17 +5297,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Vascular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002139">CL:0002139</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002139</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular endothelial cell, annotated with endothelial cell of vascular tree (CL:0002139). CL:0002139 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4543,10 +5335,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4573,16 +5368,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4599,6 +5399,7 @@
 
 
                 </div>
+
 
 
 
@@ -4620,6 +5421,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4640,6 +5442,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36982552" target="_blank">PMID:36982552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4659,6 +5462,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39694586" target="_blank">PMID:39694586</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4691,16 +5495,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Meibomian (sebaceous) gland cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000021" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000021">CL:2000021</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000021" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:2000021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves abnormal Meibomian (sebaceous) gland cell, annotated with sebaceous gland cell (CL:2000021). CL:2000021 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4731,16 +5540,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Ocular Surface Inflammation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ocular Surface Inflammation, annotated with inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4749,6 +5563,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4766,10 +5582,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Oxidative Stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4789,16 +5608,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Meibomian Lipid Metabolism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Meibomian Lipid Metabolism, annotated with lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4828,6 +5652,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -4839,6 +5664,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412736" target="_blank">PMID:42412736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4860,6 +5686,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412736" target="_blank">PMID:42412736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4879,6 +5706,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412736" target="_blank">PMID:42412736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4944,14 +5772,23 @@
                         Dry Eye Disease
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratoconjunctivitis sicca
+
+                        <span class="phenotype-term-label">Keratoconjunctivitis sicca</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001097">HP:0001097</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dry eye disease, annotated with Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4973,6 +5810,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42412736" target="_blank">PMID:42412736</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5005,14 +5843,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5035,6 +5880,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39595069" target="_blank">PMID:39595069</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5054,6 +5900,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5095,14 +5942,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nocturia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000017">HP:0000017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nocturia (HP:0000017). HP:0000017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5133,14 +5987,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Snoring
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025267">HP:0025267</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0025267</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Snoring (HP:0025267). HP:0025267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5162,14 +6023,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep apnea
+
+                        <span class="phenotype-term-label">Sleep apnea</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010535">HP:0010535</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5191,14 +6061,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Excessive daytime somnolence
+
+                        <span class="phenotype-term-label">Excessive daytime somnolence</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001262">HP:0001262</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001262" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001262</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive Daytime Somnolence (HP:0001262). HP:0001262 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5218,6 +6097,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39595069" target="_blank">PMID:39595069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5250,14 +6130,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5279,14 +6166,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,6 +6203,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38672697" target="_blank">PMID:38672697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5328,6 +6223,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39694586" target="_blank">PMID:39694586</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5400,6 +6296,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PHOX2B
+
+
+    <a href="https://bioregistry.io/hgnc:9143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:9143</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PHOX2B (hgnc:9143). hgnc:9143 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5428,6 +6346,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5443,7 +6364,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">continuous positive airway pressure ventilation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">continuous positive airway pressure ventilation<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is continuous positive airway pressure ventilation, annotated with Continuous Positive Airway Pressure (NCIT:C124040). NCIT:C124040 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Continuous Positive Airway Pressure</span>
 
 
@@ -5492,6 +6418,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42276457" target="_blank">PMID:42276457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5513,6 +6440,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41820035" target="_blank">PMID:41820035</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5543,7 +6471,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bi-level positive airway pressure ventilation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">bi-level positive airway pressure ventilation<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bi-level positive airway pressure ventilation, annotated with Biphasic Positive Airway Pressure (NCIT:C124039). NCIT:C124039 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Biphasic Positive Airway Pressure</span>
 
 
@@ -5592,6 +6525,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42276457" target="_blank">PMID:42276457</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5621,7 +6555,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">oral appliance therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">oral appliance therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is oral appliance therapy (NCIT:C157943). NCIT:C157943 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Oral Appliance Therapy</span>
 
 
@@ -5670,6 +6609,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26094920" target="_blank">PMID:26094920</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5699,7 +6639,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -5747,6 +6692,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39595069" target="_blank">PMID:39595069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5796,7 +6742,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5842,7 +6793,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hypoglossal nerve stimulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">hypoglossal nerve stimulation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hypoglossal nerve stimulation, annotated with Peripheral Nerve Stimulation (NCIT:C21025). NCIT:C21025 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Peripheral Nerve Stimulation</span>
 
 
@@ -5891,6 +6847,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24401051" target="_blank">PMID:24401051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5912,6 +6869,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24401051" target="_blank">PMID:24401051</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5952,23 +6910,120 @@
                 <div class="item-name">Obesity</div>
 
 
+
+
+
+
                 <div class="item-desc">Major modifiable risk factor</div>
 
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11122588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11122588" target="_blank">PMID:11122588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A 10% increase in weight predicted a 6-fold (95% CI, 2.2-17.0) increase in the odds of developing moderate-to-severe SDB"</div>
+
+
+                <div class="evidence-explanation">Wisconsin Sleep Cohort, measured prospectively at 4-year intervals. The reciprocal finding -- 10% weight loss predicting a 26% AHI reduction -- is what makes this exposure modifiable rather than merely associated.</div>
+
 
 
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-alcohol" data-dismech-node="Alcohol" data-dismech-type="environmental">
-                <div class="item-name">Alcohol</div>
 
-
-                <div class="item-desc">Relaxes upper airway muscles</div>
+        </div>
+    </details>
 
 
 
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-alcohol-consumption" data-dismech-node="Alcohol Consumption" data-dismech-type="environmental">
+                <div class="item-name">Alcohol Consumption</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-33">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Alcohol use is associated with OSA (OR 1.33); upper airway muscle relaxation is the proposed mechanism</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29971810" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29971810" target="_blank">PMID:29971810</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The odds ratio for OSA increased almost 1.33 times"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 14 observational studies; 95% CI 1.10-1.62 (omitted from the snippet because the validator strips bracketed text). PARTIAL, and the note was rewritten: this measures the association, not the airway-relaxation mechanism the note previously asserted, and the authors grade the overall evidence low to very low.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5978,10 +7033,47 @@
                 <div class="item-name">Sedatives</div>
 
 
+
+
+
+
                 <div class="item-desc">Worsen airway collapse</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16424433" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16424433" target="_blank">PMID:16424433</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"sedative, analgesic, and anesthetic agents, which can worsen OSAS by decreasing pharyngeal tone"</div>
+
+
+                <div class="evidence-explanation">States the mechanism this annotation records -- loss of pharyngeal tone, plus blunted arousal responses to hypoxia and hypercarbia. OTHER because the quoted sentence is a review&#39;s mechanistic synthesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5990,11 +7082,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-supine-sleep-position" data-dismech-node="Supine Sleep Position" data-dismech-type="environmental">
                 <div class="item-name">Supine Sleep Position</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        supine sleep position
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0000084" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-34">XCO:0000084</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is supine sleep position, annotated with supine position (XCO:0000084). XCO:0000084 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Increases apnea events</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28012784" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28012784" target="_blank">PMID:28012784</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"found benefit for positional modification techniques in those with supine OSA in terms of reduction in apnea-hypopnea index (AHI) and time spent supine"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of randomized trials. Interventional rather than observational evidence: preventing supine sleep lowers the AHI, so the position is acting on apnea events rather than merely co-occurring with them. CPAP remained more effective.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6004,10 +7156,47 @@
                 <div class="item-name">Nasal Congestion</div>
 
 
+
+
+
+
                 <div class="item-desc">Increases upper airway resistance</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11427099" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11427099" target="_blank">PMID:11427099</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"for habitual snoring with severe (always or almost always) nasal congestion vs none was 3.0"</div>
+
+
+                <div class="evidence-explanation">Wisconsin Sleep Cohort, 4,916 participants, adjusted for sex, age, body habitus and smoking. PARTIAL and worth reading carefully: the outcome is habitual snoring, and the authors state the association was NOT explained by snorers with frank sleep apnea -- so this supports raised upper airway resistance, not an apnea-event increase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6091,7 +7280,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse282864">
                 <div class="item-name">
                     Differential expression profiles of plasma exosomal microRNAs in obstructive sleep apnea patients
 
@@ -6134,7 +7323,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse293433">
                 <div class="item-name">
                     Differential Expression and Correlation Analysis of Global Transcriptome for Obstructive Sleep Apnea Hypopnea Syndrome
 
@@ -6177,7 +7366,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse237281">
                 <div class="item-name">
                     Integrative Analysis of Genome-Wide Epigenetic and Transcriptomic Alterations Reveals Molecular Markers for Diagnosing Pediatric Obstructive Sleep Apnea in Black Females [RNA-Seq]
 
@@ -6229,6 +7418,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6245,7 +7437,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Obstructive Sleep Apnea
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Obstructive sleep apnea is a disorder of repetitive collapse of the upper
   airway during sleep, producing recurrent episodes of complete (apnea) or
@@ -6612,6 +7803,11 @@ biochemical:
   context: Sympathetic activation
 genetic:
 - name: PHOX2B
+  gene_term:
+    preferred_term: PHOX2B
+    term:
+      id: hgnc:9143
+      label: PHOX2B
   association: Risk Factor
   notes: Ventilatory control
 - name: Craniofacial genes
@@ -6620,14 +7816,60 @@ genetic:
 environmental:
 - name: Obesity
   notes: Major modifiable risk factor
-- name: Alcohol
-  notes: Relaxes upper airway muscles
+  evidence:
+  - reference: PMID:11122588
+    reference_title: &#34;Longitudinal study of moderate weight change and sleep-disordered breathing&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A 10% increase in weight predicted a 6-fold (95% CI, 2.2-17.0) increase in the odds of developing moderate-to-severe SDB&#34;
+    explanation: &#34;Wisconsin Sleep Cohort, measured prospectively at 4-year intervals. The reciprocal finding -- 10% weight loss predicting a 26% AHI reduction -- is what makes this exposure modifiable rather than merely associated.&#34;
+- name: Alcohol Consumption
+  exposure_term:
+    preferred_term: exposure to alcohol consumption
+    term:
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
+  notes: Alcohol use is associated with OSA (OR 1.33); upper airway muscle
+    relaxation is the proposed mechanism
+  evidence:
+  - reference: PMID:29971810
+    reference_title: &#34;Association between obstructive sleep apnea and alcohol, caffeine and tobacco: A meta-analysis&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The odds ratio for OSA increased almost 1.33 times&#34;
+    explanation: &#34;Meta-analysis of 14 observational studies; 95% CI 1.10-1.62 (omitted from the snippet because the validator strips bracketed text). PARTIAL, and the note was rewritten: this measures the association, not the airway-relaxation mechanism the note previously asserted, and the authors grade the overall evidence low to very low.&#34;
 - name: Sedatives
   notes: Worsen airway collapse
+  evidence:
+  - reference: PMID:16424433
+    reference_title: &#34;Unrecognized sleep apnea in the surgical patient: implications for the perioperative setting&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;sedative, analgesic, and anesthetic agents, which can worsen OSAS by decreasing pharyngeal tone&#34;
+    explanation: &#34;States the mechanism this annotation records -- loss of pharyngeal tone, plus blunted arousal responses to hypoxia and hypercarbia. OTHER because the quoted sentence is a review&#39;s mechanistic synthesis.&#34;
 - name: Supine Sleep Position
+  exposure_term:
+    preferred_term: supine sleep position
+    term:
+      id: XCO:0000084
+      label: supine position
   notes: Increases apnea events
+  evidence:
+  - reference: PMID:28012784
+    reference_title: &#34;Positional modification techniques for supine obstructive sleep apnea: A systematic review and meta-analysis&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;found benefit for positional modification techniques in those with supine OSA in terms of reduction in apnea-hypopnea index (AHI) and time spent supine&#34;
+    explanation: &#34;Meta-analysis of randomized trials. Interventional rather than observational evidence: preventing supine sleep lowers the AHI, so the position is acting on apnea events rather than merely co-occurring with them. CPAP remained more effective.&#34;
 - name: Nasal Congestion
   notes: Increases upper airway resistance
+  evidence:
+  - reference: PMID:11427099
+    reference_title: &#34;Chronic nasal congestion at night is a risk factor for snoring in a population-based cohort study&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;for habitual snoring with severe (always or almost always) nasal congestion vs none was 3.0&#34;
+    explanation: &#34;Wisconsin Sleep Cohort, 4,916 participants, adjusted for sex, age, body habitus and smoking. PARTIAL and worth reading carefully: the outcome is habitual snoring, and the authors state the association was NOT explained by snorers with frank sleep apnea -- so this supports raised upper airway resistance, not an apnea-event increase.&#34;
 treatments:
 - name: CPAP
   description: Continuous positive airway pressure, gold standard treatment.
@@ -6777,6 +8019,7 @@ discussions:
     Obstructive sleep apnea has well-established pathophysiological mechanisms linking it to cardiovascular disease (intermittent hypoxia, sympathetic activation, oxidative stress, systemic inflammation). However, randomized controlled trials of PAP therapy show inconsistent results for reducing cardiovascular events and mortality, despite improvements in intermediate markers (apnea-hypopnea index, oxygen saturation, daytime sleepiness) and intermediate cardiometabolic parameters. This suggests that either (1) mechanistic pathways are disrupted by PAP in animal models but less effectively in humans, (2) intermediate-parameter improvement alone does not guarantee hard-endpoint benefit, or (3) treatment efficacy is dependent on phenotype-specific or adherence-dependent factors not yet characterized. The gap is not at the OSA pathophysiology level but at the PAP-therapy-response level: which OSA endotypes truly benefit from PAP, through which mechanism, and under which adherence/severity conditions.
   evidence:
   - reference: PMID:42276457
+    reference_title: &#34;Positive Airway Pressure Therapy in the Prevention of Obstructive Sleep Apnea Associated Cardiovascular Disease: Controversy.&#34;
     supports: SUPPORT
     snippet: &#34;Although PAP therapy improves symptoms, apnea-hypopnea index, and intermediate cardiometabolic parameters-particularly among adherent patients-randomized controlled trials have yielded inconsistent results for reducing cardiovascular events and mortality.&#34;
     explanation: &gt;-
@@ -6805,6 +8048,118 @@ discussions:
       results, since prior trials averaged ~3-4 hours nightly use.
     experiment_type:
       preferred_term: adherence dose-response cohort analysis
+- discussion_id: kgap_osa_multiorgan_fibrosis
+  prompt: &gt;-
+    What are the causal pathways by which intermittent hypoxia and sleep
+    fragmentation in OSA drive fibrotic remodeling in the lungs, liver, kidneys,
+    and heart, and which organ-specific TGF-beta, myofibroblast, and
+    ECM-deposition mechanisms are cell-type specific versus shared across tissues?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Intermittent Hypoxia
+  - pathophysiology#Sleep Fragmentation
+  - pathophysiology#Systemic Inflammation
+  - fibrotic_response:pathophysiology#Mesenchymal Cell Activation
+  rationale: &gt;-
+    Obstructive sleep apnea has established pathophysiological mechanisms linking
+    intermittent hypoxia and sleep fragmentation to systemic inflammation and
+    oxidative stress. However, the causal contribution of OSA to multi-organ
+    fibrotic remodeling remains undercharacterized. Clinical and experimental
+    evidence suggests OSA may promote fibrosis in the lungs, liver, kidneys, and
+    heart, but the mechanistic details—how intermittent hypoxia-reoxygenation
+    initiates TGF-beta signaling, myofibroblast activation, and ECM deposition in
+    each organ—are incompletely defined. The degree to which fibrotic remodeling
+    is reversible with therapy (e.g., CPAP) and the relative contributions of
+    intermittent hypoxia versus sleep fragmentation to fibrotic progression
+    remain understudied. Furthermore, organ-specific differences in fibrotic
+    susceptibility and the role of tissue-resident macrophages, fibroblasts, and
+    endothelial cells in OSA-driven remodeling require clarification. The
+    TGF-beta → myofibroblast activation → ECM-deposition chain at issue is the
+    conserved process modeled by the `fibrotic_response` module, so this gap is
+    also anchored there as a candidate `conforms_to` target should the
+    organ-specific evidence mature.
+  evidence:
+  - reference: PMID:42534659
+    reference_title: &#34;Obstructive Sleep Apnea: Epidemiology, Pathophysiology, Complications, Diagnosis, Management, and Emerging Fibrosis-Linked Remodeling.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Within this broader framework, fibrosis-linked structural remodeling emerges as an important yet under-supported dimension of OSA pathobiology&#34;
+    explanation: &gt;-
+      The cited narrative review explicitly identifies fibrosis-linked remodeling
+      as an emerging but under-supported dimension of OSA pathobiology.
+  - reference: PMID:42534659
+    reference_title: &#34;Obstructive Sleep Apnea: Epidemiology, Pathophysiology, Complications, Diagnosis, Management, and Emerging Fibrosis-Linked Remodeling.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Experimental and clinical evidence suggests that OSA may contribute to remodeling of the lungs, liver, kidneys, and heart, although the strength of the evidence and the degree of causal inference vary across organs.&#34;
+    explanation: &gt;-
+      Acknowledges that OSA may contribute to multi-organ fibrotic remodeling, but
+      notes substantial variation in evidence strength and causal clarity across
+      tissues.
+  proposed_experiments:
+  - experiment_id: exp_osa_fibrosis_tissue_responders
+    name: Prospective clinical study of OSA-related organ fibrosis progression by tissue type
+    description: &gt;-
+      Enroll OSA patients with serial imaging (high-resolution CT for lung, MRI
+      for hepatic/renal fibrosis staging, echocardiography for cardiac
+      fibrosis/stiffness) at baseline and 2-5 years, stratified by hypoxic burden
+      and OSA severity, to quantify organ-specific fibrosis progression rates and
+      identify which patients develop clinically significant remodeling.
+    experiment_type:
+      preferred_term: prospective longitudinal imaging cohort study
+    decision_criterion: &gt;-
+      A hypoxic-burden-dependent increase in organ-specific fibrosis staging over
+      2-5 years (dose-response with OSA severity) supports intermittent hypoxia as
+      a causal driver of remodeling; no progression above age-matched expectation
+      argues against a causal OSA contribution at that organ.
+    would_support:
+    - pathophysiology#Intermittent Hypoxia
+    would_refute:
+    - fibrotic_response:pathophysiology#Mesenchymal Cell Activation
+  - experiment_id: exp_osa_ih_fibroblast_activation
+    name: Mechanistic study of intermittent hypoxia-induced fibroblast activation in organ-specific contexts
+    description: &gt;-
+      Expose primary fibroblasts isolated from lung, liver, kidney, and cardiac
+      tissue to intermittent hypoxia-reoxygenation ex vivo, measuring TGF-beta
+      autocrine signaling, α-smooth muscle actin (α-SMA) differentiation,
+      pro-fibrotic gene expression (COL1A1, FN1, TIMP1/MMP2 ratio), and responses
+      to anti-fibrotic therapies (pirfenidone, nintedanib). Test whether
+      organ-specific fibroblast phenotypes show differential sensitivity to
+      hypoxic cycles.
+    experiment_type:
+      preferred_term: organ-specific fibroblast hypoxia-reoxygenation model
+    decision_criterion: &gt;-
+      Intermittent hypoxia-reoxygenation cycles inducing TGF-beta signaling and
+      α-SMA+ myofibroblast conversion above normoxic controls establish that the
+      hypoxia signal is sufficient to activate the conserved fibrotic program at
+      the fibroblast level; absence of activation localizes the defect upstream
+      (systemic/paracrine) rather than to a cell-autonomous fibroblast response.
+    would_support:
+    - fibrotic_response:pathophysiology#Mesenchymal Cell Activation
+    - pathophysiology#Intermittent Hypoxia
+  - experiment_id: exp_osa_fibrosis_therapy_reversibility
+    name: Randomized trial of OSA therapy efficacy on fibrotic progression
+    description: &gt;-
+      Enroll newly diagnosed moderate-to-severe OSA patients and randomize to PAP
+      therapy versus control, with serial tissue biomarkers (circulating
+      procollagen III, hyaluronic acid, tissue inhibitors of metalloproteinases)
+      and imaging endpoints (fibrosis staging) at 6, 12, and 24 months. Determine
+      whether therapy-induced reductions in intermittent hypoxia and sleep
+      fragmentation arrest or reverse early fibrotic changes.
+    experiment_type:
+      preferred_term: randomized controlled trial with biomarker endpoints
+    decision_criterion: &gt;-
+      Fibrosis-stage regression or biomarker decline in the PAP arm relative to
+      control at 24 months supports OSA-driven remodeling being at least partly
+      reversible and hypoxia/fragmentation being active causal drivers; no
+      between-arm difference argues the remodeling is fixed or driven by
+      OSA-independent comorbidity.
+    would_support:
+    - pathophysiology#Intermittent Hypoxia
+    - pathophysiology#Sleep Fragmentation
+    would_refute:
+    - fibrotic_response:pathophysiology#Mesenchymal Cell Activation
 classifications:
   harrisons_chapter:
   - classification_value: RESPIRATORY
@@ -7433,7 +8788,7 @@ The mechanistic framework converges on IH→ROS/HIF‑1α→NF‑κB/inflammatio
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Obstructive Sleep Apnea", "mondoId": "MONDO:0007147", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Obstructive_Sleep_Apnea", "yamlRevision": "a5d452bcfbe2"};
+        const OS_CONFIG = {"diseaseName": "Obstructive Sleep Apnea", "mondoId": "MONDO:0007147", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Obstructive_Sleep_Apnea", "yamlRevision": "7b0198eb588b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7852,5 +9207,73 @@ The mechanistic framework converges on IH→ROS/HIF‑1α→NF‑κB/inflammatio
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

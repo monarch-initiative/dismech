@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Familial Vesicoureteral Reflux</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Familial Vesicoureteral Reflux</h1>
             <div class="header-meta">
 
@@ -3702,6 +3904,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3808,6 +4012,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3903,7 +4115,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-with-incomplete-penetrance">
                 <div class="item-name">
                     Autosomal dominant with incomplete penetrance
 
@@ -3953,6 +4165,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19443636" target="_blank">PMID:19443636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3976,6 +4189,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097723" target="_blank">PMID:29097723</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3998,6 +4212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1623385" target="_blank">PMID:1623385</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4023,7 +4238,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-vur7-kindreds">
                 <div class="item-name">
                     Autosomal recessive (VUR7 kindreds)
 
@@ -4069,6 +4284,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19443636" target="_blank">PMID:19443636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4093,7 +4309,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-polygenic-and-multifactorial-contribution">
                 <div class="item-name">
                     Polygenic and multifactorial contribution
 
@@ -4139,6 +4355,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19959718" target="_blank">PMID:19959718</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4161,6 +4378,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19690587" target="_blank">PMID:19690587</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4244,7 +4462,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur1">
 
                     <div class="item-name">
                         Vesicoureteral reflux 1 (VUR1, 1p13 locus)
@@ -4281,6 +4499,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10739767" target="_blank">PMID:10739767</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4303,6 +4522,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19959718" target="_blank">PMID:19959718</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -4331,7 +4551,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur2">
 
                     <div class="item-name">
                         Vesicoureteral reflux 2 (VUR2, ROBO2)
@@ -4347,16 +4567,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ROBO2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10250">hgnc:10250</a>
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10250</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4388,6 +4613,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4415,7 +4641,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur3">
 
                     <div class="item-name">
                         Vesicoureteral reflux 3 (VUR3, SOX17)
@@ -4429,16 +4655,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 SOX17
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18122">hgnc:18122</a>
+    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:18122</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SOX17 (hgnc:18122). hgnc:18122 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4465,6 +4696,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20960469" target="_blank">PMID:20960469</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4493,7 +4725,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur4">
 
                     <div class="item-name">
                         Vesicoureteral reflux 4 (VUR4, chromosome 5 locus)
@@ -4530,6 +4762,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19690587" target="_blank">PMID:19690587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4557,7 +4790,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur5">
 
                     <div class="item-name">
                         Vesicoureteral reflux 5 (VUR5, chromosome 13 locus)
@@ -4594,6 +4827,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19690587" target="_blank">PMID:19690587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4621,7 +4855,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur6">
 
                     <div class="item-name">
                         Vesicoureteral reflux 6 (VUR6, chromosome 18 locus)
@@ -4658,6 +4892,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19690587" target="_blank">PMID:19690587</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4685,7 +4920,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur7">
 
                     <div class="item-name">
                         Vesicoureteral reflux 7 (VUR7, 12p11-q13, recessive)
@@ -4726,6 +4961,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19443636" target="_blank">PMID:19443636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4753,7 +4989,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vur8">
 
                     <div class="item-name">
                         Vesicoureteral reflux 8 (VUR8, TNXB)
@@ -4769,16 +5005,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 TNXB
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11976">hgnc:11976</a>
+    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11976</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TNXB (hgnc:11976). hgnc:11976 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4810,6 +5051,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620400" target="_blank">PMID:23620400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4832,6 +5074,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4860,7 +5103,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vurx">
 
                     <div class="item-name">
                         Vesicoureteral reflux, X-linked (VURX)
@@ -4901,6 +5144,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1142496" target="_blank">PMID:1142496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4923,6 +5167,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21981614" target="_blank">PMID:21981614</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -5037,6 +5282,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5054,6 +5305,12 @@
 
         <div class="item-desc" style="margin-top: 8px;">Profile the human nephric duct and forming ureterovesical junction by single-cell and spatial transcriptomics to prioritise candidate genes expressed at the budding site within each linkage interval.
 </div>
+
+
+
+
+
+
 
 
 
@@ -5094,6 +5351,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097723" target="_blank">PMID:29097723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5196,6 +5454,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5213,6 +5477,12 @@
 
         <div class="item-desc" style="margin-top: 8px;">Re-analyse or prospectively stratify prophylaxis trials by molecular subtype (e.g. TNXB and PAX2 carriers) to test whether genotype predicts response to infection-directed therapy.
 </div>
+
+
+
+
+
+
 
 
 
@@ -5254,6 +5524,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5275,6 +5546,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16433689" target="_blank">PMID:16433689</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5370,6 +5642,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5387,6 +5665,12 @@
 
         <div class="item-desc" style="margin-top: 8px;">Determine whether GEN1 or other ERK-pathway modifier alleles contribute to human familial VUR in oligogenic burden analyses of multiplex cohorts.
 </div>
+
+
+
+
+
+
 
 
 
@@ -5427,6 +5711,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36870240" target="_blank">PMID:36870240</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5481,16 +5766,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ROBO2
 
 
-    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10250">hgnc:10250</a>
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:10250</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5518,10 +5814,13 @@
         SLIT2
 
 
-    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11086">hgnc:11086</a>
+    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11086</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLIT2 (hgnc:11086). hgnc:11086 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5548,6 +5847,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Roundabout signaling pathway
@@ -5555,10 +5856,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035385" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035385">GO:0035385</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035385" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035385</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Roundabout signaling pathway (GO:0035385). GO:0035385 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5583,16 +5887,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transmembrane signaling receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004888" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004888">GO:0004888</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004888" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004888</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased transmembrane signaling receptor activity (GO:0004888). GO:0004888 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5613,6 +5922,7 @@
 
 
                 </div>
+
 
 
 
@@ -5645,6 +5955,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5687,15 +5998,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SOX17
 
 
-    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18122">hgnc:18122</a>
+    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:18122</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX17 (hgnc:18122). hgnc:18122 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5723,16 +6041,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090090" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090090">GO:0090090</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090090" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0090090</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of canonical Wnt signaling pathway (GO:0090090). GO:0090090 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5757,16 +6080,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5787,6 +6115,7 @@
 
 
                 </div>
+
 
 
 
@@ -5819,6 +6148,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20960469" target="_blank">PMID:20960469</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5861,15 +6191,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TNXB
 
 
-    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11976">hgnc:11976</a>
+    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11976</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNXB (hgnc:11976). hgnc:11976 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5896,6 +6233,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         cell-matrix adhesion
@@ -5903,10 +6242,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007160">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5931,16 +6273,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix structural constituent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005201">GO:0005201</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal extracellular matrix structural constituent (GO:0005201). GO:0005201 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5961,6 +6308,7 @@
 
 
                 </div>
+
 
 
 
@@ -5993,6 +6341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620400" target="_blank">PMID:23620400</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6028,16 +6377,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         ureteric bud cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030066">CL:4030066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:4030066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ureteric bud cell (CL:4030066). CL:4030066 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6064,16 +6418,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ROBO2
 
 
-    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10250">hgnc:10250</a>
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:10250</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6101,11 +6466,18 @@
         SLIT2
 
 
-    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11086">hgnc:11086</a>
+    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11086</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLIT2 (hgnc:11086). hgnc:11086 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6133,10 +6505,13 @@
         SOX17
 
 
-    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18122">hgnc:18122</a>
+    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:18122</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOX17 (hgnc:18122). hgnc:18122 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6164,16 +6539,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ureteric bud formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060676" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060676">GO:0060676</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060676" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0060676</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal ureteric bud formation (GO:0060676). GO:0060676 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6182,6 +6562,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -6199,10 +6581,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072177" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072177">GO:0072177</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072177" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0072177</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mesonephric duct development (GO:0072177). GO:0072177 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6222,16 +6607,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Roundabout (SLIT-ROBO) signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035385" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035385">GO:0035385</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035385" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0035385</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Roundabout (SLIT-ROBO) signaling pathway, annotated with Roundabout signaling pathway (GO:0035385). GO:0035385 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6251,16 +6641,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090090" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090090">GO:0090090</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090090" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0090090</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of canonical Wnt signaling pathway (GO:0090090). GO:0090090 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6287,19 +6682,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ureter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000056">UBERON:0000056</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000056</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6337,6 +6738,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16433689" target="_blank">PMID:16433689</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6360,6 +6762,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16433689" target="_blank">PMID:16433689</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6382,6 +6785,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6419,17 +6823,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         ureter urothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000706" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000706">CL:1000706</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000706" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:1000706</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ureter urothelial cell (CL:1000706). CL:1000706 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6450,10 +6861,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000979" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000979">CL:1000979</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000979" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:1000979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ureter smooth muscle cell (CL:1000979). CL:1000979 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6474,6 +6888,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -6485,10 +6903,13 @@
         TNXB
 
 
-    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11976">hgnc:11976</a>
+    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11976</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNXB (hgnc:11976). hgnc:11976 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6516,16 +6937,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ureter maturation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035799" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035799">GO:0035799</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035799" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0035799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal ureter maturation (GO:0035799). GO:0035799 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6534,6 +6960,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -6551,10 +6979,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007160">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0007160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6581,17 +7012,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ureterovesical junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009973" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0009973">UBERON:0009973</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009973" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0009973</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ureterovesical junction (UBERON:0009973). UBERON:0009973 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         trigone of urinary bladder
@@ -6599,13 +7037,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001257" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001257">UBERON:0001257</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001257" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in trigone of urinary bladder (UBERON:0001257). UBERON:0001257 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6637,6 +7079,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6660,6 +7103,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620400" target="_blank">PMID:23620400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6682,6 +7126,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620400" target="_blank">PMID:23620400</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6726,16 +7171,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         metanephros development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001656" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001656">GO:0001656</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001656" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0001656</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal metanephros development (GO:0001656). GO:0001656 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6762,19 +7212,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6806,6 +7262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16433689" target="_blank">PMID:16433689</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6828,6 +7285,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097723" target="_blank">PMID:29097723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6873,17 +7331,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         renal pelvis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001224" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001224">UBERON:0001224</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001224" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0001224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal pelvis (UBERON:0001224). UBERON:0001224 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         ureter
@@ -6891,13 +7356,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000056">UBERON:0000056</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0000056</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ureter (UBERON:0000056). UBERON:0000056 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6935,6 +7404,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6957,6 +7427,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6992,16 +7463,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         kidney epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002518">CL:0002518</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0002518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0002518 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7028,16 +7504,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009617">GO:0009617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0009617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to bacterium (GO:0009617). GO:0009617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7057,16 +7538,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         wound healing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042060">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0042060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7093,19 +7579,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cortex of kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001225">UBERON:0001225</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0001225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERON:0001225 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7137,6 +7629,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7160,6 +7653,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7182,6 +7676,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27760770" target="_blank">PMID:27760770</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7217,17 +7712,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7248,10 +7750,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves monocyte-derived macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7278,16 +7783,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7296,6 +7806,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -7313,10 +7825,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7343,19 +7858,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cortex of kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001225">UBERON:0001225</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERON:0001225 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7387,6 +7908,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27760770" target="_blank">PMID:27760770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7409,6 +7931,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33148615" target="_blank">PMID:33148615</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7444,17 +7967,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7475,10 +8005,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000186">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0000186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7505,16 +8038,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7541,19 +8079,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cortex of kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001225">UBERON:0001225</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0001225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERON:0001225 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7585,6 +8129,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19861314" target="_blank">PMID:19861314</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7607,6 +8152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19861314" target="_blank">PMID:19861314</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7642,17 +8188,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myofibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000186">CL:0000186</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myofibroblast, annotated with myofibroblast cell (CL:0000186). CL:0000186 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7673,10 +8226,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7703,16 +8259,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7721,6 +8282,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -7738,10 +8301,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7761,16 +8327,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         collagen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032964">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0032964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7797,19 +8368,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cortex of kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001225">UBERON:0001225</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001225" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-52">UBERON:0001225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cortex of kidney (UBERON:0001225). UBERON:0001225 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7847,6 +8424,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27760770" target="_blank">PMID:27760770</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7870,6 +8448,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7892,6 +8471,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7939,19 +8519,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-53">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7969,6 +8555,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19959718" target="_blank">PMID:19959718</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7993,6 +8580,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8015,6 +8603,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8108,14 +8697,21 @@
                         Hypertension
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8135,6 +8731,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097723" target="_blank">PMID:29097723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8178,14 +8775,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nephropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000112" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000112">HP:0000112</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000112" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000112</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephropathy (HP:0000112). HP:0000112 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8205,6 +8809,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21441121" target="_blank">PMID:21441121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8240,14 +8845,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0012622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622), qualified as course progressive. HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8286,6 +8898,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8320,14 +8933,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stage 5 chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003774">HP:0003774</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0003774</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8347,6 +8967,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8370,6 +8991,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8412,14 +9034,21 @@
                         Joint Hypermobility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8439,6 +9068,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8483,14 +9113,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary vesicoureteral reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033738" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033738">HP:0033738</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0033738</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary vesicoureteral reflux (HP:0033738). HP:0033738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8510,6 +9147,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8542,14 +9180,23 @@
                         High-Grade (Dilating) Vesicoureteral Reflux
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        High-grade vesicoureteral reflux
+
+                        <span class="phenotype-term-label">High-grade vesicoureteral reflux</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033734">HP:0033734</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0033734</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is High-grade vesicoureteral reflux (HP:0033734). HP:0033734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8569,6 +9216,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8602,14 +9250,21 @@
                         Intrarenal Reflux
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intrarenal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033742" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033742">HP:0033742</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0033742</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrarenal reflux (HP:0033742). HP:0033742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8629,6 +9284,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8663,14 +9319,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent urinary tract infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000010">HP:0000010</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0000010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8690,6 +9353,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21441121" target="_blank">PMID:21441121</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8723,14 +9387,23 @@
                         Acute Pyelonephritis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent pyelonephritis
+
+                        <span class="phenotype-term-label">Recurrent pyelonephritis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012787">HP:0012787</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0012787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent acute pyelonephritis, annotated with Recurrent pyelonephritis (HP:0012787), qualified as temporality recurrent. HP:0012787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8769,6 +9442,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8803,14 +9477,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal cortical atrophy
+
+                        <span class="phenotype-term-label">Renal cortical atrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002048">HP:0002048</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002048</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal cortical atrophy (HP:0002048). HP:0002048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8830,6 +9513,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8863,14 +9547,23 @@
                         Renal Hypoplasia and Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal hypoplasia/aplasia
+
+                        <span class="phenotype-term-label">Renal hypoplasia/aplasia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008678">HP:0008678</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0008678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia/aplasia (HP:0008678). HP:0008678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8890,6 +9583,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29097723" target="_blank">PMID:29097723</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8922,14 +9616,21 @@
                         Renal Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000110">HP:0000110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal dysplasia (HP:0000110). HP:0000110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8949,6 +9650,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16433689" target="_blank">PMID:16433689</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8982,14 +9684,21 @@
                         Hydronephrosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydronephrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000126">HP:0000126</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000126</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9009,6 +9718,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9041,14 +9751,21 @@
                         Duplicated Collecting System
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Duplicated collecting system
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000081" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000081">HP:0000081</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000081</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Duplicated collecting system (HP:0000081). HP:0000081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9068,6 +9785,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9101,14 +9819,23 @@
                         Bladder and Bowel Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Functional abnormality of the bladder
+
+                        <span class="phenotype-term-label">Functional abnormality of the bladder</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000009">HP:0000009</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0000009</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Functional abnormality of the bladder (HP:0000009). HP:0000009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9128,6 +9855,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9204,13 +9932,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ROBO2
 
 
-    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10250">hgnc:10250</a>
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:10250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9234,6 +9967,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9255,6 +9989,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9278,6 +10013,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19959718" target="_blank">PMID:19959718</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9314,13 +10050,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX17
 
 
-    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18122">hgnc:18122</a>
+    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:18122</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9344,6 +10085,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20960469" target="_blank">PMID:20960469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9365,6 +10107,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20960469" target="_blank">PMID:20960469</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9401,13 +10144,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNXB
 
 
-    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11976">hgnc:11976</a>
+    <a href="https://bioregistry.io/hgnc:11976" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:11976</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNXB (hgnc:11976). hgnc:11976 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9431,6 +10179,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620400" target="_blank">PMID:23620400</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9452,6 +10201,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9488,13 +10238,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLIT2
 
 
-    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11086">hgnc:11086</a>
+    <a href="https://bioregistry.io/hgnc:11086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:11086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLIT2 (hgnc:11086). hgnc:11086 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9517,6 +10272,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9572,6 +10328,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9593,6 +10350,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26408188" target="_blank">PMID:26408188</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9625,6 +10383,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9642,7 +10403,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">continuous antibiotic prophylaxis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">continuous antibiotic prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is continuous antibiotic prophylaxis, annotated with Antibiotic Prophylaxis (NCIT:C51993). NCIT:C51993 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Prophylaxis</span>
 
 
@@ -9673,17 +10439,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         trimethoprim-sulfamethoxazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C909" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C909">NCIT:C909</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C909" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-75">NCIT:C909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trimethoprim-sulfamethoxazole (NCIT:C909). NCIT:C909 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         nitrofurantoin
@@ -9691,10 +10464,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29293" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29293">NCIT:C29293</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29293" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-76">NCIT:C29293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nitrofurantoin (NCIT:C29293). NCIT:C29293 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9725,16 +10501,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent urinary tract infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000010">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9753,6 +10534,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9777,6 +10559,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9799,6 +10582,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9832,7 +10616,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -9870,16 +10659,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Functional abnormality of the bladder
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000009">HP:0000009</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0000009</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Functional abnormality of the bladder (HP:0000009). HP:0000009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9898,6 +10692,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9931,7 +10726,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">ureteral reimplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">ureteral reimplantation<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ureteral reimplantation, annotated with Reimplantation (NCIT:C101242). NCIT:C101242 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Reimplantation</span>
 
 
@@ -9997,6 +10797,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3153345" target="_blank">PMID:3153345</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10029,7 +10830,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">endoscopic subureteric bulking-agent injection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-81">endoscopic subureteric bulking-agent injection<span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is endoscopic subureteric bulking-agent injection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10060,16 +10866,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dextranomer/hyaluronic acid copolymer bulking agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16336" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16336">CHEBI:16336</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16336" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-82">CHEBI:16336</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dextranomer/hyaluronic acid copolymer bulking agent, annotated with hyaluronic acid (CHEBI:16336). CHEBI:16336 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10095,6 +10906,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10128,7 +10940,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-83">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-83">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10178,6 +10995,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10209,7 +11027,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-84">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-84">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -10259,6 +11082,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10305,7 +11129,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-secondary-vesicoureteral-reflux">
                 <div class="item-name">
 
                     Secondary vesicoureteral reflux
@@ -10334,6 +11158,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33085409" target="_blank">PMID:33085409</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10359,7 +11184,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-syndromic-cakut-with-vesicoureteral-reflux">
                 <div class="item-name">
 
                     Syndromic CAKUT with vesicoureteral reflux
@@ -10387,6 +11212,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34059960" target="_blank">PMID:34059960</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10427,7 +11253,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00405704">
                 <div class="item-name">
                     NCT00405704
 
@@ -10445,17 +11271,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent urinary tract infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000010">HP:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-85">HP:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent urinary tract infections (HP:0000010). HP:0000010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Renal cortical atrophy
@@ -10463,10 +11296,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002048">HP:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Renal cortical atrophy (HP:0002048). HP:0002048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10484,6 +11320,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24795142" target="_blank">PMID:24795142</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10506,6 +11343,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT00405704" target="_blank">clinicaltrials:NCT00405704</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10535,6 +11373,397 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-robo2-heterozygous-and-mosaic-loss-of-function-mutants-mouse-mus-musculus" data-dismech-node="Robo2 heterozygous and mosaic loss-of-function mutants mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Robo2 heterozygous and mosaic loss-of-function mutants mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Gene-dosage loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">Reducing Robo2 gene dosage in mice reproduces the human CAKUT-VUR phenotype, supplying the in vivo evidence that SLIT-ROBO signalling controls ureteric bud position and ureterovesical junction competence. Recapitulates the human VUR2 subtype.
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Vesicoureteral reflux</span>
+
+                    <span class="tag tag-phenotype">Congenital anomalies of the kidney and urinary tract</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Robo2 heterozygous and mosaic loss-of-function mutants</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ROBO2
+
+
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:10250</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17357069" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17357069" target="_blank">PMID:17357069</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adult heterozygous and mosaic mutant mice with reduced Robo2 gene dosage also exhibit striking CAKUT-VUR phenotypes."</div>
+
+
+                <div class="evidence-explanation">Direct statement of phenotype recapitulation in the Robo2 dosage model.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-robo2-pb-gen1-pb-digenic-piggybac-insertional-mutants-mouse-mus-musculus" data-dismech-node="Robo2(PB/+) Gen1(PB/+) digenic piggyBac insertional mutants mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Robo2(PB/+) Gen1(PB/+) digenic piggyBac insertional mutants mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Digenic insertional-mutagenesis model</span>
+
+                </div>
+
+                <div class="item-desc">A digenic model in which Robo2 and Gen1 co-regulate ureteric bud germination through MAPK/ERK; prenatal MEK inhibition with U0126 prevents the CAKUT phenotype. Limitation: the model is engineered and digenic, the rescue requires systemic MEK inhibition during pregnancy, and no human VUR has been shown to be MAPK/ERK-driven, so this is a mechanistic probe rather than a therapeutic model (see the HUMAN_MODEL_MISMATCH discussion).
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Ectopic ureteric bud outgrowth</span>
+
+                    <span class="tag tag-phenotype">Congenital anomalies of the kidney and urinary tract</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Robo2(PB/+) Gen1(PB/+) digenic piggyBac insertional mutants</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ROBO2
+
+
+    <a href="https://bioregistry.io/hgnc:10250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-88">hgnc:10250</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-88">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ROBO2 (hgnc:10250). hgnc:10250 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36870240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36870240" target="_blank">PMID:36870240</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intraperitoneal injection of U0126 during pregnancy prevented the development of the CAKUT phenotype in Robo2PB/+Gen1PB/+ mice."</div>
+
+
+                <div class="evidence-explanation">Defines the model and its pharmacological rescue.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-c3h-heouj-an-immunocompetent-inbred-strain-with-native-vesicoureteral-reflux-transurethrally-inoculated-with-uropathogenic-escherichia-coli-mouse-mus-musculus" data-dismech-node="C3H/HeOuJ, an immunocompetent inbred strain with native vesicoureteral reflux, transurethrally inoculated with uropathogenic Escherichia coli mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    C3H/HeOuJ, an immunocompetent inbred strain with native vesicoureteral reflux, transurethrally inoculated with uropathogenic Escherichia coli mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Infection model on a refluxing genetic background</span>
+
+                </div>
+
+                <div class="item-desc">The standard experimental model of acquired reflux nephropathy: mice that natively have vesicoureteral reflux develop renal mucosal injury, tubulointerstitial nephritis and cortical fibrosis after ascending uropathogenic E. coli infection, with the degree of fibrosis tracking the degree of leukocyte recruitment rather than bacterial burden alone.
+</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Acute pyelonephritis</span>
+
+                    <span class="tag tag-phenotype">Tubulointerstitial nephritis</span>
+
+                    <span class="tag tag-phenotype">Renal cortical fibrosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">C3H/HeOuJ, an immunocompetent inbred strain with native vesicoureteral reflux, transurethrally inoculated with uropathogenic Escherichia coli</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27760770" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27760770" target="_blank">PMID:27760770</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This murine model recapitulates the cardinal histopathological features observed in humans with acquired renal scarring following pyelonephritis."</div>
+
+
+                <div class="evidence-explanation">Explicit statement of phenotype recapitulation against human acquired renal scarring.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33148615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33148615" target="_blank">PMID:33148615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We used a preclinical model of uropathogenic Escherichia coli-induced acute pyelonephritis to determine the contribution of neutrophils and monocytes to resolution of the condition and the subsequent development of kidney fibrosis."</div>
+
+
+                <div class="evidence-explanation">Describes the same model used to dissect the leukocyte contribution to scarring.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -13465,5 +14694,73 @@ mappings:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Self-Limited Epilepsy with Autonomic Seizures</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Self-Limited Epilepsy with Autonomic Seizures</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3961,6 +4165,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4000,6 +4210,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4023,6 +4239,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4045,6 +4262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4066,6 +4284,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4162,6 +4381,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4201,6 +4426,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4224,6 +4455,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4246,6 +4478,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4267,6 +4500,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4372,6 +4606,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4411,6 +4651,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4434,6 +4680,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20528983" target="_blank">PMID:20528983</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4456,6 +4703,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32608507" target="_blank">PMID:32608507</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4477,6 +4725,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32608507" target="_blank">PMID:32608507</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4582,6 +4831,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4621,6 +4876,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4644,6 +4905,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4666,6 +4928,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4687,6 +4950,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32020894" target="_blank">PMID:32020894</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4745,6 +5009,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4778,6 +5043,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4805,6 +5071,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                 <div class="item-name">Multifocal Cortical Epileptogenicity with Age-Shifting Foci</div>
 
                 <div class="item-desc">Interictal EEG shows shifting or multiple spike foci rather than one stable epileptogenic zone. The distribution is itself age-dependent, running occipital in the youngest children, then occipital together with frontopolar, then centro-parieto-temporal, before disappearing altogether by adolescence. That migration is a fair summary of the syndrome: the excitable tissue moves as the brain matures, and then the excitability goes away.</div>
+
 
 
 
@@ -4850,6 +5117,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4871,6 +5139,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4915,6 +5184,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4942,6 +5212,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4963,6 +5234,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5007,6 +5279,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5034,6 +5307,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5055,6 +5329,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5099,6 +5374,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5126,6 +5402,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5147,6 +5424,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5193,6 +5471,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5204,6 +5483,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5226,6 +5506,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37660659" target="_blank">PMID:37660659</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5314,14 +5595,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         Ictal Hypersalivation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Excessive salivation
+
+                        <span class="phenotype-term-label">Excessive salivation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003781">HP:0003781</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-1">HP:0003781</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ictal hypersalivation, annotated with Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5341,6 +5631,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5384,14 +5675,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011159" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011159">HP:0011159</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011159" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0011159</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal autonomic seizure with epigastric sensation/nausea/vomiting/other gastrointestinal phenomena (HP:0011159), qualified as childhood onset. HP:0011159 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5441,6 +5741,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5472,14 +5773,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         Ictal Pallor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal autonomic seizure with pallor/flushing
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with pallor/flushing</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032762">HP:0032762</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0032762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal autonomic seizure with pallor/flushing (HP:0032762). HP:0032762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5499,6 +5809,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5531,14 +5842,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         Ictal Pupillary Change
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal autonomic seizure with pupillary dilation/constriction
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with pupillary dilation/constriction</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032763">HP:0032763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0032763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal autonomic seizure with pupillary dilation/constriction (HP:0032763). HP:0032763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5558,6 +5878,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5592,14 +5913,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal impaired awareness autonomic seizure
+
+                        <span class="phenotype-term-label">Focal impaired awareness autonomic seizure</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032755" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032755">HP:0032755</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032755" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0032755</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ictal syncope, annotated with Focal impaired awareness autonomic seizure (HP:0032755). HP:0032755 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5619,6 +5949,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5653,14 +5984,21 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Status epilepticus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002133">HP:0002133</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5680,6 +6018,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5714,14 +6053,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bilateral tonic-clonic seizure with focal onset
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure with focal onset</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007334">HP:0007334</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0007334</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5741,6 +6089,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5773,14 +6122,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         Ictal Incontinence
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal autonomic seizure with urge to urinate/defecate
+
+                        <span class="phenotype-term-label">Focal autonomic seizure with urge to urinate/defecate</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032765" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032765">HP:0032765</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0032765</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ictal incontinence, annotated with Focal autonomic seizure with urge to urinate/defecate (HP:0032765). HP:0032765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5800,6 +6158,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5850,6 +6209,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5881,14 +6241,23 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         Impaired Awareness During Seizure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal impaired awareness seizure
+
+                        <span class="phenotype-term-label">Focal impaired awareness seizure</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002384">HP:0002384</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002384</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5908,6 +6277,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5971,6 +6341,9 @@ Three things make this worth resolving rather than splitting the difference. Fir
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5986,7 +6359,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6034,6 +6412,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6056,6 +6435,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6077,6 +6457,7 @@ Three things make this worth resolving rather than splitting the difference. Fir
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6107,7 +6488,12 @@ Three things make this worth resolving rather than splitting the difference. Fir
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6137,16 +6523,21 @@ Three things make this worth resolving rather than splitting the difference. Fir
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         midazolam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6931" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6931">CHEBI:6931</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6931" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-12">CHEBI:6931</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses midazolam (CHEBI:6931). CHEBI:6931 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6191,6 +6582,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6220,7 +6612,12 @@ This does not contradict the conservative posture of this entry. Most seizures n
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6268,6 +6665,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6289,6 +6687,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6336,7 +6735,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-encephalopathy-or-encephalitis">
                 <div class="item-name">
 
                     Acute Encephalopathy or Encephalitis
@@ -6379,6 +6778,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6400,6 +6800,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35153087" target="_blank">PMID:35153087</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6426,7 +6827,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cyclic-vomiting-syndrome">
                 <div class="item-name">
 
                     Cyclic Vomiting Syndrome
@@ -6471,6 +6872,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6496,7 +6898,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-gastroenteritis-migraine-syncope-and-motion-sickness">
                 <div class="item-name">
 
                     Gastroenteritis, Migraine, Syncope, and Motion Sickness
@@ -6539,6 +6941,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6564,7 +6967,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-self-limited-epilepsy-with-centrotemporal-spikes">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html">Self-Limited Epilepsy with Centrotemporal Spikes</a>
@@ -6607,6 +7010,7 @@ This does not contradict the conservative posture of this entry. Most seizures n
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16950946" target="_blank">PMID:16950946</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6640,6 +7044,9 @@ This does not contradict the conservative posture of this entry. Most seizures n
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10170,5 +10577,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

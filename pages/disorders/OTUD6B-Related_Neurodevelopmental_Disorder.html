@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>OTUD6B-Related Neurodevelopmental Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>OTUD6B-Related Neurodevelopmental Disorder</h1>
             <div class="header-meta">
 
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3795,29 +3999,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification" title="The dominant clinical burden is neurodevelopmental: global developmental delay, intellectual disability, seizures, hypotonia, and structural brain abnormalities.">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="A monogenic, autosomal recessive Mendelian disorder diagnosed by exome or genome sequencing.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3835,7 +4117,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3880,6 +4162,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35430327" target="_blank">PMID:35430327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3901,6 +4184,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3965,15 +4249,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         OTUD6B
 
 
-    <a href="https://bioregistry.io/hgnc:24281" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24281">hgnc:24281</a>
+    <a href="https://bioregistry.io/hgnc:24281" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:24281</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTUD6B (hgnc:24281). hgnc:24281 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3993,6 +4284,7 @@
 
 
                 </div>
+
 
 
 
@@ -4042,6 +4334,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4063,6 +4356,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4103,16 +4397,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein deubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016579">GO:0016579</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016579</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein deubiquitination (GO:0016579). GO:0016579 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4137,16 +4436,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cysteine-type deubiquitinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004843">GO:0004843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0004843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased cysteine-type deubiquitinase activity (GO:0004843). GO:0004843 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4167,6 +4471,7 @@
 
 
                 </div>
+
 
 
 
@@ -4210,6 +4515,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4231,6 +4537,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33421002" target="_blank">PMID:33421002</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4259,6 +4566,7 @@
                 <div class="item-name">Allele-Dependent Residual OTUD6B Function</div>
 
                 <div class="item-desc">The severity of the clinical phenotype tracks the predicted functional severity of the specific OTUD6B alleles. Truncating and splice alleles that trigger nonsense-mediated decay give little or no product, whereas some missense alleles only locally destabilize the protein and others distort the overall fold. Molecular dynamics modeling of two OTU-domain missense alleles predicted localized destabilization for the allele found in a mildly affected individual and gross fold distortion for the allele found in a severely affected individual. In one replication family, residual wild-type splicing of under one percent, together with alleles that spare the short OTUD6B-2 isoform, was proposed to explain an unusually mild presentation.</div>
+
 
 
 
@@ -4304,6 +4612,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35430327" target="_blank">PMID:35430327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4326,6 +4635,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35430327" target="_blank">PMID:35430327</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4347,6 +4657,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4380,16 +4691,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         peripheral blood mononuclear cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000001" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000001">CL:2000001</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:2000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves peripheral blood mononuclear cell (CL:2000001). CL:2000001 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4416,16 +4732,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteasome assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043248" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043248">GO:0043248</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0043248</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteasome assembly (GO:0043248). GO:0043248 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4451,19 +4772,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         proteasome accessory complex (19S regulatory particle)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022624" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022624">GO:0022624</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022624" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0022624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves proteasome accessory complex (19S regulatory particle), annotated with proteasome accessory complex (GO:0022624). GO:0022624 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4497,6 +4824,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4537,16 +4865,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043161">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4572,19 +4905,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         proteasome complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000502">GO:0000502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves proteasome complex (GO:0000502). GO:0000502 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4618,6 +4957,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4658,16 +4998,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006511" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006511">GO:0006511</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006511" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006511</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ubiquitin-dependent protein catabolic process (GO:0006511). GO:0006511 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4688,6 +5033,7 @@
 
 
                 </div>
+
 
 
 
@@ -4724,6 +5070,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4745,6 +5092,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4785,16 +5133,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006417">GO:0006417</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006417" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006417</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of translation (GO:0006417). GO:0006417 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4815,6 +5168,7 @@
 
 
                 </div>
+
 
 
 
@@ -4851,6 +5205,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27864334" target="_blank">PMID:27864334</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4872,6 +5227,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27864334" target="_blank">PMID:27864334</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4912,16 +5268,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4941,16 +5302,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         growth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040007" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040007">GO:0040007</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0040007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased growth (GO:0040007). GO:0040007 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4971,6 +5337,7 @@
 
 
                 </div>
+
 
 
 
@@ -5006,6 +5373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27864334" target="_blank">PMID:27864334</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5046,16 +5414,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         heart development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007507">GO:0007507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5085,6 +5458,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5096,6 +5470,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5118,6 +5493,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5226,14 +5602,23 @@
                         Hypogammaglobulinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased circulating immunoglobulin concentration
+
+                        <span class="phenotype-term-label">Decreased circulating immunoglobulin concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004313">HP:0004313</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0004313</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313). HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5253,6 +5638,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32924626" target="_blank">PMID:32924626</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5296,14 +5682,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5325,6 +5720,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5348,6 +5744,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5369,6 +5766,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35707595" target="_blank">PMID:35707595</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5412,14 +5810,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5441,6 +5846,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5482,14 +5888,21 @@
                         Hypothyroidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000821</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5509,6 +5922,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32924626" target="_blank">PMID:32924626</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5531,6 +5945,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5572,14 +5987,21 @@
                         Nystagmus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5599,6 +6021,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5640,14 +6063,23 @@
                         Dysmorphic Facial Features
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial shape
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5667,6 +6099,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5701,14 +6134,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long palpebral fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000637" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000637">HP:0000637</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long palpebral fissure (HP:0000637). HP:0000637 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5730,6 +6170,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5762,14 +6203,21 @@
                         Long Philtrum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000343</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5791,6 +6239,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5825,14 +6274,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5854,6 +6310,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5886,14 +6343,23 @@
                         Abnormally Shaped Teeth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal dental morphology
+
+                        <span class="phenotype-term-label">Abnormal dental morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006482">HP:0006482</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0006482</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal dental morphology (HP:0006482). HP:0006482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5913,6 +6379,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5954,14 +6421,23 @@
                         Persistent Fetal Fingertip Pads
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent fingertip pads
+
+                        <span class="phenotype-term-label">Prominent fingertip pads</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001212">HP:0001212</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001212</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent fingertip pads (HP:0001212). HP:0001212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5981,6 +6457,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6003,6 +6480,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6035,14 +6513,23 @@
                         Reduced Sweating
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypohidrosis
+
+                        <span class="phenotype-term-label">Hypohidrosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000966">HP:0000966</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000966" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000966</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypohidrosis (HP:0000966). HP:0000966 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6062,6 +6549,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6105,14 +6593,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad thumb
+
+                        <span class="phenotype-term-label">Broad thumb</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011304">HP:0011304</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011304</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad distal phalanges of the thumbs and halluces, annotated with Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6134,6 +6631,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6166,14 +6664,21 @@
                         Polydactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010442">HP:0010442</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010442" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010442</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polydactyly (HP:0010442). HP:0010442 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6193,6 +6698,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6236,14 +6742,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hypotonia
+
+                        <span class="phenotype-term-label">Generalized hypotonia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6265,6 +6780,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6297,14 +6813,23 @@
                         Vertebral Anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal vertebral morphology
+
+                        <span class="phenotype-term-label">Abnormal vertebral morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003468">HP:0003468</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003468</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vertebral morphology (HP:0003468). HP:0003468 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6324,6 +6849,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6365,14 +6891,21 @@
                         Global Developmental Delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6392,6 +6925,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6426,14 +6960,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6456,6 +6997,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6477,6 +7019,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6511,14 +7054,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6541,6 +7091,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6562,6 +7113,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6594,14 +7146,21 @@
                         Absent Speech
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Absent speech
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001344">HP:0001344</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001344</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6621,6 +7180,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6664,14 +7224,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intrauterine growth retardation
+
+                        <span class="phenotype-term-label">Intrauterine growth retardation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001511">HP:0001511</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6694,6 +7263,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6715,6 +7285,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6756,14 +7327,21 @@
                         Cupped Ears
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cupped ear
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000378">HP:0000378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cupped ear (HP:0000378). HP:0000378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6783,6 +7361,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6815,14 +7394,21 @@
                         Periorbital Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Periorbital edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100539">HP:0100539</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0100539</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6844,6 +7430,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6876,14 +7463,23 @@
                         Hanging Cheek
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cheek morphology
+
+                        <span class="phenotype-term-label">Abnormal cheek morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004426" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004426">HP:0004426</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0004426</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hanging cheek, annotated with Abnormal cheek morphology (HP:0004426). HP:0004426 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6905,6 +7501,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6937,14 +7534,21 @@
                         Smooth Philtrum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Smooth philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000319">HP:0000319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6966,6 +7570,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6998,14 +7603,23 @@
                         Structural Brain Abnormalities
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal brain morphology
+
+                        <span class="phenotype-term-label">Abnormal brain morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012443">HP:0012443</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012443</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7025,6 +7639,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7047,6 +7662,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7079,14 +7695,21 @@
                         Prominent Interphalangeal Joints
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent interphalangeal joints
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006237" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006237">HP:0006237</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006237" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0006237</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent interphalangeal joints (HP:0006237). HP:0006237 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7106,6 +7729,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7138,14 +7762,21 @@
                         Macrodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001572">HP:0001572</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrodontia (HP:0001572). HP:0001572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7165,6 +7796,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7197,14 +7829,21 @@
                         Dental Crowding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dental crowding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000678">HP:0000678</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7224,6 +7863,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7256,14 +7896,21 @@
                         Delayed Eruption of Primary Teeth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed eruption of primary teeth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000680" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000680">HP:0000680</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000680" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000680</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed eruption of primary teeth (HP:0000680). HP:0000680 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7283,6 +7930,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7315,14 +7963,23 @@
                         Mirror Movements
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bimanual synkinesia
+
+                        <span class="phenotype-term-label">Bimanual synkinesia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001335" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001335">HP:0001335</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001335" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001335</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mirror movements, annotated with Bimanual synkinesia (HP:0001335). HP:0001335 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7342,6 +7999,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7374,14 +8032,23 @@
                         Soft Doughy Skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Soft skin
+
+                        <span class="phenotype-term-label">Soft skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000977" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000977">HP:0000977</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000977" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000977</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft skin (HP:0000977). HP:0000977 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7401,6 +8068,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38389298" target="_blank">PMID:38389298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7435,14 +8103,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic disc hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007766" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007766">HP:0007766</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0007766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc hypoplasia (HP:0007766). HP:0007766 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7465,6 +8140,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7486,6 +8162,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7518,14 +8195,21 @@
                         Retinal Degeneration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal degeneration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000546">HP:0000546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal degeneration (HP:0000546). HP:0000546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7545,6 +8229,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7567,6 +8252,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
@@ -7645,13 +8331,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OTUD6B
 
 
-    <a href="https://bioregistry.io/hgnc:24281" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24281">hgnc:24281</a>
+    <a href="https://bioregistry.io/hgnc:24281" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:24281</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTUD6B (hgnc:24281). hgnc:24281 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7683,6 +8374,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28343629" target="_blank">PMID:28343629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7705,6 +8397,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7726,6 +8419,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7759,6 +8453,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7774,7 +8471,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7804,16 +8506,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:39867">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7838,6 +8545,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30364145" target="_blank">PMID:30364145</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7868,7 +8576,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7898,16 +8611,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         levothyroxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:18332">CHEBI:18332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:18332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHEBI:18332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7933,6 +8651,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7954,6 +8673,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41188742" target="_blank">PMID:41188742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7984,7 +8704,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8032,6 +8757,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32924626" target="_blank">PMID:32924626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8061,7 +8787,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8109,6 +8840,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32924626" target="_blank">PMID:32924626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8130,6 +8862,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32924626" target="_blank">PMID:32924626</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8160,7 +8893,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8208,6 +8946,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34354232" target="_blank">PMID:34354232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8254,15 +8993,14 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-bptf-related-neurodevelopmental-disorder-with-dysmorphic-facies-and-distal-limb-anomalies">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">BPTF-related neurodevelopmental disorder with dysmorphic facies and distal limb anomalies</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="BPTF-Related_Neurodevelopmental_Disorder.html">BPTF-related neurodevelopmental disorder with dysmorphic facies and distal limb anomalies</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0060596" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0060596" target="_blank">
                             MONDO:0060596
                         </a>
                     </span>
@@ -8302,6 +9040,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33522091" target="_blank">PMID:33522091</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8327,15 +9066,14 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-zmiz1-related-neurodevelopmental-disorder-with-dysmorphic-facies-and-distal-skeletal-anomalies">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">ZMIZ1-related neurodevelopmental disorder with dysmorphic facies and distal skeletal anomalies</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Neurodevelopmental_Disorder_with_Dysmorphic_Facies_and_Distal_Skeletal_Anomalies.html">ZMIZ1-related neurodevelopmental disorder with dysmorphic facies and distal skeletal anomalies</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0032855" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0032855" target="_blank">
                             MONDO:0032855
                         </a>
                     </span>
@@ -8375,6 +9113,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8397,6 +9136,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8418,6 +9158,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34680978" target="_blank">PMID:34680978</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8444,7 +9185,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-otud5-related-multiple-congenital-anomalies-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">OTUD5-related multiple congenital anomalies syndrome</span>
@@ -8485,7 +9226,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-otud7a-related-phenotypes-and-the-15q13-3-microdeletion-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">OTUD7A-related phenotypes and the 15q13.3 microdeletion syndrome</span>
@@ -8532,6 +9273,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -13196,5 +13940,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

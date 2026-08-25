@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Otomycosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Otomycosis</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Otomycosis"
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3714,7 +3918,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3735,7 +3939,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3796,27 +4000,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3831,7 +4112,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-diagnostic-criteria-for-otomycosis">
                 <div class="item-name">Clinical diagnostic criteria for otomycosis</div>
 
                 <div class="item-desc">Otomycosis is diagnosed clinically based on characteristic otoscopic findings combined with symptomatology and confirmed by mycological culture. No single internationally standardized diagnostic criteria set exists; diagnosis relies on the triad of compatible symptoms, characteristic otoscopic appearance, and positive fungal culture or microscopy.
@@ -3932,6 +4213,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3954,6 +4236,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3975,6 +4258,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40317309" target="_blank">PMID:40317309</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4026,7 +4310,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-cerumen-antimicrobial-barrier" data-dismech-node="Disruption of cerumen antimicrobial barrier" data-dismech-type="pathophysiology">
@@ -4039,16 +4323,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Epithelial cell of external acoustic meatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000434" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000434">CL:1000434</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000434" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:1000434</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial cell of external acoustic meatus (CL:1000434). CL:1000434 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4075,16 +4364,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Antimicrobial humoral response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019730">GO:0019730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Antimicrobial humoral response (GO:0019730). GO:0019730 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4111,19 +4405,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         External acoustic meatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001352">UBERON:0001352</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in External acoustic meatus (UBERON:0001352). UBERON:0001352 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4157,6 +4457,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21298458" target="_blank">PMID:21298458</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4178,6 +4479,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41596275" target="_blank">PMID:41596275</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4219,16 +4521,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Antimicrobial humoral response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019730">GO:0019730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019730" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Antimicrobial humoral response (GO:0019730). GO:0019730 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4249,6 +4556,7 @@
 
 
                 </div>
+
 
 
 
@@ -4285,6 +4593,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4307,6 +4616,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4328,6 +4638,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38450054" target="_blank">PMID:38450054</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4372,19 +4683,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         External acoustic meatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001352">UBERON:0001352</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in External acoustic meatus (UBERON:0001352). UBERON:0001352 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4397,6 +4714,14 @@
 	                            <span class="crosslink-meta">Biofilm formation and antifungal resistance</span>
 
 	                            <span class="crosslink-desc">Colonizing fungi develop biofilm structures that provide structural protection and drug resistance.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aspergillus intrinsic fluconazole resistance</span>
+
+	                            <span class="crosslink-desc">When the colonizing fungus is Aspergillus, its lineage identity carries the constitutive fluconazole exclusion. This conditional edge does not assert that colonization induces or causes the resistance phenotype.</span>
 
 
 	                        </div>
@@ -4417,6 +4742,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4440,6 +4766,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4451,6 +4778,91 @@
 
 
                 <div class="evidence-explanation">Clinical study confirming A. niger as the most common fungal isolate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aspergillus-intrinsic-fluconazole-resistance" data-dismech-node="Aspergillus intrinsic fluconazole resistance" data-dismech-type="pathophysiology">
+                <div class="item-name">Aspergillus intrinsic fluconazole resistance</div>
+
+                <div class="item-desc">Aspergillus-caused otomycosis carries a fixed species-level treatment gate: Aspergillus species are intrinsically resistant to fluconazole, so organism identification excludes that agent before isolate-level susceptibility results. This node is deliberately separate from the existing biofilm-resistance node and from acquired cyp51A or efflux-mediated azole resistance; neither of those isolate- or exposure-dependent mechanisms is sufficient for conformance to the module&#39;s intrinsic-resistance arm.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-6">
+                        Species-level intrinsic insusceptibility to fluconazole
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Species-level intrinsic insusceptibility to fluconazole.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32178468" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32178468" target="_blank">PMID:32178468</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whereas some intrinsic resistance has been found naturally, e.g., fluconazole-resistant ... and Aspergillus species"</div>
+
+
+                <div class="evidence-explanation">This review explicitly distinguishes naturally occurring intrinsic resistance in Aspergillus species from resistance acquired after therapy or environmental exposure, establishing the fixed fluconazole-exclusion gate modeled here.</div>
 
 
 
@@ -4480,16 +4892,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Biofilm formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042710">GO:0042710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Biofilm formation (GO:0042710). GO:0042710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4510,6 +4927,7 @@
 
 
                 </div>
+
 
 
 
@@ -4546,6 +4964,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36080191" target="_blank">PMID:36080191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4567,6 +4986,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36632528" target="_blank">PMID:36632528</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4601,16 +5021,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4637,16 +5062,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Defense response to fungus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050832">GO:0050832</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0050832</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Defense response to fungus (GO:0050832). GO:0050832 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4667,6 +5097,7 @@
 
 
                 </div>
+
 
 
 
@@ -4702,6 +5133,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21298458" target="_blank">PMID:21298458</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4746,19 +5178,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         External acoustic meatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001352">UBERON:0001352</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001352" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in External acoustic meatus (UBERON:0001352). UBERON:0001352 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4776,6 +5214,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4825,7 +5264,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ototopical antibiotic use is the most common predisposing factor for otomycosis, found in approximately 47% of cases. Antibiotics suppress commensal bacteria that normally compete with fungi for nutrients and ecological niches, creating a permissive environment for fungal overgrowth. The resulting dysbiosis shifts the microbial community from bacterial-dominated to fungal-dominated.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Antimicrobial humoral response\"]}}, {\"id\": \"Biofilm formation and antifungal resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Colonizing fungi form biofilms on the ear canal epithelium. The biofilm extracellular matrix acts as a diffusion barrier that reduces antifungal drug penetration and mediates phenotypic drug resistance. This biofilm-mediated resistance contributes to treatment failure and recurrence rates of approximately 15%.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Biofilm formation\"]}}, {\"id\": \"Canal obstruction and symptom manifestation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of fungal biomass (hyphae, spores, conidiophores), inflammatory exudate, and desquamated epithelium accumulates in the external auditory canal, producing the characteristic clinical symptoms of pruritus, otalgia, discharge, and conductive hearing impairment. The degree of obstruction correlates with the severity of hearing loss.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Disruption of cerumen antimicrobial barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The external auditory canal is normally protected by cerumen, which maintains an acidic pH (mean ~3.95), contains antimicrobial peptides (defensins hBD1-3, cathelicidin LL-37, lysozyme, lactoferrin, BPI), and supports colonization resistance by resident microbiota. Physical or chemical disruption of this barrier by excessive ear cleaning, moisture exposure, or other trauma removes the primary antimicrobial defense.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Epithelial cell of external acoustic meatus\"], \"biological_processes\": [\"Antimicrobial humoral response\"], \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Ear canal trauma from cleaning\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Compulsive ear cleaning and instrumentation damage the epithelial lining and remove protective cerumen, predisposing to fungal colonization.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fungal colonization of the external auditory canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aspergillus and Candida species colonize the external auditory canal when the microenvironment becomes permissive. Aspergillus species (particularly A. niger and A. flavus) are the most commonly isolated pathogens, followed by Candida species (particularly C. parapsilosis and C. tropicalis). The species distribution varies by geographic region.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Humid tropical climate\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Hot, humid environments promote moisture retention in the ear canal, which disrupts cerumen function and provides a favorable niche for fungal growth.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fungal hyphae, spores, and biofilm debris provoke local innate immune activation in the external auditory canal. Neutrophils and other innate immune cells are recruited to the site, producing inflammatory mediators that cause tissue edema, erythema, and pain. The host defense response to fungus is activated but insufficient to clear the biofilm-protected infection.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Defense response to fungus\"]}}, {\"id\": \"Topical antibiotic use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prolonged use of ototopical antibiotics (with or without steroids) is the most common predisposing factor, disrupting the normal bacterial flora and permitting fungal overgrowth.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Disruption of cerumen antimicrobial barrier\", \"target\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerumen barrier combined with antibiotic exposure disrupts commensal flora.\"}, {\"source\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"target\": \"Fungal colonization of the external auditory canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of bacterial colonization resistance permits Aspergillus and Candida to establish infection.\"}, {\"source\": \"Fungal colonization of the external auditory canal\", \"target\": \"Biofilm formation and antifungal resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonizing fungi develop biofilm structures that provide structural protection and drug resistance.\"}, {\"source\": \"Biofilm formation and antifungal resistance\", \"target\": \"Local innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biofilm persistence and fungal biomass accumulation provoke host inflammatory response.\"}, {\"source\": \"Local innate immune activation\", \"target\": \"Canal obstruction and symptom manifestation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory exudate combines with fungal biomass to obstruct the ear canal.\"}, {\"source\": \"Topical antibiotic use\", \"target\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ototopical drops suppress the commensal bacteria that normally compete with fungi for the canal surface, leaving the niche open. Recorded as triggering because the drug acts on the resident flora itself with nothing in between, even though the same exposure is only predisposing for the disease as a whole.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Humid tropical climate\", \"target\": \"Disruption of cerumen antimicrobial barrier\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Ambient heat and humidity keep the canal moist, working against the acidic, low-moisture state cerumen maintains. Graded lower than the antibiotic and trauma links in this entry because the evidence is a climate association asserted in a clinical series, with no measurement of cerumen pH, moisture, or peptide content.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ear canal trauma from cleaning\", \"target\": \"Disruption of cerumen antimicrobial barrier\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Cleaning and instrumentation strip cerumen and abrade the epithelium beneath it, removing the barrier rather than merely weakening it. Recorded as triggering because the instrument acts on the barrier directly, with no intervening step.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ototopical antibiotic use is the most common predisposing factor for otomycosis, found in approximately 47% of cases. Antibiotics suppress commensal bacteria that normally compete with fungi for nutrients and ecological niches, creating a permissive environment for fungal overgrowth. The resulting dysbiosis shifts the microbial community from bacterial-dominated to fungal-dominated.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Antimicrobial humoral response\"]}}, {\"id\": \"Aspergillus intrinsic fluconazole resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aspergillus-caused otomycosis carries a fixed species-level treatment gate: Aspergillus species are intrinsically resistant to fluconazole, so organism identification excludes that agent before isolate-level susceptibility results. This node is deliberately separate from the existing biofilm-resistance node and from acquired cyp51A or efflux-mediated azole resistance; neither of those isolate- or exposure-dependent mechanisms is sufficient for conformance to the module\u0027s intrinsic-resistance arm.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Species-level intrinsic insusceptibility to fluconazole\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"Biofilm formation and antifungal resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Colonizing fungi form biofilms on the ear canal epithelium. The biofilm extracellular matrix acts as a diffusion barrier that reduces antifungal drug penetration and mediates phenotypic drug resistance. This biofilm-mediated resistance contributes to treatment failure and recurrence rates of approximately 15%.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Biofilm formation\"]}}, {\"id\": \"Canal obstruction and symptom manifestation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of fungal biomass (hyphae, spores, conidiophores), inflammatory exudate, and desquamated epithelium accumulates in the external auditory canal, producing the characteristic clinical symptoms of pruritus, otalgia, discharge, and conductive hearing impairment. The degree of obstruction correlates with the severity of hearing loss.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Disruption of cerumen antimicrobial barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The external auditory canal is normally protected by cerumen, which maintains an acidic pH (mean ~3.95), contains antimicrobial peptides (defensins hBD1-3, cathelicidin LL-37, lysozyme, lactoferrin, BPI), and supports colonization resistance by resident microbiota. Physical or chemical disruption of this barrier by excessive ear cleaning, moisture exposure, or other trauma removes the primary antimicrobial defense.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Epithelial cell of external acoustic meatus\"], \"biological_processes\": [\"Antimicrobial humoral response\"], \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Ear canal trauma from cleaning\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Compulsive ear cleaning and instrumentation damage the epithelial lining and remove protective cerumen, predisposing to fungal colonization.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fungal colonization of the external auditory canal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aspergillus and Candida species colonize the external auditory canal when the microenvironment becomes permissive. Aspergillus species (particularly A. niger and A. flavus) are the most commonly isolated pathogens, followed by Candida species (particularly C. parapsilosis and C. tropicalis). The species distribution varies by geographic region.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"External acoustic meatus\"]}}, {\"id\": \"Humid tropical climate\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Hot, humid environments promote moisture retention in the ear canal, which disrupts cerumen function and provides a favorable niche for fungal growth.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fungal hyphae, spores, and biofilm debris provoke local innate immune activation in the external auditory canal. Neutrophils and other innate immune cells are recruited to the site, producing inflammatory mediators that cause tissue edema, erythema, and pain. The host defense response to fungus is activated but insufficient to clear the biofilm-protected infection.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Defense response to fungus\"]}}, {\"id\": \"Topical antibiotic use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prolonged use of ototopical antibiotics (with or without steroids) is the most common predisposing factor, disrupting the normal bacterial flora and permitting fungal overgrowth.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Topical antifungal therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical clotrimazole is the most commonly used antifungal agent. Other options include miconazole and nystatin. Persistent Aspergillus otomycosis that requires systemic treatment needs an Aspergillus-active option such as itraconazole; fluconazole is excluded by the lineage-level intrinsic-resistance gate, and isolate susceptibility can impose additional restrictions.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"clotrimazole\", \"miconazole\"]}}], \"edges\": [{\"source\": \"Disruption of cerumen antimicrobial barrier\", \"target\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cerumen barrier combined with antibiotic exposure disrupts commensal flora.\"}, {\"source\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"target\": \"Fungal colonization of the external auditory canal\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of bacterial colonization resistance permits Aspergillus and Candida to establish infection.\"}, {\"source\": \"Fungal colonization of the external auditory canal\", \"target\": \"Biofilm formation and antifungal resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonizing fungi develop biofilm structures that provide structural protection and drug resistance.\"}, {\"source\": \"Fungal colonization of the external auditory canal\", \"target\": \"Aspergillus intrinsic fluconazole resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the colonizing fungus is Aspergillus, its lineage identity carries the constitutive fluconazole exclusion. This conditional edge does not assert that colonization induces or causes the resistance phenotype.\"}, {\"source\": \"Biofilm formation and antifungal resistance\", \"target\": \"Local innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biofilm persistence and fungal biomass accumulation provoke host inflammatory response.\"}, {\"source\": \"Local innate immune activation\", \"target\": \"Canal obstruction and symptom manifestation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory exudate combines with fungal biomass to obstruct the ear canal.\"}, {\"source\": \"Topical antibiotic use\", \"target\": \"Antibiotic-induced dysbiosis of ear canal microbiota\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Ototopical drops suppress the commensal bacteria that normally compete with fungi for the canal surface, leaving the niche open. Recorded as triggering because the drug acts on the resident flora itself with nothing in between, even though the same exposure is only predisposing for the disease as a whole.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Humid tropical climate\", \"target\": \"Disruption of cerumen antimicrobial barrier\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Ambient heat and humidity keep the canal moist, working against the acidic, low-moisture state cerumen maintains. Graded lower than the antibiotic and trauma links in this entry because the evidence is a climate association asserted in a clinical series, with no measurement of cerumen pH, moisture, or peptide content.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ear canal trauma from cleaning\", \"target\": \"Disruption of cerumen antimicrobial barrier\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Cleaning and instrumentation strip cerumen and abrade the epithelium beneath it, removing the barrier rather than merely weakening it. Recorded as triggering because the instrument acts on the barrier directly, with no intervening step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Topical antifungal therapy\", \"target\": \"Aspergillus intrinsic fluconazole resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4868,14 +5307,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4895,6 +5341,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4938,14 +5385,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4965,6 +5419,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4987,6 +5442,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5030,14 +5486,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ear pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030766">HP:0030766</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ear pain (HP:0030766). HP:0030766 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5057,6 +5520,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5120,6 +5584,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5135,7 +5602,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5185,6 +5657,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5206,6 +5679,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40317309" target="_blank">PMID:40317309</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5236,7 +5710,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">topical pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5267,17 +5746,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         clotrimazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3764" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3764">CHEBI:3764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:3764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses clotrimazole (CHEBI:3764). CHEBI:3764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         miconazole
@@ -5285,19 +5771,95 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6923" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6923">CHEBI:6923</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6923" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:6923</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses miconazole (CHEBI:6923). CHEBI:6923 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Topical clotrimazole is the most commonly used antifungal agent. Other options include miconazole and nystatin. Systemic triazoles (fluconazole, itraconazole) are reserved for severe or refractory disease.
-</div>
+                <div class="item-desc">Topical clotrimazole is the most commonly used antifungal agent. Other options include miconazole and nystatin. Persistent Aspergillus otomycosis that requires systemic treatment needs an Aspergillus-active option such as itraconazole; fluconazole is excluded by the lineage-level intrinsic-resistance gate, and isolate susceptibility can impose additional restrictions.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Aspergillus intrinsic fluconazole resistance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Effective topical clotrimazole or miconazole uses a non-fluconazole option, bypassing the fluconazole-specific intrinsic exclusion in Aspergillus otomycosis without implying that every isolate is susceptible to the topical agent. This is a synthesis of organism-level resistance and treatment efficacy evidence; neither citation alone establishes the whole edge.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32178468" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32178468" target="_blank">PMID:32178468</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whereas some intrinsic resistance has been found naturally, e.g., fluconazole-resistant ... and Aspergillus species"</div>
+
+
+                <div class="evidence-explanation">Establishes the excluded fluconazole option but does not itself evaluate topical clotrimazole or miconazole in otomycosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38375517" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eight studies had similar results and claimed that clotrimazole has the best or most significant effect on the treatment of otomycosis"</div>
+
+
+                <div class="evidence-explanation">Establishes clotrimazole as an effective alternative in otomycosis but does not by itself attribute treatment choice to Aspergillus intrinsic fluconazole resistance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -5305,7 +5867,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5314,6 +5876,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5337,6 +5900,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5353,11 +5917,12 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41019825" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38578519" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41019825" target="_blank">PMID:41019825</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38578519" target="_blank">PMID:38578519</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5366,15 +5931,17 @@
 
                 </div>
 
-                <div class="evidence-snippet">"In the 12th week after treatment, 76.34% of the 10% povidone-iodine group and 85.26% of the Clotrimazole group had a good response to treatment (p = 0.248)."</div>
+                <div class="evidence-snippet">"If the infection is persistent and requires systemic treatment, terbinafine and itraconazole can be used."</div>
 
 
-                <div class="evidence-explanation">RCT showing clotrimazole achieves 85.26% response rate at 12 weeks, with povidone-iodine as a comparable alternative (76.34%, no significant difference).</div>
+                <div class="evidence-explanation">The clinical susceptibility series supports itraconazole as a systemic option for persistent Aspergillus otomycosis while also emphasizing that resistance to other azoles should be screened.</div>
 
 
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5388,7 +5955,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5418,17 +5990,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         acetic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15366" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15366">CHEBI:15366</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15366" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:15366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acetic acid (CHEBI:15366). CHEBI:15366 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         boric acid
@@ -5436,10 +6015,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_33118" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:33118">CHEBI:33118</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_33118" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:33118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses boric acid (CHEBI:33118). CHEBI:33118 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5465,6 +6047,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38375517" target="_blank">PMID:38375517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5506,6 +6089,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Prolonged use of ototopical antibiotics (with or without steroids) is the most common predisposing factor, disrupting the normal bacterial flora and permitting fungal overgrowth.
 </div>
 
@@ -5522,6 +6109,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5544,6 +6132,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5594,6 +6183,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5626,6 +6216,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Hot, humid environments promote moisture retention in the ear canal, which disrupts cerumen function and provides a favorable niche for fungal growth.
 </div>
 
@@ -5642,6 +6236,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5664,6 +6259,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5714,6 +6310,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38962337" target="_blank">PMID:38962337</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5746,6 +6343,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Compulsive ear cleaning and instrumentation damage the epithelial lining and remove protective cerumen, predisposing to fungal colonization.
 </div>
 
@@ -5762,6 +6363,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5812,6 +6414,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5859,7 +6462,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-bacterial-otitis-externa">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute bacterial otitis externa</span>
@@ -5912,6 +6515,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39376298" target="_blank">PMID:39376298</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5937,7 +6541,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-seborrheic-dermatitis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Seborrheic_Dermatitis.html">Seborrheic dermatitis</a>
@@ -5987,6 +6591,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33112026" target="_blank">PMID:33112026</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6012,7 +6617,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-contact-dermatitis-of-the-ear-canal">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Contact_Dermatitis.html">Contact dermatitis of the ear canal</a>
@@ -6062,6 +6667,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33112026" target="_blank">PMID:33112026</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6083,6 +6689,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1601193" target="_blank">PMID:1601193</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6109,7 +6716,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cholesteatoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Cholesteatoma.html">Cholesteatoma</a>
@@ -6161,6 +6768,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20717034" target="_blank">PMID:20717034</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6199,7 +6807,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05660382">
                 <div class="item-name">
                     NCT05660382
 
@@ -6217,17 +6825,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ear pain
@@ -6235,10 +6850,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030766">HP:0030766</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030766</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ear pain (HP:0030766). HP:0030766 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6256,6 +6874,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05660382" target="_blank">clinicaltrials:NCT05660382</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6278,7 +6897,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04432376">
                 <div class="item-name">
                     NCT04432376
 
@@ -6296,17 +6915,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Conductive hearing impairment
@@ -6314,10 +6940,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000405</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6335,6 +6964,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04432376" target="_blank">clinicaltrials:NCT04432376</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6357,7 +6987,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01547221">
                 <div class="item-name">
                     NCT01547221
 
@@ -6375,17 +7005,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ear pain
@@ -6393,10 +7030,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030766">HP:0030766</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030766" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030766</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ear pain (HP:0030766). HP:0030766 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6414,6 +7054,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01547221" target="_blank">clinicaltrials:NCT01547221</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6442,6 +7083,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6458,7 +7102,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Otomycosis
 creation_date: &#34;2026-02-16T00:00:00Z&#34;
-updated_date: &#34;2026-04-11T01:06:52Z&#34;
 category: Infectious Disease
 description: &gt;
   Otomycosis is a superficial fungal infection of the external auditory canal,
@@ -6692,6 +7335,22 @@ pathophysiology:
       evidence_source: IN_VITRO
       snippet: &#34;The Aspergillus section Nigri causes otomycosis localized in the external auditory canal.&#34;
       explanation: Establishes Aspergillus section Nigri as a cause of otomycosis leading to biofilm formation.
+  - target: Aspergillus intrinsic fluconazole resistance
+    description: &gt;-
+      When the colonizing fungus is Aspergillus, its lineage identity carries the
+      constitutive fluconazole exclusion. This conditional edge does not assert that
+      colonization induces or causes the resistance phenotype.
+    evidence:
+    - reference: PMID:32178468
+      reference_title: Antifungal Drugs.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Whereas some intrinsic resistance has been found naturally, e.g.,
+        fluconazole-resistant ... and Aspergillus species
+      explanation: &gt;-
+        The review identifies fluconazole resistance in Aspergillus as naturally
+        occurring intrinsic resistance, supporting the lineage-conditioned edge.
   evidence:
   - reference: PMID:39376298
     reference_title: &#34;Topical Antibiotic-Induced Otomycosis - a Systematic Review of Aetiology and Risk Factors.&#34;
@@ -6705,6 +7364,31 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;common fungal isolate was Aspergillus niger 9 (45.0%).&#34;
     explanation: Clinical study confirming A. niger as the most common fungal isolate.
+- name: Aspergillus intrinsic fluconazole resistance
+  conforms_to: &#34;antifungal_intrinsic_resistance_gating#Species-Level Intrinsic Antifungal Resistance&#34;
+  description: &gt;-
+    Aspergillus-caused otomycosis carries a fixed species-level treatment gate:
+    Aspergillus species are intrinsically resistant to fluconazole, so organism
+    identification excludes that agent before isolate-level susceptibility results.
+    This node is deliberately separate from the existing biofilm-resistance node and
+    from acquired cyp51A or efflux-mediated azole resistance; neither of those
+    isolate- or exposure-dependent mechanisms is sufficient for conformance to the
+    module&#39;s intrinsic-resistance arm.
+  role: intrinsic_resistance
+  biological_processes:
+  - preferred_term: Species-level intrinsic insusceptibility to fluconazole
+  evidence:
+  - reference: PMID:32178468
+    reference_title: Antifungal Drugs.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Whereas some intrinsic resistance has been found naturally, e.g.,
+      fluconazole-resistant ... and Aspergillus species
+    explanation: &gt;-
+      This review explicitly distinguishes naturally occurring intrinsic resistance
+      in Aspergillus species from resistance acquired after therapy or environmental
+      exposure, establishing the fixed fluconazole-exclusion gate modeled here.
 - name: Biofilm formation and antifungal resistance
   description: &gt;
     Colonizing fungi form biofilms on the ear canal epithelium. The biofilm
@@ -6995,10 +7679,12 @@ treatments:
     snippet: &#34;In the lavage group, 48 (48/52, 92.30%) patients were cured with initial treatment after three months of follow-up&#34;
     explanation: RCT demonstrating that ear canal lavage alone achieves 92.30% cure rate, comparable to lavage plus topical antifungal.
 - name: Topical antifungal therapy
-  description: &gt;
+  description: &gt;-
     Topical clotrimazole is the most commonly used antifungal agent. Other
-    options include miconazole and nystatin. Systemic triazoles (fluconazole,
-    itraconazole) are reserved for severe or refractory disease.
+    options include miconazole and nystatin. Persistent Aspergillus otomycosis that
+    requires systemic treatment needs an Aspergillus-active option such as
+    itraconazole; fluconazole is excluded by the lineage-level intrinsic-resistance
+    gate, and isolate susceptibility can impose additional restrictions.
   treatment_term:
     preferred_term: topical pharmacotherapy
     term:
@@ -7013,6 +7699,35 @@ treatments:
       term:
         id: CHEBI:6923
         label: miconazole
+  target_mechanisms:
+  - target: Aspergillus intrinsic fluconazole resistance
+    treatment_effect: BYPASSES
+    description: &gt;-
+      Effective topical clotrimazole or miconazole uses a non-fluconazole option,
+      bypassing the fluconazole-specific intrinsic exclusion in Aspergillus
+      otomycosis without implying that every isolate is susceptible to the topical
+      agent. This is a synthesis of organism-level resistance and treatment efficacy
+      evidence; neither citation alone establishes the whole edge.
+    evidence:
+    - reference: PMID:32178468
+      reference_title: Antifungal Drugs.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        Whereas some intrinsic resistance has been found naturally, e.g.,
+        fluconazole-resistant ... and Aspergillus species
+      explanation: &gt;-
+        Establishes the excluded fluconazole option but does not itself evaluate
+        topical clotrimazole or miconazole in otomycosis.
+    - reference: PMID:38375517
+      reference_title: &#34;Comparison of acidifying agents and clotrimazole for treatment of otomycosis: a comprehensive one-way mini-review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Eight studies had similar results and claimed that clotrimazole has the best or most significant effect on the treatment of otomycosis&#34;
+      explanation: &gt;-
+        Establishes clotrimazole as an effective alternative in otomycosis but does
+        not by itself attribute treatment choice to Aspergillus intrinsic
+        fluconazole resistance.
   evidence:
   - reference: PMID:38375517
     reference_title: &#34;Comparison of acidifying agents and clotrimazole for treatment of otomycosis: a comprehensive one-way mini-review.&#34;
@@ -7026,6 +7741,17 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common treatment was local ear debridement and use of topical antifungal creams.&#34;
     explanation: Confirms topical antifungal creams as standard clinical practice.
+  - reference: PMID:38578519
+    reference_title: &#34;Pathogenic Aspergillus Strains Identification and Antifungal Susceptibility Analysis of 452 Cases with Otomycosis in Jingzhou, China.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      If the infection is persistent and requires systemic treatment, terbinafine
+      and itraconazole can be used.
+    explanation: &gt;-
+      The clinical susceptibility series supports itraconazole as a systemic option
+      for persistent Aspergillus otomycosis while also emphasizing that resistance
+      to other azoles should be screened.
   - reference: PMID:41019825
     reference_title: &#34;Comparison of Efficacy in the Treatment of Otomycosis using 10% Povidone-Iodine and Clotrimazole Solution: Randomized, Double-Blind Control Trial.&#34;
     supports: SUPPORT
@@ -7239,6 +7965,7 @@ clinical_trials:
       label: Ear pain
   evidence:
   - reference: clinicaltrials:NCT05660382
+    reference_title: &#34;Randomized, Double-blind, Phase III Study of the Efficacy and Safety of Miconazole Oil, Active Versus Placebo in the Treatment of Otomycosis&#34;
     supports: SUPPORT
     snippet: &#34;The goal of this clinical trial is to prove the that miconazole oil works well on fungal infections of the ears, by comparing the drug with a placebo.&#34;
     explanation: Phase III trial directly targeting otomycosis treatment with miconazole oil.
@@ -7260,6 +7987,7 @@ clinical_trials:
       label: Conductive hearing impairment
   evidence:
   - reference: clinicaltrials:NCT04432376
+    reference_title: &#34;Randomized, Double-blind, Phase III Study of the Efficacy and Safety of Miconazole Oil Versus Vehicle Oil in the Treatment of Otomycosis, Followed by an Open-label Safety Evaluation&#34;
     supports: SUPPORT
     snippet: &#34;The intention of the study is to evaluate the efficacy of Miconazole Oil on fungal infection of the ears when applied using 5 drops into the ear(s) twice daily for 14 days continuously.&#34;
     explanation: Completed Phase III trial evaluating miconazole oil for otomycosis treatment.
@@ -7281,6 +8009,7 @@ clinical_trials:
       label: Ear pain
   evidence:
   - reference: clinicaltrials:NCT01547221
+    reference_title: &#34;Effectiveness of 3% Boric Acid in 70% Alcohol Versus 1% Clotrimazole Solution in Otomycosis Patients: a Randomized Controlled Trial&#34;
     supports: SUPPORT
     snippet: &#34;Objective is to compare the clinical effectiveness and adverse events of 1% clotrimazole solution versus 3% boric acid in 70% alcohol for the treatment of otomycosis.&#34;
     explanation: Completed RCT comparing two standard topical treatments for otomycosis.
@@ -7544,6 +8273,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1111/myc.13532" target="_blank">DOI:10.1111/myc.13532</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7612,6 +8342,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1177/19160216251330629" target="_blank">DOI:10.1177/19160216251330629</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7756,6 +8487,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3126/ajms.v14i8.54270" target="_blank">DOI:10.3126/ajms.v14i8.54270</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7824,6 +8556,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jof8030315" target="_blank">DOI:10.3390/jof8030315</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7894,6 +8627,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/jof9060662" target="_blank">DOI:10.3390/jof9060662</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7963,6 +8697,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.36347/sajb.2024.v12i08.001" target="_blank">DOI:10.36347/sajb.2024.v12i08.001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8031,6 +8766,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.51984/jopas.v23i2.3122" target="_blank">DOI:10.51984/jopas.v23i2.3122</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8624,7 +9360,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Otomycosis", "mondoId": "MONDO:0000262", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Otomycosis", "yamlRevision": "b2259e597b7a"};
+        const OS_CONFIG = {"diseaseName": "Otomycosis", "mondoId": "MONDO:0000262", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Otomycosis", "yamlRevision": "633106ca740b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9043,5 +9779,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Alveolar Soft Part Sarcoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Alveolar Soft Part Sarcoma</h1>
             <div class="header-meta">
 
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3788,7 +3992,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3849,16 +4053,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mesenchymal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008019">CL:0008019</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008019</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesenchymal cell (CL:0008019). CL:0008019 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3885,16 +4094,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ASPSCR1
 
 
-    <a href="https://bioregistry.io/hgnc:13825" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13825">hgnc:13825</a>
+    <a href="https://bioregistry.io/hgnc:13825" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:13825</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ASPSCR1 (hgnc:13825). hgnc:13825 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3922,10 +4142,13 @@
         TFE3
 
 
-    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11752">hgnc:11752</a>
+    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11752</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TFE3 (hgnc:11752). hgnc:11752 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3953,16 +4176,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045944">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0045944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4004,6 +4232,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4052,6 +4281,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4073,6 +4303,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4106,16 +4337,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4142,16 +4378,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4172,6 +4413,7 @@
 
 
                 </div>
+
 
 
 
@@ -4208,6 +4450,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4230,6 +4473,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37029109" target="_blank">PMID:37029109</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4251,6 +4495,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37987424" target="_blank">PMID:37987424</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4291,16 +4536,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4330,6 +4580,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4341,6 +4592,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4363,6 +4615,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4403,16 +4656,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell cycle G1/S phase transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044843">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0044843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4432,16 +4690,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4486,6 +4749,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4515,6 +4779,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4536,6 +4801,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4576,16 +4842,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4606,6 +4877,7 @@
 
 
                 </div>
+
 
 
 
@@ -4658,6 +4930,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4679,6 +4952,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4715,7 +4989,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-pseudoalveolar-organoid-architecture">
                 <div class="item-name">
                     Pseudoalveolar Organoid Architecture
 
@@ -4736,6 +5010,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4760,7 +5035,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-pas-positive-diastase-resistant-cytoplasmic-crystals">
                 <div class="item-name">
                     PAS-Positive Diastase-Resistant Cytoplasmic Crystals
 
@@ -4781,6 +5056,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4827,7 +5103,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPSCR1\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TFE3\"], \"gene_terms\": [{\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses ASPSCR1 to TFE3, creating an aberrant transcription factor that redirects gene expression programs in tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASPSCR1\", \"TFE3\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}, {\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}]}}, {\"id\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human ASPS tumor-cell lines and fusion perturbation systems model the transcriptional, chromatin, proliferative, angiogenic, and mitochondrial programs controlled by ASPSCR1::TFE3. Cell culture cannot reproduce the integrated human tumor microenvironment or establish clinical efficacy.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"ASPSCR1::TFE3 expression or disruption\", \"cyclin D1/CDK4 pathway disruption\"], \"publication\": \"PMID:38657118\"}}, {\"id\": \"Angiogenic Tumor Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma is typically highly vascular, with expression of angiogenic programs that support tumor growth and provide the rationale for antiangiogenic systemic therapies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Antiangiogenic Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors, including pazopanib, sunitinib, and cediranib, have clinical activity in advanced ASPS and align with the tumor\u0027s angiogenic transcriptional program.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pazopanib\", \"sunitinib\", \"cediranib\"]}}, {\"id\": \"Axitinib Plus Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined VEGFR tyrosine-kinase inhibition and PD-1 checkpoint blockade has prospective phase 2 activity in advanced ASPS but remains an investigational combination requiring randomized evaluation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"axitinib\", \"pembrolizumab\"]}}, {\"id\": \"Bone Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone is a recurrent metastatic site in advanced alveolar soft part sarcoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010622\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a recognized complication in advanced disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100006\"}}, {\"id\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent preclinical work shows that ASPSCR1-TFE3-driven transcriptional programs create a cyclin D1/CDK4-dependent proliferation state that may be targetable with CDK4/6 inhibition, especially in combination with angiogenesis inhibition.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\", \"cell population proliferation\"], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}]}}, {\"id\": \"Deep Soft Tissue Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients commonly present with a slow-growing deep soft tissue mass, especially in the extremities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031459\"}}, {\"id\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical ASPS models support combining CDK4/6 inhibition with antiangiogenic inhibition. This strategy halted xenograft growth, but no clinical efficacy or safety inference can yet be made.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\", \"sunitinib\"]}}, {\"id\": \"Metastatic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma often follows an indolent primary course but can metastasize to the lungs, brain, bone, and other sites, sometimes years after initial diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Mitochondrial Biology Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 regulates mitochondrial biology and mitochondrial biogenesis as part of the core oncogenic transcriptional program.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Pulmonary Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous spread commonly involves the lung and may be present at diagnosis or emerge after a long interval.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}], \"edges\": [{\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant transcriptional activity promotes angiogenic tumor biology\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Mitochondrial Biology Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs include mitochondrial biology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs drive cyclin D1/CDK4-dependent proliferation\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Angiogenic Tumor Program\", \"target\": \"Metastatic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent angiogenic activity supports hematogenous metastatic progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular-network construction and tumor-cell intravasation\"]}, {\"source\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"target\": \"Deep Soft Tissue Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative tumor-cell outgrowth produces the characteristic slow-growing deep soft tissue mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tumor-cell proliferation and mass effect\"]}, {\"source\": \"Metastatic Progression\", \"target\": \"Pulmonary Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous metastatic progression commonly seeds the lungs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve the central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Bone Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve skeletal sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiangiogenic Targeted Therapy\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Axitinib Plus Pembrolizumab\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ASPSCR1\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TFE3\"], \"gene_terms\": [{\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A characteristic unbalanced der(17)t(X;17)(p11;q25) translocation fuses ASPSCR1 to TFE3, creating an aberrant transcription factor that redirects gene expression programs in tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"ASPSCR1\", \"TFE3\"], \"gene_terms\": [{\"label\": \"ASPSCR1\", \"id\": \"hgnc:13825\"}, {\"label\": \"TFE3\", \"id\": \"hgnc:11752\"}], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}]}}, {\"id\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human ASPS tumor-cell lines and fusion perturbation systems model the transcriptional, chromatin, proliferative, angiogenic, and mitochondrial programs controlled by ASPSCR1::TFE3. Cell culture cannot reproduce the integrated human tumor microenvironment or establish clinical efficacy.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"ASPSCR1::TFE3 expression or disruption\", \"cyclin D1/CDK4 pathway disruption\"], \"publication\": \"PMID:38657118\"}}, {\"id\": \"Angiogenic Tumor Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma is typically highly vascular, with expression of angiogenic programs that support tumor growth and provide the rationale for antiangiogenic systemic therapies.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Antiangiogenic Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors, including pazopanib, sunitinib, and cediranib, have clinical activity in advanced ASPS and align with the tumor\u0027s angiogenic transcriptional program.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pazopanib\", \"sunitinib\", \"cediranib\"]}}, {\"id\": \"Axitinib Plus Pembrolizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined VEGFR tyrosine-kinase inhibition and PD-1 checkpoint blockade has prospective phase 2 activity in advanced ASPS but remains an investigational combination requiring randomized evaluation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"axitinib\", \"pembrolizumab\"]}}, {\"id\": \"Bone Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone is a recurrent metastatic site in advanced alveolar soft part sarcoma.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010622\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain metastases are a recognized complication in advanced disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100006\"}}, {\"id\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent preclinical work shows that ASPSCR1-TFE3-driven transcriptional programs create a cyclin D1/CDK4-dependent proliferation state that may be targetable with CDK4/6 inhibition, especially in combination with angiogenesis inhibition.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell cycle G1/S phase transition\", \"cell population proliferation\"], \"experimental_models\": [{\"name\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"model_type\": \"CELL_LINE\", \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}]}}, {\"id\": \"Deep Soft Tissue Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients commonly present with a slow-growing deep soft tissue mass, especially in the extremities.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0031459\"}}, {\"id\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Preclinical ASPS models support combining CDK4/6 inhibition with antiangiogenic inhibition. This strategy halted xenograft growth, but no clinical efficacy or safety inference can yet be made.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"palbociclib\", \"sunitinib\"]}}, {\"id\": \"Metastatic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alveolar soft part sarcoma often follows an indolent primary course but can metastasize to the lungs, brain, bone, and other sites, sometimes years after initial diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Mitochondrial Biology Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 regulates mitochondrial biology and mitochondrial biogenesis as part of the core oncogenic transcriptional program.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"]}}, {\"id\": \"Pulmonary Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematogenous spread commonly involves the lung and may be present at diagnosis or emerge after a long interval.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100526\"}}], \"edges\": [{\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant transcriptional activity promotes angiogenic tumor biology\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Mitochondrial Biology Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs include mitochondrial biology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASPSCR1-TFE3 transcriptional programs drive cyclin D1/CDK4-dependent proliferation\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Angiogenic Tumor Program\", \"target\": \"Metastatic Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent angiogenic activity supports hematogenous metastatic progression.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"vascular-network construction and tumor-cell intravasation\"]}, {\"source\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"target\": \"Deep Soft Tissue Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative tumor-cell outgrowth produces the characteristic slow-growing deep soft tissue mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tumor-cell proliferation and mass effect\"]}, {\"source\": \"Metastatic Progression\", \"target\": \"Pulmonary Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematogenous metastatic progression commonly seeds the lungs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve the central nervous system.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metastatic Progression\", \"target\": \"Bone Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic dissemination can involve skeletal sites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiangiogenic Targeted Therapy\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Axitinib Plus Pembrolizumab\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Investigational Combined CDK4/6 and Angiogenesis Inhibition\", \"target\": \"Angiogenic Tumor Program\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models fusion-dependent transcriptional and chromatin regulation.\"}, {\"source\": \"ASPSCR1-TFE3-Positive ASPS Tumor Cell Lines\", \"target\": \"Cyclin D1-CDK4 Cell-Cycle Dependency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models loss of proliferative capacity after cyclin D1/CDK4 disruption.\"}, {\"source\": \"ASPSCR1-TFE3 Fusion - ASPSCR1 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ASPSCR1-TFE3 Fusion - TFE3 Partner\", \"target\": \"ASPSCR1-TFE3 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4866,14 +5142,23 @@
                         Deep Soft Tissue Mass
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Soft tissue neoplasm
+
+                        <span class="phenotype-term-label">Soft tissue neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031459">HP:0031459</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031459</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Deep soft tissue mass, annotated with Soft tissue neoplasm (HP:0031459). HP:0031459 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4893,6 +5178,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4915,6 +5201,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37987424" target="_blank">PMID:37987424</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4947,14 +5234,23 @@
                         Pulmonary Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the lung
+
+                        <span class="phenotype-term-label">Neoplasm of the lung</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100526">HP:0100526</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100526</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4974,6 +5270,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4996,6 +5293,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5037,14 +5335,23 @@
                         Brain Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the central nervous system
+
+                        <span class="phenotype-term-label">Neoplasm of the central nervous system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100006">HP:0100006</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100006</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the central nervous system (HP:0100006). HP:0100006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5064,6 +5371,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5086,6 +5394,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5118,14 +5427,23 @@
                         Bone Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the skeletal system
+
+                        <span class="phenotype-term-label">Neoplasm of the skeletal system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010622">HP:0010622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone metastases, annotated with Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5145,6 +5463,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5167,6 +5486,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40171452" target="_blank">PMID:40171452</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5243,13 +5563,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ASPSCR1
 
 
-    <a href="https://bioregistry.io/hgnc:13825" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13825">hgnc:13825</a>
+    <a href="https://bioregistry.io/hgnc:13825" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:13825</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ASPSCR1 (hgnc:13825). hgnc:13825 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5274,6 +5599,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5309,13 +5635,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TFE3
 
 
-    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11752">hgnc:11752</a>
+    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11752</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TFE3 (hgnc:11752). hgnc:11752 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5340,6 +5671,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5371,6 +5703,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5386,7 +5721,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical excision</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">surgical excision<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical excision, annotated with Excision (NCIT:C15232). NCIT:C15232 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Excision</span>
 
 
@@ -5435,6 +5775,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5464,7 +5805,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5512,6 +5858,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5541,7 +5888,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5571,17 +5923,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pazopanib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71219">CHEBI:71219</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71219" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:71219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         sunitinib
@@ -5589,15 +5948,22 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:38940">CHEBI:38940</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:38940</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
-                    <span class="tag tag-treatment">
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">
                         cediranib
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Relation: this treatment uses this therapeutic agent
+This treatment uses cediranib.</span>
                     </span>
 
                 </div>
@@ -5631,6 +5997,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31160249" target="_blank">PMID:31160249</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5673,6 +6040,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37626447" target="_blank">PMID:37626447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5695,6 +6063,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35971085" target="_blank">PMID:35971085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5716,6 +6085,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31160249" target="_blank">PMID:31160249</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5746,7 +6116,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5776,16 +6151,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         Atezolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106250">NCIT:C106250</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C106250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Atezolizumab (NCIT:C106250). NCIT:C106250 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5811,6 +6191,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37672694" target="_blank">PMID:37672694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5832,6 +6213,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37672694" target="_blank">PMID:37672694</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5862,7 +6244,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5892,17 +6279,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         axitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66910" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:66910">CHEBI:66910</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66910" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:66910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses axitinib (CHEBI:66910). CHEBI:66910 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -5910,10 +6304,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5947,6 +6344,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31078463" target="_blank">PMID:31078463</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5989,6 +6387,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31078463" target="_blank">PMID:31078463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6018,7 +6417,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6048,17 +6452,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         palbociclib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85993">CHEBI:85993</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:85993</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         sunitinib
@@ -6066,10 +6477,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:38940">CHEBI:38940</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_38940" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:38940</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sunitinib (CHEBI:38940). CHEBI:38940 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6103,6 +6517,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6149,6 +6564,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6189,6 +6605,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6250,6 +6667,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6290,7 +6708,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-paraganglioma">
                 <div class="item-name">
 
                     Paraganglioma
@@ -6329,6 +6747,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6354,7 +6773,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alveolar-rhabdomyosarcoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Alveolar_Rhabdomyosarcoma.html">Alveolar Rhabdomyosarcoma</a>
@@ -6393,6 +6812,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6418,7 +6838,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-metastatic-clear-cell-renal-cell-carcinoma">
                 <div class="item-name">
 
                     Metastatic Clear Cell Renal Cell Carcinoma
@@ -6457,6 +6877,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6482,7 +6903,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-perivascular-epithelioid-cell-tumor">
                 <div class="item-name">
 
                     Perivascular Epithelioid Cell Tumor
@@ -6521,6 +6942,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38291475" target="_blank">PMID:38291475</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6556,7 +6978,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse235739">
                 <div class="item-name">
                     ASPSCR1::TFE3 Drives Alveolar Soft Part Sarcoma by Inducing Targetable Transcriptional Programs
 
@@ -6599,7 +7021,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse186789">
                 <div class="item-name">
                     ASPSCR1-TFE3 orchestrates the angiogenic program of alveolar soft part sarcoma I
 
@@ -6652,7 +7074,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct03141684">
                 <div class="item-name">
                     NCT03141684
 
@@ -6678,6 +7100,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT03141684" target="_blank">clinicaltrials:NCT03141684</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6701,7 +7124,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02636725">
                 <div class="item-name">
                     NCT02636725
 
@@ -6727,6 +7150,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT02636725" target="_blank">clinicaltrials:NCT02636725</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6750,7 +7174,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01391962">
                 <div class="item-name">
                     NCT01391962
 
@@ -6776,6 +7200,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT01391962" target="_blank">clinicaltrials:NCT01391962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6799,7 +7224,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01337401">
                 <div class="item-name">
                     NCT01337401
 
@@ -6824,6 +7249,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01337401" target="_blank">clinicaltrials:NCT01337401</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6887,15 +7313,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-31">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-31">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -6928,14 +7359,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-aspscr1-tfe3-fusion-oncogene">ASPSCR1-TFE3 Fusion Oncogene</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models fusion-dependent transcriptional and chromatin regulation.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-aspscr1-tfe3-fusion-oncogene">ASPSCR1-TFE3 Fusion Oncogene</a>
+
+
+
+                <span class="crosslink-desc">Models fusion-dependent transcriptional and chromatin regulation.</span>
+
+
 
 
 
@@ -6950,6 +7386,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6972,12 +7409,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cyclin-d1-cdk4-cell-cycle-dependency">Cyclin D1-CDK4 Cell-Cycle Dependency</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cyclin-d1-cdk4-cell-cycle-dependency">Cyclin D1-CDK4 Cell-Cycle Dependency</a>
 
-                            <span class="crosslink-desc">Models loss of proliferative capacity after cyclin D1/CDK4 disruption.</span>
+
+
+                <span class="crosslink-desc">Models loss of proliferative capacity after cyclin D1/CDK4 disruption.</span>
+
+
 
 
 
@@ -6992,6 +7433,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7014,9 +7456,194 @@
     </details>
 
 
-                        </div>
+            </div>
 
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38657118" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we characterized the transcriptional and chromatin landscapes of ASPS tumors and preclinical models"</div>
+
+
+                <div class="evidence-explanation">The publication directly documents use of preclinical models to map ASPS transcriptional and chromatin biology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-asps-tumor-xenograft-and-patient-derived-xenograft-models-mus-musculus" data-dismech-node="ASPS tumor xenograft and patient-derived xenograft models Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    ASPS tumor xenograft and patient-derived xenograft models Mus musculus
+
+                </div>
+
+                <div class="item-desc">Mouse xenograft models carrying ASPSCR1::TFE3-positive ASPS were used to test fusion-dependent tumor biology and combined CDK4/6 and angiogenesis inhibition. They model tumor growth and drug response but do not establish efficacy or safety in patients.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Angiogenesis-dependent tumor development</span>
+
+                    <span class="tag tag-phenotype">Cyclin D1-CDK4-dependent proliferation</span>
+
+                    <span class="tag tag-phenotype">Tumor-growth arrest with combined CDK4/6 and angiogenesis inhibition</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
                     </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ASPS tumor xenograft and patient-derived xenograft models</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ASPSCR1
+
+
+    <a href="https://bioregistry.io/hgnc:13825" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:13825</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns ASPSCR1 (hgnc:13825). hgnc:13825 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TFE3
+
+
+    <a href="https://bioregistry.io/hgnc:11752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:11752</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TFE3 (hgnc:11752). hgnc:11752 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
                 </div>
 
 
@@ -7037,17 +7664,18 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38657118" target="_blank">PMID:38657118</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
-                <div class="evidence-snippet">"we characterized the transcriptional and chromatin landscapes of ASPS tumors and preclinical models"</div>
+                <div class="evidence-snippet">"combined inhibition of CDK4/6 and angiogenesis halted tumor growth in xenografts."</div>
 
 
-                <div class="evidence-explanation">The publication directly documents use of preclinical models to map ASPS transcriptional and chromatin biology.</div>
+                <div class="evidence-explanation">The xenograft experiment directly supports the model&#39;s combination-drug response while remaining preclinical.</div>
 
 
 
@@ -7079,7 +7707,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alveolar Soft Part Sarcoma
 creation_date: &#34;2026-05-09T14:04:43Z&#34;
-updated_date: &#34;2026-05-09T22:33:12Z&#34;
 category: Cancer
 categories:
 - Sarcoma
@@ -9392,7 +10019,7 @@ This motivates clinical exploration of CDK4/6 inhibitors with anti-angiogenic ag
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alveolar Soft Part Sarcoma", "mondoId": "MONDO:0011655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Soft_Part_Sarcoma", "yamlRevision": "9d75d2b7a372"};
+        const OS_CONFIG = {"diseaseName": "Alveolar Soft Part Sarcoma", "mondoId": "MONDO:0011655", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Soft_Part_Sarcoma", "yamlRevision": "4788847aa2a9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9811,5 +10438,73 @@ This motivates clinical exploration of CDK4/6 inhibitors with anti-angiogenic ag
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

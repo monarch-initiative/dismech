@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Hemophagocytic Lymphohistiocytosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hemophagocytic Lymphohistiocytosis</h1>
             <div class="header-meta">
 
@@ -3698,6 +3900,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3804,36 +4008,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
-
-
-
-
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">IUIS Category</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">immune dysregulation</span>
+
                 </div>
+
             </div>
 
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3851,7 +4143,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3896,6 +4188,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3919,7 +4212,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive-inheritance">
                 <div class="item-name">
                     X-linked recessive inheritance
 
@@ -3963,6 +4256,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4041,7 +4335,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl2">
 
                     <div class="item-name">
                         Familial HLH type 2 (PRF1 / perforin)
@@ -4076,6 +4370,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4102,7 +4397,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl3">
 
                     <div class="item-name">
                         Familial HLH type 3 (UNC13D / Munc13-4)
@@ -4137,6 +4432,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4163,7 +4459,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl4">
 
                     <div class="item-name">
                         Familial HLH type 4 (STX11 / syntaxin-11)
@@ -4198,6 +4494,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4224,7 +4521,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fhl5">
 
                     <div class="item-name">
                         Familial HLH type 5 (STXBP2 / Munc18-2)
@@ -4259,6 +4556,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4285,7 +4583,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-griscelli-type-2">
 
                     <div class="item-name">
                         Griscelli syndrome type 2 (RAB27A)
@@ -4320,6 +4618,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4346,7 +4645,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-chediak-higashi">
 
                     <div class="item-name">
                         Chediak-Higashi syndrome (LYST)
@@ -4381,6 +4680,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8896560" target="_blank">PMID:8896560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4407,7 +4707,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-xlp1">
 
                     <div class="item-name">
                         X-linked lymphoproliferative disease type 1 (SH2D1A / SAP)
@@ -4442,6 +4742,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4468,7 +4769,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-xlp2">
 
                     <div class="item-name">
                         X-linked lymphoproliferative disease type 2 (XIAP / BIRC4)
@@ -4502,6 +4803,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17080092" target="_blank">PMID:17080092</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4558,17 +4860,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4589,10 +4898,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4619,16 +4931,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         natural killer cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042267">GO:0042267</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042267</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased natural killer cell mediated cytotoxicity (GO:0042267). GO:0042267 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4648,16 +4965,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4687,6 +5009,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4698,6 +5021,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4720,6 +5044,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4754,17 +5079,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4785,10 +5117,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4815,16 +5150,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulated exocytosis of cytolytic granules
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045055">GO:0045055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased regulated exocytosis of cytolytic granules, annotated with regulated exocytosis (GO:0045055). GO:0045055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4854,6 +5194,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4865,6 +5206,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4887,6 +5229,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4921,17 +5264,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4952,10 +5302,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000910">CL:0000910</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000910" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000910</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cytotoxic T cell (CL:0000910). CL:0000910 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4982,16 +5335,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         macrophage activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042116">GO:0042116</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0042116</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased macrophage activation (GO:0042116). GO:0042116 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5000,6 +5358,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5017,10 +5377,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032609">GO:0032609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0032609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type II (interferon-gamma) production, annotated with type II interferon production (GO:0032609). GO:0032609 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5040,16 +5403,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cytokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5079,6 +5447,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5090,6 +5459,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5112,6 +5482,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5206,14 +5577,23 @@
                         Cytopenias
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pancytopenia
+
+                        <span class="phenotype-term-label">Pancytopenia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001876">HP:0001876</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5233,6 +5613,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5276,14 +5657,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001433</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5303,6 +5691,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5325,6 +5714,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5369,14 +5759,21 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5396,6 +5793,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5418,6 +5816,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5451,14 +5850,23 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                         Hyperferritinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased circulating ferritin concentration
+
+                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003281">HP:0003281</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003281</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperferritinemia, annotated with Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5478,6 +5886,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5510,14 +5919,21 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                         Hypertriglyceridemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertriglyceridemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5537,6 +5953,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5569,14 +5986,23 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                         Liver Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated hepatic transaminases, annotated with Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5596,6 +6022,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5639,14 +6066,23 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Encephalopathy
+
+                        <span class="phenotype-term-label">Encephalopathy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001298">HP:0001298</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001298</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Encephalopathy (HP:0001298). HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5666,6 +6102,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5688,6 +6125,7 @@ hepatomegaly (90%), rash (43%), and lymph node enlargement (42%)."</div>
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2058392" target="_blank">PMID:2058392</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5730,14 +6168,21 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                         Hemophagocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemophagocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012156">HP:0012156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5757,6 +6202,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5789,14 +6235,21 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                         Hypofibrinogenemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypofibrinogenemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011900">HP:0011900</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0011900</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5816,6 +6269,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16937360" target="_blank">PMID:16937360</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5894,13 +6348,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRF1
 
 
-    <a href="https://bioregistry.io/hgnc:9360" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9360">hgnc:9360</a>
+    <a href="https://bioregistry.io/hgnc:9360" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:9360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRF1 (hgnc:9360). hgnc:9360 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5921,6 +6380,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10583959" target="_blank">PMID:10583959</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5958,13 +6418,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UNC13D
 
 
-    <a href="https://bioregistry.io/hgnc:23147" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23147">hgnc:23147</a>
+    <a href="https://bioregistry.io/hgnc:23147" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:23147</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UNC13D (hgnc:23147). hgnc:23147 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5985,6 +6450,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14622600" target="_blank">PMID:14622600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6022,13 +6488,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STX11
 
 
-    <a href="https://bioregistry.io/hgnc:11429" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11429">hgnc:11429</a>
+    <a href="https://bioregistry.io/hgnc:11429" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:11429</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STX11 (hgnc:11429). hgnc:11429 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6049,6 +6520,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703195" target="_blank">PMID:15703195</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6086,13 +6558,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STXBP2
 
 
-    <a href="https://bioregistry.io/hgnc:11445" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11445">hgnc:11445</a>
+    <a href="https://bioregistry.io/hgnc:11445" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11445</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STXBP2 (hgnc:11445). hgnc:11445 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6113,6 +6590,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19884660" target="_blank">PMID:19884660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6150,13 +6628,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB27A
 
 
-    <a href="https://bioregistry.io/hgnc:9766" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9766">hgnc:9766</a>
+    <a href="https://bioregistry.io/hgnc:9766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:9766</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB27A (hgnc:9766). hgnc:9766 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6177,6 +6660,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10835631" target="_blank">PMID:10835631</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6214,13 +6698,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LYST
 
 
-    <a href="https://bioregistry.io/hgnc:1968" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1968">hgnc:1968</a>
+    <a href="https://bioregistry.io/hgnc:1968" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:1968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LYST (hgnc:1968). hgnc:1968 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6241,6 +6730,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8896560" target="_blank">PMID:8896560</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6278,13 +6768,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SH2D1A
 
 
-    <a href="https://bioregistry.io/hgnc:10820" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10820">hgnc:10820</a>
+    <a href="https://bioregistry.io/hgnc:10820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:10820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SH2D1A (hgnc:10820). hgnc:10820 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6305,6 +6800,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301580" target="_blank">PMID:20301580</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6342,13 +6838,18 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: XIAP
 
 
-    <a href="https://bioregistry.io/hgnc:592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:592">hgnc:592</a>
+    <a href="https://bioregistry.io/hgnc:592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is XIAP (hgnc:592). hgnc:592 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6369,6 +6870,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17080092" target="_blank">PMID:17080092</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6400,6 +6902,9 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6415,7 +6920,12 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -6446,17 +6956,24 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         dexamethasone
@@ -6464,11 +6981,16 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:41879">CHEBI:41879</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41879" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:41879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dexamethasone (CHEBI:41879). CHEBI:41879 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclosporin A
@@ -6476,10 +6998,13 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4031">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6505,6 +7030,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6535,7 +7061,12 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6565,16 +7096,21 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         emapalumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C127123" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C127123">NCIT:C127123</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C127123" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C127123</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses emapalumab (NCIT:C127123). NCIT:C127123 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6600,6 +7136,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32374962" target="_blank">PMID:32374962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6630,7 +7167,12 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -6680,6 +7222,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21900192" target="_blank">PMID:21900192</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6701,6 +7244,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301617" target="_blank">PMID:20301617</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6746,7 +7290,7 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-dbgap-phs000537">
                 <div class="item-name">
                     Next Generation Mendelian Genetics: Familial Hemophagocytic Lymphohistiocytosis
 
@@ -6786,6 +7330,9 @@ symptoms, which developed in 47%, could totally dominate the clinical picture"</
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8981,5 +9528,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Acute Myeloid Leukemia with CEBPA Somatic Mutations</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Myeloid Leukemia with CEBPA Somatic Mutations</h1>
             <div class="header-meta">
 
@@ -3667,6 +3869,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3815,6 +4019,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3839,34 +4051,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Leukemia</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3881,7 +4180,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-who-haem5-aml-with-cebpa-mutation-definition">
                 <div class="item-name">WHO-HAEM5 AML with CEBPA mutation definition</div>
 
                 <div class="item-desc">WHO-HAEM5 recognizes AML with biallelic CEBPA mutation or a single mutation in the bZIP region and retains a minimum 20% blast threshold for this entity. The local MONDO scope adds the requirement that the relevant CEBPA lesion or lesions be somatic rather than a germline-predisposition context.</div>
@@ -3927,6 +4226,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3948,6 +4248,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3973,7 +4274,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-icc-2022-aml-with-in-frame-bzip-cebpa-mutation-definition">
                 <div class="item-name">ICC 2022 AML with in-frame bZIP CEBPA mutation definition</div>
 
                 <div class="item-desc">ICC recognizes AML with an in-frame bZIP CEBPA mutation at a minimum of 10% blasts, irrespective of allelic state. Pooled analyses describe current ICC recommendations as including bZIP missense variants; that classification boundary must not be equated with the narrower indel-specific favorable outcome or generalized to every CEBPA-mutated AML case.</div>
@@ -4019,6 +4320,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4041,6 +4343,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4062,6 +4365,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4120,7 +4424,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cebpa-bzip-in-frame-indel-aml">
 
                     <div class="item-name">
                         AML with CEBPA bZIP in-frame insertion/deletion
@@ -4132,16 +4436,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CEBPA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1833</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4167,6 +4476,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4194,7 +4504,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-other-cebpa-mutated-aml">
 
                     <div class="item-name">
                         CEBPA-mutated AML outside the bZIP in-frame-indel subgroup
@@ -4206,16 +4516,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CEBPA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1833</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4242,6 +4557,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4263,6 +4579,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4475,6 +4792,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242107" target="_blank">PMID:11242107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4540,6 +4858,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4596,21 +4915,21 @@
 
 
 
-    <span class="entity-ref-chip">definitions#WHO-HAEM5 AML with CEBPA mutation definition</span>
+    <a class="entity-ref-chip" href="#definition-who-haem5-aml-with-cebpa-mutation-definition">definitions#WHO-HAEM5 AML with CEBPA mutation definition</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">definitions#ICC 2022 AML with in-frame bZIP CEBPA mutation definition</span>
+    <a class="entity-ref-chip" href="#definition-icc-2022-aml-with-in-frame-bzip-cebpa-mutation-definition">definitions#ICC 2022 AML with in-frame bZIP CEBPA mutation definition</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">has_subtypes#CEBPA bZIP In-Frame-Indel AML</span>
+    <a class="entity-ref-chip" href="#subtype-cebpa-bzip-in-frame-indel-aml">has_subtypes#CEBPA bZIP In-Frame-Indel AML</a>
 
 
 
@@ -4661,6 +4980,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4684,6 +5009,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4705,6 +5031,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4750,21 +5077,21 @@
 
 
 
-    <span class="entity-ref-chip">genetic#WT1</span>
+    <a class="entity-ref-chip" href="#genetic-wt1">genetic#WT1</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">genetic#DNMT3A</span>
+    <a class="entity-ref-chip" href="#genetic-dnmt3a">genetic#DNMT3A</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">genetic#FLT3-ITD</span>
+    <a class="entity-ref-chip" href="#genetic-flt3-itd">genetic#FLT3-ITD</a>
 
 
 
@@ -4778,7 +5105,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Allogeneic Hematopoietic Stem Cell Transplantation</span>
+    <a class="entity-ref-chip" href="#treatment-allogeneic-hematopoietic-stem-cell-transplantation">treatments#Allogeneic Hematopoietic Stem Cell Transplantation</a>
 
 
 
@@ -4829,6 +5156,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4852,6 +5185,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4873,6 +5207,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4976,6 +5311,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4999,6 +5340,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394553" target="_blank">PMID:18394553</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5020,6 +5362,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878871" target="_blank">PMID:19878871</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5076,16 +5419,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hematopoietic multipotent progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000837" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000837">CL:0000837</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000837" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hematopoietic multipotent progenitor cell (CL:0000837). CL:0000837 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5112,15 +5460,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CEBPA
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1833</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5149,16 +5504,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5179,6 +5539,7 @@
 
 
                 </div>
+
 
 
 
@@ -5244,6 +5605,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242107" target="_blank">PMID:11242107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5265,6 +5627,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5309,16 +5672,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hematopoietic stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000037">CL:0000037</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:0000037 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5345,15 +5713,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CEBPA
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:1833</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5382,16 +5757,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5412,6 +5792,7 @@
 
 
                 </div>
+
 
 
 
@@ -5477,6 +5858,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5520,16 +5902,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myeloblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000835" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000835">CL:0000835</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000835" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000835</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myeloblast (CL:0000835). CL:0000835 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5556,16 +5943,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         granulocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030851" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030851">GO:0030851</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030851" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030851</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased granulocyte differentiation (GO:0030851). GO:0030851 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5592,19 +5984,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5649,6 +6047,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242107" target="_blank">PMID:11242107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5692,17 +6091,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hematopoietic stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000037">CL:0000037</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:0000037 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5723,10 +6129,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000557" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000557">CL:0000557</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000557" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000557</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulocyte monocyte progenitor cell (CL:0000557). CL:0000557 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5753,16 +6162,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5783,6 +6197,7 @@
 
 
                 </div>
+
 
 
 
@@ -5830,6 +6245,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878871" target="_blank">PMID:19878871</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5873,16 +6289,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myeloblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000835" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000835">CL:0000835</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000835" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000835</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myeloblast (CL:0000835). CL:0000835 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5912,17 +6333,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         blood
@@ -5930,13 +6358,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000178">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5997,6 +6429,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6039,19 +6472,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6117,6 +6556,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6159,19 +6599,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         blood
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000178">UBERON:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6221,6 +6667,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/ajh.26822" target="_blank">DOI:10.1002/ajh.26822</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6260,16 +6707,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6299,6 +6751,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6310,6 +6763,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6346,7 +6800,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-myeloblast-predominance">
                 <div class="item-name">
                     Myeloblast Predominance
 
@@ -6367,6 +6821,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23590662" target="_blank">PMID:23590662</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6454,14 +6909,21 @@
                         Leukemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Leukemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001909" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001909">HP:0001909</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001909" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001909</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6481,6 +6943,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6513,14 +6976,21 @@
                         Pancytopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pancytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001876">HP:0001876</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6540,6 +7010,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6572,14 +7043,21 @@
                         Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6599,6 +7077,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ajh.26822" target="_blank">DOI:10.1002/ajh.26822</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6631,14 +7110,21 @@
                         Thrombocytopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6658,6 +7144,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6690,14 +7177,23 @@
                         Neutropenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased total neutrophil count
+
+                        <span class="phenotype-term-label">Decreased total neutrophil count</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001875">HP:0001875</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001875</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6717,6 +7213,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6749,14 +7246,23 @@
                         Leukocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased total leukocyte count
+
+                        <span class="phenotype-term-label">Increased total leukocyte count</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001974">HP:0001974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukocytosis, annotated with Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6776,6 +7282,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34320176" target="_blank">PMID:34320176</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6808,14 +7315,21 @@
                         Abnormal Bleeding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal bleeding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001892">HP:0001892</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001892</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6835,6 +7349,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6876,14 +7391,21 @@
                         Recurrent Infections
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6903,6 +7425,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6944,14 +7467,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6971,6 +7501,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30131851" target="_blank">PMID:30131851</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7049,13 +7580,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CEBPA
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:1833</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7080,6 +7616,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37261703" target="_blank">PMID:37261703</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7118,13 +7655,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: CEBPA
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:1833</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7169,6 +7711,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7180,6 +7724,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11242107" target="_blank">PMID:11242107</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7218,13 +7763,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: CEBPA
 
 
-    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1833">hgnc:1833</a>
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:1833</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CEBPA (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7269,6 +7819,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7280,6 +7832,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34320176" target="_blank">PMID:34320176</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7322,13 +7875,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WT1
 
 
-    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12796">hgnc:12796</a>
+    <a href="https://bioregistry.io/hgnc:12796" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:12796</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7354,6 +7912,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7375,6 +7934,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7412,13 +7972,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNMT3A
 
 
-    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2978">hgnc:2978</a>
+    <a href="https://bioregistry.io/hgnc:2978" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:2978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNMT3A (hgnc:2978). hgnc:2978 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7444,6 +8009,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38253683" target="_blank">PMID:38253683</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7465,6 +8031,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7502,13 +8069,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLT3
 
 
-    <a href="https://bioregistry.io/hgnc:3765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3765">hgnc:3765</a>
+    <a href="https://bioregistry.io/hgnc:3765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:3765</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7534,6 +8106,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36701843" target="_blank">PMID:36701843</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7555,6 +8128,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38228680" target="_blank">PMID:38228680</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7593,13 +8167,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: FLT3
 
 
-    <a href="https://bioregistry.io/hgnc:3765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3765">hgnc:3765</a>
+    <a href="https://bioregistry.io/hgnc:3765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:3765</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in FLT3 (hgnc:3765). hgnc:3765 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7618,6 +8197,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7629,6 +8210,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36701843" target="_blank">PMID:36701843</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7665,6 +8247,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7680,7 +8265,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -7711,17 +8301,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cytarabine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28680" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28680">CHEBI:28680</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28680" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:28680</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         daunorubicin
@@ -7729,10 +8326,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_41977" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:41977">CHEBI:41977</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_41977" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:41977</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses daunorubicin (CHEBI:41977). CHEBI:41977 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7766,6 +8366,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7808,6 +8409,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7837,7 +8439,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7868,17 +8475,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         venetoclax
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_133021" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:133021">CHEBI:133021</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_133021" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:133021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses venetoclax (CHEBI:133021). CHEBI:133021 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         azacitidine
@@ -7886,10 +8500,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C288" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C288">NCIT:C288</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C288" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C288</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azacitidine (NCIT:C288). NCIT:C288 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7923,6 +8540,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7965,6 +8583,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7986,6 +8605,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8016,7 +8636,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">allogeneic hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">allogeneic hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Allogeneic Hematopoietic Stem Cell Transplantation</span>
 
 
@@ -8074,6 +8699,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8115,6 +8741,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8136,6 +8763,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8166,7 +8794,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8203,17 +8836,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Anemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001903</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Thrombocytopenia
@@ -8221,11 +8861,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001873</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neutropenia
@@ -8233,11 +8878,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001875">HP:0001875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal bleeding
@@ -8245,11 +8895,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001892">HP:0001892</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001892</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent infections
@@ -8257,10 +8912,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002719</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8279,6 +8937,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23901108" target="_blank">PMID:23901108</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8301,6 +8960,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34307165" target="_blank">PMID:34307165</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8348,7 +9008,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-germline-cebpa-associated-myeloid-neoplasm-predisposition">
                 <div class="item-name">
 
                     Germline CEBPA-Associated Myeloid Neoplasm Predisposition
@@ -8391,6 +9051,7 @@
                         <a href="https://bioregistry.io/DOI:10.1007/s11899-023-00699-3" target="_blank">DOI:10.1007/s11899-023-00699-3</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8416,7 +9077,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-myeloid-leukemia-with-mutated-npm1">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Acute_Myeloid_Leukemia,_NPM1-Mutated.html">Acute Myeloid Leukemia with Mutated NPM1</a>
@@ -8463,6 +9124,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8488,7 +9150,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-promyelocytic-leukemia-with-pml-rara">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Acute_Promyelocytic_Leukemia,_PML-RARA.html">Acute Promyelocytic Leukemia with PML::RARA</a>
@@ -8533,6 +9195,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8558,7 +9221,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-core-binding-factor-acute-myeloid-leukemia">
                 <div class="item-name">
 
                     Core-Binding-Factor Acute Myeloid Leukemia
@@ -8597,6 +9260,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8622,7 +9286,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-myelodysplastic-syndrome-or-icc-mds-aml">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Myelodysplastic_Syndrome.html">Myelodysplastic Syndrome or ICC MDS/AML</a>
@@ -8669,6 +9333,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8694,7 +9359,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-aml-with-myelodysplasia-related-genetics">
                 <div class="item-name">
 
                     AML with Myelodysplasia-Related Genetics
@@ -8737,6 +9402,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8762,7 +9428,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mixed-phenotype-acute-leukemia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Mixed_Phenotype_Acute_Leukemia.html">Mixed-Phenotype Acute Leukemia</a>
@@ -8803,6 +9469,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35732831" target="_blank">PMID:35732831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8841,7 +9508,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06458257">
                 <div class="item-name">
                     NCT06458257
 
@@ -8869,6 +9536,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT06458257" target="_blank">clinicaltrials:NCT06458257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8892,7 +9560,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06529250">
                 <div class="item-name">
                     NCT06529250
 
@@ -8920,6 +9588,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT06529250" target="_blank">clinicaltrials:NCT06529250</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8943,7 +9612,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04415008">
                 <div class="item-name">
                     NCT04415008
 
@@ -8971,6 +9640,7 @@
                         <a href="https://clinicaltrials.gov/study/NCT04415008" target="_blank">clinicaltrials:NCT04415008</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8994,7 +9664,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07451912">
                 <div class="item-name">
                     NCT07451912
 
@@ -9019,6 +9689,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07451912" target="_blank">clinicaltrials:NCT07451912</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9049,6 +9720,335 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cebpa-p30-only-knock-in-with-loss-of-the-p42-isoform-mus-musculus" data-dismech-node="Cebpa p30-only knock-in with loss of the p42 isoform Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cebpa p30-only knock-in with loss of the p42 isoform Mus musculus
+
+                </div>
+
+                <div class="item-desc">A p30-only knock-in models the N-terminal human mutation consequence by removing p42 while retaining p30. Mice develop AML with complete penetrance and yield transplantable committed myeloid leukemia-initiating cells. The model isolates isoform imbalance and does not reproduce the common paired N-terminal plus bZIP genotype or the full human co-mutation landscape.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cebpa p30-only knock-in with loss of the p42 isoform</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Cebpa
+
+
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:1833</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18394553" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18394553" target="_blank">PMID:18394553</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we modified the mouse Cebpa locus to express only p30. p30 supported the formation of granulocyte-macrophage progenitors. However, p42 was required for control of myeloid progenitor proliferation, and p42-deficient mice developed AML with complete penetrance."</div>
+
+
+                <div class="evidence-explanation">The engineered model directly tests the p42-loss/p30-retention mechanism and develops AML.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-combined-n-terminal-and-c-terminal-cebpa-knock-in-mutations-mus-musculus" data-dismech-node="Combined N-terminal and C-terminal Cebpa knock-in mutations Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Combined N-terminal and C-terminal Cebpa knock-in mutations Mus musculus
+
+                </div>
+
+                <div class="item-desc">Complementary Cebpa knock-in alleles model the classic paired mutation architecture. C-terminal lesions expand premalignant long-term HSCs, while N-terminal lesions allow committed myeloid leukemia-initiating progenitors; the combined genotype accelerates disease. Exact alleles and treatment context still differ from the heterogeneous human bZIP in-frame entity.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Combined N-terminal and C-terminal Cebpa knock-in mutations</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        Cebpa
+
+
+    <a href="https://bioregistry.io/hgnc:1833" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:1833</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns Cebpa (hgnc:1833). hgnc:1833 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878871" target="_blank">PMID:19878871</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The combination of N- and C-terminal C/EBPalpha mutations incorporates both features, accelerating disease development and explaining the clinical prevalence of this configuration of CEBPA mutations."</div>
+
+
+                <div class="evidence-explanation">The paired knock-in experiment demonstrates complementary mutation effects and accelerated leukemogenesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cebpa-loss-of-function-and-n-terminal-zp30-expressing-mutants-danio-rerio" data-dismech-node="cebpa loss-of-function and N-terminal zP30-expressing mutants Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    cebpa loss-of-function and N-terminal zP30-expressing mutants Danio rerio
+
+                </div>
+
+                <div class="item-desc">Zebrafish cebpa mutants resolve developmental HSPC generation and isoform function. N-terminal zP30 mutants impair myeloid differentiation without reducing HSPC number. This is a developmental hematopoiesis model, not an AML model, and it should not be used as evidence of leukemia penetrance or therapy.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">cebpa loss-of-function and N-terminal zP30-expressing mutants</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39500381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39500381" target="_blank">PMID:39500381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"while myeloid differentiation was impaired in cebpa N-terminal mutants expressing the truncated zP30 protein, the number of HSPCs was not affected"</div>
+
+
+                <div class="evidence-explanation">The developmental model separates an N-terminal isoform effect on myeloid differentiation from HSPC abundance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -9065,7 +10065,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Myeloid Leukemia with CEBPA Somatic Mutations
 creation_date: &#34;2026-05-11T12:14:38Z&#34;
-updated_date: &#34;2026-07-18T01:44:28Z&#34;
 description: &gt;-
   Acute myeloid leukemia with CEBPA somatic mutations (MONDO:0017894) is scoped
   here to non-familial AML in which the relevant CEBPA lesion or lesions are
@@ -11679,7 +12678,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "d09eac2edeba"};
+        const OS_CONFIG = {"diseaseName": "Acute Myeloid Leukemia with CEBPA Somatic Mutations", "mondoId": "MONDO:0017894", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Myeloid_Leukemia_with_CEBPA_Somatic_Mutations", "yamlRevision": "535d0715e5ef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12098,5 +13097,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

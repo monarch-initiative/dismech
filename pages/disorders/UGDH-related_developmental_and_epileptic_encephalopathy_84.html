@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>UGDH-related developmental and epileptic encephalopathy 84</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>UGDH-related developmental and epileptic encephalopathy 84</h1>
             <div class="header-meta">
 
@@ -3566,7 +3768,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=UGDH-related%20developmental%20and%20epileptic%20encephalopathy%2084"
@@ -3697,6 +3899,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3713,7 +3917,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3723,18 +3927,26 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3750,18 +3962,112 @@
 
 
 
+            <a class="stat-link" href="#treatments">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Medical Actions</div>
+            </div>
+            </a>
 
 
 
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
+
+
+            <a class="stat-link" href="#references">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📚</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">References</div>
+            </div>
+            </a>
 
 
 
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         <div class="card">
             <div class="card-header">
@@ -3772,9 +4078,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD&#39;s O-linked protein-glycosylation group explicitly includes glycosaminoglycan synthesis. UGDH supplies the obligate UDP-glucuronic-acid precursor for glycosaminoglycans; this is more specific than the multiple-pathway group, whose definition concerns dolichol, Golgi, and sialic-acid disorders.">o linked protein glycosylation</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3792,7 +4114,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3837,6 +4159,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3874,6 +4197,175 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_ugdh_cellular_mechanism_to_human_dee">
+                <div class="item-name">How do reduced glycosaminoglycan synthesis and impaired neural-progenitor proliferation produce the human epilepsy and developmental phenotype?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_ugdh_cellular_mechanism_to_human_dee</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-reduced-hyaluronic-acid-synthesis">pathophysiology#Reduced hyaluronic acid synthesis</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-reduced-neural-progenitor-proliferation">pathophysiology#Reduced neural progenitor proliferation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-ugdh-related-neurodevelopmental-and-epileptic-dysfunction">pathophysiology#UGDH-Related Neurodevelopmental and Epileptic Dysfunction</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Patient cells and organoids establish biochemical and developmental effects, but the study does not demonstrate a causal chain from either cellular result to seizures or the individual human phenotypes.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"while UGDH is not required for proper function of isolated neurons in culture, its absence significantly affects neuronal differentiation in cerebral organoids"</div>
+
+
+                <div class="evidence-explanation">The contrasting model results define the remaining mechanistic gap.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="mismatch_ugdh_zebrafish_and_human_organoid">
+                <div class="item-name">Why does zygotic ugdh depletion fail to reproduce the human neurologic phenotype while patient-derived human organoids show impaired progenitor proliferation?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">mismatch_ugdh_zebrafish_and_human_organoid</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-reduced-neural-progenitor-proliferation">pathophysiology#Reduced neural progenitor proliferation</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Species, developmental timing, and allele context may alter the dependence of neural development on UGDH.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While mutant ugdh zebrafish did not phenocopy the disease, we bring evidence that patient-derived cerebral organoids"</div>
+
+
+                <div class="evidence-explanation">The paper explicitly contrasts the negative animal model with the human organoid model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3881,7 +4373,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ugdh-loss-of-function" data-dismech-node="UGDH loss of function" data-dismech-type="pathophysiology">
@@ -3900,15 +4392,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         UGDH
 
 
-    <a href="https://bioregistry.io/hgnc:12525" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12525">hgnc:12525</a>
+    <a href="https://bioregistry.io/hgnc:12525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:12525</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves UGDH (hgnc:12525). hgnc:12525 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3937,16 +4436,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         UDP-glucose 6-dehydrogenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003979">GO:0003979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased UDP-glucose 6-dehydrogenase activity (GO:0003979). GO:0003979 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3971,6 +4475,44 @@
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-primary-dermal-fibroblasts">Patient-derived primary dermal fibroblasts</a>
+
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+
+
+                            <span class="crosslink-desc">Patient cells measure endogenous protein abundance and enzymatic activity.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-jekyll-ugdh-hypomorphic-zebrafish">jekyll ugdh hypomorphic zebrafish</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">perturbs</span>
+
+
+                            <span class="crosslink-desc">The hypomorphic allele perturbs zygotic Ugdh activity but does not satisfactorily reproduce the human neurologic syndrome.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -3981,6 +4523,14 @@
 	                            <span class="crosslink-meta">UDP-glucuronic acid precursor depletion</span>
 
 	                            <span class="crosslink-desc">Reduced UGDH activity decreases production of UDP-glucuronic acid from UDP-glucose.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced neural progenitor proliferation</span>
+
+	                            <span class="crosslink-desc">Patient-derived cerebral organoids show impaired proliferation of neural progenitors downstream of reduced UGDH activity.</span>
 
 
 	                        </div>
@@ -4001,6 +4551,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4041,16 +4592,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glycosaminoglycan biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006024" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006024">GO:0006024</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006024" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006024</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glycosaminoglycan biosynthetic process (GO:0006024). GO:0006024 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4058,35 +4614,6 @@
 
     <span class="tag tag-modifier">
         ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-bio">
-                        protein O-linked glycosylation
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006493">GO:0006493</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ⚠ ABNORMAL
     </span>
 
 
@@ -4107,14 +4634,15 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Neurodevelopmental and epileptic dysfunction</span>
+	                            <span class="crosslink-meta">Reduced hyaluronic acid synthesis</span>
 
-	                            <span class="crosslink-desc">Disrupted glycan-dependent extracellular matrix production impairs brain development and neuronal network function.</span>
+	                            <span class="crosslink-desc">UDP-glucuronic acid depletion reduces synthesis of hyaluronic acid in patient fibroblasts.</span>
 
 
 	                        </div>
@@ -4136,10 +4664,11 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -4159,29 +4688,45 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-epileptic-dysfunction" data-dismech-node="Neurodevelopmental and epileptic dysfunction" data-dismech-type="pathophysiology">
-                <div class="item-name">Neurodevelopmental and epileptic dysfunction</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hyaluronic-acid-synthesis" data-dismech-node="Reduced hyaluronic acid synthesis" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced hyaluronic acid synthesis</div>
 
-                <div class="item-desc">The central nervous system phenotype includes developmental and epileptic encephalopathy, severe developmental delay, intellectual disability, hypotonia, and motor disorder.</div>
+                <div class="item-desc">Patient fibroblasts carrying homozygous UGDH A82T produce less hyaluronic acid, a direct glycosaminoglycan readout of UDP-glucuronate shortage.</div>
+
+
+
+
+
+
+
 
 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
-                        neuron
+
+
+                    <span class="tag tag-bio">
+                        hyaluronan biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030213" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0030213</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased hyaluronan biosynthetic process (GO:0030213). GO:0030213 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -4199,11 +4744,22 @@
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-primary-dermal-fibroblasts">Patient-derived primary dermal fibroblasts</a>
+
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
 
 
+                            <span class="crosslink-desc">HA in conditioned media provides a direct UGDH-dependent glycosaminoglycan readout.</span>
 
+                        </div>
 
-
+                    </div>
+                </div>
 
 
 
@@ -4222,6 +4778,296 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
 
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient’s cells with the homozygous A82T mutation also exhibited a reduction in the synthesis of hyaluronic acid (HA)"</div>
+
+
+                <div class="evidence-explanation">Patient fibroblasts provide a direct glycosaminoglycan readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-neural-progenitor-proliferation" data-dismech-node="Reduced neural progenitor proliferation" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced neural progenitor proliferation</div>
+
+                <div class="item-desc">Patient-derived cerebral organoids are smaller and contain less proliferative SOX2-positive neural progenitor zones, while differentiated neuron and astrocyte markers are not comparably reduced.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        neural stem cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000047</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural stem cell (CL:0000047). CL:0000047 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        neural precursor cell proliferation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0061351</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural precursor cell proliferation (GO:0061351). GO:0061351 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-cerebral-organoids">Patient-derived cerebral organoids</a>
+
+                            <span class="crosslink-meta">ORGANOID</span>
+
+
+                            <span class="crosslink-desc">Mutant organoids are smaller and contain less proliferative SOX2-positive progenitor zones.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">UGDH-Related Neurodevelopmental and Epileptic Dysfunction</span>
+
+	                            <span class="crosslink-desc">Impaired progenitor proliferation is associated with the human neurodevelopmental and epileptic syndrome through unresolved tissue- and circuit-level intermediates.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results argue that reduced UGDH activity is associated with impaired neuronal development in vitro, causing atrophy of patient-derived cerebral organoids."</div>
+
+
+                <div class="evidence-explanation">Patient-derived organoids support a neural-progenitor developmental mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ugdh-related-neurodevelopmental-and-epileptic-dysfunction" data-dismech-node="UGDH-Related Neurodevelopmental and Epileptic Dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">UGDH-Related Neurodevelopmental and Epileptic Dysfunction</div>
+
+                <div class="item-desc">The clinical consequence of biallelic UGDH loss is a developmental and epileptic encephalopathy with global delay, hypotonia, intellectual disability, and seizures; the cellular-to-circuit bridge remains unresolved.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-jekyll-ugdh-hypomorphic-zebrafish">jekyll ugdh hypomorphic zebrafish</a>
+
+                            <span class="crosslink-meta">Danio rerio</span>
+
+
+                            <span class="crosslink-meta">fails to recapitulate</span>
+
+
+                            <span class="crosslink-desc">The zebrafish does not reproduce the defining spontaneous epileptic phenotype.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental and epileptic encephalopathy</span>
+
+	                            <span class="crosslink-desc">Biallelic UGDH disease manifests as developmental and epileptic encephalopathy.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+	                            <span class="crosslink-desc">Marked developmental delay is part of the universal cohort core phenotype.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+
+	                            <span class="crosslink-desc">Axial hypotonia is part of the universal cohort core phenotype.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+
+	                            <span class="crosslink-desc">Moderate-to-severe intellectual disability is part of the clinical syndrome.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Epilepsy</span>
+
+	                            <span class="crosslink-desc">Severe epilepsy is a very frequent component of the clinical syndrome.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4232,7 +5078,7 @@
                 <div class="evidence-snippet">"All 30 patients carrying biallelic mutations in UGDH presented with a common core phenotype consisting of marked developmental delay, epilepsy, mild dysmorphism, and motor disorder with axial hypotonia"</div>
 
 
-                <div class="evidence-explanation">The clinical cohort supports the recurrent neurologic consequence node.</div>
+                <div class="evidence-explanation">The 30-patient cohort defines the shared clinical consequence.</div>
 
 
 
@@ -4270,7 +5116,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Neurodevelopmental and epileptic dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central nervous system phenotype includes developmental and epileptic encephalopathy, severe developmental delay, intellectual disability, hypotonia, and motor disorder.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"role\": \"consequence\"}}, {\"id\": \"UDP-glucuronic acid precursor depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UDP-glucuronic acid shortage impairs production of glycosaminoglycan-rich extracellular matrix components, including proteoglycans and glycolipids that are important in human brain development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan biosynthetic process\", \"protein O-linked glycosylation\"], \"role\": \"central_effector\"}}, {\"id\": \"UGDH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGDH\"], \"gene_terms\": [{\"label\": \"UGDH\", \"id\": \"hgnc:12525\"}], \"association\": \"Biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"UGDH loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic biallelic UGDH variants reduce the stability, oligomerization, or catalytic activity of UDP-glucose 6-dehydrogenase.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"UDP-glucose 6-dehydrogenase activity\"], \"genes\": [\"UGDH\"], \"gene_terms\": [{\"label\": \"UGDH\", \"id\": \"hgnc:12525\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"UGDH loss of function\", \"target\": \"UDP-glucuronic acid precursor depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced UGDH activity decreases production of UDP-glucuronic acid from UDP-glucose.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UDP-glucuronic acid precursor depletion\", \"target\": \"Neurodevelopmental and epileptic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted glycan-dependent extracellular matrix production impairs brain development and neuronal network function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"abnormal glycosaminoglycan-containing extracellular matrix\"]}, {\"source\": \"UGDH\", \"target\": \"UGDH loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Developmental and epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic encephalopathy with developmental delay is the defining clinical presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200134\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Swallowing difficulties are common and may require gastrostomy feeding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal- or infantile-onset epilepsy occurred in 27 of 30 patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Gastrostomy feeding support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy was used for feeding in 12 infants with swallowing difficulties; treatment efficacy was not evaluated.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay is part of the recurrent core phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axial hypotonia is a core motor feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate to severe intellectual disability is reported in all affected individuals.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Patient-derived cerebral organoids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cerebral organoids generated from patient iPSCs model reduced neural-progenitor proliferation and organoid growth.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"publication\": \"PMID:32001716\"}}, {\"id\": \"Patient-derived primary dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient fibroblasts model allele-dependent UGDH protein loss, reduced enzymatic activity, and reduced HA synthesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32001716\"}}, {\"id\": \"Reduced hyaluronic acid synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts carrying homozygous UGDH A82T produce less hyaluronic acid, a direct glycosaminoglycan readout of UDP-glucuronate shortage.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"hyaluronan biosynthetic process\"], \"role\": \"downstream\", \"experimental_models\": [{\"name\": \"Patient-derived primary dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"HA in conditioned media provides a direct UGDH-dependent glycosaminoglycan readout.\"}]}}, {\"id\": \"Reduced neural progenitor proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived cerebral organoids are smaller and contain less proliferative SOX2-positive neural progenitor zones, while differentiated neuron and astrocyte markers are not comparably reduced.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"neural precursor cell proliferation\"], \"role\": \"downstream\", \"experimental_models\": [{\"name\": \"Patient-derived cerebral organoids\", \"model_type\": \"ORGANOID\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Mutant organoids are smaller and contain less proliferative SOX2-positive progenitor zones.\"}]}}, {\"id\": \"Symptomatic antiseizure therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most severe cases were refractory to antiseizure treatment. Two milder fever-associated seizure cases were seizure-free on sodium valproate, and one other patient appeared to benefit from ketogenic diet; these observations do not establish a generally effective disease-specific treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"UDP-glucuronic acid precursor depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"UDP-glucuronic acid shortage impairs production of glycosaminoglycan-rich extracellular matrix components, including proteoglycans and glycolipids that are important in human brain development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycosaminoglycan biosynthetic process\"], \"role\": \"central_effector\"}}, {\"id\": \"UGDH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGDH\"], \"gene_terms\": [{\"label\": \"UGDH\", \"id\": \"hgnc:12525\"}], \"association\": \"Biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"UGDH loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic biallelic UGDH variants reduce the stability, oligomerization, or catalytic activity of UDP-glucose 6-dehydrogenase.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"UDP-glucose 6-dehydrogenase activity\"], \"genes\": [\"UGDH\"], \"gene_terms\": [{\"label\": \"UGDH\", \"id\": \"hgnc:12525\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Patient-derived primary dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"Patient cells measure endogenous protein abundance and enzymatic activity.\"}], \"animal_models\": [{\"name\": \"jekyll ugdh hypomorphic zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"Homozygous ugdh c.992T\u003eA (p.I331D) jekyll m151 hypomorphic allele\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"The hypomorphic allele perturbs zygotic Ugdh activity but does not satisfactorily reproduce the human neurologic syndrome.\"}]}}, {\"id\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical consequence of biallelic UGDH loss is a developmental and epileptic encephalopathy with global delay, hypotonia, intellectual disability, and seizures; the cellular-to-circuit bridge remains unresolved.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"jekyll ugdh hypomorphic zebrafish\", \"species\": \"Danio rerio\", \"genotype\": \"Homozygous ugdh c.992T\u003eA (p.I331D) jekyll m151 hypomorphic allele\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The zebrafish does not reproduce the defining spontaneous epileptic phenotype.\"}]}}, {\"id\": \"jekyll ugdh hypomorphic zebrafish\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Zygotic ugdh depletion did not reproduce spontaneous seizures or altered PTZ responsiveness and therefore fails to model the human epileptic disease.\"}], \"edges\": [{\"source\": \"UGDH loss of function\", \"target\": \"UDP-glucuronic acid precursor depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced UGDH activity decreases production of UDP-glucuronic acid from UDP-glucose.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UGDH loss of function\", \"target\": \"Reduced neural progenitor proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-derived cerebral organoids show impaired proliferation of neural progenitors downstream of reduced UGDH activity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"UDP-glucuronic acid precursor depletion\", \"target\": \"Reduced hyaluronic acid synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"UDP-glucuronic acid depletion reduces synthesis of hyaluronic acid in patient fibroblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced neural progenitor proliferation\", \"target\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired progenitor proliferation is associated with the human neurodevelopmental and epileptic syndrome through unresolved tissue- and circuit-level intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"target\": \"Developmental and epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic UGDH disease manifests as developmental and epileptic encephalopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marked developmental delay is part of the universal cohort core phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axial hypotonia is part of the universal cohort core phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Moderate-to-severe intellectual disability is part of the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"target\": \"Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe epilepsy is a very frequent component of the clinical syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Symptomatic antiseizure therapy\", \"target\": \"Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gastrostomy feeding support\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient-derived primary dermal fibroblasts\", \"target\": \"UGDH loss of function\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Patient cells measure endogenous protein abundance and enzymatic activity.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\"}, {\"source\": \"Patient-derived primary dermal fibroblasts\", \"target\": \"Reduced hyaluronic acid synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"HA in conditioned media provides a direct UGDH-dependent glycosaminoglycan readout.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"Patient-derived cerebral organoids\", \"target\": \"Reduced neural progenitor proliferation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Mutant organoids are smaller and contain less proliferative SOX2-positive progenitor zones.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Replication with additional wild-type and complete UGDH-knockout lines is needed because iPSC differentiation is variable.\"}, {\"source\": \"jekyll ugdh hypomorphic zebrafish\", \"target\": \"UGDH loss of function\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"The hypomorphic allele perturbs zygotic Ugdh activity but does not satisfactorily reproduce the human neurologic syndrome.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"Zygotic zebrafish depletion differs from the human biallelic hypomorphic alleles; neural-progenitor proliferation was not measured, and fish die before 14 days post fertilization.\"}, {\"source\": \"jekyll ugdh hypomorphic zebrafish\", \"target\": \"UGDH-Related Neurodevelopmental and Epileptic Dysfunction\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The zebrafish does not reproduce the defining spontaneous epileptic phenotype.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Zygotic hypomorphic depletion, early lethality, and species-specific developmental context limit translation to the human biallelic syndrome.\"}, {\"source\": \"UGDH\", \"target\": \"UGDH loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4283,7 +5129,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">15</span>
             </div>
 
 
@@ -4291,11 +5137,13 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(9)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4315,14 +5163,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4342,6 +5197,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4374,23 +5230,32 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mild-facial-dysmorphism" data-dismech-node="Mild facial dysmorphism" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypotonia
+                        Mild facial dysmorphism
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Hypotonia
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4411,6 +5276,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4418,10 +5284,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"motor disorder with axial hypotonia"</div>
+                <div class="evidence-snippet">"Dysmorphic facial features such as short and flattened philtrum, outward protruding earlobes, ptosis, or blepharophimosis were mild but frequently present"</div>
 
 
-                <div class="evidence-explanation">The cohort directly reports axial hypotonia.</div>
+                <div class="evidence-explanation">The cohort describes the recurrent mild facial gestalt.</div>
 
 
 
@@ -4442,23 +5308,32 @@
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
+                    Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Global developmental delay
+                        Hypotonia
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4479,6 +5354,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4486,10 +5362,157 @@
 
                 </div>
 
-                <div class="evidence-snippet">"common core phenotype consisting of marked developmental delay, epilepsy, mild dysmorphism, and motor disorder with axial hypotonia"</div>
+                <div class="evidence-snippet">"All patients had a severe motor disorder with axial hypotonia."</div>
 
 
-                <div class="evidence-explanation">The cohort directly reports marked developmental delay.</div>
+                <div class="evidence-explanation">The cohort directly reports axial hypotonia in all patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spasticity
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some patients presented with limb spasticity (43%), dystonia (17%), ataxia, chorea, and tremor"</div>
+
+
+                <div class="evidence-explanation">The reported 43% maps to FREQUENT.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">9</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 30 patients carrying biallelic mutations in UGDH presented with a common core phenotype consisting of marked developmental delay, epilepsy, mild dysmorphism, and motor disorder with axial hypotonia"</div>
+
+
+                <div class="evidence-explanation">The cohort directly reports marked developmental delay in all 30 patients.</div>
 
 
 
@@ -4512,14 +5535,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4539,6 +5569,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4566,28 +5597,30 @@
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and epileptic encephalopathy" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsy" data-dismech-node="Epilepsy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Developmental and epileptic encephalopathy
+                        Epilepsy
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Epileptic encephalopathy
+
+                        <span class="phenotype-term-label">Seizure</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200134">HP:0200134</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epilepsy, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4607,6 +5640,489 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients have severe epilepsy ranging from neonatal onset developmental epileptic encephalopathy to infantile developmental epileptic encephalopathy (27 patients, 90%)"</div>
+
+
+                <div class="evidence-explanation">Epilepsy in 27/30 equals 90%, within the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dystonia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some patients presented with limb spasticity (43%), dystonia (17%), ataxia, chorea, and tremor"</div>
+
+
+                <div class="evidence-explanation">The reported 17% maps to OCCASIONAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-myelination" data-dismech-node="Delayed myelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed myelination
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012448</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI revealed a spectrum of abnormalities with delayed myelination and enlarged ventricles probably due to cerebral and cerebellar atrophy"</div>
+
+
+                <div class="evidence-explanation">MRI directly documents variable delayed myelination.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-atrophy" data-dismech-node="Cerebral atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002059</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI revealed a spectrum of abnormalities with delayed myelination and enlarged ventricles probably due to cerebral and cerebellar atrophy"</div>
+
+
+                <div class="evidence-explanation">Imaging supports cerebral and cerebellar atrophy in the severe subgroup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebellar atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001272</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI revealed a spectrum of abnormalities with delayed myelination and enlarged ventricles probably due to cerebral and cerebellar atrophy"</div>
+
+
+                <div class="evidence-explanation">Imaging explicitly documents cerebellar as well as cerebral atrophy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-profound-motor-delay" data-dismech-node="Profound motor delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Profound motor delay
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"None but two patients (F5-II:1 and II:2) achieved sitting ability."</div>
+
+
+                <div class="evidence-explanation">Failure to achieve sitting in 28/30 (93%) supports VERY_FREQUENT profound motor delay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventriculomegaly" data-dismech-node="Ventriculomegaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ventriculomegaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI revealed a spectrum of abnormalities with delayed myelination and enlarged ventricles probably due to cerebral and cerebellar atrophy"</div>
+
+
+                <div class="evidence-explanation">The imaging series directly reports enlarged ventricles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and epileptic encephalopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Developmental and epileptic encephalopathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0200134</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4641,14 +6157,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infantile spasms
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012469">HP:0012469</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012469</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4668,6 +6191,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4746,13 +6270,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UGDH
 
 
-    <a href="https://bioregistry.io/hgnc:12525" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12525">hgnc:12525</a>
+    <a href="https://bioregistry.io/hgnc:12525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:12525</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UGDH (hgnc:12525). hgnc:12525 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4777,6 +6306,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4808,7 +6338,230 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
+
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Medical Actions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-symptomatic-antiseizure-therapy" data-dismech-node="Symptomatic antiseizure therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Symptomatic antiseizure therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Most severe cases were refractory to antiseizure treatment. Two milder fever-associated seizure cases were seizure-free on sodium valproate, and one other patient appeared to benefit from ketogenic diet; these observations do not establish a generally effective disease-specific treatment.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Epilepsy
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Epilepsy, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only these two patients were seizure-free on sodium valproate. All other patients, except for one patient who seemed to benefit from ketogenic diet, did not respond to antiepileptic treatment."</div>
+
+
+                <div class="evidence-explanation">The cohort documents limited individual responses and predominant refractoriness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-gastrostomy-feeding-support" data-dismech-node="Gastrostomy feeding support" data-dismech-type="treatment">
+                <div class="item-name">
+                    Gastrostomy feeding support
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Gastrostomy tube procedure<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gastrostomy tube procedure (NCIT:C157864). NCIT:C157864 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy Tube Procedure</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157864" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157864">NCIT:C157864</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Gastrostomy was used for feeding in 12 infants with swallowing difficulties; treatment efficacy was not evaluated.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Dysphagia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002015</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-four out of the 30 (80%) were noted to have swallowing difficulties and gastrostomy tubes were required for feeding in 12 infants."</div>
+
+
+                <div class="evidence-explanation">The cohort directly documents use of gastrostomy feeding support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Environmental Factors -->
@@ -4827,6 +6580,633 @@
 
 
         <!-- Experimental Models -->
+
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-primary-dermal-fibroblasts" data-dismech-node="Patient-derived primary dermal fibroblasts" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Patient-derived primary dermal fibroblasts
+
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+
+
+                </div>
+
+                <div class="item-desc">Patient fibroblasts model allele-dependent UGDH protein loss, reduced enzymatic activity, and reduced HA synthesis.</div>
+
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+
+
+                    <span class="tag tag-cell">
+
+                        fibroblast
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-28">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-28">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Primary dermal fibroblasts from four patients and one unaffected carrier parent</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:32001716">PMID:32001716</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ugdh-loss-of-function">UGDH loss of function</a>
+
+                <span class="crosslink-meta">measures</span>
+
+
+                <span class="crosslink-meta">fidelity: high</span>
+
+
+                <span class="crosslink-desc">Patient cells measure endogenous protein abundance and enzymatic activity.</span>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we then derived and biobanked primary dermal fibroblasts from patients F3-II:1 (R393W/A410S), F4-II:1 (Y14C/S72P), F5-II:1 (A82T/A82T) and F6-II:1 (R65*/Y367C)"</div>
+
+
+                <div class="evidence-explanation">The study identifies the patient-derived primary-cell panel.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-hyaluronic-acid-synthesis">Reduced hyaluronic acid synthesis</a>
+
+                <span class="crosslink-meta">measures</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">HA in conditioned media provides a direct UGDH-dependent glycosaminoglycan readout.</span>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient’s cells with the homozygous A82T mutation also exhibited a reduction in the synthesis of hyaluronic acid (HA)"</div>
+
+
+                <div class="evidence-explanation">The fibroblast assay directly measures reduced HA synthesis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using patients’ primary fibroblasts and biochemical assays, we demonstrate that these are loss-of-function alleles."</div>
+
+
+                <div class="evidence-explanation">The authors directly establish the patient fibroblasts as a functional disease model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-cerebral-organoids" data-dismech-node="Patient-derived cerebral organoids" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Patient-derived cerebral organoids
+
+                    <span class="tag tag-exp-model-type">ORGANOID</span>
+
+
+                </div>
+
+                <div class="item-desc">Cerebral organoids generated from patient iPSCs model reduced neural-progenitor proliferation and organoid growth.</div>
+
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-29">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-29">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Tissue</div>
+
+
+                        <div class="model-detail-value">
+
+                            brain
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0000955</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                        </div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Patient-derived induced pluripotent stem cells and an unaffected carrier-parent control</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Ten-week cerebral organoid differentiation</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:32001716">PMID:32001716</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reduced-neural-progenitor-proliferation">Reduced neural progenitor proliferation</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Mutant organoids are smaller and contain less proliferative SOX2-positive progenitor zones.</span>
+
+
+                <div class="mapping-notes">Limitations: Replication with additional wild-type and complete UGDH-knockout lines is needed because iPSC differentiation is variable.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ventricular zones marked by SOX2-positive neuronal progenitors were appreciably less proliferative"</div>
+
+
+                <div class="evidence-explanation">The organoid directly reports reduced progenitor proliferation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patient-derived cerebral organoids, which were smaller due to a reduced number of proliferating neuronal progenitors, can serve as an alternative disease-in-a-dish model"</div>
+
+
+                <div class="evidence-explanation">The paper explicitly presents patient organoids as an alternative disease model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-jekyll-ugdh-hypomorphic-zebrafish" data-dismech-node="jekyll ugdh hypomorphic zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    jekyll ugdh hypomorphic zebrafish
+
+                </div>
+
+                <div class="item-desc">Zygotic ugdh depletion did not reproduce spontaneous seizures or altered PTZ responsiveness and therefore fails to model the human epileptic disease.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous ugdh c.992T&gt;A (p.I331D) jekyll m151 hypomorphic allele</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ugdh-loss-of-function">UGDH loss of function</a>
+
+                <span class="crosslink-meta">perturbs</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">The hypomorphic allele perturbs zygotic Ugdh activity but does not satisfactorily reproduce the human neurologic syndrome.</span>
+
+
+                <div class="mapping-notes">Limitations: Zygotic zebrafish depletion differs from the human biallelic hypomorphic alleles; neural-progenitor proliferation was not measured, and fish die before 14 days post fertilization.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fish depleted of Ugdh activity do not exhibit spontaneous seizure and are equally responsive to PTZ treatment"</div>
+
+
+                <div class="evidence-explanation">The experiment confirms Ugdh perturbation while documenting the absent seizure phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ugdh-related-neurodevelopmental-and-epileptic-dysfunction">UGDH-Related Neurodevelopmental and Epileptic Dysfunction</a>
+
+                <span class="crosslink-meta">fails to recapitulate</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">The zebrafish does not reproduce the defining spontaneous epileptic phenotype.</span>
+
+
+                <div class="mapping-notes">Limitations: Zygotic hypomorphic depletion, early lethality, and species-specific developmental context limit translation to the human biallelic syndrome.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fish depleted of Ugdh activity do not exhibit spontaneous seizure and are equally responsive to PTZ treatment"</div>
+
+
+                <div class="evidence-explanation">The negative seizure result substantiates failure to recapitulate the human clinical consequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32001716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Homozygous mutant larvae did not show signs of increased c-fos expression at basal state"</div>
+
+
+                <div class="evidence-explanation">The negative neural-activity readout supports failure to phenocopy spontaneous seizures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -4870,11 +7250,22 @@ parents:
 - congenital disorder of glycosylation
 classifications:
   icimd_category:
-  - classification_value: multiple_glycosylation_pathways
+  - classification_value: o_linked_protein_glycosylation
     notes: &gt;-
-      Classified as a multiple-glycosylation-pathway disorder because UGDH
-      controls UDP-glucuronic acid supply for glycosaminoglycan-containing
-      proteoglycans and glycolipids.
+      ICIMD&#39;s O-linked protein-glycosylation group explicitly includes
+      glycosaminoglycan synthesis. UGDH supplies the obligate UDP-glucuronic-acid
+      precursor for glycosaminoglycans; this is more specific than the
+      multiple-pathway group, whose definition concerns dolichol, Golgi, and
+      sialic-acid disorders.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        UDP-GlcA is not only needed for detoxification via glucuronidation, but
+        is also an obligate precursor for the synthesis of glycosaminoglycans
+      explanation: UGDH supplies the obligate precursor for the glycosaminoglycan-synthesis branch of O-linked glycosylation.
 inheritance:
 - name: Autosomal recessive inheritance
   inheritance_term:
@@ -4903,6 +7294,7 @@ pathophysiology:
     Pathogenic biallelic UGDH variants reduce the stability, oligomerization, or
     catalytic activity of UDP-glucose 6-dehydrogenase.
   role: trigger
+  biological_scale: MOLECULAR
   genes:
   - preferred_term: UGDH
     term:
@@ -4946,7 +7338,7 @@ pathophysiology:
     - reference: PMID:32001716
       reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
       supports: SUPPORT
-      evidence_source: HUMAN_CLINICAL
+      evidence_source: OTHER
       snippet: &gt;-
         UGDH encodes an oxidoreductase that converts UDP-glucose to
         UDP-glucuronic acid, a key component of specific proteoglycans and
@@ -4954,23 +7346,31 @@ pathophysiology:
       explanation: &gt;-
         The abstract directly links UGDH enzymatic function to the
         UDP-glucuronic acid product.
+  - target: Reduced neural progenitor proliferation
+    description: Patient-derived cerebral organoids show impaired proliferation of neural progenitors downstream of reduced UGDH activity.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        ventricular zones marked by SOX2-positive neuronal progenitors were
+        appreciably less proliferative
+      explanation: Patient-derived organoids directly show reduced neural-progenitor proliferation.
 - name: UDP-glucuronic acid precursor depletion
   description: &gt;-
     UDP-glucuronic acid shortage impairs production of glycosaminoglycan-rich
     extracellular matrix components, including proteoglycans and glycolipids
     that are important in human brain development.
   role: central_effector
+  biological_scale: MOLECULAR
   biological_processes:
   - preferred_term: glycosaminoglycan biosynthetic process
     modifier: DECREASED
     term:
       id: GO:0006024
       label: glycosaminoglycan biosynthetic process
-  - preferred_term: protein O-linked glycosylation
-    modifier: ABNORMAL
-    term:
-      id: GO:0006493
-      label: protein O-linked glycosylation
   chemical_entities:
   - preferred_term: glycosaminoglycan
     modifier: DECREASED
@@ -4981,31 +7381,102 @@ pathophysiology:
   - reference: PMID:32001716
     reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &gt;-
       Our study defines UGDH as a key player for the production of extracellular
       matrix components that are essential for human brain development.
     explanation: &gt;-
       This supports the precursor-to-ECM branch of the pathograph.
   downstream:
-  - target: Neurodevelopmental and epileptic dysfunction
+  - target: Reduced hyaluronic acid synthesis
     description: &gt;-
-      Disrupted glycan-dependent extracellular matrix production impairs brain
-      development and neuronal network function.
-    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-    intermediate_mechanisms:
-    - abnormal glycosaminoglycan-containing extracellular matrix
-- name: Neurodevelopmental and epileptic dysfunction
+      UDP-glucuronic acid depletion reduces synthesis of hyaluronic acid in
+      patient fibroblasts.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Patient’s cells with the homozygous A82T mutation also exhibited a
+        reduction in the synthesis of hyaluronic acid (HA), which requires
+        UDP-glucuronate, a product of UGDH enzymatic activity
+      explanation: Patient cells directly connect reduced precursor production to reduced HA synthesis.
+- name: Reduced hyaluronic acid synthesis
   description: &gt;-
-    The central nervous system phenotype includes developmental and epileptic
-    encephalopathy, severe developmental delay, intellectual disability,
-    hypotonia, and motor disorder.
-  role: consequence
-  cell_types:
-  - preferred_term: neuron
+    Patient fibroblasts carrying homozygous UGDH A82T produce less hyaluronic
+    acid, a direct glycosaminoglycan readout of UDP-glucuronate shortage.
+  role: downstream
+  biological_scale: CELLULAR
+  biological_processes:
+  - preferred_term: hyaluronan biosynthetic process
+    modifier: DECREASED
     term:
-      id: CL:0000540
-      label: neuron
+      id: GO:0030213
+      label: hyaluronan biosynthetic process
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Patient’s cells with the homozygous A82T mutation also exhibited a
+      reduction in the synthesis of hyaluronic acid (HA)
+    explanation: Patient fibroblasts provide a direct glycosaminoglycan readout.
+- name: Reduced neural progenitor proliferation
+  description: &gt;-
+    Patient-derived cerebral organoids are smaller and contain less proliferative
+    SOX2-positive neural progenitor zones, while differentiated neuron and
+    astrocyte markers are not comparably reduced.
+  role: downstream
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: neural stem cell
+    term:
+      id: CL:0000047
+      label: neural stem cell
+  biological_processes:
+  - preferred_term: neural precursor cell proliferation
+    modifier: DECREASED
+    term:
+      id: GO:0061351
+      label: neural precursor cell proliferation
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      These results argue that reduced UGDH activity is associated with impaired
+      neuronal development in vitro, causing atrophy of patient-derived cerebral
+      organoids.
+    explanation: &gt;-
+      Patient-derived organoids support a neural-progenitor developmental mechanism.
+  downstream:
+  - target: UGDH-Related Neurodevelopmental and Epileptic Dysfunction
+    description: &gt;-
+      Impaired progenitor proliferation is associated with the human
+      neurodevelopmental and epileptic syndrome through unresolved tissue- and
+      circuit-level intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        patient-derived cerebral organoids, which were smaller due to a reduced
+        number of proliferating neuronal progenitors, can serve as an alternative
+        disease-in-a-dish model
+      explanation: Links the organoid developmental defect to the disease model while leaving the human causal intermediates unresolved.
+- name: UGDH-Related Neurodevelopmental and Epileptic Dysfunction
+  description: &gt;-
+    The clinical consequence of biallelic UGDH loss is a developmental and
+    epileptic encephalopathy with global delay, hypotonia, intellectual
+    disability, and seizures; the cellular-to-circuit bridge remains unresolved.
+  role: consequence
+  biological_scale: ORGANISM
   evidence:
   - reference: PMID:32001716
     reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
@@ -5015,8 +7486,64 @@ pathophysiology:
       All 30 patients carrying biallelic mutations in UGDH presented with a
       common core phenotype consisting of marked developmental delay, epilepsy,
       mild dysmorphism, and motor disorder with axial hypotonia
-    explanation: &gt;-
-      The clinical cohort supports the recurrent neurologic consequence node.
+    explanation: The 30-patient cohort defines the shared clinical consequence.
+  downstream:
+  - target: Developmental and epileptic encephalopathy
+    description: Biallelic UGDH disease manifests as developmental and epileptic encephalopathy.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: presenting with epileptic encephalopathy with developmental delay and hypotonia.
+      explanation: Directly names the defining clinical syndrome.
+  - target: Global developmental delay
+    description: Marked developmental delay is part of the universal cohort core phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        All 30 patients carrying biallelic mutations in UGDH presented with a
+        common core phenotype consisting of marked developmental delay, epilepsy,
+        mild dysmorphism, and motor disorder with axial hypotonia
+      explanation: Directly supports developmental delay in all 30 patients.
+  - target: Hypotonia
+    description: Axial hypotonia is part of the universal cohort core phenotype.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: All patients had a severe motor disorder with axial hypotonia.
+      explanation: Directly supports axial hypotonia in all patients.
+  - target: Intellectual disability
+    description: Moderate-to-severe intellectual disability is part of the clinical syndrome.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A moderate to severe intellectual disability was observed in all patients.
+      explanation: Directly supports intellectual disability in all patients.
+  - target: Epilepsy
+    description: Severe epilepsy is a very frequent component of the clinical syndrome.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Most patients have severe epilepsy ranging from neonatal onset
+        developmental epileptic encephalopathy to infantile developmental
+        epileptic encephalopathy (27 patients, 90%)
+      explanation: Directly supports severe epilepsy in 27 of 30 patients.
 phenotypes:
 - name: Developmental and epileptic encephalopathy
   description: &gt;-
@@ -5037,6 +7564,7 @@ phenotypes:
       hypotonia.
     explanation: The cohort directly reports epileptic encephalopathy.
 - name: Global developmental delay
+  frequency: OBLIGATE
   description: Developmental delay is part of the recurrent core phenotype.
   phenotype_term:
     preferred_term: Global developmental delay
@@ -5049,10 +7577,12 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
+      All 30 patients carrying biallelic mutations in UGDH presented with a
       common core phenotype consisting of marked developmental delay, epilepsy,
       mild dysmorphism, and motor disorder with axial hypotonia
-    explanation: The cohort directly reports marked developmental delay.
+    explanation: The cohort directly reports marked developmental delay in all 30 patients.
 - name: Hypotonia
+  frequency: OBLIGATE
   description: Axial hypotonia is a core motor feature.
   phenotype_term:
     preferred_term: Hypotonia
@@ -5065,8 +7595,8 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      motor disorder with axial hypotonia
-    explanation: The cohort directly reports axial hypotonia.
+      All patients had a severe motor disorder with axial hypotonia.
+    explanation: The cohort directly reports axial hypotonia in all patients.
 - name: Intellectual disability
   frequency: OBLIGATE
   description: Moderate to severe intellectual disability is reported in all affected individuals.
@@ -5125,6 +7655,154 @@ phenotypes:
     explanation: &gt;-
       Infantile spasms were reported in 16 patients, 53% of the cohort, which
       falls in the FREQUENT frequency band.
+- name: Epilepsy
+  frequency: VERY_FREQUENT
+  description: Severe neonatal- or infantile-onset epilepsy occurred in 27 of 30 patients.
+  phenotype_term:
+    preferred_term: Epilepsy
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Most patients have severe epilepsy ranging from neonatal onset
+      developmental epileptic encephalopathy to infantile developmental
+      epileptic encephalopathy (27 patients, 90%)
+    explanation: Epilepsy in 27/30 equals 90%, within the VERY_FREQUENT band.
+- name: Spasticity
+  frequency: FREQUENT
+  description: Limb spasticity occurred in 43% of the cohort.
+  phenotype_term:
+    preferred_term: Spasticity
+    term:
+      id: HP:0001257
+      label: Spasticity
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      some patients presented with limb spasticity (43%), dystonia (17%),
+      ataxia, chorea, and tremor
+    explanation: The reported 43% maps to FREQUENT.
+- name: Dystonia
+  frequency: OCCASIONAL
+  description: Dystonia occurred in 17% of the cohort.
+  phenotype_term:
+    preferred_term: Dystonia
+    term:
+      id: HP:0001332
+      label: Dystonia
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      some patients presented with limb spasticity (43%), dystonia (17%),
+      ataxia, chorea, and tremor
+    explanation: The reported 17% maps to OCCASIONAL.
+- name: Mild facial dysmorphism
+  description: Mild dysmorphic features were part of the common core phenotype and were frequently present.
+  phenotype_term:
+    preferred_term: Abnormal facial shape
+    term:
+      id: HP:0001999
+      label: Abnormal facial shape
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Dysmorphic facial features such as short and flattened philtrum, outward
+      protruding earlobes, ptosis, or blepharophimosis were mild but frequently present
+    explanation: The cohort describes the recurrent mild facial gestalt.
+- name: Delayed myelination
+  description: MRI abnormalities can include delayed myelination, although some patients have normal imaging.
+  phenotype_term:
+    preferred_term: Delayed myelination
+    term:
+      id: HP:0012448
+      label: Delayed myelination
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      MRI revealed a spectrum of abnormalities with delayed myelination and
+      enlarged ventricles probably due to cerebral and cerebellar atrophy
+    explanation: MRI directly documents variable delayed myelination.
+- name: Cerebral atrophy
+  description: Cerebral atrophy occurs in more severely affected patients and can progress on serial MRI.
+  phenotype_term:
+    preferred_term: Cerebral atrophy
+    term:
+      id: HP:0002059
+      label: Cerebral atrophy
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      MRI revealed a spectrum of abnormalities with delayed myelination and
+      enlarged ventricles probably due to cerebral and cerebellar atrophy
+    explanation: Imaging supports cerebral and cerebellar atrophy in the severe subgroup.
+- name: Cerebellar atrophy
+  description: Cerebellar atrophy occurs in a subset of more severely affected patients.
+  phenotype_term:
+    preferred_term: Cerebellar atrophy
+    term:
+      id: HP:0001272
+      label: Cerebellar atrophy
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      MRI revealed a spectrum of abnormalities with delayed myelination and
+      enlarged ventricles probably due to cerebral and cerebellar atrophy
+    explanation: Imaging explicitly documents cerebellar as well as cerebral atrophy.
+- name: Profound motor delay
+  frequency: VERY_FREQUENT
+  description: Only two of 30 patients achieved independent sitting, indicating profound motor-development impairment in 28 of 30.
+  phenotype_term:
+    preferred_term: Motor delay
+    term:
+      id: HP:0001270
+      label: Motor delay
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      None but two patients (F5-II:1 and II:2) achieved sitting ability.
+    explanation: Failure to achieve sitting in 28/30 (93%) supports VERY_FREQUENT profound motor delay.
+- name: Ventriculomegaly
+  description: Enlarged ventricles occur within the variable MRI spectrum in more severely affected patients.
+  phenotype_term:
+    preferred_term: Ventriculomegaly
+    term:
+      id: HP:0002119
+      label: Ventriculomegaly
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      MRI revealed a spectrum of abnormalities with delayed myelination and
+      enlarged ventricles probably due to cerebral and cerebellar atrophy
+    explanation: The imaging series directly reports enlarged ventricles.
 genetic:
 - name: UGDH
   association: Biallelic loss-of-function variants
@@ -5146,11 +7824,387 @@ genetic:
       developmental delay and hypotonia.
     explanation: &gt;-
       The cohort establishes UGDH as the causal gene for DEE84.
+diagnosis:
+- name: Molecular genetic testing
+  description: Exome sequencing with segregation analysis identifies biallelic UGDH variants after exclusion of known neurologic-disease genes.
+  diagnosis_term:
+    preferred_term: molecular genetic testing
+    term:
+      id: NCIT:C19770
+      label: Molecular Analysis
+  results: Biallelic rare UGDH variants segregating with disease support DEE84.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      we performed exome sequencing on two affected siblings. No mutations in
+      genes known to be associated with neurological disorders
+    explanation: Exome sequencing initiated the causal-gene discovery workflow.
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      only one missense variant c.244G &gt; A in the UGDH gene was found to
+      segregate with the disease
+    explanation: Familial segregation supports molecular confirmation.
+- name: Electroencephalography
+  description: EEG characterizes neonatal burst suppression, hypsarrhythmia, or later focal/generalized spike-wave complexes.
+  diagnosis_term:
+    preferred_term: electroencephalography
+    term:
+      id: NCIT:C38054
+      label: Electroencephalography
+  results: Age-dependent severe epileptiform abnormalities support the clinical DEE diagnosis.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Electroencephalography (EEG) was markedly abnormal with a burst suppression
+      pattern in the neonatal period, hypsarrhythmia in affected children with
+      infantile spasms, and focal and/or generalized spike-wave complexes in childhood
+    explanation: The cohort directly reports the EEG spectrum.
+- name: Brain MRI
+  description: MRI evaluates myelination and atrophy; normal early imaging does not exclude DEE84.
+  diagnosis_term:
+    preferred_term: magnetic resonance imaging procedure
+    term:
+      id: NCIT:C16809
+      label: Magnetic Resonance Imaging
+  results: Findings range from normal imaging to delayed myelination, ventriculomegaly, and cerebral or cerebellar atrophy.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      displaying variable abnormalities ranging from abnormal myelination and/or
+      cerebral or cerebellar atrophy, to normal findings
+    explanation: The imaging series establishes both the variable abnormalities and normal-MRI possibility.
+treatments:
+- name: Symptomatic antiseizure therapy
+  description: &gt;-
+    Most severe cases were refractory to antiseizure treatment. Two milder
+    fever-associated seizure cases were seizure-free on sodium valproate, and
+    one other patient appeared to benefit from ketogenic diet; these observations
+    do not establish a generally effective disease-specific treatment.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+  target_phenotypes:
+  - preferred_term: Epilepsy
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Only these two patients were seizure-free on sodium valproate. All other
+      patients, except for one patient who seemed to benefit from ketogenic diet,
+      did not respond to antiepileptic treatment.
+    explanation: The cohort documents limited individual responses and predominant refractoriness.
+- name: Gastrostomy feeding support
+  description: Gastrostomy was used for feeding in 12 infants with swallowing difficulties; treatment efficacy was not evaluated.
+  therapeutic_modality: SURGERY
+  treatment_term:
+    preferred_term: Gastrostomy tube procedure
+    term:
+      id: NCIT:C157864
+      label: Gastrostomy Tube Procedure
+  target_phenotypes:
+  - preferred_term: Dysphagia
+    term:
+      id: HP:0002015
+      label: Dysphagia
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Twenty-four out of the 30 (80%) were noted to have swallowing difficulties
+      and gastrostomy tubes were required for feeding in 12 infants.
+    explanation: The cohort directly documents use of gastrostomy feeding support.
+progression:
+- phase: Neonatal period to infancy
+  notes: Severe epilepsy can begin neonatally or in infancy; motor abnormalities may precede seizures.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      ataxia, chorea, and tremor, which were often present prior to onset of seizures
+    explanation: The cohort establishes that movement abnormalities can precede epilepsy.
+- phase: Infancy through childhood
+  notes: Severe motor and intellectual disability persist; a minority died between four months and six years.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Three patients were deceased between 4 months and 6 years of age
+    explanation: The clinical series documents early mortality in three patients.
+clinical_burden:
+  burden_level: HIGH
+  rationale: &gt;-
+    The syndrome commonly produces refractory epilepsy, profound motor and
+    intellectual disability, dysphagia requiring feeding support, and early mortality.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      None but two patients (F5-II:1 and II:2) achieved sitting ability. A
+      moderate to severe intellectual disability was observed in all patients.
+    explanation: The cohort shows profound motor and cognitive burden.
+experimental_models:
+- name: Patient-derived primary dermal fibroblasts
+  description: Patient fibroblasts model allele-dependent UGDH protein loss, reduced enzymatic activity, and reduced HA synthesis.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_types:
+  - preferred_term: fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  cell_source: Primary dermal fibroblasts from four patients and one unaffected carrier parent
+  publication: PMID:32001716
+  modeled_mechanisms:
+  - target: UGDH loss of function
+    relationship: MEASURES
+    fidelity: HIGH
+    description: Patient cells measure endogenous protein abundance and enzymatic activity.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        we then derived and biobanked primary dermal fibroblasts from patients
+        F3-II:1 (R393W/A410S), F4-II:1 (Y14C/S72P), F5-II:1 (A82T/A82T) and
+        F6-II:1 (R65*/Y367C)
+      explanation: The study identifies the patient-derived primary-cell panel.
+  - target: Reduced hyaluronic acid synthesis
+    relationship: MEASURES
+    fidelity: MODERATE
+    description: HA in conditioned media provides a direct UGDH-dependent glycosaminoglycan readout.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Patient’s cells with the homozygous A82T mutation also exhibited a
+        reduction in the synthesis of hyaluronic acid (HA)
+      explanation: The fibroblast assay directly measures reduced HA synthesis.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Using patients’ primary fibroblasts and biochemical assays, we demonstrate
+      that these are loss-of-function alleles.
+    explanation: The authors directly establish the patient fibroblasts as a functional disease model.
+- name: Patient-derived cerebral organoids
+  description: Cerebral organoids generated from patient iPSCs model reduced neural-progenitor proliferation and organoid growth.
+  experimental_model_type: ORGANOID
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  tissue_term:
+    preferred_term: brain
+    term:
+      id: UBERON:0000955
+      label: brain
+  cell_source: Patient-derived induced pluripotent stem cells and an unaffected carrier-parent control
+  culture_system: Ten-week cerebral organoid differentiation
+  publication: PMID:32001716
+  modeled_mechanisms:
+  - target: Reduced neural progenitor proliferation
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: Mutant organoids are smaller and contain less proliferative SOX2-positive progenitor zones.
+    limitations: Replication with additional wild-type and complete UGDH-knockout lines is needed because iPSC differentiation is variable.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        ventricular zones marked by SOX2-positive neuronal progenitors were
+        appreciably less proliferative
+      explanation: The organoid directly reports reduced progenitor proliferation.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      patient-derived cerebral organoids, which were smaller due to a reduced
+      number of proliferating neuronal progenitors, can serve as an alternative
+      disease-in-a-dish model
+    explanation: The paper explicitly presents patient organoids as an alternative disease model.
+animal_models:
+- name: jekyll ugdh hypomorphic zebrafish
+  species: Danio rerio
+  genotype: Homozygous ugdh c.992T&gt;A (p.I331D) jekyll m151 hypomorphic allele
+  description: Zygotic ugdh depletion did not reproduce spontaneous seizures or altered PTZ responsiveness and therefore fails to model the human epileptic disease.
+  modeled_mechanisms:
+  - target: UGDH loss of function
+    relationship: PERTURBS
+    fidelity: LOW
+    description: The hypomorphic allele perturbs zygotic Ugdh activity but does not satisfactorily reproduce the human neurologic syndrome.
+    limitations: Zygotic zebrafish depletion differs from the human biallelic hypomorphic alleles; neural-progenitor proliferation was not measured, and fish die before 14 days post fertilization.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        fish depleted of Ugdh activity do not exhibit spontaneous seizure and
+        are equally responsive to PTZ treatment
+      explanation: The experiment confirms Ugdh perturbation while documenting the absent seizure phenotype.
+  - target: UGDH-Related Neurodevelopmental and Epileptic Dysfunction
+    relationship: FAILS_TO_RECAPITULATE
+    fidelity: LOW
+    description: The zebrafish does not reproduce the defining spontaneous epileptic phenotype.
+    limitations: &gt;-
+      Zygotic hypomorphic depletion, early lethality, and species-specific
+      developmental context limit translation to the human biallelic syndrome.
+    evidence:
+    - reference: PMID:32001716
+      reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        fish depleted of Ugdh activity do not exhibit spontaneous seizure and
+        are equally responsive to PTZ treatment
+      explanation: The negative seizure result substantiates failure to recapitulate the human clinical consequence.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Homozygous mutant larvae did not show signs of increased c-fos expression
+      at basal state
+    explanation: The negative neural-activity readout supports failure to phenocopy spontaneous seizures.
+datasets: []
+discussions:
+- discussion_id: gap_ugdh_cellular_mechanism_to_human_dee
+  prompt: How do reduced glycosaminoglycan synthesis and impaired neural-progenitor proliferation produce the human epilepsy and developmental phenotype?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Reduced hyaluronic acid synthesis
+  - pathophysiology#Reduced neural progenitor proliferation
+  - pathophysiology#UGDH-Related Neurodevelopmental and Epileptic Dysfunction
+  rationale: &gt;-
+    Patient cells and organoids establish biochemical and developmental effects,
+    but the study does not demonstrate a causal chain from either cellular result
+    to seizures or the individual human phenotypes.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      while UGDH is not required for proper function of isolated neurons in
+      culture, its absence significantly affects neuronal differentiation in
+      cerebral organoids
+    explanation: The contrasting model results define the remaining mechanistic gap.
+- discussion_id: mismatch_ugdh_zebrafish_and_human_organoid
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Reduced neural progenitor proliferation
+  prompt: Why does zygotic ugdh depletion fail to reproduce the human neurologic phenotype while patient-derived human organoids show impaired progenitor proliferation?
+  rationale: Species, developmental timing, and allele context may alter the dependence of neural development on UGDH.
+  evidence:
+  - reference: PMID:32001716
+    reference_title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      While mutant ugdh zebrafish did not phenocopy the disease, we bring
+      evidence that patient-derived cerebral organoids
+    explanation: The paper explicitly contrasts the negative animal model with the human organoid model.
+references:
+- reference: PMID:32001716
+  title: &#34;Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.&#34;
+review_notes: &gt;-
+  This review uses the disease-defining 30-person clinical cohort and its
+  patient-derived fibroblast and cerebral-organoid experiments. The abstract&#39;s
+  phrase “36 cases” is not used as a clinical denominator because the full text
+  explicitly catalogs 30 patients from 25 families. Frequency assignments are
+  limited to explicit cohort counts or percentages. Causal edges are restricted
+  to measured enzymatic, HA-synthesis, and organoid-proliferation relationships;
+  human phenotypes remain unwired because the paper does not experimentally
+  establish those downstream causal bridges. The zebrafish failure is retained
+  as a model mismatch rather than presented as confirmatory evidence. No public
+  disease-specific omics accession was identified in the article; source-data
+  files are study supplements rather than a repository dataset. No matching
+  GeneReviews chapter or repository deep-research artifact was found, and no
+  disease-modifying treatment or disorder-specific clinical trial is established.
 </pre>
             </div>
         </div>
 
         <!-- References & Deep Research -->
+
+        <div class="card reference-card" id="references-deep-research">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References &amp; Deep Research</h2>
+            </div>
+
+            <div class="grouped-section anchor-target" id="references">
+                <div class="grouped-section-header">
+                    <h3 class="grouped-section-title">References</h3>
+                    <span class="card-count">1</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32001716" target="_blank">PMID:32001716</a>
+                            </div>
+
+                            <div class="reference-title">Loss-of-function mutations in UDP-Glucose 6-Dehydrogenase cause recessive developmental epileptic encephalopathy.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+            </div>
+
+
+        </div>
 
 
         <footer class="page-footer">
@@ -5206,7 +8260,7 @@ genetic:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "UGDH-related developmental and epileptic encephalopathy 84", "mondoId": "MONDO:0032918", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "UGDH-related_developmental_and_epileptic_encephalopathy_84", "yamlRevision": "99a1df972d70"};
+        const OS_CONFIG = {"diseaseName": "UGDH-related developmental and epileptic encephalopathy 84", "mondoId": "MONDO:0032918", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "UGDH-related_developmental_and_epileptic_encephalopathy_84", "yamlRevision": "f26276398d22"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -5625,5 +8679,73 @@ genetic:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

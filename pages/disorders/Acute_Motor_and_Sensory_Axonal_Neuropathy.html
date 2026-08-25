@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Acute Motor and Sensory Axonal Neuropathy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acute Motor and Sensory Axonal Neuropathy</h1>
             <div class="header-meta">
 
@@ -3564,7 +3766,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Acute%20Motor%20and%20Sensory%20Axonal%20Neuropathy"
@@ -3695,6 +3897,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3740,7 +3944,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">24</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3780,7 +3984,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4190,6 +4394,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22507308" target="_blank">PMID:22507308</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4211,6 +4416,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4347,6 +4553,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4370,6 +4582,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41656826" target="_blank">PMID:41656826</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4391,6 +4604,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4501,6 +4715,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4523,6 +4743,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4647,6 +4868,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4670,6 +4897,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4691,6 +4919,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4736,7 +4965,7 @@
 
 
 
-    <span class="entity-ref-chip">disease#Acute Motor and Sensory Axonal Neuropathy</span>
+    <a class="entity-ref-chip" href="#disease-entry">disease#Acute Motor and Sensory Axonal Neuropathy</a>
 
 
 
@@ -4776,6 +5005,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4798,6 +5028,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33743237" target="_blank">PMID:33743237</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4819,6 +5050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9014908" target="_blank">PMID:9014908</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4882,16 +5114,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4908,6 +5145,7 @@
 
 
                 </div>
+
 
 
 
@@ -4955,6 +5193,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15277677" target="_blank">PMID:15277677</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4976,6 +5215,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5020,16 +5260,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5056,16 +5301,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5086,6 +5336,7 @@
 
 
                 </div>
+
 
 
 
@@ -5133,6 +5384,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10526194" target="_blank">PMID:10526194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5154,6 +5406,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1186/s43161-024-00258-8" target="_blank">DOI:10.1186/s43161-024-00258-8</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5198,17 +5451,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5229,10 +5489,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5261,17 +5524,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         Axolemma
@@ -5279,10 +5549,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030673">GO:0030673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5305,6 +5578,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5347,6 +5621,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5391,17 +5666,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5422,10 +5704,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5452,16 +5737,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Classical complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006958">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Classical complement activation, annotated with complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5487,17 +5777,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         Axolemma
@@ -5505,13 +5802,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030673">GO:0030673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Axolemma (GO:0030673). GO:0030673 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5595,6 +5896,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5616,6 +5918,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5660,16 +5963,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5696,16 +6004,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Transmission of nerve impulse
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019226" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019226">GO:0019226</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019226" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0019226</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Transmission of nerve impulse (GO:0019226). GO:0019226 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5731,16 +6044,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Node of Ranvier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5763,6 +6081,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5806,6 +6125,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480600" target="_blank">PMID:22480600</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5838,16 +6158,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5874,16 +6199,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Macrophage chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048246" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048246">GO:0048246</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048246" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0048246</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Macrophage chemotaxis (GO:0048246). GO:0048246 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5913,6 +6243,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5924,6 +6255,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5968,17 +6300,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5999,10 +6338,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6019,6 +6361,7 @@
 
 
                 </div>
+
 
 
 
@@ -6244,6 +6587,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6265,6 +6609,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6314,7 +6659,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Nerve-muscle preparations from mice overexpressing GD1a are exposed to anti-GD1a monoclonal antibodies and complement. The preparation demonstrates antibody/complement deposition, ultrastructural injury, and motor-terminal conduction block while sparing postsynaptic membranes. It is a mechanistic motor-axon assay rather than a sensory-inclusive AMSAN model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Schwann cell\"], \"model_type\": \"OTHER\", \"conditions\": [\"GD1a overexpression in neural membranes\", \"Anti-GD1a monoclonal antibody exposure with complement\"], \"publication\": \"PMID:15716397\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon reflexes are reduced or absent in affected limbs because the peripheral reflex arc is impaired.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysautonomia can manifest as heart-rate or blood-pressure instability, gastrointestinal dysmotility, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002270\"}}, {\"id\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a biologically defined subset of axonal GBS, sialylated C. jejuni lipooligosaccharides resemble peripheral-nerve gangliosides. The mimicry can initiate an antibody response that recognizes both bacterial carbohydrate and neural ganglioside. This mechanism is not asserted for every AMSAN case.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Antigen processing and presentation\"], \"role\": \"trigger\"}}, {\"id\": \"Classical Complement Activation at Axonal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C1q-initiated classical complement activation deposits complement products at nodal, paranodal, and nerve-terminal membranes. Terminal-complement pores, calcium influx, and downstream protease activation can produce early functional failure and, if injury is not reversed, structural axonal loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"biological_processes\": [\"Classical complement activation\"], \"role\": \"effector\"}}, {\"id\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell responses produce IgG against gangliosides such as GM1, GM1b, and GD1a. These antibodies occur in some, but not all, patients with axonal GBS. A small human study found the same antibody profile in AMSAN and AMAN, supporting a shared immune spectrum rather than a uniquely AMSAN-specific marker.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"central_effector\"}}, {\"id\": \"Decreased Compound Muscle Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor nerve conduction studies show reduced or absent compound muscle action potential amplitudes. Serial testing is needed because reversible conduction failure and fixed motor-axon loss can initially appear similar.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033383\"}}, {\"id\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve conduction studies show reduced or absent sensory nerve action potential amplitudes, distinguishing a motor-sensory pattern from motor-only AMAN when the finding is reproducible and not explained by another neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007078\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar and cranial motor involvement can impair swallowing and increase aspiration risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-ganglioside IgG binds the nodal axolemma and nerve-terminal membranes. Antigen density and ganglioside complexes influence binding, which helps explain why antibody presence alone does not predict the exact clinical distribution of injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IVIG is one of two established immune treatments for GBS. The guideline regimen is 0.4 g/kg daily for five days, generally started within two weeks of weakness onset in a patient unable to walk unaided; selected patients may be treated at two to four weeks. Evidence and recommendations are GBS-wide, not AMSAN-specific.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Human immunoglobulin G\"]}}, {\"id\": \"Limb Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute, usually symmetric, progressive flaccid weakness affects the legs and arms and may progress to inability to walk or complete paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Macrophage Recruitment and Periaxonal Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages accumulate around injured myelinated axons and can enter the periaxonal space. Human AMSAN autopsy establishes this localization, but the relative injurious versus debris-clearing role and timing remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage chemotaxis\"], \"role\": \"effector\"}}, {\"id\": \"Mechanical Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Invasive ventilation is supportive therapy for respiratory failure. It does not modify the immune attack, so respiratory monitoring and timely airway planning remain essential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor and Sensory Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible AMSAN injury is dominated by Wallerian-like degeneration and loss of motor and sensory fibers in ventral and dorsal roots and peripheral nerves. This acute pattern is not assumed to be length-dependent, and primary demyelination is not required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Multidisciplinary Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation should begin during hospitalization and continue after discharge as needed. Physical and occupational therapy, graded mobility and strengthening, positioning and contracture prevention, speech/swallow care, respiratory therapy, assistive devices, and psychosocial support are tailored to weakness, sensory loss, fatigue, pain, and bulbar or respiratory deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radicular, neuropathic, and musculoskeletal pain can occur during the acute illness and may persist into recovery.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Pain Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neuropathic, radicular, and nociceptive pain should be assessed repeatedly and treated while accounting for respiratory and autonomic vulnerability. The guideline weakly supports gabapentinoids, tricyclic antidepressants, or carbamazepine; drug choice and dose require individualized safety review.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tingling or other abnormal sensations can accompany weakness, often early in the illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is an established alternative first-line immune treatment for GBS. The guideline regimen is 12-15 L in four to five exchanges over one to two weeks, generally within four weeks of weakness onset when the patient cannot walk unaided. It is not routine rescue immediately after IVIG.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor weakness can involve respiratory muscles and require invasive ventilation even before prominent dyspnea is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Reversible Nodal Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune disruption of nodal and paranodal excitability can transiently block conduction without the temporal dispersion expected from remyelination and without established Wallerian degeneration. Serial studies are required to distinguish recovery of nodal function from fixed axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\"], \"biological_processes\": [\"Transmission of nerve impulse\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}]}}, {\"id\": \"Sensory Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Objective sensory loss and abnormal sensory responses reflect involvement of sensory roots and peripheral sensory axons.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000763\"}}], \"edges\": [{\"source\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"target\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LOS-ganglioside mimicry elicits IgG that cross-reacts with neural gangliosides.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating anti-ganglioside IgG binds ganglioside-rich vulnerable sites on peripheral axons and motor nerve terminals.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"target\": \"Classical Complement Activation at Axonal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon-bound IgG recruits C1q and initiates the classical complement pathway.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-mediated nodal membrane dysfunction can block conduction before irreversible axonal loss occurs.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nodal and paranodal membrane disruption\", \"Terminal complement complex formation and calcium influx\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Macrophage Recruitment and Periaxonal Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement products promote recruitment of macrophages and other immune cells to injured neural membranes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Complement-fragment signaling and opsonization\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Motor and Sensory Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent complement-mediated membrane injury can cross the threshold from reversible dysfunction to irreversible axonal degeneration.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Terminal complement complex formation\", \"Calcium influx\", \"Calpain and caspase activation\"]}, {\"source\": \"Reversible Nodal Conduction Failure\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of motor-axon conduction reduces the evoked compound muscle action potential even when the axon has not yet degenerated.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning motor axons reduces or abolishes compound muscle action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning sensory axons reduces or abolishes sensory nerve action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Limb Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon loss reduces muscle activation and produces acute flaccid limb weakness.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral motor and sensory limbs of the reflex arc reduces or abolishes tendon reflexes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Motor and sensory reflex-arc failure\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dorsal-root and sensory-nerve axonal loss produces objective sensory dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured sensory fibers can generate tingling and other abnormal sensations.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Abnormal sensory-axon signaling\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory-fiber and root injury can produce neuropathic, radicular, and musculoskeletal pain.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sensory-fiber injury and radicular inflammation\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe cranial motor-nerve involvement can impair swallowing.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bulbar motor-nerve dysfunction\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe motor-axon dysfunction can weaken respiratory muscles and require ventilatory support.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Respiratory motor-axon and muscle weakness\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of autonomic peripheral fibers can produce cardiovascular, gastrointestinal, and bladder dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic peripheral-nerve dysfunction\"]}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pain Management\", \"target\": \"Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Nerve-muscle preparations from mice overexpressing GD1a are exposed to anti-GD1a monoclonal antibodies and complement. The preparation demonstrates antibody/complement deposition, ultrastructural injury, and motor-terminal conduction block while sparing postsynaptic membranes. It is a mechanistic motor-axon assay rather than a sensory-inclusive AMSAN model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Schwann cell\"], \"model_type\": \"OTHER\", \"conditions\": [\"GD1a overexpression in neural membranes\", \"Anti-GD1a monoclonal antibody exposure with complement\"], \"publication\": \"PMID:15716397\"}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tendon reflexes are reduced or absent in affected limbs because the peripheral reflex arc is impaired.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Autonomic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysautonomia can manifest as heart-rate or blood-pressure instability, gastrointestinal dysmotility, or bladder dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002270\"}}, {\"id\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a biologically defined subset of axonal GBS, sialylated C. jejuni lipooligosaccharides resemble peripheral-nerve gangliosides. The mimicry can initiate an antibody response that recognizes both bacterial carbohydrate and neural ganglioside. This mechanism is not asserted for every AMSAN case.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Antigen processing and presentation\"], \"role\": \"trigger\"}}, {\"id\": \"Campylobacter jejuni infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Antecedent C. jejuni enteritis is the best-defined trigger for the ganglioside-mimicry mechanism and is associated with motor and axonal GBS patterns. GBS-wide risk estimates must not be read as AMSAN-specific risk.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Established antecedent for an axonal GBS subset\"}}, {\"id\": \"Classical Complement Activation at Axonal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C1q-initiated classical complement activation deposits complement products at nodal, paranodal, and nerve-terminal membranes. Terminal-complement pores, calcium influx, and downstream protease activation can produce early functional failure and, if injury is not reversed, structural axonal loss.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"biological_processes\": [\"Classical complement activation\"], \"role\": \"effector\"}}, {\"id\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated B-cell and plasma-cell responses produce IgG against gangliosides such as GM1, GM1b, and GD1a. These antibodies occur in some, but not all, patients with axonal GBS. A small human study found the same antibody profile in AMSAN and AMAN, supporting a shared immune spectrum rather than a uniquely AMSAN-specific marker.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"Immunoglobulin production\"], \"role\": \"central_effector\"}}, {\"id\": \"Decreased Compound Muscle Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor nerve conduction studies show reduced or absent compound muscle action potential amplitudes. Serial testing is needed because reversible conduction failure and fixed motor-axon loss can initially appear similar.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033383\"}}, {\"id\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensory nerve conduction studies show reduced or absent sensory nerve action potential amplitudes, distinguishing a motor-sensory pattern from motor-only AMAN when the finding is reproducible and not explained by another neuropathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007078\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bulbar and cranial motor involvement can impair swallowing and increase aspiration risk.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-ganglioside IgG binds the nodal axolemma and nerve-terminal membranes. Antigen density and ganglioside complexes influence binding, which helps explain why antibody presence alone does not predict the exact clinical distribution of injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}]}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IVIG is one of two established immune treatments for GBS. The guideline regimen is 0.4 g/kg daily for five days, generally started within two weeks of weakness onset in a patient unable to walk unaided; selected patients may be treated at two to four weeks. Evidence and recommendations are GBS-wide, not AMSAN-specific.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"Human immunoglobulin G\"]}}, {\"id\": \"Limb Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute, usually symmetric, progressive flaccid weakness affects the legs and arms and may progress to inability to walk or complete paralysis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Macrophage Recruitment and Periaxonal Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages accumulate around injured myelinated axons and can enter the periaxonal space. Human AMSAN autopsy establishes this localization, but the relative injurious versus debris-clearing role and timing remain uncertain.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Macrophage chemotaxis\"], \"role\": \"effector\"}}, {\"id\": \"Mechanical Ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Invasive ventilation is supportive therapy for respiratory failure. It does not modify the immune attack, so respiratory monitoring and timely airway planning remain essential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor and Sensory Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irreversible AMSAN injury is dominated by Wallerian-like degeneration and loss of motor and sensory fibers in ventral and dorsal roots and peripheral nerves. This acute pattern is not assumed to be length-dependent, and primary demyelination is not required.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Motor neuron\", \"Sensory neuron\"], \"role\": \"central_effector\"}}, {\"id\": \"Multidisciplinary Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rehabilitation should begin during hospitalization and continue after discharge as needed. Physical and occupational therapy, graded mobility and strengthening, positioning and contracture prevention, speech/swallow care, respiratory therapy, assistive devices, and psychosocial support are tailored to weakness, sensory loss, fatigue, pain, and bulbar or respiratory deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radicular, neuropathic, and musculoskeletal pain can occur during the acute illness and may persist into recovery.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Pain Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neuropathic, radicular, and nociceptive pain should be assessed repeatedly and treated while accounting for respiratory and autonomic vulnerability. The guideline weakly supports gabapentinoids, tricyclic antidepressants, or carbamazepine; drug choice and dose require individualized safety review.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tingling or other abnormal sensations can accompany weakness, often early in the illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is an established alternative first-line immune treatment for GBS. The guideline regimen is 12-15 L in four to five exchanges over one to two weeks, generally within four weeks of weakness onset when the patient cannot walk unaided. It is not routine rescue immediately after IVIG.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe motor weakness can involve respiratory muscles and require invasive ventilation even before prominent dyspnea is reported.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002747\"}}, {\"id\": \"Reversible Nodal Conduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune disruption of nodal and paranodal excitability can transiently block conduction without the temporal dispersion expected from remyelination and without established Wallerian degeneration. Serial studies are required to distinguish recovery of nodal function from fixed axonal loss.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Motor neuron\"], \"biological_processes\": [\"Transmission of nerve impulse\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"model_type\": \"OTHER\", \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}]}}, {\"id\": \"Sensory Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Objective sensory loss and abnormal sensory responses reflect involvement of sensory roots and peripheral sensory axons.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000763\"}}], \"edges\": [{\"source\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"target\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LOS-ganglioside mimicry elicits IgG that cross-reacts with neural gangliosides.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-Reactive Anti-Ganglioside IgG Response\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating anti-ganglioside IgG binds ganglioside-rich vulnerable sites on peripheral axons and motor nerve terminals.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"target\": \"Classical Complement Activation at Axonal Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon-bound IgG recruits C1q and initiates the classical complement pathway.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-mediated nodal membrane dysfunction can block conduction before irreversible axonal loss occurs.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Nodal and paranodal membrane disruption\", \"Terminal complement complex formation and calcium influx\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Macrophage Recruitment and Periaxonal Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement products promote recruitment of macrophages and other immune cells to injured neural membranes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Complement-fragment signaling and opsonization\"]}, {\"source\": \"Classical Complement Activation at Axonal Membranes\", \"target\": \"Motor and Sensory Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent complement-mediated membrane injury can cross the threshold from reversible dysfunction to irreversible axonal degeneration.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Terminal complement complex formation\", \"Calcium influx\", \"Calpain and caspase activation\"]}, {\"source\": \"Reversible Nodal Conduction Failure\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of motor-axon conduction reduces the evoked compound muscle action potential even when the axon has not yet degenerated.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Compound Muscle Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning motor axons reduces or abolishes compound muscle action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Decreased Sensory Nerve Action Potential Amplitude\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functioning sensory axons reduces or abolishes sensory nerve action potential amplitudes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Limb Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-axon loss reduces muscle activation and produces acute flaccid limb weakness.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of peripheral motor and sensory limbs of the reflex arc reduces or abolishes tendon reflexes.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Motor and sensory reflex-arc failure\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dorsal-root and sensory-nerve axonal loss produces objective sensory dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured sensory fibers can generate tingling and other abnormal sensations.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Abnormal sensory-axon signaling\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory-fiber and root injury can produce neuropathic, radicular, and musculoskeletal pain.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sensory-fiber injury and radicular inflammation\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe cranial motor-nerve involvement can impair swallowing.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bulbar motor-nerve dysfunction\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe motor-axon dysfunction can weaken respiratory muscles and require ventilatory support.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Respiratory motor-axon and muscle weakness\"]}, {\"source\": \"Motor and Sensory Axonal Degeneration\", \"target\": \"Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Involvement of autonomic peripheral fibers can produce cardiovascular, gastrointestinal, and bladder dysfunction.\", \"hypothesis_groups\": [\"antiganglioside_complement_axonal_injury\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autonomic peripheral-nerve dysfunction\"]}, {\"source\": \"Campylobacter jejuni infection\", \"target\": \"Campylobacter LOS-Ganglioside Molecular Mimicry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Antecedent enteritis supplies the sialylated lipooligosaccharide this node is built around, with the anti-GM1 and anti-GD1a response as the named intervening step. Both evidence items keep the partial grade this entry already assigned them, because neither isolates an effect size for this axonal subtype as opposed to the syndrome at large.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical Ventilation\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Limb Weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Sensory Neuropathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary Rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pain Management\", \"target\": \"Pain\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Ganglioside Antibody Binding at Nodal and Axolemmal Membranes\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Anti-GD1a antibody deposition on presynaptic motor axons.\"}, {\"source\": \"Anti-GD1a/complement ex vivo motor nerve-terminal injury model\", \"target\": \"Reversible Nodal Conduction Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Complement-dependent blockade of motor nerve-terminal function.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6361,14 +6706,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6388,6 +6740,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6429,14 +6782,23 @@
                         Limb Weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb muscle weakness
+
+                        <span class="phenotype-term-label">Limb muscle weakness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb muscle weakness (HP:0003690), qualified as course progressive. HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6474,6 +6836,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6515,14 +6878,23 @@
                         Respiratory Insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency due to muscle weakness
+
+                        <span class="phenotype-term-label">Respiratory insufficiency due to muscle weakness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002747</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6542,6 +6914,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6583,14 +6956,21 @@
                         Areflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Areflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001284">HP:0001284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6610,6 +6990,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6642,14 +7023,21 @@
                         Sensory Neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensory neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000763">HP:0000763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6669,6 +7057,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6701,14 +7090,21 @@
                         Paresthesia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6728,6 +7124,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6760,14 +7157,23 @@
                         Autonomic Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the autonomic nervous system
+
+                        <span class="phenotype-term-label">Abnormality of the autonomic nervous system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002270">HP:0002270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the autonomic nervous system (HP:0002270). HP:0002270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6787,6 +7193,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6828,14 +7235,21 @@
                         Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012531</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6855,6 +7269,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39687605" target="_blank">PMID:39687605</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6896,14 +7311,21 @@
                         Decreased Compound Muscle Action Potential Amplitude
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased compound muscle action potential amplitude
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033383" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033383">HP:0033383</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0033383</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased compound muscle action potential amplitude (HP:0033383). HP:0033383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6923,6 +7345,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12625" target="_blank">DOI:10.1111/jns.12625</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6955,14 +7378,23 @@
                         Decreased Sensory Nerve Action Potential Amplitude
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased amplitude of sensory action potentials
+
+                        <span class="phenotype-term-label">Decreased amplitude of sensory action potentials</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007078" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007078">HP:0007078</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007078" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007078</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased amplitude of sensory action potentials (HP:0007078). HP:0007078 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6982,6 +7414,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12625" target="_blank">DOI:10.1111/jns.12625</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7045,6 +7478,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7062,7 +7498,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Intravenous Immunoglobulin Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Intravenous Immunoglobulin Therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Intravenous Immunoglobulin Therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7092,16 +7533,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         Human immunoglobulin G
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80829" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80829">NCIT:C80829</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80829" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C80829</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Human immunoglobulin G (NCIT:C80829). NCIT:C80829 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7115,16 +7561,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7143,6 +7594,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7175,7 +7627,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Plasmapheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7211,16 +7668,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7239,6 +7701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7271,7 +7734,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pulmonary function testing</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pulmonary function testing<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pulmonary function testing, annotated with Pulmonary Function Test (NCIT:C38081). NCIT:C38081 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pulmonary Function Test</span>
 
 
@@ -7320,6 +7788,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7341,6 +7810,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7373,7 +7843,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Artificial respiration</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
@@ -7410,16 +7885,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency due to muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002747</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7438,6 +7918,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1007/s12028-023-01707-3" target="_blank">DOI:10.1007/s12028-023-01707-3</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7470,7 +7951,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7506,17 +7992,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensory neuropathy
@@ -7524,11 +8017,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000763">HP:0000763</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000763</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensory neuropathy (HP:0000763). HP:0000763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dysphagia
@@ -7536,10 +8034,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7558,6 +8059,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31541214" target="_blank">PMID:31541214</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7590,7 +8092,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pain management</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pain management<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pain management, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7627,16 +8134,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012531</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7655,6 +8167,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7696,6 +8209,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Antecedent C. jejuni enteritis is the best-defined trigger for the ganglioside-mimicry mechanism and is associated with motor and axonal GBS patterns. GBS-wide risk estimates must not be read as AMSAN-specific risk.</div>
 
 
@@ -7711,6 +8228,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7734,6 +8252,7 @@
                         <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7756,10 +8275,90 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Campylobacter LOS-Ganglioside Molecular Mimicry</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Antecedent enteritis supplies the sialylated lipooligosaccharide this node is built around, with the anti-GM1 and anti-GD1a response as the named intervening step. Both evidence items keep the partial grade this entry already assigned them, because neither isolates an effect size for this axonal subtype as opposed to the syndrome at large.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41572-024-00580-4" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients with C. jejuni infection have anti-GM1 and anti-GD1a antibodies and are susceptible to developing motor and axonal forms of GBS"</div>
+
+
+                <div class="evidence-explanation">Connects the antecedent infection to anti-GM1 and anti-GD1a antibodies and to motor and axonal forms, which is this node&#39;s mimicry route.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/ana.410390105" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ana.410390105" target="_blank">DOI:10.1002/ana.410390105</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"High titers of antibodies recognizing C. jejuni, consistent with recent infection, were found in the 2 patients tested."</div>
+
+
+                <div class="evidence-explanation">Autopsy-confirmed cases of this subtype carried serology for recent C. jejuni infection, though only two selected fatal cases were tested.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sars-cov-2-infection" data-dismech-node="SARS-CoV-2 infection" data-dismech-type="environmental">
                 <div class="item-name">SARS-CoV-2 infection</div>
+
+
+
+
 
 
 
@@ -7778,6 +8377,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fneur.2023.1227505" target="_blank">DOI:10.3389/fneur.2023.1227505</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7841,6 +8441,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7862,6 +8463,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7912,6 +8514,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10526194" target="_blank">PMID:10526194</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7961,6 +8564,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -8001,7 +8605,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-motor-axonal-neuropathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute Motor Axonal Neuropathy</span>
@@ -8049,6 +8653,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8074,7 +8679,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-inflammatory-demyelinating-polyradiculoneuropathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Acute Inflammatory Demyelinating Polyradiculoneuropathy</span>
@@ -8122,6 +8727,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22480600" target="_blank">PMID:22480600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8147,7 +8753,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-onset-chronic-inflammatory-demyelinating-polyradiculoneuropathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Chronic_Inflammatory_Demyelinating_Polyneuropathy.html">Acute-Onset Chronic Inflammatory Demyelinating Polyradiculoneuropathy</a>
@@ -8194,6 +8800,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37814552" target="_blank">PMID:37814552</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8219,7 +8826,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-critical-illness-polyneuropathy-or-myopathy">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Critical Illness Polyneuropathy or Myopathy</span>
@@ -8267,6 +8874,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8292,7 +8900,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acute-porphyria">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Acute_Intermittent_Porphyria.html">Acute Porphyria</a>
@@ -8339,6 +8947,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8364,7 +8973,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-transverse-myelitis-or-other-spinal-cord-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Transverse_Myelitis.html">Transverse Myelitis or Other Spinal Cord Disease</a>
@@ -8411,6 +9020,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8436,7 +9046,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-botulism">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Botulism.html">Botulism</a>
@@ -8483,6 +9093,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8508,7 +9119,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thiamine-deficiency-neuropathy">
                 <div class="item-name">
 
                     Thiamine Deficiency Neuropathy
@@ -8549,6 +9160,7 @@
                         <a href="https://bioregistry.io/DOI:10.1038/s41572-024-00580-4" target="_blank">DOI:10.1038/s41572-024-00580-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8587,7 +9199,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04752566">
                 <div class="item-name">
                     NCT04752566
 
@@ -8604,16 +9216,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8631,6 +9248,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04752566" target="_blank">clinicaltrials:NCT04752566</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8653,6 +9271,7 @@
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/jns.12646" target="_blank">DOI:10.1111/jns.12646</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8677,7 +9296,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04701164">
                 <div class="item-name">
                     NCT04701164
 
@@ -8694,16 +9313,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8721,6 +9345,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT04701164" target="_blank">clinicaltrials:NCT04701164</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8745,7 +9370,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07020819">
                 <div class="item-name">
                     NCT07020819
 
@@ -8762,16 +9387,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8789,6 +9419,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07020819" target="_blank">clinicaltrials:NCT07020819</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8849,26 +9480,36 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Motor neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         Schwann cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002573">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0002573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8878,15 +9519,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             House mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-49">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-49">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in House mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8914,14 +9560,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-ganglioside-antibody-binding-at-nodal-and-axolemmal-membranes">Ganglioside Antibody Binding at Nodal and Axolemmal Membranes</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Anti-GD1a antibody deposition on presynaptic motor axons.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-ganglioside-antibody-binding-at-nodal-and-axolemmal-membranes">Ganglioside Antibody Binding at Nodal and Axolemmal Membranes</a>
+
+
+
+                <span class="crosslink-desc">Anti-GD1a antibody deposition on presynaptic motor axons.</span>
+
+
 
 
 
@@ -8936,6 +9587,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8958,12 +9610,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-reversible-nodal-conduction-failure">Reversible Nodal Conduction Failure</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-reversible-nodal-conduction-failure">Reversible Nodal Conduction Failure</a>
 
-                            <span class="crosslink-desc">Complement-dependent blockade of motor nerve-terminal function.</span>
+
+
+                <span class="crosslink-desc">Complement-dependent blockade of motor nerve-terminal function.</span>
+
+
 
 
 
@@ -8978,6 +9634,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9000,10 +9657,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9040,6 +9698,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15716397" target="_blank">PMID:15716397</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9051,6 +9710,255 @@
 
 
                 <div class="evidence-explanation">The model recapitulates complement-dependent motor-terminal injury but not combined motor-sensory AMSAN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-oryctolagus-cuniculus" data-dismech-node="Oryctolagus cuniculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Oryctolagus cuniculus
+
+                    <span class="tag tag-exp-model-type">Active-immunization axonal GBS model</span>
+
+                </div>
+
+                <div class="item-desc">Rabbits sensitized with bovine brain ganglioside mixture or purified GM1 developed anti-GM1 IgG, acute monophasic flaccid weakness, and Wallerian-like peripheral-nerve degeneration without lymphocytic infiltration or demyelination. This models motor-predominant axonal GBS and does not validate sensory-inclusive AMSAN.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Acute flaccid limb weakness</span>
+
+                    <span class="tag tag-phenotype">Wallerian-like peripheral axonal degeneration</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Oryctolagus cuniculus</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11409422" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11409422" target="_blank">PMID:11409422</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathological findings for the peripheral nerves showed predominant Wallerian-like degeneration, with neither lymphocytic infiltration nor demyelination."</div>
+
+
+                <div class="evidence-explanation">The rabbit model reproduces acute axonal injury but does not demonstrate sensory-axon disease equivalent to AMSAN.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-oryctolagus-cuniculus" data-dismech-node="Oryctolagus cuniculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Oryctolagus cuniculus
+
+                    <span class="tag tag-exp-model-type">Campylobacter LOS molecular-mimicry model</span>
+
+                </div>
+
+                <div class="item-desc">Rabbits immunized with ganglioside-mimicking C. jejuni LOS developed anti-GM1 IgG, flaccid weakness, and GBS-like peripheral-nerve pathology. This provides causal molecular-mimicry evidence but is not a validated AMSAN model.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Acute flaccid limb weakness</span>
+
+                    <span class="tag tag-phenotype">Peripheral nerve injury</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Oryctolagus cuniculus</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15277677" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15277677" target="_blank">PMID:15277677</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On sensitization with C. jejuni lipooligosaccharide, rabbits developed anti-GM1 IgG antibody and flaccid limb weakness."</div>
+
+
+                <div class="evidence-explanation">The experiment directly links LOS mimicry to antibody and weakness, with motor-predominant rather than AMSAN fidelity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-neuron-restricted-complex-ganglioside-expression-mus-musculus" data-dismech-node="Neuron-restricted complex ganglioside expression Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Neuron-restricted complex ganglioside expression Mus musculus
+
+                    <span class="tag tag-exp-model-type">Anti-GM1 complement-mediated AMAN model</span>
+
+                </div>
+
+                <div class="item-desc">A transgenic mouse system restricts complex ganglioside expression to neurons, permitting anti-GM1 targeting of axons. Anti-C1q treatment reduces complement deposition, immune-cell recruitment, axonal injury, and respiratory dysfunction. The model is explicitly AMAN and omits the sensory injury that defines AMSAN.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Motor axonal injury</span>
+
+                    <span class="tag tag-phenotype">Respiratory dysfunction</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Neuron-restricted complex ganglioside expression</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26936605" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26936605" target="_blank">PMID:26936605</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anti-C1q monoclonal antibody treatment attenuated complement cascade activation and deposition, reduced immune cell recruitment and axonal injury"</div>
+
+
+                <div class="evidence-explanation">The model gives causal complement evidence but is motor-only and therefore an incomplete proxy for AMSAN.</div>
 
 
 
@@ -9082,7 +9990,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Motor and Sensory Axonal Neuropathy
 creation_date: &#34;2026-05-07T23:29:25Z&#34;
-updated_date: &#34;2026-07-18T00:35:23Z&#34;
 categories:
 - Autoimmune Disease
 - Peripheral Neuropathy
@@ -10090,6 +10997,33 @@ biochemical:
 
 environmental:
 - name: Campylobacter jejuni infection
+  influences_mechanisms:
+  - target: Campylobacter LOS-Ganglioside Molecular Mimicry
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Antecedent enteritis supplies the sialylated lipooligosaccharide this
+      node is built around, with the anti-GM1 and anti-GD1a response as the
+      named intervening step. Both evidence items keep the partial grade this
+      entry already assigned them, because neither isolates an effect size for
+      this axonal subtype as opposed to the syndrome at large.
+    evidence:
+    - reference: DOI:10.1038/s41572-024-00580-4
+      reference_title: &#34;Guillain–Barré syndrome&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;patients with C. jejuni infection have anti-GM1 and anti-GD1a antibodies and are susceptible to developing motor and axonal forms of GBS&#34;
+      explanation: &gt;-
+        Connects the antecedent infection to anti-GM1 and anti-GD1a antibodies
+        and to motor and axonal forms, which is this node&#39;s mimicry route.
+    - reference: DOI:10.1002/ana.410390105
+      reference_title: &#34;Pathology of the motor‐sensory axonal Guillain‐Barré syndrome&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;High titers of antibodies recognizing C. jejuni, consistent with recent infection, were found in the 2 patients tested.&#34;
+      explanation: &gt;-
+        Autopsy-confirmed cases of this subtype carried serology for recent C.
+        jejuni infection, though only two selected fatal cases were tested.
   presence: Established antecedent for an axonal GBS subset
   description: &gt;-
     Antecedent C. jejuni enteritis is the best-defined trigger for the
@@ -12636,7 +13570,7 @@ Anti-ganglioside antibodies support axonal subtype classification (anti-GM1/anti
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Motor and Sensory Axonal Neuropathy", "mondoId": "MONDO:0020348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Motor_and_Sensory_Axonal_Neuropathy", "yamlRevision": "909684aa1f13"};
+        const OS_CONFIG = {"diseaseName": "Acute Motor and Sensory Axonal Neuropathy", "mondoId": "MONDO:0020348", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Motor_and_Sensory_Axonal_Neuropathy", "yamlRevision": "44f7002d5a26"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13055,5 +13989,73 @@ Anti-ganglioside antibodies support axonal subtype classification (anti-GM1/anti
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -16,6 +16,7 @@ Prefix                  Resolver
 ``bioproject``          NCBI E-utilities ``bioproject`` (PRJNA/PRJEB/PRJDB)
 ``dbgap``               NCBI E-utilities ``gap`` (phs######)
 ``arrayexpress``        EBI BioStudies (E-MTAB-####, E-GEOD-####)
+``scea``                EBI Single Cell Expression Atlas (E-####-####)
 ``pride``               EBI PRIDE (PXD######)
 ``metabolights``        EBI MetaboLights (MTBLS###)
 ``ega``                 EGA metadata API (EGAS/EGAD########)
@@ -51,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import html
 import json
 import re
 import sys
@@ -113,6 +115,7 @@ SHAPE = {
     "bioproject": re.compile(r"^PRJ(NA|EB|DB)\d+$", re.IGNORECASE),
     "dbgap": re.compile(r"^phs\d+(\.v\d+)?(\.p\d+)?$", re.IGNORECASE),
     "arrayexpress": re.compile(r"^E-[A-Z]+-\d+$", re.IGNORECASE),
+    "scea": re.compile(r"^E-[A-Z]+-\d+$", re.IGNORECASE),
     "pride": re.compile(r"^PXD\d+$", re.IGNORECASE),
     "metabolights": re.compile(r"^MTBLS\d+$", re.IGNORECASE),
     "ega": re.compile(r"^EGA[SD]\d+$", re.IGNORECASE),
@@ -184,6 +187,31 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
+            last_err = exc
+            time.sleep(1.5 * (attempt + 1))
+        except Exception as exc:
+            last_err = exc
+            time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError(f"request failed after {retries} attempts: {url} ({last_err})")
+
+
+def http_text(
+    url: str, throttle: Throttle | None = None, retries: int = 3
+) -> str | None:
+    """Fetch a text page, returning ``None`` for a definitive 404."""
+    last_err: Exception | None = None
+    for attempt in range(retries):
+        if throttle:
+            throttle.wait()
+        req = urllib.request.Request(
+            url, headers={"User-Agent": USER_AGENT, "Accept": "text/html"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                return resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 return None
@@ -292,6 +320,29 @@ def resolve_arrayexpress(local_id: str, throttle: Throttle, api_key: str | None)
     return OK, title, "", {}
 
 
+def resolve_scea(local_id: str, throttle: Throttle, api_key: str | None):
+    page = http_text(
+        "https://www.ebi.ac.uk/gxa/sc/experiments/" + urllib.parse.quote(local_id),
+        throttle,
+    )
+    if page is None:
+        return (
+            NOT_FOUND,
+            "",
+            f"no Single Cell Expression Atlas experiment {local_id}",
+            {},
+        )
+    match = re.search(
+        r'<h3\s+id=["\']goto-experiment["\']>(.*?)</h3>',
+        page,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    title = (
+        html.unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip() if match else ""
+    )
+    return OK, title, "", {}
+
+
 def resolve_pride(local_id: str, throttle: Throttle, api_key: str | None):
     data = http_json(
         f"https://www.ebi.ac.uk/pride/ws/archive/v2/projects/{urllib.parse.quote(local_id)}"
@@ -386,6 +437,7 @@ RESOLVERS = {
     "bioproject": resolve_bioproject,
     "dbgap": resolve_dbgap,
     "arrayexpress": resolve_arrayexpress,
+    "scea": resolve_scea,
     "pride": resolve_pride,
     "metabolights": resolve_metabolights,
     "ega": resolve_ega,

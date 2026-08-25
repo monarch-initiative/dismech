@@ -1,0 +1,13 @@
+| Feature | Hemophilia A | Hemophilia B |
+|---|---|---|
+| Causal gene / protein | **F8** / factor VIII deficiency (pqac-00000000, pqac-00000003) | **F9** / factor IX deficiency (pqac-00000001, pqac-00000003) |
+| Inheritance | X-linked recessive inherited bleeding disorder (pqac-00000021, pqac-00000024) | X-linked recessive inherited bleeding disorder (pqac-00000001, pqac-00000004) |
+| Severity thresholds (shared) | Severe **<1%**, moderate **1–5%**, mild **>5–40%** factor activity (pqac-00000003, pqac-00000021) | Severe **<1%**, moderate **1–5%**, mild **>5–40%** factor activity (pqac-00000003, pqac-00000021) |
+| Approximate prevalence / incidence | Prevalence about **1 per 10,000** overall; incidence about **1:5,000 male births** (pqac-00000002, pqac-00000004) | Prevalence about **1 per 60,000** overall; incidence about **1:30,000 male births** (pqac-00000002, pqac-00000004) |
+| Common variant classes | Intron 22 inversion is the major severe-HA lesion (~45% of severe cases); also intron 1 inversion, missense, nonsense, frameshift, deletions/insertions (pqac-00000020, pqac-00000021, pqac-00000023) | Missense variants predominate; also nonsense, frameshift, deletions, deletion-insertions (pqac-00000001, pqac-00000005, pqac-00000006) |
+| Inhibitor frequency | About **20–30%** alloantibody/inhibitor prevalence, especially in severe HA (pqac-00000004) | About **3–10%** overall in reviews; **6.1%** in one 2024 Chinese real-world cohort (pqac-00000004, pqac-00000001) |
+| Principal current prophylaxis | Prophylaxis is standard of care; options include standard/extended half-life FVIII and subcutaneous emicizumab for HA (pqac-00000009, pqac-00000008) | Prophylaxis is standard of care; options include standard/extended half-life FIX replacement (pqac-00000009, pqac-00000008) |
+| Licensed gene therapy and key phase 3 outcome | **Valoctocogene roxaparvovec (Roctavian/BMN 270)**; phase 3 GENEr8-1 in **134** adults: FVIII activity rose by mean **41.9 U/dL** at weeks 49–52, annualized bleeding rate fell **84.5%** through 104 weeks, FVIII use fell **98.6%**, mean FVIII **18.2 U/dL** at month 36 (pqac-00000030, pqac-00000031) | **Etranacogene dezaparvovec (Hemgenix/AMT-061)**; phase 3 HOPE-B in **54** adults: mean FIX activity change **34.3 percentage points** at 18 months, **96%** stopped FIX prophylaxis in one review, and ~**94%** remained off prophylaxis at 3 years with FIX ~**38.6 IU/dL** at year 3 (pqac-00000032, pqac-00000028, pqac-00000029) |
+
+
+*Table: This table contrasts the core knowledge-base facts for congenital hemophilia A and B using only previously gathered evidence. It summarizes genetics, severity, epidemiology, inhibitor risk, current prophylaxis, and the main licensed gene-therapy outcomes for quick reference.*

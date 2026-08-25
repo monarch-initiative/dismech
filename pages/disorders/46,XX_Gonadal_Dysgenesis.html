@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>46,XX Gonadal Dysgenesis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>46,XX Gonadal Dysgenesis</h1>
             <div class="header-meta">
 
@@ -3673,6 +3875,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3901,7 +4105,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-boundary-of-46-xx-gonadal-dysgenesis">
                 <div class="item-name">Clinical boundary of 46,XX gonadal dysgenesis</div>
 
                 <div class="item-desc">A primary ovarian developmental or gonadotropin-response disorder in a phenotypically female person with a 46,XX karyotype and hypergonadotropic ovarian failure. Ovarian morphology and clinical severity vary from follicles with arrested maturation and partial pubertal development to complete ovarian underdevelopment, streak gonads, absent puberty, and primary amenorrhea.</div>
@@ -3947,6 +4151,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3968,6 +4173,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4005,7 +4211,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4050,6 +4256,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25774885" target="_blank">PMID:25774885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4072,6 +4279,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25480036" target="_blank">PMID:25480036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4093,6 +4301,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566152" target="_blank">PMID:29566152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4117,7 +4326,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance-with-sex-limited-expression">
                 <div class="item-name">
                     X-linked inheritance with sex-limited expression
 
@@ -4161,6 +4370,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15136966" target="_blank">PMID:15136966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4251,7 +4461,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg1">
 
                     <div class="item-name">
                         Ovarian dysgenesis 1 (FSHR-related)
@@ -4265,16 +4475,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 FSHR
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3969</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FSHR (hgnc:3969). hgnc:3969 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4305,6 +4520,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4331,7 +4547,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg2">
 
                     <div class="item-name">
                         Ovarian dysgenesis 2 (BMP15-related)
@@ -4345,16 +4561,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 BMP15
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1068">hgnc:1068</a>
+    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1068</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in BMP15 (hgnc:1068). hgnc:1068 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4385,6 +4606,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15136966" target="_blank">PMID:15136966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4411,7 +4633,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg3">
 
                     <div class="item-name">
                         Ovarian dysgenesis 3 (PSMC3IP-related)
@@ -4425,16 +4647,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 PSMC3IP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:17928</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PSMC3IP (hgnc:17928). hgnc:17928 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4465,6 +4692,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4491,7 +4719,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg4">
 
                     <div class="item-name">
                         Ovarian dysgenesis 4 (MCM9-related)
@@ -4505,16 +4733,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MCM9
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21484">hgnc:21484</a>
+    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:21484</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MCM9 (hgnc:21484). hgnc:21484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4545,6 +4778,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25480036" target="_blank">PMID:25480036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4571,7 +4805,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg5">
 
                     <div class="item-name">
                         Ovarian dysgenesis 5 (SOHLH1-related)
@@ -4585,16 +4819,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 SOHLH1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27845">hgnc:27845</a>
+    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:27845</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SOHLH1 (hgnc:27845). hgnc:27845 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4625,6 +4864,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25774885" target="_blank">PMID:25774885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4651,7 +4891,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg6">
 
                     <div class="item-name">
                         Ovarian dysgenesis 6 (NUP107-related)
@@ -4665,16 +4905,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 NUP107
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:29914</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4705,6 +4950,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4731,7 +4977,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg7">
 
                     <div class="item-name">
                         Ovarian dysgenesis 7 (MRPS22-related)
@@ -4745,16 +4991,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MRPS22
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14508">hgnc:14508</a>
+    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:14508</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MRPS22 (hgnc:14508). hgnc:14508 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4785,6 +5036,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566152" target="_blank">PMID:29566152</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4811,7 +5063,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg8">
 
                     <div class="item-name">
                         Ovarian dysgenesis 8 (ESR2-related)
@@ -4825,16 +5077,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ESR2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3468">hgnc:3468</a>
+    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:3468</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ESR2 (hgnc:3468). hgnc:3468 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4865,6 +5122,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30113650" target="_blank">PMID:30113650</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -4891,7 +5149,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg9">
 
                     <div class="item-name">
                         Ovarian dysgenesis 9 (SPIDR-related)
@@ -4905,16 +5163,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 SPIDR
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28971">hgnc:28971</a>
+    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:28971</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SPIDR (hgnc:28971). hgnc:28971 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4945,6 +5208,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27967308" target="_blank">PMID:27967308</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4971,7 +5235,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg10">
 
                     <div class="item-name">
                         Ovarian dysgenesis 10 (ZSWIM7-related)
@@ -4985,16 +5249,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ZSWIM7
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26993">hgnc:26993</a>
+    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:26993</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ZSWIM7 (hgnc:26993). hgnc:26993 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -5025,6 +5294,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218660" target="_blank">PMID:35218660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5051,7 +5321,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-odg11">
 
                     <div class="item-name">
                         Ovarian dysgenesis 11 (HROB-related)
@@ -5065,16 +5335,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 HROB
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28460">hgnc:28460</a>
+    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:28460</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HROB (hgnc:28460). hgnc:28460 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -5104,6 +5379,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34707299" target="_blank">PMID:34707299</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5175,21 +5451,21 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Gonadal dysgenesis</span>
+    <a class="entity-ref-chip" href="#phenotype-gonadal-dysgenesis">phenotype#Gonadal dysgenesis</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Premature ovarian insufficiency</span>
+    <a class="entity-ref-chip" href="#phenotype-premature-ovarian-insufficiency">phenotype#Premature ovarian insufficiency</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">genetic#FSHR</span>
+    <a class="entity-ref-chip" href="#genetic-fshr">genetic#FSHR</a>
 
 
 
@@ -5216,6 +5492,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5268,14 +5545,14 @@
 
 
 
-    <span class="entity-ref-chip">genetic#ESR2</span>
+    <a class="entity-ref-chip" href="#genetic-esr2">genetic#ESR2</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">genetic#HROB</span>
+    <a class="entity-ref-chip" href="#genetic-hrob">genetic#HROB</a>
 
 
 
@@ -5303,6 +5580,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39529088" target="_blank">PMID:39529088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5324,6 +5602,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39529088" target="_blank">PMID:39529088</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5369,7 +5648,7 @@
 
 
 
-    <span class="entity-ref-chip">genetic#FSHR</span>
+    <a class="entity-ref-chip" href="#genetic-fshr">genetic#FSHR</a>
 
 
 
@@ -5383,7 +5662,7 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Fertility counseling and reproductive-endocrinology referral</span>
+    <a class="entity-ref-chip" href="#treatment-fertility-counseling-and-reproductive-endocrinology-referral">treatment#Fertility counseling and reproductive-endocrinology referral</a>
 
 
 
@@ -5410,6 +5689,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5455,21 +5735,21 @@
 
 
 
-    <span class="entity-ref-chip">treatment#Individualized estradiol pubertal induction and maintenance</span>
+    <a class="entity-ref-chip" href="#treatment-individualized-estradiol-pubertal-induction-and-maintenance">treatment#Individualized estradiol pubertal induction and maintenance</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Progestogen for endometrial protection when a uterus is present</span>
+    <a class="entity-ref-chip" href="#treatment-progestogen-for-endometrial-protection-when-a-uterus-is-present">treatment#Progestogen for endometrial protection when a uterus is present</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Reduced bone mineral density</span>
+    <a class="entity-ref-chip" href="#phenotype-reduced-bone-mineral-density">phenotype#Reduced bone mineral density</a>
 
 
 
@@ -5497,6 +5777,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39647506" target="_blank">PMID:39647506</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5518,6 +5799,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5563,16 +5845,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         granulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5599,15 +5886,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         FSHR
 
 
-    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:3969</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FSHR (hgnc:3969). hgnc:3969 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5635,16 +5929,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to follicle-stimulating hormone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032354">GO:0032354</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032354" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0032354</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased response to follicle-stimulating hormone (GO:0032354). GO:0032354 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5665,6 +5964,7 @@
 
 
                 </div>
+
 
 
 
@@ -5701,6 +6001,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5733,17 +6034,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000023</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oocyte (CL:0000023). CL:0000023 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5764,10 +6072,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5794,16 +6105,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BMP15
 
 
-    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1068">hgnc:1068</a>
+    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:1068</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BMP15 (hgnc:1068). hgnc:1068 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5831,10 +6153,13 @@
         ESR2
 
 
-    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3468">hgnc:3468</a>
+    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:3468</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ESR2 (hgnc:3468). hgnc:3468 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5862,16 +6187,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ovarian follicle development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001541">GO:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0001541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ovarian follicle development (GO:0001541). GO:0001541 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5880,6 +6210,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5897,10 +6229,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5920,16 +6255,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         estrogen receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030520">GO:0030520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased estrogen receptor signaling pathway (GO:0030520). GO:0030520 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5950,6 +6290,7 @@
 
 
                 </div>
+
 
 
 
@@ -5986,6 +6327,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15136966" target="_blank">PMID:15136966</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6007,6 +6349,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30113650" target="_blank">PMID:30113650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6040,16 +6383,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000023</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oocyte (CL:0000023). CL:0000023 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6076,15 +6424,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PSMC3IP
 
 
-    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:17928</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PSMC3IP (hgnc:17928). hgnc:17928 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6112,16 +6467,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         estrogen receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030520">GO:0030520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased estrogen receptor signaling pathway (GO:0030520). GO:0030520 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6142,6 +6502,7 @@
 
 
                 </div>
+
 
 
 
@@ -6178,6 +6539,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6210,16 +6572,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000023</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oocyte (CL:0000023). CL:0000023 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6246,16 +6613,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MCM9
 
 
-    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21484">hgnc:21484</a>
+    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:21484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MCM9 (hgnc:21484). hgnc:21484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6283,11 +6661,18 @@
         SPIDR
 
 
-    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28971">hgnc:28971</a>
+    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:28971</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPIDR (hgnc:28971). hgnc:28971 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6315,11 +6700,18 @@
         ZSWIM7
 
 
-    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26993">hgnc:26993</a>
+    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:26993</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZSWIM7 (hgnc:26993). hgnc:26993 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6347,10 +6739,13 @@
         HROB
 
 
-    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28460">hgnc:28460</a>
+    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:28460</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HROB (hgnc:28460). hgnc:28460 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6378,16 +6773,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         homologous recombination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035825" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035825">GO:0035825</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035825" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0035825</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased homologous recombination (GO:0035825). GO:0035825 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6407,16 +6807,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         meiotic cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051321" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051321">GO:0051321</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051321" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0051321</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased meiotic cell cycle (GO:0051321). GO:0051321 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6437,6 +6842,7 @@
 
 
                 </div>
+
 
 
 
@@ -6473,6 +6879,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25480036" target="_blank">PMID:25480036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6495,6 +6902,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27967308" target="_blank">PMID:27967308</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6516,6 +6924,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34402903" target="_blank">PMID:34402903</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6551,16 +6960,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000023</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oocyte (CL:0000023). CL:0000023 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6587,16 +7001,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SOHLH1
 
 
-    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27845">hgnc:27845</a>
+    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:27845</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SOHLH1 (hgnc:27845). hgnc:27845 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6624,11 +7049,18 @@
         NUP107
 
 
-    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:29914</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6656,10 +7088,13 @@
         MRPS22
 
 
-    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14508">hgnc:14508</a>
+    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:14508</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MRPS22 (hgnc:14508). hgnc:14508 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6687,16 +7122,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         germ cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007281">GO:0007281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0007281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased germ cell development (GO:0007281). GO:0007281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6705,6 +7145,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -6722,10 +7164,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006913">GO:0006913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0006913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nucleocytoplasmic transport (GO:0006913). GO:0006913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6745,16 +7190,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032543">GO:0032543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0032543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial translation (GO:0032543). GO:0032543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6775,6 +7225,7 @@
 
 
                 </div>
+
 
 
 
@@ -6811,6 +7262,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25774885" target="_blank">PMID:25774885</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6833,6 +7285,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6854,6 +7307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566152" target="_blank">PMID:29566152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6887,16 +7341,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         granulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6923,16 +7382,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ovarian follicle development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001541">GO:0001541</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001541" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0001541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ovarian follicle development (GO:0001541). GO:0001541 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6953,6 +7417,7 @@
 
 
                 </div>
+
 
 
 
@@ -6989,6 +7454,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7021,16 +7487,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000023">CL:0000023</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000023" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000023</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oocyte (CL:0000023). CL:0000023 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7057,16 +7528,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         germ cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007281">GO:0007281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0007281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased germ cell development (GO:0007281). GO:0007281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7087,6 +7563,7 @@
 
 
                 </div>
+
 
 
 
@@ -7131,6 +7608,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -7158,6 +7636,7 @@
                 <div class="item-name">Primary Ovarian Failure</div>
 
                 <div class="item-desc">Follicle depletion, follicular arrest, or gonadotropin resistance converges on loss of normal ovarian endocrine and reproductive function. Ovaries can be streak-like, hypoplastic, nonvisualized, or structurally present with residual follicles.</div>
+
 
 
 
@@ -7219,6 +7698,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7240,6 +7720,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7273,16 +7754,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         granulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7309,16 +7795,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         estrogen biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006703">GO:0006703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0006703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7339,6 +7830,7 @@
 
 
                 </div>
+
 
 
 
@@ -7415,6 +7907,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7454,16 +7947,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7484,6 +7982,7 @@
 
 
                 </div>
+
 
 
 
@@ -7520,6 +8019,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7541,6 +8041,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7633,14 +8134,21 @@
                         Hypergonadotropic hypogonadism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypergonadotropic hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000815</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7660,6 +8168,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7682,6 +8191,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7714,14 +8224,21 @@
                         Delayed puberty
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7741,6 +8258,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7763,6 +8281,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7804,14 +8323,21 @@
                         Gonadal dysgenesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gonadal dysgenesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000133">HP:0000133</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gonadal dysgenesis (HP:0000133). HP:0000133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7831,6 +8357,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7863,14 +8390,21 @@
                         Premature ovarian insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Premature ovarian insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008209">HP:0008209</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008209" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008209</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:0008209 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7890,6 +8424,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566152" target="_blank">PMID:29566152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7922,14 +8457,21 @@
                         Primary amenorrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary amenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000786">HP:0000786</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000786</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7949,6 +8491,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7981,14 +8524,21 @@
                         Secondary amenorrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Secondary amenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000869" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000869">HP:0000869</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000869" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000869</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Secondary amenorrhea (HP:0000869). HP:0000869 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8008,6 +8558,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8855829" target="_blank">PMID:8855829</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8040,14 +8591,21 @@
                         Female infertility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Female infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0008222</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8067,6 +8625,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39647506" target="_blank">PMID:39647506</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8108,14 +8667,21 @@
                         Reduced bone mineral density
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8135,6 +8701,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30113650" target="_blank">PMID:30113650</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8157,6 +8724,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24905063" target="_blank">PMID:24905063</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8198,14 +8766,21 @@
                         Hypoplasia of the uterus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the uterus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000013">HP:0000013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the uterus (HP:0000013). HP:0000013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8225,6 +8800,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8303,13 +8879,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FSHR
 
 
-    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3969">hgnc:3969</a>
+    <a href="https://bioregistry.io/hgnc:3969" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:3969</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FSHR (hgnc:3969). hgnc:3969 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8334,6 +8915,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7553856" target="_blank">PMID:7553856</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8371,13 +8953,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BMP15
 
 
-    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1068">hgnc:1068</a>
+    <a href="https://bioregistry.io/hgnc:1068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:1068</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BMP15 (hgnc:1068). hgnc:1068 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8402,6 +8989,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15136966" target="_blank">PMID:15136966</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8439,13 +9027,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PSMC3IP
 
 
-    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17928">hgnc:17928</a>
+    <a href="https://bioregistry.io/hgnc:17928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:17928</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PSMC3IP (hgnc:17928). hgnc:17928 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8470,6 +9063,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21963259" target="_blank">PMID:21963259</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8507,13 +9101,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MCM9
 
 
-    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21484">hgnc:21484</a>
+    <a href="https://bioregistry.io/hgnc:21484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:21484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MCM9 (hgnc:21484). hgnc:21484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8538,6 +9137,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25480036" target="_blank">PMID:25480036</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8575,13 +9175,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOHLH1
 
 
-    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27845">hgnc:27845</a>
+    <a href="https://bioregistry.io/hgnc:27845" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:27845</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOHLH1 (hgnc:27845). hgnc:27845 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8606,6 +9211,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25774885" target="_blank">PMID:25774885</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8643,13 +9249,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NUP107
 
 
-    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29914">hgnc:29914</a>
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:29914</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8674,6 +9285,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26485283" target="_blank">PMID:26485283</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8711,13 +9323,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MRPS22
 
 
-    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14508">hgnc:14508</a>
+    <a href="https://bioregistry.io/hgnc:14508" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:14508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MRPS22 (hgnc:14508). hgnc:14508 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8742,6 +9359,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29566152" target="_blank">PMID:29566152</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8779,13 +9397,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ESR2
 
 
-    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3468">hgnc:3468</a>
+    <a href="https://bioregistry.io/hgnc:3468" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:3468</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ESR2 (hgnc:3468). hgnc:3468 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8808,6 +9431,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30113650" target="_blank">PMID:30113650</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8845,13 +9469,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPIDR
 
 
-    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28971">hgnc:28971</a>
+    <a href="https://bioregistry.io/hgnc:28971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:28971</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPIDR (hgnc:28971). hgnc:28971 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8874,6 +9503,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27967308" target="_blank">PMID:27967308</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -8911,13 +9541,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZSWIM7
 
 
-    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26993">hgnc:26993</a>
+    <a href="https://bioregistry.io/hgnc:26993" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:26993</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZSWIM7 (hgnc:26993). hgnc:26993 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8942,6 +9577,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35218660" target="_blank">PMID:35218660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8979,13 +9615,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HROB
 
 
-    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28460">hgnc:28460</a>
+    <a href="https://bioregistry.io/hgnc:28460" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:28460</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HROB (hgnc:28460). hgnc:28460 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9009,6 +9650,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34707299" target="_blank">PMID:34707299</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9030,6 +9672,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38105698" target="_blank">PMID:38105698</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9061,6 +9704,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9078,7 +9724,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">sex hormone modifying agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">sex hormone modifying agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is sex hormone modifying agent therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
@@ -9109,16 +9760,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         17beta-estradiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16469" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16469">CHEBI:16469</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16469" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-67">CHEBI:16469</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses 17beta-estradiol (CHEBI:16469). CHEBI:16469 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9153,6 +9809,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9182,17 +9839,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed puberty
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced bone mineral density
@@ -9200,10 +9864,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0004349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9222,6 +9889,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9245,6 +9913,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9266,6 +9935,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24905063" target="_blank">PMID:24905063</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9298,7 +9968,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">sex hormone modifying agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">sex hormone modifying agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is sex hormone modifying agent therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
@@ -9329,16 +10004,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         progesterone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17026" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17026">CHEBI:17026</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17026" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-71">CHEBI:17026</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses progesterone (CHEBI:17026). CHEBI:17026 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9363,6 +10043,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9395,7 +10076,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Dual-energy X-ray absorptiometry procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-72">Dual-energy X-ray absorptiometry procedure<span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Dual-energy X-ray absorptiometry procedure, annotated with Dual X-ray Absorptiometry (NCIT:C48789). NCIT:C48789 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dual X-ray Absorptiometry</span>
 
 
@@ -9444,6 +10130,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9465,6 +10152,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39647506" target="_blank">PMID:39647506</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9497,7 +10185,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -9546,6 +10239,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -9577,7 +10271,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -9626,6 +10325,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9647,6 +10347,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9679,7 +10380,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -9728,6 +10434,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24945456" target="_blank">PMID:24945456</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9749,6 +10456,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35353710" target="_blank">PMID:35353710</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9836,6 +10544,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9875,6 +10584,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9947,6 +10657,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9986,6 +10697,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39647506" target="_blank">PMID:39647506</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10027,15 +10739,14 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-turner-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Turner syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Turner_Syndrome.html">Turner syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0019499" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0019499" target="_blank">
                             MONDO:0019499
                         </a>
                     </span>
@@ -10070,6 +10781,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33101191" target="_blank">PMID:33101191</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10095,7 +10807,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-46-xy-complete-gonadal-dysgenesis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="46,XY_complete_gonadal_dysgenesis.html">46,XY complete gonadal dysgenesis</a>
@@ -10137,6 +10849,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35720238" target="_blank">PMID:35720238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10162,7 +10875,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mayer-rokitansky-kuster-hauser-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Mayer-Rokitansky-Kuster-Hauser syndrome</span>
@@ -10205,6 +10918,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31809259" target="_blank">PMID:31809259</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10230,7 +10944,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hypogonadotropic-hypogonadism">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Hypogonadotropic hypogonadism</span>
@@ -10273,6 +10987,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36300209" target="_blank">PMID:36300209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10298,15 +11013,14 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-perrault-syndrome">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Perrault syndrome</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Perrault_Syndrome.html">Perrault syndrome</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0017312" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0017312" target="_blank">
                             MONDO:0017312
                         </a>
                     </span>
@@ -10341,6 +11055,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32423379" target="_blank">PMID:32423379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10366,7 +11081,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nr5a1-related-sex-development-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="NR5A1-related_sex_development_disorder.html">NR5A1-related sex development disorder</a>
@@ -10408,6 +11123,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19246354" target="_blank">PMID:19246354</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10433,7 +11149,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fmr1-associated-primary-ovarian-insufficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Fragile_X-Associated_Primary_Ovarian_Insufficiency.html">FMR1-associated primary ovarian insufficiency</a>
@@ -10475,6 +11191,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10500,7 +11217,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-blepharophimosis-ptosis-and-epicanthus-inversus-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Blepharophimosis,_Ptosis,_and_Epicanthus_Inversus_Syndrome.html">Blepharophimosis, ptosis, and epicanthus inversus syndrome</a>
@@ -10542,6 +11259,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301614" target="_blank">PMID:20301614</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10577,6 +11295,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -10593,7 +11314,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: 46,XX Gonadal Dysgenesis
 creation_date: &#34;2026-04-14T05:40:11Z&#34;
-updated_date: &#34;2026-07-15T12:43:58Z&#34;
 category: Mendelian
 description: &gt;-
   46,XX gonadal dysgenesis is a genetically heterogeneous primary ovarian
@@ -14827,7 +15547,7 @@ amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "46,XX Gonadal Dysgenesis", "mondoId": "MONDO:0009299", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XX_Gonadal_Dysgenesis", "yamlRevision": "fb50e9938ac7"};
+        const OS_CONFIG = {"diseaseName": "46,XX Gonadal Dysgenesis", "mondoId": "MONDO:0009299", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "46,XX_Gonadal_Dysgenesis", "yamlRevision": "b75bbe99bb02"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15246,5 +15966,73 @@ amenorrhea, uterine hypoplasia, and hypergonadotropic hypogonadism.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

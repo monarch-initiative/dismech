@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heavy Chain Disease · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Heavy Chain Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Heavy Chain Disease</h1>
+                
+                <p class="report-subtitle">Heavy-Chain Disease: Disease-Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019464" target="_blank" rel="noopener noreferrer">MONDO:0019464</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Heavy-Chain Disease: Disease-Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p><strong>Heavy-chain diseases (HCDs)</strong> are three exceptionally rare, acquired B-cell neoplasms that secrete a monoclonal immunoglobulin heavy chain lacking an associated light chain: <strong>α-HCD (IgA; usually immunoproliferative small-intestinal disease/IPSID), γ-HCD (IgG; Franklin disease), and μ-HCD (IgM)</strong>. They are not inherited antibody deficiencies, camelid “heavy-chain-only antibodies,” or <strong>heavy-chain deposition disease</strong>, a separate monoclonal immunoglobulin deposition nephropathy. The strongest modern synthesis located was Ria, Dammacco, and Vacca, published <strong>1 January 2018</strong>, DOI <a href="https://doi.org/10.4084/MJHID.2018.011">10.4084/MJHID.2018.011</a>. It states: “The heavy chain diseases (HCDs) are rare B-cell malignancies characterized by the production of a monoclonal immunoglobulin heavy chain without an associated light chain.” (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p>The evidence base consists mainly of historical cohorts, pathology series, and case reports. Recent 2023–2024 literature remains case-based; no HCD-specific prospective interventional trial, validated molecular-risk model, or standardized treatment guideline was identified. The review’s central expert conclusion remains: <strong>“No standardized therapies are available for the HCDs, because of their rarity.”</strong> (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<h2>1. Disease information</h2>
+<h3>Definition, category, and identifiers</h3>
+<ul>
+<li><strong>Category:</strong> rare acquired mature B-cell/lymphoplasmacytic neoplasm; monoclonal gammopathy; α-HCD/IPSID is an extranodal marginal-zone lymphoma of mucosa-associated lymphoid tissue.</li>
+<li><strong>Preferred umbrella name:</strong> heavy-chain disease.</li>
+<li><strong>Subtypes/synonyms:</strong></li>
+<li>α-heavy-chain disease, alpha-chain disease, IgA HCD, <strong>IPSID</strong>, immunoproliferative small-intestinal disease, Mediterranean lymphoma.</li>
+<li>γ-heavy-chain disease, gamma-chain disease, IgG HCD, <strong>Franklin disease</strong>.</li>
+<li>μ-heavy-chain disease, mu-chain disease, IgM HCD.</li>
+<li><strong>Ontology suggestions:</strong> MONDO’s precise current identifier should be verified directly against the live MONDO release before ingestion; recommended concepts are <em>heavy chain disease</em>, <em>alpha heavy chain disease</em>, <em>gamma heavy chain disease</em>, and <em>mu heavy chain disease</em>. MeSH concept: <strong>Heavy Chain Disease</strong>. ICD coding is generally nested under immunoproliferative neoplasms rather than providing robust subtype-specific clinical granularity; verify against the jurisdiction/version in use.</li>
+<li><strong>Data provenance:</strong> published information is aggregated at disease level from case reports and small retrospective/prospective series—not patient-specific EHR data in this report.</li>
+</ul>
+<p>Historical reporting totals were &gt;400 α-HCD cases since 1968, approximately 130 γ-HCD cases, and only 30–40 μ-HCD cases. These are literature case counts, <strong>not prevalence estimates</strong>. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Subtype / synonyms</th>
+<th>Immunoglobulin product</th>
+<th>Typical demographic and organ sites</th>
+<th>Hallmark phenotype / pathology</th>
+<th>Diagnostic signature</th>
+<th>Treatment</th>
+<th>Prognosis / statistics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>α-heavy-chain disease (α-HCD); immunoproliferative small intestinal disease (IPSID); Mediterranean lymphoma</strong></td>
+<td>Truncated monoclonal <strong>IgA heavy chain</strong> without associated light chain (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</td>
+<td><strong>Approx. historical case count:</strong> <strong>&gt;400</strong> reported since 1968; most prevalent in <strong>2nd-3rd decades</strong>, slight male predominance; mainly <strong>Mediterranean, North African, Middle Eastern</strong> populations of low socioeconomic background; primarily <strong>proximal small bowel (duodenum/jejunum)</strong>, rarely respiratory tract (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</td>
+<td>Malabsorption syndrome with <strong>weight loss, diarrhea, abdominal discomfort</strong>, growth retardation, amenorrhea, alopecia; advanced disease may show <strong>ascites/anasarca</strong>. Histology is <strong>extranodal marginal zone/MALT lymphoma</strong> with lamina propria <strong>lymphoplasmacytic infiltrate</strong>, villous atrophy, ± lymphoepithelial lesions; associated bowel infection by <strong>Campylobacter jejuni</strong> or <strong>Helicobacter pylori</strong> may occur (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</td>
+<td>Serum electrophoresis may be normal, hypogammaglobulinemic, or show a broad band in <strong>α2/β</strong> region; <strong>anti-IgA immunofixation positivity is mandatory</strong>; abnormal α chains may be found in jejunal/gastric fluids or small amounts in urine; endoscopy often shows <strong>infiltrative or nodular</strong> proximal small-bowel lesions (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Eradicate documented GI infection; empiric <strong>metronidazole, ampicillin, or tetracycline</strong> often used for <strong>6 months</strong>. Refractory disease: <strong>total abdominal radiation</strong> or doxorubicin-containing chemotherapy (<strong>CHOP, CHVP, ABV</strong>); surgery mainly for complications (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</td>
+<td><strong>33-71%</strong> of early-stage patients achieve clinical/laboratory/histologic remission with antimicrobials, but recurrences are frequent. Multi-drug chemotherapy: <strong>64% complete remission</strong>, <strong>67% 5-year overall survival</strong>. Untreated disease can progress locally then systemically; fatal complications include obstruction, perforation, intussusception, malnutrition/cachexia, infection (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</td>
+</tr>
+<tr>
+<td><strong>γ-heavy-chain disease (γ-HCD); Franklin disease</strong></td>
+<td>Truncated monoclonal <strong>IgG heavy chain</strong> without associated light chain (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td><strong>Approx. historical case count:</strong> <strong>~130</strong> reported; age at diagnosis <strong>51-68 years</strong> with <strong>female predominance</strong>; common sites include <strong>bone marrow, spleen, lymph nodes</strong>, and extranodal sites such as <strong>skin, thyroid, salivary glands, GI tract, conjunctiva</strong> (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Often linked to <strong>lymphoplasmacytic neoplasm</strong> (<strong>83-91%</strong>); <strong>25%</strong> have autoimmune disease (especially rheumatoid arthritis). Clinical patterns include disseminated lymphoma with constitutional symptoms (<strong>57-66%</strong>), generalized lymphadenopathy/splenomegaly/hepatomegaly (<strong>50%</strong>), or localized medullary/extramedullary disease (~<strong>25%</strong>). Histology is heterogeneous with mixed lymphocytes, plasmacytoid lymphocytes, plasma cells, sometimes immunoblasts/eosinophils/histiocytes and occasional Reed-Sternberg-like cells (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Serum electrophoresis may be normal or show a <strong>β-region monoclonal band</strong>; <strong>anti-IgG immunofixation positivity without light chains is mandatory</strong>. Abnormal γ chains are often detectable in <strong>urine</strong> due to low molecular weight/dimerization. Lab clues include cytopenias, Coombs-positive hemolysis, thrombocytopenia, circulating plasmacytoid cells/plasma cells (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Management tailored to symptoms, autoimmune disease, and lymphoma burden. Options include <strong>chlorambucil</strong>, <strong>melphalan + prednisone</strong>, <strong>bortezomib + prednisone</strong>, <strong>rituximab</strong> for CD20+ disease; <strong>CHOP ± rituximab</strong> for aggressive/refractory cases; <strong>fludarabine + rituximab</strong> reported effective in pancytopenic disease. Localized extranodal disease may be treated with surgery or radiation; asymptomatic patients without lymphoma may be observed (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Course is heterogeneous. Some patients without overt lymphoma have <strong>spontaneous remissions</strong> and prolonged survival without treatment; treated localized lymphoma often reaches sustained complete remission. Systemic lymphoma may be aggressive or indolent. <strong>Median survival 7.4 years</strong> (range <strong>1 month to &gt;2 decades</strong>) in the Mayo series (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+</tr>
+<tr>
+<td><strong>μ-heavy-chain disease (μ-HCD)</strong></td>
+<td>Truncated monoclonal <strong>IgM heavy chain</strong>; neoplastic cells often also produce monoclonal light chains, usually <strong>κ</strong>, that fail to assemble with the truncated heavy chain (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td><strong>Approx. historical case count:</strong> <strong>30-40</strong> reported; predominantly <strong>Caucasian males</strong>, median age <strong>58 years</strong>; mainly <strong>bone marrow</strong>, often with features resembling <strong>CLL/SLL</strong>; splenomegaly frequent, hepatomegaly in ~<strong>25%</strong>, superficial lymphadenopathy in <strong>40%</strong> (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</td>
+<td>Usually a lymphoid neoplasm with <strong>CLL/SLL-like</strong> features. Characteristic marrow morphology shows plasma cells with <strong>prominent cytoplasmic vacuoles</strong> admixed with small round lymphocytes. Reported associations include recurrent pulmonary infections, portal hypertension, pancytopenia, SLE, DLBCL of the breast, MDS, carpal tunnel syndrome, systemic amyloidosis (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Serum electrophoresis generally normal or shows a broad monoclonal band; <strong>anti-μ immunofixation positive</strong> and <strong>anti-κ/anti-λ negative</strong> confirms the heavy-chain component. <strong>Bence Jones proteinuria is frequent</strong> because excess light chains are produced but do not assemble; hypoproliferative anemia is the commonest lab abnormality (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</td>
+<td>Because of rarity, data are limited. <strong>Watch-and-wait</strong> for asymptomatic patients with detectable monoclonal μ chains. If underlying malignancy develops: <strong>CHOP</strong>, <strong>CVP</strong>, <strong>single-agent fludarabine</strong>, or <strong>cyclophosphamide</strong> have been used (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</td>
+<td>Reported <strong>median overall survival ~2 years</strong>, ranging from <strong>&lt;1 month to &gt;10 years</strong>; likely underestimated because monoclonal μ chains are often missed on electrophoresis. <strong>Rare spontaneous remission</strong> reported (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table compares the three classic heavy-chain disease subtypes using only data extracted from the Ria 2018 full text. It is useful for quickly distinguishing epidemiology, pathology, diagnostic hallmarks, treatments, and available outcome statistics in these very rare disorders.</em></p>
+<h2>2. Etiology and risk/protective factors</h2>
+<h3>Causal factors</h3>
+<p>HCD is an <strong>acquired clonal disorder</strong>, not a recognized Mendelian disease. The defining molecular lesions are somatically acquired deletions, insertions, and point mutations in rearranged immunoglobulin heavy-chain genes, usually removing much of the constant-1 (<strong>CH1</strong>) domain required for light-chain binding. The lesions arise in the context of somatic diversification of a mature B-cell clone. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p><strong>α-HCD/IPSID:</strong> chronic mucosal antigenic stimulation is the leading model. It is associated with poverty and poor sanitation in Mediterranean, North African, and Middle Eastern populations. Enteric bacteria or parasites—including <strong>Campylobacter jejuni</strong> and sometimes <em>Helicobacter pylori</em>—have been detected in affected patients. The landmark <em>C. jejuni</em> association was reported by Lecuit et al., <em>New England Journal of Medicine</em> 2004, DOI <a href="https://doi.org/10.1056/NEJMoa031887">10.1056/NEJMoa031887</a>. Association and antibiotic responsiveness support an antigen-driven mechanism, but neither organism is demonstrated to be necessary or sufficient in every case. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-8-9">ria2018heavychaindiseasesand pages 8-9</a>)</p>
+<p><strong>γ-HCD:</strong> autoimmune disease is an important clinical context. Approximately 25% have rheumatoid arthritis or, less often, Sjögren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, or autoimmune cytopenia; autoimmunity may precede HCD by years. A lymphoplasmacytic neoplasm is present in 83–91%. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p><strong>μ-HCD:</strong> no consistent environmental or infectious cause is established. It most often accompanies a CLL/SLL-like marrow neoplasm. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</p>
+<h3>Risk and protective factors</h3>
+<ul>
+<li><strong>Supported risk contexts:</strong> low socioeconomic conditions/enteric infection for α-HCD; older age, female sex, autoimmune disease, and lymphoplasmacytic neoplasia for γ-HCD; older Caucasian male demographic and CLL/SLL-like neoplasia for μ-HCD. Demographic enrichment must not be interpreted as causal.</li>
+<li><strong>Genetic susceptibility:</strong> no validated germline causal variant, GWAS locus, penetrance estimate, founder mutation, carrier frequency, or modifier gene is established specifically for HCD.</li>
+<li><strong>Protective factors:</strong> no validated protective allele, diet, medication, or lifestyle intervention exists. Improved sanitation is biologically and epidemiologically plausible for reducing α-HCD, but has not been quantified in controlled prevention studies. (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+<li><strong>Gene–environment interaction:</strong> a plausible but unquantified model is chronic microbial antigen exposure acting on mucosal B cells that subsequently acquire clone-defining IGH lesions. No formal HCD-specific G×E study was identified.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<h3>α-HCD/IPSID</h3>
+<p>Onset is usually in the <strong>second or third decade</strong>, with slight male predominance. It is chronic and often insidious. Hallmark manifestations are diarrhea, abdominal discomfort, nausea/vomiting, malabsorption, weight loss, growth retardation, amenorrhea, and alopecia. Advanced disease can cause ascites, anasarca, clubbing, tetany, obstruction, perforation, or intussusception. Laboratory abnormalities include hypochromic anemia, hypoalbuminemia, hypocalcemia, hypokalemia, hypomagnesemia, vitamin/mineral deficiency, and increased intestinal alkaline phosphatase. Rare respiratory α-HCD produces dyspnea, hypoxemia, diffuse infiltrates, and restrictive pulmonary physiology. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p>Suggested HPO annotations include <strong>Diarrhea (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a>), Malabsorption (<a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" rel="noopener noreferrer">HP:0002024</a>), Weight loss (<a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a>), Abdominal pain (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>), Anemia (<a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a>), Hypoalbuminemia (<a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" rel="noopener noreferrer">HP:0003073</a>), Ascites (<a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" rel="noopener noreferrer">HP:0001541</a>), Generalized edema (<a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a>), Intestinal obstruction (<a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" rel="noopener noreferrer">HP:0005214</a>), Lymphadenopathy (<a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a>), Hepatomegaly (<a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a>), Splenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a>), and Growth delay (<a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a>)</strong>. Exact ontology IDs should be validated in the target HPO release.</p>
+<h3>γ-HCD</h3>
+<p>Age at diagnosis is typically 51–68 years, with female predominance. Disseminated lymphoma with fever, malaise, and weight loss occurs in <strong>57–66%</strong>; generalized lymphadenopathy, hepatomegaly, or splenomegaly occurs in about <strong>50%</strong>; approximately <strong>25%</strong> have localized medullary or extramedullary disease. Cytopenias, normocytic anemia, Coombs-positive autoimmune hemolytic anemia, thrombocytopenia, and circulating plasmacytoid lymphocytes may occur. Skin, thyroid, salivary gland, gastrointestinal tract, and conjunctiva can be involved. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p>Suggested HPO terms: <strong>Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>), Fatigue (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>), Weight loss, Lymphadenopathy, Hepatomegaly, Splenomegaly, Autoimmune hemolytic anemia (<a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" rel="noopener noreferrer">HP:0001890</a>), Thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>), Pancytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" rel="noopener noreferrer">HP:0001876</a>), and Arthritis (<a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a>)</strong>.</p>
+<h3>μ-HCD</h3>
+<p>Median diagnosis age is about <strong>58 years</strong>; reported patients are predominantly Caucasian men. Hypoproliferative anemia is the commonest laboratory abnormality. Splenomegaly is frequent, superficial lymphadenopathy occurs in <strong>40%</strong>, and hepatomegaly in about <strong>25%</strong>. Marrow plasma cells with prominent cytoplasmic vacuoles are characteristic. Rare associations include recurrent pulmonary infection, portal hypertension, pancytopenia, SLE, myelodysplasia, amyloidosis, and other lymphomas. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<p>Suggested HPO terms: <strong>Anemia, Splenomegaly, Lymphadenopathy, Hepatomegaly, Recurrent respiratory infections (<a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" rel="noopener noreferrer">HP:0002205</a>), Pancytopenia, and Abnormality of bone marrow cell morphology (<a href="http://purl.obolibrary.org/obo/HP_0012145" target="_blank" rel="noopener noreferrer">HP:0012145</a>)</strong>.</p>
+<h3>Quality of life</h3>
+<p>No HCD-specific EQ-5D, SF-36, PROMIS, or validated quality-of-life study was identified. Nevertheless, chronic diarrhea, severe malnutrition, abdominal complications, constitutional symptoms, cytopenias, infection, and chemotherapy predict substantial functional burden. This is clinical inference, not a measured HCD-specific utility estimate.</p>
+<h2>4. Genetic and molecular information</h2>
+<p>The relevant loci are the rearranged immunoglobulin heavy-chain genes at <strong>IGH, chromosome 14q32.33</strong>: principally <strong>IGHA1/IGHA2</strong>, <strong>IGHG subclass genes</strong>, or <strong>IGHM</strong>, depending on subtype. These are clone-specific <strong>somatic rearrangements/structural defects</strong>, not constitutional pathogenic variants suitable for Mendelian ClinVar classification. Consequently, germline allele frequencies in gnomAD and ACMG carrier classifications are generally not applicable.</p>
+<p>The altered chains contain deletions, insertions, or point mutations that typically disrupt CH1. In normal cells, an unpaired heavy chain binds the endoplasmic-reticulum chaperone BiP/GRP78 (<strong>HSPA5</strong> in modern nomenclature; the review uses “HSP78”) and is retained/degraded. CH1-defective chains fail to bind both light chain and chaperone, escape proteasomal quality control, and are secreted into serum or urine. A membrane form may aggregate and signal without antigen, conferring clonal growth advantage. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<p>No recurrent disease-defining cytogenetic translocation, somatic mutation panel, validated modifier gene, methylation signature, or HCD-specific pathogenic-variant catalogue was identified. Molecular testing of clonality or the abnormal IG transcript can support difficult cases, but routine diagnosis remains protein- and pathology-based.</p>
+<h2>5. Environmental and infectious information</h2>
+<p>For α-HCD, poor sanitation and chronic intestinal infection are the principal environmental contexts. <em>C. jejuni</em> is the best-supported organism; parasites and <em>H. pylori</em> have also been reported. The causal chain proposed from human clinical/pathological evidence is: <strong>chronic enteric antigen exposure → sustained mucosal B-cell/plasma-cell stimulation → emergence/selection of a monoclonal IGHA-abnormal clone → IPSID/MALT-type infiltration → villous atrophy and malabsorption → progressive lymphoma in untreated disease</strong>. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-8-9">ria2018heavychaindiseasesand pages 8-9</a>)</p>
+<p>No reproducible association with smoking, alcohol, occupational toxins, radiation, or pollution is established. There is no evidence that HCD is contagious or zoonotic.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream events</h3>
+<ol>
+<li>Mature B-cell/plasmacytic clone acquires an abnormal rearranged heavy-chain gene.</li>
+<li>CH1 loss or disruption prevents light-chain assembly and ER chaperone retention.</li>
+<li>Truncated heavy chain is secreted; possible autonomous B-cell-receptor aggregation promotes survival/proliferation. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</li>
+</ol>
+<h3>Downstream tissue mechanisms</h3>
+<ul>
+<li><strong>α-HCD:</strong> monoclonal α-chain-positive plasma cells and marginal-zone-like B cells infiltrate small-intestinal lamina propria, producing villous atrophy and sometimes lymphoepithelial lesions. Malabsorption then causes protein, electrolyte, vitamin, and mineral deficiencies. Continued expansion can lead to bulky or transformed lymphoma and mechanical bowel complications. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</li>
+<li><strong>γ-HCD:</strong> heterogeneous lymphoplasmacytic infiltration affects marrow, lymph nodes, spleen, and extranodal MALT-type sites; autoimmune inflammation may be upstream, concurrent, or downstream, but directionality is unresolved. (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+<li><strong>μ-HCD:</strong> a CLL/SLL-like marrow clone produces truncated μ chains, often alongside unassembled κ light chains; marrow infiltration causes anemia/cytopenias. (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+</ul>
+<p>Suggested GO biological-process terms include <strong>B-cell receptor signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" rel="noopener noreferrer">GO:0050853</a>), immunoglobulin production (<a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" rel="noopener noreferrer">GO:0002377</a>), somatic hypermutation of immunoglobulin genes, B-cell proliferation (<a href="http://purl.obolibrary.org/obo/GO_0042100" target="_blank" rel="noopener noreferrer">GO:0042100</a>), plasma-cell differentiation (<a href="http://purl.obolibrary.org/obo/GO_0002317" target="_blank" rel="noopener noreferrer">GO:0002317</a>), response to bacterium (<a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" rel="noopener noreferrer">GO:0009617</a>), and regulation of proteasomal protein catabolic process</strong>. Suggested cellular components are <strong>endoplasmic reticulum lumen (<a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" rel="noopener noreferrer">GO:0005788</a>), proteasome complex (<a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" rel="noopener noreferrer">GO:0000502</a>), B-cell receptor complex (<a href="http://purl.obolibrary.org/obo/GO_0019815" target="_blank" rel="noopener noreferrer">GO:0019815</a>), and extracellular region (<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>)</strong>.</p>
+<p>Suggested Cell Ontology populations are <strong>B cell (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), plasma cell (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>), lymphocyte of B lineage, marginal-zone B cell, and plasmacytoid lymphocyte</strong>. Exact IDs for narrower cell classes should be checked in the current CL release.</p>
+<p>No validated HCD-specific transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, multi-omic, or CRISPR-screen signature was identified. Clinical immunofixation is a targeted protein assay, not comprehensive proteomics.</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>α-HCD:</strong> duodenum and jejunum are primary; more distal bowel, abdominal lymphatics, and rarely respiratory tract/pharyngeal mucosa are involved. Suggested UBERON concepts: <strong>small intestine (<a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" rel="noopener noreferrer">UBERON:0002108</a>), duodenum (<a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" rel="noopener noreferrer">UBERON:0002114</a>), jejunum (<a href="http://purl.obolibrary.org/obo/UBERON_0002115" target="_blank" rel="noopener noreferrer">UBERON:0002115</a>), intestinal mucosa, lamina propria, and lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>)</strong>.</li>
+<li><strong>γ-HCD:</strong> bone marrow, spleen, lymph nodes, skin, thyroid, salivary gland, gastrointestinal tract, and conjunctiva.</li>
+<li><strong>μ-HCD:</strong> primarily bone marrow, with spleen, liver, and lymph nodes secondarily involved.</li>
+</ul>
+<p>Subcellular compartments include the ER/proteasome during heavy-chain quality control, the plasma membrane BCR, cytoplasm of plasma cells, and extracellular serum/urine. Lateralization is not characteristic. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>)</p>
+<h2>8. Temporal development</h2>
+<p>α-HCD usually begins insidiously in young adulthood. Untreated disease can progress from mucosal/local disease to systemic lymphoma; early antigen-dependent disease is most antibiotic-responsive. γ-HCD ranges from an indolent monoclonal gammopathy or localized lesion to rapidly progressive disseminated lymphoma. μ-HCD is similarly variable but generally occurs in later adulthood. Rare spontaneous remission is documented in γ- and μ-HCD; treatment-induced durable remission is most likely in localized γ-HCD. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<p>No universally accepted HCD staging system exists. For IPSID, historical pathological staging has been used, while overt lymphoma should be staged according to the corresponding lymphoma classification. The clinically important intervention window is <strong>early α-HCD before bulky or transformed disease</strong>, when prolonged antimicrobial treatment can induce histological as well as clinical remission.</p>
+<h2>9. Inheritance, epidemiology, and population</h2>
+<p>HCD is <strong>sporadic and acquired</strong>. Autosomal/X-linked inheritance, penetrance, anticipation, germline mosaicism, founder variants, consanguinity, carrier frequency, and reproductive genetic risk are not applicable based on present evidence.</p>
+<p>No reliable population incidence or prevalence per 100,000 exists. Historical case totals are the most defensible numbers: &gt;400 α-HCD, ~130 γ-HCD, and 30–40 μ-HCD. α-HCD is geographically concentrated in Mediterranean, North African, and Middle Eastern regions and lower-socioeconomic populations; γ-HCD has female predominance at ages 51–68; μ-HCD predominantly affects older men. (<a href="#ref-ria2018heavychaindiseasesand-pages-1-2">ria2018heavychaindiseasesand pages 1-2</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</p>
+<p>These distributions may reflect ascertainment and publication bias. Modern population-based estimates are a major unmet need.</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended workflow</h3>
+<ol>
+<li><strong>Clinical suspicion:</strong> malabsorption/young endemic-region patient; unexplained lymphoplasmacytic lymphoma plus autoimmune disease; or CLL/SLL-like marrow disease with unusual paraprotein.</li>
+<li><strong>Serum protein electrophoresis plus serum and urine immunofixation.</strong> Electrophoresis can be normal, and therefore cannot exclude HCD.</li>
+<li>Demonstrate an isotype-specific heavy chain—anti-IgA, anti-IgG, or anti-μ reactivity—<strong>without corresponding κ or λ light chain</strong>. Two-dimensional immunoelectrophoresis is historically useful. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+<li>Quantitative immunoglobulins, serum free light chains, CBC, chemistry, albumin, calcium/magnesium/potassium, nutritional assessment, and urine protein studies.</li>
+<li><strong>Tissue biopsy with morphology, immunohistochemistry/immunofluorescence, and flow cytometry.</strong> α-HCD requires upper endoscopy and multiple duodenal/jejunal biopsies; infiltrative and nodular patterns are most characteristic. Search biopsy/stool for bacteria and parasites. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>)</li>
+<li>CT or PET/CT and marrow biopsy as indicated to define lymphoma distribution. Molecular B-cell clonality studies may support ambiguous cases.</li>
+</ol>
+<p>α-HCD electrophoresis may be normal, hypogammaglobulinemic, or show a broad α2/β-region band. γ-HCD commonly hides in the β region and its low-molecular-weight dimers are often detectable in urine. μ-HCD may have normal electrophoresis; Bence-Jones proteinuria is frequent because separate κ chains may be produced. (<a href="#ref-ria2018heavychaindiseasesand-pages-2-4">ria2018heavychaindiseasesand pages 2-4</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<h3>Pathology and differential diagnosis</h3>
+<p>α-HCD resembles MALT lymphoma with α-chain-positive/light-chain-negative plasma cells and marginal-zone cells. Differentials include celiac disease, tropical sprue, giardiasis, common variable immunodeficiency enteropathy, Crohn disease, intestinal tuberculosis, conventional MALT lymphoma, enteropathy-associated T-cell lymphoma, and diffuse large B-cell lymphoma.</p>
+<p>γ-HCD can mimic lymphoplasmacytic lymphoma, marginal-zone lymphoma, plasma-cell neoplasm, Hodgkin lymphoma, or peripheral T-cell lymphoma because Reed–Sternberg-like cells and polymorphous infiltrates may occur. μ-HCD overlaps CLL/SLL and Waldenström macroglobulinemia; the decisive feature is free truncated μ heavy chain without assembled light chain. (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<p><strong>Genetic testing:</strong> WES/WGS, germline panels, chromosomal microarray, mitochondrial testing, and repeat-expansion testing are not routine or validated. Targeted IG rearrangement sequencing may be used in specialist investigation but does not replace immunofixation and biopsy.</p>
+<p><strong>Screening:</strong> no population, newborn, carrier, or cascade screening is recommended.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>For early α-HCD, antimicrobial therapy produces clinical, laboratory, and histological remission in <strong>33–71%</strong>, although recurrence is frequent. Historical multidrug chemotherapy achieved <strong>64% complete remission</strong> and <strong>67% five-year overall survival</strong>. Fatal pathways include progressive lymphoma, bowel obstruction/perforation/intussusception, severe malnutrition/cachexia, and infection. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</p>
+<p>γ-HCD prognosis depends on the associated neoplasm. Localized treated disease can enter sustained complete remission; systemic disease may be aggressive or indolent. A Mayo Clinic series reported median survival of <strong>7.4 years</strong>, ranging from one month to more than two decades. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</p>
+<p>Reported μ-HCD median survival is approximately <strong>two years</strong>, ranging from under one month to over ten years, but this likely underestimates survival because monoclonal μ chains are often missed. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</p>
+<p>No validated molecular prognostic biomarker or contemporary multivariable risk calculator exists. Adverse clinical factors are advanced/systemic lymphoma, transformation, severe malnutrition, cytopenias, infection, and refractory disease.</p>
+<h2>12. Treatment and current applications</h2>
+<p>Treatment is adapted from infection-associated MALT lymphoma and related B-cell neoplasms rather than derived from randomized HCD trials.</p>
+<h3>α-HCD</h3>
+<ul>
+<li>Eradicate identified bacterial or parasitic infection and correct nutrition/electrolytes.</li>
+<li>Historical empiric regimens include <strong>metronidazole, ampicillin, or tetracycline for approximately six months</strong>; shorter courses relapse more often. These historical choices require current susceptibility, safety, and antimicrobial-stewardship review. (<a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+<li>Persistent, advanced, or transformed disease: doxorubicin-containing chemotherapy such as <strong>CHOP</strong>, with lymphoma-directed anti-CD20 therapy where biologically appropriate. CHVP and ABV are historical regimens. Radiation is occasionally used; surgery is reserved mainly for obstruction, perforation, intussusception, bleeding, or diagnostic need. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>, <a href="#ref-ria2018heavychaindiseasesand-pages-4-6">ria2018heavychaindiseasesand pages 4-6</a>)</li>
+</ul>
+<h3>γ-HCD</h3>
+<ul>
+<li>Asymptomatic, non-lymphomatous disease: observation can be appropriate.</li>
+<li>Treat associated autoimmune disease according to standard disease-specific guidance.</li>
+<li>Plasma-cell-predominant disease: historical chlorambucil or melphalan/prednisone; bortezomib/prednisone has been used.</li>
+<li>CD20-positive/aggressive disease: rituximab-containing therapy, commonly <strong>R-CHOP</strong>; fludarabine–rituximab has case-report support. Localized extranodal disease may receive radiation or surgery. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</li>
+</ul>
+<h3>μ-HCD</h3>
+<ul>
+<li>Watchful waiting for an asymptomatic patient with detectable μ chain.</li>
+<li>If symptomatic lymphoma develops: reported regimens include CHOP, CVP, fludarabine, or cyclophosphamide. Evidence is limited to very small numbers. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</li>
+</ul>
+<p>Suggested NCIt intervention concepts include <strong>Antibiotic Therapy, Metronidazole, Ampicillin, Tetracycline, CHOP Regimen, Rituximab, Bortezomib, Fludarabine, Radiation Therapy, Surgical Procedure, Hematopoietic Stem Cell Transplantation, Best Supportive Care, and Active Surveillance</strong>; exact NCIt codes should be resolved against the current release. Relevant chemical ontology concepts include ampicillin (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_28971" target="_blank" rel="noopener noreferrer">CHEBI:28971</a></strong>), metronidazole (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" rel="noopener noreferrer">CHEBI:6909</a></strong>), and tetracycline (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_27902" target="_blank" rel="noopener noreferrer">CHEBI:27902</a></strong>), with release verification advised.</p>
+<p>No HCD-specific gene therapy, RNA therapy, CAR-T protocol, approved precision biomarker, pharmacogenomic recommendation, or registered disease-specific prospective trial was identified in the searches. High-dose therapy/autologous transplantation has been considered for refractory or relapsed α-HCD, but is not supported by trial-level evidence. (<a href="#ref-ria2018heavychaindiseasesand-pages-6-7">ria2018heavychaindiseasesand pages 6-7</a>)</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> no proven intervention. Sanitation, safe food/water, and prompt treatment of enteric infection are plausible for α-HCD but have not been shown to prevent HCD prospectively.</li>
+<li><strong>Secondary prevention:</strong> no asymptomatic population screening. In symptomatic high-risk settings, early endoscopy, biopsy, and immunofixation may prevent delay and permit antibiotic-responsive treatment.</li>
+<li><strong>Tertiary prevention:</strong> eradicate infection, restore nutrition, monitor electrolytes and albumin, vaccinate appropriately for immunocompromised patients, prevent/treat infection, and surveil for lymphoma progression, transformation, bowel complications, and treatment toxicity.</li>
+<li>No HCD vaccine, chemoprophylaxis, genetic counseling indication, prenatal diagnosis, or preimplantation testing applies.</li>
+</ul>
+<h2>14. Other species and natural disease</h2>
+<p>No well-established naturally occurring veterinary counterpart of human α-, γ-, or μ-HCD was identified, and no zoonotic transmission exists. Immunoglobulin heavy-chain orthologues are widely conserved, but naturally occurring heavy-chain-only antibodies in camelids are normal physiology and <strong>not homologous disease</strong>. <em>C. jejuni</em> has animal reservoirs, but human IPSID is not itself transmissible from animals.</p>
+<p>Suggested taxa for mechanistic context—not natural HCD annotation—include <strong>Homo sapiens (NCBI Taxon 9606)</strong>, <em>Campylobacter jejuni</em> (Taxon 197), and <em>Helicobacter pylori</em> (Taxon 210), with strain-level identifiers used where available.</p>
+<h2>15. Model organisms and research gaps</h2>
+<p>No validated mouse, rat, zebrafish, invertebrate, organoid, or iPSC model was identified that recapitulates the full human disease: clone-specific truncated heavy-chain secretion, relevant tissue tropism, chronic infection/autoimmunity, and lymphoma evolution. General B-cell lymphoma lines, engineered CH1-deleted immunoglobulin constructs, intestinal organoids with immune co-culture, and infection models could interrogate individual mechanisms, but they are reductionist rather than faithful HCD models.</p>
+<p>Priority research needs are: an international registry with contemporary incidence and outcomes; centralized mass-spectrometric/immunofixation confirmation; paired tumor-normal long-read IGH sequencing; microbial metagenomics in IPSID; single-cell BCR/transcriptomic profiling; standardized response criteria; and prospective antibiotic-versus-lymphoma-directed treatment studies.</p>
+<h2>Evidence-quality and recency assessment</h2>
+<p>The principal quantitative evidence remains historical because HCD is exceptionally rare. Key primary sources include Lecuit et al. on <em>C. jejuni</em>–associated IPSID, DOI <a href="https://doi.org/10.1056/NEJMoa031887">10.1056/NEJMoa031887</a>; Bieliauskas et al.’s 13-case γ-HCD pathology series, DOI <a href="https://doi.org/10.1097/PAS.0b013e318240590a">10.1097/PAS.0b013e318240590a</a>; and the Turkish five-year IPSID cohort cited in the 2018 review. (<a href="#ref-ria2018heavychaindiseasesand-pages-8-9">ria2018heavychaindiseasesand pages 8-9</a>)</p>
+<p>A 2024 report of gastrointestinal α-HCD with persistent <em>C. jejuni</em> colonization and refractory giardiasis—DOI <a href="https://doi.org/10.14309/crj.0000000000001467">10.14309/crj.0000000000001467</a>—illustrates that infection-associated, diagnostically difficult IPSID persists, but a single case cannot update population-level efficacy estimates. The absence of robust 2023–2024 cohorts, trials, omics studies, and quality-of-life datasets is itself an important finding: current management remains expert, pathology-driven, and individualized rather than guideline-standardized.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-ria2018heavychaindiseasesand-pages-1-2"></a>(ria2018heavychaindiseasesand pages 1-2): Roberto Ria, Franco Dammacco, and Angelo Vacca. Heavy-chain diseases and myeloma-associated fanconi syndrome: an update. Mediterranean Journal of Hematology and Infectious Diseases, 10:2018011, Jan 2018. URL: <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">https://doi.org/10.4084/mjhid.2018.011</a>, <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">doi:10.4084/mjhid.2018.011</a>. This article has 19 citations.</p>
+</li>
+<li>
+<p><a id="ref-ria2018heavychaindiseasesand-pages-4-6"></a>(ria2018heavychaindiseasesand pages 4-6): Roberto Ria, Franco Dammacco, and Angelo Vacca. Heavy-chain diseases and myeloma-associated fanconi syndrome: an update. Mediterranean Journal of Hematology and Infectious Diseases, 10:2018011, Jan 2018. URL: <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">https://doi.org/10.4084/mjhid.2018.011</a>, <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">doi:10.4084/mjhid.2018.011</a>. This article has 19 citations.</p>
+</li>
+<li>
+<p><a id="ref-ria2018heavychaindiseasesand-pages-2-4"></a>(ria2018heavychaindiseasesand pages 2-4): Roberto Ria, Franco Dammacco, and Angelo Vacca. Heavy-chain diseases and myeloma-associated fanconi syndrome: an update. Mediterranean Journal of Hematology and Infectious Diseases, 10:2018011, Jan 2018. URL: <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">https://doi.org/10.4084/mjhid.2018.011</a>, <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">doi:10.4084/mjhid.2018.011</a>. This article has 19 citations.</p>
+</li>
+<li>
+<p><a id="ref-ria2018heavychaindiseasesand-pages-6-7"></a>(ria2018heavychaindiseasesand pages 6-7): Roberto Ria, Franco Dammacco, and Angelo Vacca. Heavy-chain diseases and myeloma-associated fanconi syndrome: an update. Mediterranean Journal of Hematology and Infectious Diseases, 10:2018011, Jan 2018. URL: <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">https://doi.org/10.4084/mjhid.2018.011</a>, <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">doi:10.4084/mjhid.2018.011</a>. This article has 19 citations.</p>
+</li>
+<li>
+<p><a id="ref-ria2018heavychaindiseasesand-pages-8-9"></a>(ria2018heavychaindiseasesand pages 8-9): Roberto Ria, Franco Dammacco, and Angelo Vacca. Heavy-chain diseases and myeloma-associated fanconi syndrome: an update. Mediterranean Journal of Hematology and Infectious Diseases, 10:2018011, Jan 2018. URL: <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">https://doi.org/10.4084/mjhid.2018.011</a>, <a href="https://doi.org/10.4084/mjhid.2018.011" target="_blank" rel="noopener noreferrer">doi:10.4084/mjhid.2018.011</a>. This article has 19 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Heavy_Chain_Disease-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Heart_Failure-falcon.html">← Heart Failure (Falcon)</a>
+                
+                
+                <a href="HELLP_Syndrome-falcon.html">HELLP Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Heavy_Chain_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Heavy_Chain_Disease-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

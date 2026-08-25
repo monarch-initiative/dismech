@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>CKD-Mineral Bone Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>CKD-Mineral Bone Disorder</h1>
             <div class="header-meta">
 
@@ -3666,6 +3868,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3900,17 +4104,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000137">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3931,10 +4142,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3961,15 +4175,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RGS14
 
 
-    <a href="https://bioregistry.io/hgnc:9996" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9996">hgnc:9996</a>
+    <a href="https://bioregistry.io/hgnc:9996" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9996</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RGS14 (hgnc:9996). hgnc:9996 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3997,17 +4218,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Phosphate Ion Homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055062">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0055062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Phosphate Ion Homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4028,10 +4256,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Fibroblast Growth Factor Receptor Signaling, annotated with fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4054,17 +4285,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Proximal Tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0004134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Proximal Tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Bone Tissue
@@ -4072,13 +4310,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002481">UBERON:0002481</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002481</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Bone Tissue (UBERON:0002481). UBERON:0002481 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4128,6 +4370,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37258233" target="_blank">PMID:37258233</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4150,6 +4393,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36821389" target="_blank">PMID:36821389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4171,6 +4415,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38541742" target="_blank">PMID:38541742</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4205,17 +4450,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Proximal Tubular Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Proximal Tubular Epithelial Cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4236,10 +4488,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000137">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4266,17 +4521,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Glycolytic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006096">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Glycolytic Process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4297,10 +4559,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055062">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0055062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Phosphate Ion Homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4323,19 +4588,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4369,6 +4640,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36821389" target="_blank">PMID:36821389</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4390,6 +4662,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36821389" target="_blank">PMID:36821389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4424,17 +4697,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Parathyroid Chief Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000446" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000446">CL:0000446</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000446" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000446</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Parathyroid Chief Cell, annotated with chief cell of parathyroid gland (CL:0000446). CL:0000446 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4455,11 +4735,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4480,10 +4765,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4510,15 +4798,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CASR
 
 
-    <a href="https://bioregistry.io/hgnc:1514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1514">hgnc:1514</a>
+    <a href="https://bioregistry.io/hgnc:1514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1514</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CASR (hgnc:1514). hgnc:1514 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4546,17 +4841,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Parathyroid Hormone Secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035898">GO:0035898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0035898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Parathyroid Hormone Secretion (GO:0035898). GO:0035898 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4577,11 +4879,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0045453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone Resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4602,10 +4909,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055074">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0055074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Calcium Ion Homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4628,19 +4938,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Parathyroid Gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001132">UBERON:0001132</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0001132</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Parathyroid Gland (UBERON:0001132). UBERON:0001132 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4690,6 +5006,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38785509" target="_blank">PMID:38785509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4712,6 +5029,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32961953" target="_blank">PMID:32961953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4733,6 +5051,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38785509" target="_blank">PMID:38785509</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4776,16 +5095,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Vitamin D Metabolic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042359" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042359">GO:0042359</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042359" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0042359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Vitamin D Metabolic Process (GO:0042359). GO:0042359 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4808,19 +5132,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4854,6 +5184,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26303319" target="_blank">PMID:26303319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4875,6 +5206,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37258233" target="_blank">PMID:37258233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4909,16 +5241,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4945,16 +5282,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Osteogenic Transdifferentiation of Vascular Smooth Muscle Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Osteogenic Transdifferentiation of Vascular Smooth Muscle Cells, annotated with osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4981,16 +5323,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Arterial Blood Vessel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003509" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003509">UBERON:0003509</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003509" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0003509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Arterial Blood Vessel (UBERON:0003509). UBERON:0003509 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5012,6 +5359,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5052,6 +5400,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39684805" target="_blank">PMID:39684805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5074,6 +5423,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38541742" target="_blank">PMID:38541742</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5095,6 +5445,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5131,17 +5482,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Vascular Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5162,10 +5520,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000137">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5192,17 +5553,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Wnt Signaling Pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Wnt Signaling Pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5223,10 +5591,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone Remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5243,6 +5614,7 @@
 
 
                 </div>
+
 
 
 
@@ -5279,6 +5651,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36776982" target="_blank">PMID:36776982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5301,6 +5674,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36776982" target="_blank">PMID:36776982</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5322,6 +5696,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36776982" target="_blank">PMID:36776982</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5363,16 +5738,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Osteoclast Differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030316">GO:0030316</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0030316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Osteoclast Differentiation (GO:0030316). GO:0030316 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5389,6 +5769,7 @@
 
 
                 </div>
+
 
 
 
@@ -5433,6 +5814,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28540603" target="_blank">PMID:28540603</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5468,7 +5850,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-high-turnover-renal-osteodystrophy-osteitis-fibrosa">
                 <div class="item-name">
                     High-Turnover Renal Osteodystrophy (Osteitis Fibrosa)
 
@@ -5490,6 +5872,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34137924" target="_blank">PMID:34137924</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5514,7 +5897,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-low-turnover-renal-osteodystrophy-adynamic-bone-disease">
                 <div class="item-name">
                     Low-Turnover Renal Osteodystrophy (Adynamic Bone Disease)
 
@@ -5536,6 +5919,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34137924" target="_blank">PMID:34137924</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5560,7 +5944,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-mixed-uremic-osteodystrophy">
                 <div class="item-name">
                     Mixed Uremic Osteodystrophy
 
@@ -5582,6 +5966,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28540603" target="_blank">PMID:28540603</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5606,7 +5991,7 @@
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-osteomalacia">
                 <div class="item-name">
                     Osteomalacia
 
@@ -5628,6 +6013,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28646995" target="_blank">PMID:28646995</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5674,7 +6060,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress PTH, improve calcium absorption, and support bone mineralization. Must balance against risk of hypercalcemia and hyperphosphatemia.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"calcitriol\", \"paricalcitol\"]}}, {\"id\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation. Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Osteocyte\"], \"biological_processes\": [\"Wnt Signaling Pathway\", \"Bone Remodeling\"]}}, {\"id\": \"Calcimimetics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor on parathyroid cells, suppressing PTH secretion without raising serum calcium. First-line for secondary hyperparathyroidism in dialysis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cinacalcet\", \"etelcalcetide\"]}}, {\"id\": \"Calciphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025520\"}}, {\"id\": \"Calcitriol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol). Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization. FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Vitamin D Metabolic Process\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes. This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate bone FGF23 expression but acts through a renal metabolic intermediate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Osteocyte\"], \"biological_processes\": [\"Glycolytic Process\", \"Phosphate Ion Homeostasis\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Parathyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of hyperplastic parathyroid glands for refractory secondary or tertiary hyperparathyroidism unresponsive to medical therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pathological Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002756\"}}, {\"id\": \"Phosphate Binders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer, lanthanum carbonate, sucroferric oxyhydroxide) agents that bind dietary phosphate in the gut to reduce absorption.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium carbonate\", \"calcium acetate\", \"lanthanum carbonate\"]}}, {\"id\": \"Phosphate Retention and FGF23 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines with CKD progression, creating a vicious cycle.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteocyte\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Phosphate Ion Homeostasis\", \"Fibroblast Growth Factor Receptor Signaling\"], \"genes\": [\"RGS14\"], \"gene_terms\": [{\"label\": \"RGS14\", \"id\": \"hgnc:9996\"}], \"locations\": [\"Proximal Tubule\", \"Bone Tissue\"]}}, {\"id\": \"Primary human vascular CPP bioassay model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary human vascular cell assay using serum from dialysis patients to model calciprotein particle-driven vascular smooth muscle calcification and endothelial activation in CKD-MBD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"endothelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"CKD-mineral bone disorder\", \"dialysis patient serum exposure\", \"calciprotein particle depletion\", \"vascular calcification\"], \"publication\": \"PMID:36107466\"}}, {\"id\": \"RANKL/OPG Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling. Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration of the bone-vascular paradox.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoclast Differentiation\"]}}, {\"id\": \"Secondary Hyperparathyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia, and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Parathyroid Chief Cell\", \"Osteoclast\", \"Osteoblast\"], \"biological_processes\": [\"Parathyroid Hormone Secretion\", \"Bone Resorption\", \"Calcium Ion Homeostasis\"], \"genes\": [\"CASR\"], \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}], \"locations\": [\"Parathyroid Gland\"]}}, {\"id\": \"Vascular Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003207\", \"experimental_models\": [{\"name\": \"Primary human vascular CPP bioassay model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.\"}]}}], \"edges\": [{\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperphosphatemia directly stimulates PTH secretion; FGF23 suppresses calcitriol removing PTH inhibition\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serum phosphate elevation\", \"calcitriol suppression by FGF23\"]}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Calcitriol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGF23 suppresses 1-alpha-hydroxylase (CYP27B1) and upregulates 24-hydroxylase (CYP24A1)\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperphosphatemia and hypercalcemia promote VSMC osteogenic transdifferentiation\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"elevated calcium-phosphate product\", \"osteochondrogenic differentiation of vascular cells\"]}, {\"source\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"target\": \"Phosphate Retention and FGF23 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"G-3-P produced by kidney glycolysis circulates to bone and triggers FGF23 production\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"RANKL/OPG Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL and suppresses OPG, driving osteoclastogenesis\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically elevated PTH promotes vascular calcifications\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered mineral balance\", \"cardiovascular system effects\"]}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH and FGF23 directly cause left ventricular hypertrophy\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Calcitriol Deficiency\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced calcitriol removes VDR-mediated suppression of PTH gene transcription\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Calcification\", \"target\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcified arteries produce sclerostin and other factors that inhibit bone remodeling\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Calcification\", \"target\": \"Calciphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arteriolar calcification precedes thrombosis and skin ischemia in calciphylaxis\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"arteriolar thrombosis\", \"skin ischemia\"]}, {\"source\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular sclerostin suppresses skeletal Wnt signaling and bone formation\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sclerostin inhibition of Wnt pathway\", \"suppressed osteoblast activity\"]}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive osteoclastogenesis increases bone resorption, reducing BMD\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased osteoclast activity\", \"excessive bone resorption\"]}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Pathological Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced BMD from RANKL-driven resorption increases fracture risk\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced bone mineral density\", \"impaired bone microarchitecture\"]}, {\"source\": \"Phosphate Binders\", \"target\": \"Vascular Calcification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Therapy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcimimetics\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parathyroidectomy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Primary human vascular CPP bioassay model\", \"target\": \"Vascular Calcification\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Vitamin D Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcitriol or active vitamin D analogs (paricalcitol, doxercalciferol) to suppress PTH, improve calcium absorption, and support bone mineralization. Must balance against risk of hypercalcemia and hyperphosphatemia.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"calcitriol\", \"paricalcitol\"]}}, {\"id\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcified arteries in CKD produce sclerostin and other factors that inhibit bone remodeling, explaining the paradox of simultaneous vascular calcification and low-turnover (adynamic) bone disease. Vascular osteoblastic/osteocytic transdifferentiation produces sclerostin that brakes Wnt-driven calcification in the vasculature but also suppresses skeletal bone formation. Anti-sclerostin antibody therapy improves bone but can worsen vascular calcification, highlighting the therapeutic complexity.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Osteocyte\"], \"biological_processes\": [\"Wnt Signaling Pathway\", \"Bone Remodeling\"]}}, {\"id\": \"Calcimimetics\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cinacalcet and etelcalcetide allosterically activate the calcium-sensing receptor on parathyroid cells, suppressing PTH secretion without raising serum calcium. First-line for secondary hyperparathyroidism in dialysis.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cinacalcet\", \"etelcalcetide\"]}}, {\"id\": \"Calciphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025520\"}}, {\"id\": \"Calcitriol Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D to active 1,25-dihydroxyvitamin D (calcitriol). Progressive nephron loss reduces calcitriol production, impairing intestinal calcium absorption and skeletal mineralization. FGF23 further suppresses 1-alpha-hydroxylase and upregulates 24-hydroxylase, accelerating calcitriol depletion.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Vitamin D Metabolic Process\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Decreased Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recently discovered kidney-bone feedback loop: phosphate loading increases kidney-specific glycolysis and production of glycerol-3-phosphate (G-3-P) via GPD1. G-3-P enters the circulation and triggers FGF23 production in bone osteocytes. This places glycolysis at the nexus of mineral and energy metabolism, revealing that phosphate does not directly stimulate bone FGF23 expression but acts through a renal metabolic intermediate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Proximal Tubular Epithelial Cell\", \"Osteocyte\"], \"biological_processes\": [\"Glycolytic Process\", \"Phosphate Ion Homeostasis\"], \"locations\": [\"Kidney\"]}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Parathyroidectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of hyperplastic parathyroid glands for refractory secondary or tertiary hyperparathyroidism unresponsive to medical therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pathological Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002756\"}}, {\"id\": \"Phosphate Binders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Calcium-based (calcium carbonate, calcium acetate) or non-calcium-based (sevelamer, lanthanum carbonate, sucroferric oxyhydroxide) agents that bind dietary phosphate in the gut to reduce absorption.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"calcium carbonate\", \"calcium acetate\", \"lanthanum carbonate\"]}}, {\"id\": \"Phosphate Retention and FGF23 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As nephron mass declines, phosphate excretion per nephron increases via FGF23 and PTH-mediated suppression of proximal tubular sodium-phosphate cotransporters (NaPi-2a/NaPi-2c). FGF23 rises early in CKD (stage 2) before serum phosphate becomes overtly elevated. FGF23 requires the co-receptor alpha-Klotho, which is predominantly expressed in the kidney and declines with CKD progression, creating a vicious cycle.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteocyte\", \"Proximal Tubular Epithelial Cell\"], \"biological_processes\": [\"Phosphate Ion Homeostasis\", \"Fibroblast Growth Factor Receptor Signaling\"], \"genes\": [\"RGS14\"], \"gene_terms\": [{\"label\": \"RGS14\", \"id\": \"hgnc:9996\"}], \"locations\": [\"Proximal Tubule\", \"Bone Tissue\"]}}, {\"id\": \"Primary human vascular CPP bioassay model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary human vascular cell assay using serum from dialysis patients to model calciprotein particle-driven vascular smooth muscle calcification and endothelial activation in CKD-MBD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"endothelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"CKD-mineral bone disorder\", \"dialysis patient serum exposure\", \"calciprotein particle depletion\", \"vascular calcification\"], \"publication\": \"PMID:36107466\"}}, {\"id\": \"RANKL/OPG Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL expression by osteoblasts and osteocytes while suppressing osteoprotegerin (OPG), shifting the balance toward excessive osteoclastogenesis and bone resorption. Uremic toxins may independently alter RANKL/OPG signaling. Novel biologicals targeting RANKL (denosumab) and sclerostin are being explored in CKD-MBD but require careful consideration of the bone-vascular paradox.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Osteoclast Differentiation\"]}}, {\"id\": \"Secondary Hyperparathyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Declining calcitriol synthesis (due to reduced 1-alpha-hydroxylase activity in damaged kidneys), hypocalcemia, hyperphosphatemia, and reduced calcium-sensing receptor (CaSR) and vitamin D receptor (VDR) expression in parathyroid glands collectively stimulate PTH secretion. PTH levels spike above normal as early as CKD stage G2. Chronically elevated PTH drives high-turnover bone disease with increased osteoclastic resorption and extends to the cardiovascular system promoting vascular calcifications.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Parathyroid Chief Cell\", \"Osteoclast\", \"Osteoblast\"], \"biological_processes\": [\"Parathyroid Hormone Secretion\", \"Bone Resorption\", \"Calcium Ion Homeostasis\"], \"genes\": [\"CASR\"], \"gene_terms\": [{\"label\": \"CASR\", \"id\": \"hgnc:1514\"}], \"locations\": [\"Parathyroid Gland\"]}}, {\"id\": \"Vascular Calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003207\", \"experimental_models\": [{\"name\": \"Primary human vascular CPP bioassay model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.\"}]}}], \"edges\": [{\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperphosphatemia directly stimulates PTH secretion; FGF23 suppresses calcitriol removing PTH inhibition\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"serum phosphate elevation\", \"calcitriol suppression by FGF23\"]}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Calcitriol Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGF23 suppresses 1-alpha-hydroxylase (CYP27B1) and upregulates 24-hydroxylase (CYP24A1)\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphate Retention and FGF23 Axis\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperphosphatemia and hypercalcemia promote VSMC osteogenic transdifferentiation\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"elevated calcium-phosphate product\", \"osteochondrogenic differentiation of vascular cells\"]}, {\"source\": \"Kidney Glycolysis-G3P Phosphate Sensing\", \"target\": \"Phosphate Retention and FGF23 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"G-3-P produced by kidney glycolysis circulates to bone and triggers FGF23 production\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"RANKL/OPG Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated PTH increases RANKL and suppresses OPG, driving osteoclastogenesis\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Vascular Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically elevated PTH promotes vascular calcifications\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered mineral balance\", \"cardiovascular system effects\"]}, {\"source\": \"Secondary Hyperparathyroidism\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PTH and FGF23 directly cause left ventricular hypertrophy\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Calcitriol Deficiency\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced calcitriol removes VDR-mediated suppression of PTH gene transcription\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Calcification\", \"target\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Calcified arteries produce sclerostin and other factors that inhibit bone remodeling\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Vascular Calcification\", \"target\": \"Calciphylaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arteriolar calcification precedes thrombosis and skin ischemia in calciphylaxis\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"arteriolar thrombosis\", \"skin ischemia\"]}, {\"source\": \"Bone-Vascular Paradox (Sclerostin/Wnt Axis)\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular sclerostin suppresses skeletal Wnt signaling and bone formation\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sclerostin inhibition of Wnt pathway\", \"suppressed osteoblast activity\"]}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Decreased Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive osteoclastogenesis increases bone resorption, reducing BMD\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased osteoclast activity\", \"excessive bone resorption\"]}, {\"source\": \"RANKL/OPG Imbalance\", \"target\": \"Pathological Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced BMD from RANKL-driven resorption increases fracture risk\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced bone mineral density\", \"impaired bone microarchitecture\"]}, {\"source\": \"Phosphate Binders\", \"target\": \"Vascular Calcification\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Active Vitamin D Therapy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcimimetics\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Parathyroidectomy\", \"target\": \"Secondary Hyperparathyroidism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Primary human vascular CPP bioassay model\", \"target\": \"Vascular Calcification\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5715,14 +6101,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arterial calcification
+
+                        <span class="phenotype-term-label">Arterial calcification</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003207" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003207">HP:0003207</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003207</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial Calcification (HP:0003207). HP:0003207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5745,6 +6140,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38573243" target="_blank">PMID:38573243</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5779,14 +6175,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001712">HP:0001712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left Ventricular Hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5808,6 +6211,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37258233" target="_blank">PMID:37258233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5851,14 +6255,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pathologic fracture
+
+                        <span class="phenotype-term-label">Pathologic fracture</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002756">HP:0002756</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002756</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pathological Fracture, annotated with Pathologic fracture (HP:0002756). HP:0002756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5882,6 +6295,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32961953" target="_blank">PMID:32961953</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5903,6 +6317,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38785509" target="_blank">PMID:38785509</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5937,14 +6352,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
+
+                        <span class="phenotype-term-label">Reduced bone mineral density</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased Bone Mineral Density, annotated with Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,6 +6388,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32961953" target="_blank">PMID:32961953</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5998,14 +6423,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Calcinosis cutis
+
+                        <span class="phenotype-term-label">Calcinosis cutis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025520">HP:0025520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0025520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Calciphylaxis, annotated with Calcinosis cutis (HP:0025520). HP:0025520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6028,6 +6462,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38573243" target="_blank">PMID:38573243</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6106,13 +6541,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CASR
 
 
-    <a href="https://bioregistry.io/hgnc:1514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1514">hgnc:1514</a>
+    <a href="https://bioregistry.io/hgnc:1514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:1514</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CASR (hgnc:1514). hgnc:1514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6133,6 +6573,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35587600" target="_blank">PMID:35587600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6170,13 +6611,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RGS14
 
 
-    <a href="https://bioregistry.io/hgnc:9996" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9996">hgnc:9996</a>
+    <a href="https://bioregistry.io/hgnc:9996" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:9996</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RGS14 (hgnc:9996). hgnc:9996 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6197,6 +6643,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35587600" target="_blank">PMID:35587600</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6228,6 +6675,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6243,7 +6693,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">phosphate binder therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">phosphate binder therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is phosphate binder therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6274,17 +6729,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         calcium carbonate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3311" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3311">CHEBI:3311</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3311" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:3311</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcium carbonate (CHEBI:3311). CHEBI:3311 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         calcium acetate
@@ -6292,11 +6754,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3310" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3310">CHEBI:3310</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3310" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:3310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcium acetate (CHEBI:3310). CHEBI:3310 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         lanthanum carbonate
@@ -6304,10 +6771,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_49701" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:49701">CHEBI:49701</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_49701" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:49701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lanthanum carbonate, annotated with lanthanum(3+) (CHEBI:49701). CHEBI:49701 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6342,6 +6812,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6384,6 +6855,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6413,7 +6885,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">active vitamin D analog therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">active vitamin D analog therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is active vitamin D analog therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6444,17 +6921,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         calcitriol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17823">CHEBI:17823</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:17823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         paricalcitol
@@ -6462,10 +6946,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7931" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7931">CHEBI:7931</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7931" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:7931</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paricalcitol (CHEBI:7931). CHEBI:7931 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6500,6 +6987,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29523679" target="_blank">PMID:29523679</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6542,6 +7030,7 @@
                         <a href="http://purl.obolibrary.org/obo/NCIT_C38693" target="_blank">NCIT:C38693</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6563,6 +7052,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29523679" target="_blank">PMID:29523679</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6593,7 +7083,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">calcimimetic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">calcimimetic therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is calcimimetic therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6624,17 +7119,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cinacalcet
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48390" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:48390">CHEBI:48390</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48390" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:48390</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cinacalcet (CHEBI:48390). CHEBI:48390 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etelcalcetide
@@ -6642,10 +7144,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_134700" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:134700">CHEBI:134700</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_134700" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:134700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etelcalcetide (CHEBI:134700). CHEBI:134700 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6680,6 +7185,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28097356" target="_blank">PMID:28097356</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6722,6 +7228,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23121374" target="_blank">PMID:23121374</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6751,7 +7258,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">parathyroidectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">parathyroidectomy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is parathyroidectomy (NCIT:C51593). NCIT:C51593 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Parathyroidectomy</span>
 
 
@@ -6810,6 +7322,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29523679" target="_blank">PMID:29523679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6851,6 +7364,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29523679" target="_blank">PMID:29523679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6880,7 +7394,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dialysis optimization</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">dialysis optimization<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dialysis optimization, annotated with Hemodialysis (NCIT:C15248). NCIT:C15248 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hemodialysis</span>
 
 
@@ -6930,6 +7449,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38573243" target="_blank">PMID:38573243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6959,7 +7479,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">kidney transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -7008,6 +7533,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33765230" target="_blank">PMID:33765230</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7099,6 +7625,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784965" target="_blank">PMID:33784965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7148,6 +7675,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784965" target="_blank">PMID:33784965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7169,6 +7697,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37258233" target="_blank">PMID:37258233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7218,6 +7747,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36821389" target="_blank">PMID:36821389</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7294,6 +7824,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38785509" target="_blank">PMID:38785509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7315,6 +7846,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784965" target="_blank">PMID:33784965</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7390,6 +7922,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33784965" target="_blank">PMID:33784965</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7567,6 +8100,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26303319" target="_blank">PMID:26303319</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7615,6 +8149,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36510335" target="_blank">PMID:36510335</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7665,6 +8200,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33301619" target="_blank">PMID:33301619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7686,6 +8222,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36776982" target="_blank">PMID:36776982</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7736,6 +8273,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27125746" target="_blank">PMID:27125746</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7784,6 +8322,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7866,26 +8405,36 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Vascular Smooth Muscle Cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-51">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         endothelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7895,30 +8444,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-53">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-53">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             arterial blood vessel
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003509" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003509">UBERON:0003509</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003509" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-54">UBERON:0003509</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-54">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses arterial blood vessel (UBERON:0003509). UBERON:0003509 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -7950,14 +8509,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-vascular-calcification">Vascular Calcification</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-vascular-calcification">Vascular Calcification</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates CPP-mediated vascular smooth muscle calcification and endothelial activation downstream of CKD mineral stress.</span>
+
+
 
 
 
@@ -7972,6 +8536,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7994,10 +8559,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8022,6 +8588,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8064,6 +8631,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36107466" target="_blank">PMID:36107466</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8088,6 +8656,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10423,6 +10994,8 @@
 
 
 
+
+
     <div class="findings-section">
         <div class="findings-title">Findings</div>
 
@@ -10444,6 +11017,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19732857" target="_blank">PMID:19732857</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10487,6 +11061,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19732857" target="_blank">PMID:19732857</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10528,6 +11103,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19732857" target="_blank">PMID:19732857</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10571,6 +11147,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19732857" target="_blank">PMID:19732857</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10829,6 +11406,8 @@
 
 
 
+
+
     <div class="findings-section">
         <div class="findings-title">Findings</div>
 
@@ -10850,6 +11429,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22232752" target="_blank">PMID:22232752</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10893,6 +11473,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22232752" target="_blank">PMID:22232752</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -10934,6 +11515,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22232752" target="_blank">PMID:22232752</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -10978,6 +11560,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22232752" target="_blank">PMID:22232752</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11017,7 +11600,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: CKD-Mineral Bone Disorder
 creation_date: &#39;2026-03-05T15:32:43Z&#39;
-updated_date: &#39;2026-05-09T17:40:32Z&#39;
 category: Complex
 parents:
 - Renal Disease
@@ -11364,6 +11946,7 @@ pathophysiology:
       snippet: FGF23 and PTH cause left ventricular hypertrophy, arrhythmia, and cardiovascular calcification.
       explanation: The review explicitly supports a causal cardiovascular effect of elevated PTH and FGF23.
 - name: Calcitriol Deficiency
+  conforms_to: &#34;defective_skeletal_mineralization#Calciopenic Substrate Deficiency&#34;
   description: &gt;
     The kidney is the primary site of 1-alpha-hydroxylation of 25-hydroxyvitamin D
     to active 1,25-dihydroxyvitamin D (calcitriol).
@@ -12135,6 +12718,7 @@ treatments:
         label: paricalcitol
   evidence:
   - reference: NCIT:C38693
+    reference_title: &#34;Paricalcitol (NCIT)&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Paricalcitol | Accepted_Therapeutic_Use_For | - | - | Secondary hyperparathyroidism, prevention and treatment&#34;
@@ -12870,6 +13454,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1038/s41598-024-54812-4" target="_blank">DOI:10.1038/s41598-024-54812-4</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -12938,6 +13523,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/ckj/sfad290" target="_blank">DOI:10.1093/ckj/sfad290</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13008,6 +13594,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae097" target="_blank">DOI:10.1093/ckj/sfae097</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -13076,6 +13663,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/ckj/sfae143" target="_blank">DOI:10.1093/ckj/sfae143</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13146,6 +13734,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/ckj/sfz112" target="_blank">DOI:10.1093/ckj/sfz112</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -13214,6 +13803,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1093/cvr/cvae164" target="_blank">DOI:10.1093/cvr/cvae164</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13284,6 +13874,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/jbmr/zjae021" target="_blank">DOI:10.1093/jbmr/zjae021</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -13352,6 +13943,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1111/nep.14407" target="_blank">DOI:10.1111/nep.14407</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13422,6 +14014,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.32948/ajsep.2024.05.20" target="_blank">DOI:10.32948/ajsep.2024.05.20</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -13490,6 +14083,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3389/fphys.2024.1356069" target="_blank">DOI:10.3389/fphys.2024.1356069</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -13560,6 +14154,7 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/jcm12196306" target="_blank">DOI:10.3390/jcm12196306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -13628,6 +14223,7 @@ references:
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3803/enm.2024.1978" target="_blank">DOI:10.3803/enm.2024.1978</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -14646,7 +15242,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CKD-Mineral Bone Disorder", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CKD-Mineral_Bone_Disorder", "yamlRevision": "0ec53d93da5c"};
+        const OS_CONFIG = {"diseaseName": "CKD-Mineral Bone Disorder", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CKD-Mineral_Bone_Disorder", "yamlRevision": "ef4380acec7f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15065,5 +15661,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

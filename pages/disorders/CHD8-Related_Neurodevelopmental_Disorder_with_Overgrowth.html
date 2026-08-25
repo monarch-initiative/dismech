@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>CHD8-Related Neurodevelopmental Disorder with Overgrowth</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>CHD8-Related Neurodevelopmental Disorder with Overgrowth</h1>
             <div class="header-meta">
 
@@ -3702,6 +3904,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3819,7 +4023,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3848,29 +4052,107 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification" title="The core manifestations - developmental delay, intellectual disability, autism, hypotonia, seizures, dystonia and structural brain anomalies - are neurologic.">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Autosomal dominant Mendelian disorder caused by heterozygous loss-of-function CHD8 variants acting through haploinsufficiency.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3943,7 +4225,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -3990,6 +4272,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4011,6 +4294,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41407309" target="_blank">PMID:41407309</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4119,6 +4403,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38438524" target="_blank">PMID:38438524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4140,6 +4425,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -4263,6 +4549,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4277,6 +4569,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
             <div class="experiment-id">chd8_exp_imaging_genetics_ohc_vs_severity</div>
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4372,6 +4670,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4418,6 +4722,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38441608" target="_blank">PMID:38441608</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4512,6 +4817,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4526,6 +4837,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
             <div class="experiment-id">chd8_exp_human_white_matter_imaging</div>
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4566,6 +4883,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36878905" target="_blank">PMID:36878905</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4623,6 +4941,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4677,6 +4996,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
             <div class="experiment-id">chd8_exp_cancer_incidence_registry_linkage</div>
 
         </div>
+
+
+
+
+
+
 
 
 
@@ -4758,6 +5083,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4780,6 +5111,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36738737" target="_blank">PMID:36738737</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4830,15 +5162,22 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CHD8
 
 
-    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20153">hgnc:20153</a>
+    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:20153</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4867,16 +5206,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ATP-dependent chromatin remodelling activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008094" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008094">GO:0008094</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008094" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ATP-dependent chromatin remodelling activity, annotated with ATP-dependent activity, acting on DNA (GO:0008094). GO:0008094 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4896,16 +5240,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-bio">
                         chromatin binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003682" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003682">GO:0003682</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003682" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0003682</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased chromatin binding (GO:0003682). GO:0003682 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4926,6 +5275,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -4961,6 +5311,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4983,6 +5334,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5004,6 +5356,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5037,16 +5390,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5073,16 +5431,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5102,16 +5465,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5132,6 +5500,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -5166,6 +5535,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294932" target="_blank">PMID:25294932</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5187,6 +5557,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25752243" target="_blank">PMID:25752243</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5227,16 +5598,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         synapse assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007416" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007416">GO:0007416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007416" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007416</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased synapse assembly (GO:0007416). GO:0007416 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5245,6 +5621,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5262,10 +5640,13 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007411">GO:0007411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased axon guidance (GO:0007411). GO:0007411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5285,16 +5666,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-bio">
                         brain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007420">GO:0007420</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal brain development (GO:0007420). GO:0007420 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5315,6 +5701,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -5379,6 +5766,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294932" target="_blank">PMID:25294932</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5401,6 +5789,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294932" target="_blank">PMID:25294932</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5422,6 +5811,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5462,16 +5852,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5492,6 +5887,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -5526,6 +5922,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27694995" target="_blank">PMID:27694995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5547,6 +5944,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22495309" target="_blank">PMID:22495309</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5587,16 +5985,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000122">GO:0000122</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0000122</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of transcription by RNA polymerase II (GO:0000122). GO:0000122 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5617,6 +6020,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -5651,6 +6055,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602517" target="_blank">PMID:27602517</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5683,17 +6088,24 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5714,10 +6126,13 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000681">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5744,16 +6159,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neural precursor cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061351">GO:0061351</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0061351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neural precursor cell proliferation (GO:0061351). GO:0061351 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5773,16 +6193,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-bio">
                         neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5802,16 +6227,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007049">GO:0007049</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell cycle (GO:0007049). GO:0007049 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5832,6 +6262,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -5880,6 +6311,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27694995" target="_blank">PMID:27694995</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5902,6 +6334,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33627187" target="_blank">PMID:33627187</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5923,6 +6356,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602517" target="_blank">PMID:27602517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5963,16 +6397,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         brain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007420">GO:0007420</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal brain development (GO:0007420). GO:0007420 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5999,19 +6438,25 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6045,6 +6490,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6067,6 +6513,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6088,6 +6535,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35385734" target="_blank">PMID:35385734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6121,16 +6569,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         GABAergic (inhibitory) neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased GABAergic (inhibitory) neuron, annotated with GABAergic neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6150,16 +6603,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-cell">
                         glutamatergic (excitatory) neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000679">CL:0000679</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000679</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased glutamatergic (excitatory) neuron, annotated with glutamatergic neuron (CL:0000679). CL:0000679 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6190,16 +6648,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cerebral cortex neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021895">GO:0021895</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0021895</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cerebral cortex neuron differentiation (GO:0021895). GO:0021895 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6220,6 +6683,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -6253,6 +6717,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35385734" target="_blank">PMID:35385734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6293,16 +6758,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         axon guidance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007411">GO:0007411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased axon guidance (GO:0007411). GO:0007411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6323,6 +6793,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -6357,6 +6828,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6378,6 +6850,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6424,6 +6897,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6435,6 +6909,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6457,6 +6932,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602517" target="_blank">PMID:27602517</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6490,16 +6966,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         enteric neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0007011">CL:0007011</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0007011</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased enteric neuron (CL:0007011). CL:0007011 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6508,6 +6989,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -6525,10 +7008,13 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000160">CL:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased intestinal goblet cell, annotated with goblet cell (CL:0000160). CL:0000160 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6548,16 +7034,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag tag-cell">
                         intestinal tuft cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0019032" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0019032">CL:0019032</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0019032" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0019032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased intestinal tuft cell (CL:0019032). CL:0019032 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6588,16 +7079,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         enteric nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048484" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048484">GO:0048484</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048484" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0048484</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal enteric nervous system development (GO:0048484). GO:0048484 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6618,6 +7114,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -6652,6 +7149,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36375841" target="_blank">PMID:36375841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6674,6 +7172,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36375841" target="_blank">PMID:36375841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6695,6 +7194,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37783686" target="_blank">PMID:37783686</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6738,19 +7238,25 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000160">UBERON:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:0000160 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6768,6 +7274,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6790,6 +7297,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37783686" target="_blank">PMID:37783686</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6823,16 +7331,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         glial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000125">CL:0000125</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000125</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6862,6 +7375,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         gliogenesis
@@ -6869,10 +7384,13 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042063" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042063">GO:0042063</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042063" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0042063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gliogenesis (GO:0042063). GO:0042063 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6899,19 +7417,25 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6943,6 +7467,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36878905" target="_blank">PMID:36878905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6964,6 +7489,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36878905" target="_blank">PMID:36878905</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6997,16 +7523,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         blood-brain-barrier glia (Drosophila subperineurial glia)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000125">CL:0000125</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000125</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood-brain-barrier glia (Drosophila subperineurial glia), annotated with glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7023,6 +7554,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 </div>
+
 
 
 
@@ -7066,6 +7598,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34088660" target="_blank">PMID:34088660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7088,6 +7621,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34088660" target="_blank">PMID:34088660</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7109,6 +7643,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34088660" target="_blank">PMID:34088660</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7142,16 +7677,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         medium spiny neuron of the nucleus accumbens
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001474" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1001474">CL:1001474</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001474" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:1001474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves medium spiny neuron of the nucleus accumbens, annotated with medium spiny neuron (CL:1001474). CL:1001474 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7181,19 +7721,25 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002435">UBERON:0002435</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0002435</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:0002435 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7224,6 +7770,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28402856" target="_blank">PMID:28402856</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7326,14 +7873,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002019</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7353,6 +7907,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7376,6 +7931,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7397,6 +7953,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7431,14 +7988,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Diarrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002014</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7458,6 +8022,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7499,14 +8064,23 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Large Ears
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrotia
+
+                        <span class="phenotype-term-label">Macrotia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000400">HP:0000400</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000400</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrotia (HP:0000400). HP:0000400 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7526,6 +8100,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7567,14 +8142,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Hypertelorism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7594,6 +8176,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7616,6 +8199,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7659,14 +8243,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrocephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000256">HP:0000256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7686,6 +8277,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7709,6 +8301,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7730,6 +8323,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7764,14 +8358,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Depressed Nasal Bridge
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depressed nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0005280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7791,6 +8392,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7823,14 +8425,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Long Philtrum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000343</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7850,6 +8459,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7882,14 +8492,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Downslanted Palpebral Fissures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Downslanted palpebral fissures
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000494">HP:0000494</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000494</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7909,6 +8526,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7941,14 +8559,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Pointed Chin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pointed chin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000307">HP:0000307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pointed chin (HP:0000307). HP:0000307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7968,6 +8593,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8011,14 +8637,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8038,6 +8671,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8061,6 +8695,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8082,6 +8717,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8125,14 +8761,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8152,6 +8795,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8174,6 +8818,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8208,14 +8853,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8235,6 +8887,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8269,14 +8922,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8296,6 +8956,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8318,6 +8979,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8352,14 +9014,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249), qualified as severity moderate. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8398,6 +9067,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8420,6 +9090,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8441,6 +9112,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8477,14 +9149,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000717</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8504,6 +9183,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8527,6 +9207,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33627187" target="_blank">PMID:33627187</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8548,6 +9229,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8584,14 +9266,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8611,6 +9300,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8634,6 +9324,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670789" target="_blank">PMID:30670789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8655,6 +9346,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8691,14 +9383,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8718,6 +9417,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8741,6 +9441,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8762,6 +9463,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31526516" target="_blank">PMID:31526516</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8796,14 +9498,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8823,6 +9532,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8846,6 +9556,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38441608" target="_blank">PMID:38441608</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8867,6 +9578,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34415117" target="_blank">PMID:34415117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8899,14 +9611,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Anxiety
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8926,6 +9645,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -8949,6 +9669,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602517" target="_blank">PMID:27602517</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -8970,6 +9691,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38622540" target="_blank">PMID:38622540</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9004,14 +9726,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Attention Deficit Hyperactivity Disorder
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Attention deficit hyperactivity disorder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0007018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9031,6 +9760,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9053,6 +9783,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41407309" target="_blank">PMID:41407309</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9085,14 +9816,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Aggressive and Self-Injurious Behavior
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Self-injurious behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100716">HP:0100716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0100716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9112,6 +9850,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9134,6 +9873,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33175317" target="_blank">PMID:33175317</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -9168,14 +9908,23 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9195,6 +9944,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9217,6 +9967,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31721432" target="_blank">PMID:31721432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9251,14 +10002,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9278,6 +10036,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9321,14 +10080,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tall stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000098">HP:0000098</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000098</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9348,6 +10114,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9371,6 +10138,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9392,6 +10160,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31721432" target="_blank">PMID:31721432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9437,14 +10206,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Overweight
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025502" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025502">HP:0025502</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0025502</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Overweight (HP:0025502). HP:0025502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9464,6 +10240,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9486,6 +10263,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9520,14 +10298,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chiari type I malformation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007099">HP:0007099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0007099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9547,6 +10332,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9579,14 +10365,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Broad Forehead with Prominent Supraorbital Ridges
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000337">HP:0000337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9606,6 +10399,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9638,14 +10432,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         Prominent Supraorbital Ridges
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent supraorbital ridges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000336">HP:0000336</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000336</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent supraorbital ridges (HP:0000336). HP:0000336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9665,6 +10466,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9699,14 +10501,23 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the musculoskeletal system
+
+                        <span class="phenotype-term-label">Abnormality of the musculoskeletal system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033127">HP:0033127</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0033127</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the musculoskeletal system (HP:0033127). HP:0033127 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9726,6 +10537,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36182950" target="_blank">PMID:36182950</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9748,6 +10560,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31721432" target="_blank">PMID:31721432</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9824,13 +10637,18 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHD8
 
 
-    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20153">hgnc:20153</a>
+    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:20153</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9856,6 +10674,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22495309" target="_blank">PMID:22495309</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9878,6 +10697,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -9899,6 +10719,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -9950,13 +10771,18 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: CHD8
 
 
-    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20153">hgnc:20153</a>
+    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:20153</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -9966,6 +10792,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
     <div class="item-desc">Constitutive truncating variants in the helicase-C domain of CHD8 are seen in individuals with autism (and, somatically, in cancer) but not in the general population, and are associated with the most severe end of the CHD8-NDD phenotypic spectrum, including lower verbal IQ and a consistent overgrowth pattern.</div>
+
+
 
 
 
@@ -9984,6 +10812,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31980904" target="_blank">PMID:31980904</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10022,13 +10851,18 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: CHD8
 
 
-    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20153">hgnc:20153</a>
+    <a href="https://bioregistry.io/hgnc:20153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:20153</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CHD8 (hgnc:20153). hgnc:20153 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -10038,6 +10872,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
     <div class="item-desc">Missense variants are the most common non-truncating CHD8 change reported in autism, and they are the principal variant-interpretation problem in this disorder. Functional testing across biochemical activity, embryonic stem cell neural differentiation and mouse behaviour showed that only high-prediction-score missense alleles produce autism-like phenotypes, so a CHD8 missense variant must not be assumed pathogenic without in silico support and, ideally, functional or episignature data.</div>
+
+
 
 
 
@@ -10056,6 +10892,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38438524" target="_blank">PMID:38438524</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10085,6 +10922,9 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
         </div>
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -10100,7 +10940,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -10149,6 +10994,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10178,7 +11024,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10245,6 +11096,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10266,6 +11118,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10296,7 +11149,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech and language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -10345,6 +11203,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10366,6 +11225,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10396,7 +11256,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10444,6 +11309,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10473,7 +11339,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10522,6 +11393,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10551,7 +11423,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10600,6 +11477,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10621,6 +11499,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10651,7 +11530,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">deep brain stimulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-72">deep brain stimulation<span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Deep Brain Stimulation</span>
 
 
@@ -10688,16 +11572,21 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dystonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0001332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10716,6 +11605,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34415117" target="_blank">PMID:34415117</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -10746,7 +11636,12 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -10795,6 +11690,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10841,7 +11737,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-autism-spectrum-disorder-multifactorial">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Autism_Spectrum_Disorder.html">Autism Spectrum Disorder (multifactorial)</a>
@@ -10886,6 +11782,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -10911,7 +11808,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-charge-syndrome-chd7">
                 <div class="item-name">
 
                     <a class="item-name-link" href="CHARGE_syndrome.html">CHARGE Syndrome (CHD7)</a>
@@ -10949,7 +11846,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chd2-related-developmental-and-epileptic-encephalopathy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="CHD2-Related_Developmental_and_Epileptic_Encephalopathy.html">CHD2-Related Developmental and Epileptic Encephalopathy</a>
@@ -10994,6 +11891,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36302072" target="_blank">PMID:36302072</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11019,7 +11917,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-sifrim-hitz-weiss-syndrome-chd4">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Sifrim-Hitz-Weiss_syndrome.html">Sifrim-Hitz-Weiss Syndrome (CHD4)</a>
@@ -11057,7 +11955,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-14q11-2-microdeletion-syndrome">
                 <div class="item-name">
 
                     14q11.2 Microdeletion Syndrome
@@ -11096,6 +11994,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25257502" target="_blank">PMID:25257502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11121,7 +12020,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-14q11-2-microduplication-chd8-supt16h-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">14q11.2 Microduplication (CHD8-SUPT16H) Syndrome</span>
@@ -11167,6 +12066,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31823155" target="_blank">PMID:31823155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11188,6 +12088,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31823155" target="_blank">PMID:31823155</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11214,7 +12115,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pten-hamartoma-tumor-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="PTEN_Hamartoma_Tumor_Syndrome.html">PTEN Hamartoma Tumor Syndrome</a>
@@ -11252,7 +12153,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-overgrowth-with-intellectual-disability-syndromes">
                 <div class="item-name">
 
                     Other Overgrowth-with-Intellectual-Disability Syndromes
@@ -11290,6 +12191,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31001818" target="_blank">PMID:31001818</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11329,7 +12231,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01238250">
                 <div class="item-name">
                     NCT01238250
 
@@ -11344,17 +12246,24 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Autism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0000717</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
@@ -11362,10 +12271,13 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11383,6 +12295,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT01238250" target="_blank">clinicaltrials:NCT01238250</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11439,6 +12352,8 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11450,6 +12365,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35385734" target="_blank">PMID:35385734</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -11473,6 +12389,7 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28321286" target="_blank">PMID:28321286</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -11484,6 +12401,310 @@ Entity scope (NEC boundary, see `discussions` and `differential_diagnoses`): thi
 
 
                 <div class="evidence-explanation">Establishes the heterozygous CHD8 organoid model system.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-chd8-heterozygous-loss-of-function-mus-musculus" data-dismech-node="Chd8+/- (heterozygous loss-of-function) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Chd8+/- (heterozygous loss-of-function) Mus musculus
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">Constitutive Chd8 heterozygous mice are the closest dosage match to the human disorder and recapitulate brain overgrowth, hypertelorism, motor delay, altered social responses, increased anxiety and repetitive behaviour, together with long-range functional over-connectivity on resting-state fMRI.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Chd8+/- (heterozygous loss-of-function)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27602517" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27602517" target="_blank">PMID:27602517</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we show that mice heterozygous for Chd8 mutations manifest ASD-like behavioural characteristics including increased anxiety, repetitive behaviour, and altered social behaviour."</div>
+
+
+                <div class="evidence-explanation">Behavioural recapitulation in the mouse heterozygote.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29668850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29668850" target="_blank">PMID:29668850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report that Chd8 heterozygous mice display increased brain size, motor delay, hypertelorism, pronounced hypoactivity, and anomalous responses to social stimuli."</div>
+
+
+                <div class="evidence-explanation">Somatic and behavioural recapitulation in the mouse heterozygote.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36738737" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36738737" target="_blank">PMID:36738737</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Trait disruptions mimicked those seen clinically, with robust strain and sex differences. Some strains exhibited large effect-size trait disruptions, sometimes in opposite directions, and-remarkably-others expressed resilience."</div>
+
+
+                <div class="evidence-explanation">Crossing the Chd8 lesion across 33 mouse strains shows genetic background is a powerful modifier, producing opposite-direction effects and outright resilience. This reframes the well-known behavioural inconsistency between published Chd8 mouse lines as background-dependent biology rather than experimental noise, and is the main reason any single-strain mouse result here is weighted cautiously. PARTIAL because it qualifies rather than directly supports the model&#39;s fidelity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-chd8-loss-of-function-morpholino-suppression-and-stable-constitutive-mutant-danio-rerio" data-dismech-node="chd8 loss of function (morpholino suppression and stable constitutive mutant) Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    chd8 loss of function (morpholino suppression and stable constitutive mutant) Danio rerio
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">Zebrafish chd8 loss of function reproduces the two most distinctive arms of the human syndrome simultaneously - increased head size from forebrain/midbrain expansion, and impaired gastrointestinal motility from reduced enteric innervation - and further localises the GI defect to vagal neural crest development and intestinal epithelial homeostasis.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">chd8 loss of function (morpholino suppression and stable constitutive mutant)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24998929" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24998929" target="_blank">PMID:24998929</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"chd8 disruption in zebrafish recapitulates features of the human phenotype, including increased head size as a result of expansion of the forebrain/midbrain and impairment of gastrointestinal motility due to a reduction in postmitotic enteric neurons."</div>
+
+
+                <div class="evidence-explanation">Dual recapitulation of the head-size and GI arms of the phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36375841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36375841" target="_blank">PMID:36375841</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings propose a causal developmental link between chd8, NCC development, intestinal homeostasis, and autism-associated gastrointestinal complaints."</div>
+
+
+                <div class="evidence-explanation">Localises the GI arm to neural crest and intestinal homeostasis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-crispr-cas9-mediated-chd8-mutation-embryo-editing-macaca-fascicularis" data-dismech-node="CRISPR/Cas9-mediated CHD8 mutation (embryo editing) Macaca fascicularis" data-dismech-type="animal_model">
+                <div class="item-name">
+                    CRISPR/Cas9-mediated CHD8 mutation (embryo editing) Macaca fascicularis
+
+                    <span class="tag tag-exp-model-type">GENETIC</span>
+
+                </div>
+
+                <div class="item-desc">Cynomolgus monkey CHD8 mutants are the only non-human primate model and are uniquely informative because they resolve a question rodents could not: they show that macrocephaly in a primate arises through increased gliogenesis rather than excess neuronal production. Limitations are small n, cost, mosaic founders and limited behavioural phenotyping.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Macaca fascicularis</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">CRISPR/Cas9-mediated CHD8 mutation (embryo editing)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36878905" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36878905" target="_blank">PMID:36878905</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, knocking down CHD8 via CRISPR/Cas9 in organotypic monkey brain slices from newborn monkeys also enhanced the proliferation of glial cells."</div>
+
+
+                <div class="evidence-explanation">Independent slice-culture confirmation of the glial proliferation phenotype in primate tissue.</div>
 
 
 
@@ -17156,5 +18377,73 @@ Mutations with high scores "cause ASD by mechanisms either dependent on or indep
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

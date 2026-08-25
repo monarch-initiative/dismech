@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Oculodentodigital Dysplasia</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Oculodentodigital Dysplasia</h1>
             <div class="header-meta">
 
@@ -3700,6 +3902,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3806,7 +4010,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3854,6 +4058,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3875,6 +4080,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3899,7 +4105,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3945,6 +4151,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23606748" target="_blank">PMID:23606748</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3966,6 +4173,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29902798" target="_blank">PMID:29902798</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4020,7 +4228,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ad">
 
                     <div class="item-name">
                         Autosomal Dominant ODDD
@@ -4049,7 +4257,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar">
 
                     <div class="item-name">
                         Autosomal Recessive ODDD
@@ -4107,17 +4315,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4138,11 +4353,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4163,10 +4383,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000060">CL:0000060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Odontoblast (CL:0000060). CL:0000060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4186,6 +4409,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4196,10 +4423,13 @@
         GJA1
 
 
-    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4274">hgnc:4274</a>
+    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:4274</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased GJA1 (hgnc:4274). hgnc:4274 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4231,16 +4461,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Gap junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016264">GO:0016264</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0016264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Gap junction assembly (GO:0016264). GO:0016264 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4249,6 +4484,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4266,10 +4503,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007154">GO:0007154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell communication via gap junctions, annotated with cell communication (GO:0007154). GO:0007154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4290,6 +4530,7 @@
 
 
                 </div>
+
 
 
 
@@ -4336,6 +4577,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4358,6 +4600,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4379,6 +4622,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4413,17 +4657,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4444,10 +4695,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000060">CL:0000060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Odontoblast (CL:0000060). CL:0000060 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4474,16 +4728,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Gap junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016264">GO:0016264</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0016264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Gap junction assembly (GO:0016264). GO:0016264 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4504,6 +4763,7 @@
 
 
                 </div>
+
 
 
 
@@ -4604,6 +4864,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4644,16 +4905,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cell communication via gap junctions
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007154">GO:0007154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell communication via gap junctions, annotated with cell communication (GO:0007154). GO:0007154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4673,9 +4939,99 @@
 
 
 
+
+
+                    <span class="tag tag-bio">
+                        Eye morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048592</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Camera-type eye morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0048593</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
 
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        Eye
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000970</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -4726,6 +5082,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32318302" target="_blank">PMID:32318302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4747,6 +5104,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26743931" target="_blank">PMID:26743931</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4788,16 +5146,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cell communication via gap junctions
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007154">GO:0007154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cell communication via gap junctions, annotated with cell communication (GO:0007154). GO:0007154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4818,6 +5181,7 @@
 
 
                 </div>
+
 
 
 
@@ -4882,6 +5246,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4920,15 +5285,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GJA1
 
 
-    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4274">hgnc:4274</a>
+    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:4274</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased GJA1 (hgnc:4274). hgnc:4274 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4960,16 +5332,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Gap junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016264">GO:0016264</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016264" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0016264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Gap junction assembly (GO:0016264). GO:0016264 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4999,6 +5376,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5010,6 +5388,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23606748" target="_blank">PMID:23606748</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5032,6 +5411,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23606748" target="_blank">PMID:23606748</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5081,7 +5461,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-5 finger cutaneous syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous syndactyly of the fourth and fifth fingers is the characteristic digital malformation in ODDD; some patients also have third-finger or foot syndactyly.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010705\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar-type gait and coordination impairment have been reported within the neurologic spectrum of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"CNS hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In neurologically affected individuals, brain MRI can show white matter abnormalities consistent with cerebral hypomyelination.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD\"], \"term_id\": \"HP:0003429\"}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent flexion contracture of the fingers occurs as part of the digital phenotype in some patients with ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012385\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is a recognized but non-universal auditory manifestation of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial, dental, and limb developmental anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired Cx43-mediated GJIC during embryonic development disrupts coordinated signaling in neural crest-derived craniofacial structures and developing limb buds. This leads to the characteristic narrow nose, digital syndactyly, and dental anomalies. Cx43 is essential for osteoblast and odontoblast differentiation and function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\", \"Odontoblast\"], \"biological_processes\": [\"Gap junction assembly\"]}}, {\"id\": \"Curved dental root\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally curved dental roots are part of the recurrent dental morphology reported in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000104\"}}, {\"id\": \"Dental Preventive and Restorative Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dental care should start early and combine meticulous oral hygiene, preventive care, treatment of caries and enamel defects, restorative rehabilitation, and multidisciplinary dental follow-up to preserve function and occlusion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA1 encodes connexin 43 (Cx43), the most widely expressed gap junction protein. In the autosomal dominant form, missense mutations produce mutant Cx43 that co-assembles with wild-type Cx43 (and other connexins) into dysfunctional gap junction channels, exerting a dominant-negative effect. This impairs intercellular communication in tissues that critically depend on Cx43: craniofacial structures, limb buds, eyes, teeth, brain, and skin. Mutations occur across all nine domains of the Cx43 protein and may cause misassembly of channels or alter channel conduction properties. The tissue- specific phenotypic expression reflects the differential dependence of each tissue on Cx43-mediated gap junction intercellular communication (GJIC) during development and postnatal life.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoblast\", \"Keratinocyte\", \"Odontoblast\"], \"biological_processes\": [\"Gap junction assembly\", \"Cell communication via gap junctions\"], \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria is part of the recognized neurologic phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Enamel hypomineralization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective mineralization of dental enamel is part of the structural dental phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006285\"}}, {\"id\": \"Enamel hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective enamel formation is a recurrent dental abnormality in ODDD and contributes to structural tooth fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006297\"}}, {\"id\": \"GJA1 (Connexin 43)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\"}], \"association\": \"Causative\"}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glaucoma is a clinically important ocular complication in ODDD and may threaten vision.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"AD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Hand and Limb Orthopedic Evaluation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hand, foot, and limb evaluation should assess syndactyly, camptodactyly, and functional limitations, with referral to hand surgery or orthopedics when deformities impair function or require reconstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypodontia has been reported in an autosomal recessive ODDD case with a homozygous truncating GJA1 variant.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AR\"], \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypoplastic alae nasi\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdeveloped nasal alae are a recurrent and distinctive part of the nasal phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000430\"}}, {\"id\": \"Loss-of-function mechanism in autosomal recessive ODDD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In autosomal recessive ODDD, homozygous mutations cause complete loss of Cx43 function rather than dominant-negative effects. The R33X truncation mutant fails to form functional channels and additionally exerts trans- dominant effects on co-expressed connexins (Cx43 and Cx40), potentially explaining the greater disease burden in some AR cases. The R76H mutant retains partial function with reduced conductance.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Gap junction assembly\"], \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\", \"modifier\": \"DECREASED\"}], \"subtypes\": [\"AR\"]}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small corneas are a recurrent ocular finding in ODDD and often accompany microphthalmia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microdontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small teeth are a recurrent dental manifestation of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000691\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eyes are among the most commonly reported ocular manifestations of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Narrow nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow or pinched nose is part of the characteristic craniofacial gestalt of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000460\"}}, {\"id\": \"Neurogenic bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary dysfunction due to neurogenic bladder can accompany neurologic involvement in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000011\"}}, {\"id\": \"Neurologic Monitoring and Symptom-Directed Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neurologic follow-up is indicated when spasticity, ataxia, dysarthria, seizures, neurogenic bladder, or other neurologic signs are present. Care includes neurologic examination, brain MRI when indicated, seizure treatment, spasticity and mobility management, and bladder/bowel management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neurological dysfunction from impaired CNS gap junctions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cx43 is the predominant gap junction protein in astrocytes and plays a critical role in CNS homeostasis. Disrupted astrocytic gap junction networks impair potassium buffering, metabolite exchange, and coordinated neural activity, contributing to spastic paraplegia, seizures, ataxia, and white matter abnormalities observed in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Cell communication via gap junctions\"]}}, {\"id\": \"Ocular developmental and glaucoma risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA1/Cx43 disruption contributes to ocular developmental anomalies such as microphthalmia and microcornea, while ciliary body cysts and progressive angle closure can drive glaucoma in some patients. This makes ocular disease both a developmental feature and a surveillance priority.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cell communication via gap junctions\"]}}, {\"id\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients need regular ophthalmologic surveillance for microcornea, microphthalmia, angle narrowing, ciliary body cysts, and glaucoma. Management includes tonometry and gonioscopy, ultrasound biomicroscopy when indicated, topical pressure-lowering therapy when useful, and glaucoma surgery such as tube shunt placement for refractory angle-closure disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pulp calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcified pulp stones are reported among the recurrent radiographic dental findings in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003771\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are part of the broader neurologic phenotype reported in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short palpebral fissures are part of the recognized ocular adnexal phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012745\"}}, {\"id\": \"Spastic paraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-extremity spasticity is a prominent neurologic manifestation of ODDD and may emerge later in life.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002313\"}}, {\"id\": \"Taurodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged pulp chambers with apically displaced furcations are part of the structural dental phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000679\"}}], \"edges\": [{\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Craniofacial, dental, and limb developmental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Ocular developmental and glaucoma risk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Neurological dysfunction from impaired CNS gap junctions\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Narrow nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Hypoplastic alae nasi\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Enamel hypomineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Microdontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Pulp calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Curved dental root\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Taurodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"4-5 finger cutaneous syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Short palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Spastic paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Neurogenic bladder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"CNS hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Microcornea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Microdontia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Pulp calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"Spastic paraparesis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"CNS hypomyelination\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hand and Limb Orthopedic Evaluation\", \"target\": \"4-5 finger cutaneous syndactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hand and Limb Orthopedic Evaluation\", \"target\": \"Camptodactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GJA1 (Connexin 43)\", \"target\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GJA1 (Connexin 43)\", \"target\": \"Loss-of-function mechanism in autosomal recessive ODDD\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-5 finger cutaneous syndactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous syndactyly of the fourth and fifth fingers is the characteristic digital malformation in ODDD; some patients also have third-finger or foot syndactyly.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010705\"}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar-type gait and coordination impairment have been reported within the neurologic spectrum of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001251\"}}, {\"id\": \"CNS hypomyelination\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In neurologically affected individuals, brain MRI can show white matter abnormalities consistent with cerebral hypomyelination.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AD\"], \"term_id\": \"HP:0003429\"}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent flexion contracture of the fingers occurs as part of the digital phenotype in some patients with ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012385\"}}, {\"id\": \"Conductive hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment is a recognized but non-universal auditory manifestation of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial, dental, and limb developmental anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired Cx43-mediated GJIC during embryonic development disrupts coordinated signaling in neural crest-derived craniofacial structures and developing limb buds. This leads to the characteristic narrow nose, digital syndactyly, and dental anomalies. Cx43 is essential for osteoblast and odontoblast differentiation and function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Osteoblast\", \"Odontoblast\"], \"biological_processes\": [\"Gap junction assembly\"]}}, {\"id\": \"Curved dental root\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally curved dental roots are part of the recurrent dental morphology reported in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000104\"}}, {\"id\": \"Dental Preventive and Restorative Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dental care should start early and combine meticulous oral hygiene, preventive care, treatment of caries and enamel defects, restorative rehabilitation, and multidisciplinary dental follow-up to preserve function and occlusion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA1 encodes connexin 43 (Cx43), the most widely expressed gap junction protein. In the autosomal dominant form, missense mutations produce mutant Cx43 that co-assembles with wild-type Cx43 (and other connexins) into dysfunctional gap junction channels, exerting a dominant-negative effect. This impairs intercellular communication in tissues that critically depend on Cx43: craniofacial structures, limb buds, eyes, teeth, brain, and skin. Mutations occur across all nine domains of the Cx43 protein and may cause misassembly of channels or alter channel conduction properties. The tissue- specific phenotypic expression reflects the differential dependence of each tissue on Cx43-mediated gap junction intercellular communication (GJIC) during development and postnatal life.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoblast\", \"Keratinocyte\", \"Odontoblast\"], \"biological_processes\": [\"Gap junction assembly\", \"Cell communication via gap junctions\"], \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysarthria is part of the recognized neurologic phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001260\"}}, {\"id\": \"Enamel hypomineralization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective mineralization of dental enamel is part of the structural dental phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006285\"}}, {\"id\": \"Enamel hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective enamel formation is a recurrent dental abnormality in ODDD and contributes to structural tooth fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0006297\"}}, {\"id\": \"GJA1 (Connexin 43)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\"}], \"association\": \"Causative\"}}, {\"id\": \"Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glaucoma is a clinically important ocular complication in ODDD and may threaten vision.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"AD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Hand and Limb Orthopedic Evaluation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hand, foot, and limb evaluation should assess syndactyly, camptodactyly, and functional limitations, with referral to hand surgery or orthopedics when deformities impair function or require reconstruction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypodontia has been reported in an autosomal recessive ODDD case with a homozygous truncating GJA1 variant.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"AR\"], \"term_id\": \"HP:0000668\"}}, {\"id\": \"Hypoplastic alae nasi\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdeveloped nasal alae are a recurrent and distinctive part of the nasal phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000430\"}}, {\"id\": \"Loss-of-function mechanism in autosomal recessive ODDD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In autosomal recessive ODDD, homozygous mutations cause complete loss of Cx43 function rather than dominant-negative effects. The R33X truncation mutant fails to form functional channels and additionally exerts trans- dominant effects on co-expressed connexins (Cx43 and Cx40), potentially explaining the greater disease burden in some AR cases. The R76H mutant retains partial function with reduced conductance.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Gap junction assembly\"], \"genes\": [\"GJA1\"], \"gene_terms\": [{\"label\": \"GJA1\", \"id\": \"hgnc:4274\", \"modifier\": \"DECREASED\"}], \"subtypes\": [\"AR\"]}}, {\"id\": \"Microcornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally small corneas are a recurrent ocular finding in ODDD and often accompany microphthalmia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000482\"}}, {\"id\": \"Microdontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small teeth are a recurrent dental manifestation of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000691\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eyes are among the most commonly reported ocular manifestations of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Narrow nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow or pinched nose is part of the characteristic craniofacial gestalt of ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000460\"}}, {\"id\": \"Neurogenic bladder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary dysfunction due to neurogenic bladder can accompany neurologic involvement in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000011\"}}, {\"id\": \"Neurologic Monitoring and Symptom-Directed Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neurologic follow-up is indicated when spasticity, ataxia, dysarthria, seizures, neurogenic bladder, or other neurologic signs are present. Care includes neurologic examination, brain MRI when indicated, seizure treatment, spasticity and mobility management, and bladder/bowel management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neurological dysfunction from impaired CNS gap junctions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cx43 is the predominant gap junction protein in astrocytes and plays a critical role in CNS homeostasis. Disrupted astrocytic gap junction networks impair potassium buffering, metabolite exchange, and coordinated neural activity, contributing to spastic paraplegia, seizures, ataxia, and white matter abnormalities observed in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Cell communication via gap junctions\"]}}, {\"id\": \"Ocular developmental and glaucoma risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GJA1/Cx43 disruption contributes to ocular developmental anomalies such as microphthalmia and microcornea, while ciliary body cysts and progressive angle closure can drive glaucoma in some patients. This makes ocular disease both a developmental feature and a surveillance priority.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cell communication via gap junctions\", \"Eye morphogenesis\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Eye\"]}}, {\"id\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients need regular ophthalmologic surveillance for microcornea, microphthalmia, angle narrowing, ciliary body cysts, and glaucoma. Management includes tonometry and gonioscopy, ultrasound biomicroscopy when indicated, topical pressure-lowering therapy when useful, and glaucoma surgery such as tube shunt placement for refractory angle-closure disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pulp calcification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Calcified pulp stones are reported among the recurrent radiographic dental findings in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003771\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are part of the broader neurologic phenotype reported in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Short palpebral fissure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short palpebral fissures are part of the recognized ocular adnexal phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012745\"}}, {\"id\": \"Spastic paraparesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-extremity spasticity is a prominent neurologic manifestation of ODDD and may emerge later in life.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002313\"}}, {\"id\": \"Taurodontia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged pulp chambers with apically displaced furcations are part of the structural dental phenotype in ODDD.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000679\"}}], \"edges\": [{\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Craniofacial, dental, and limb developmental anomalies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Ocular developmental and glaucoma risk\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"target\": \"Neurological dysfunction from impaired CNS gap junctions\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Narrow nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Hypoplastic alae nasi\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Enamel hypomineralization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Microdontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Hypodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Pulp calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Curved dental root\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Taurodontia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"4-5 finger cutaneous syndactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Craniofacial, dental, and limb developmental anomalies\", \"target\": \"Conductive hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Microcornea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular developmental and glaucoma risk\", \"target\": \"Short palpebral fissure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Spastic paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Neurogenic bladder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological dysfunction from impaired CNS gap junctions\", \"target\": \"CNS hypomyelination\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Glaucoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Microcornea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmologic Surveillance and Glaucoma Management\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Microdontia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dental Preventive and Restorative Management\", \"target\": \"Pulp calcification\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"Spastic paraparesis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neurologic Monitoring and Symptom-Directed Care\", \"target\": \"CNS hypomyelination\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hand and Limb Orthopedic Evaluation\", \"target\": \"4-5 finger cutaneous syndactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hand and Limb Orthopedic Evaluation\", \"target\": \"Camptodactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GJA1 (Connexin 43)\", \"target\": \"Dominant-negative GJA1 mutations disrupt gap junction communication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GJA1 (Connexin 43)\", \"target\": \"Loss-of-function mechanism in autosomal recessive ODDD\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5130,14 +5510,21 @@
                         Conductive hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5157,6 +5544,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5200,14 +5588,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5227,6 +5622,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32318302" target="_blank">PMID:32318302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5261,14 +5657,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcornea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000482</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5288,6 +5691,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32318302" target="_blank">PMID:32318302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5322,14 +5726,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glaucoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000501</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5349,6 +5760,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32318302" target="_blank">PMID:32318302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5371,6 +5783,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34035645" target="_blank">PMID:34035645</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5412,14 +5825,21 @@
                         Neurogenic bladder
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurogenic bladder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000011">HP:0000011</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000011</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5439,6 +5859,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5480,14 +5901,21 @@
                         Narrow nose
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Narrow nose
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000460" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000460">HP:0000460</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000460</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow nose (HP:0000460). HP:0000460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5507,6 +5935,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5541,14 +5970,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enamel hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0006297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5568,6 +6004,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5602,14 +6039,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microdontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000691">HP:0000691</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000691</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microdontia (HP:0000691). HP:0000691 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5629,6 +6073,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5661,14 +6106,21 @@
                         Hypodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000668">HP:0000668</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000668</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5688,6 +6140,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29902798" target="_blank">PMID:29902798</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5722,14 +6175,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Taurodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000679" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000679">HP:0000679</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000679" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000679</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Taurodontia (HP:0000679). HP:0000679 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5749,6 +6209,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5790,14 +6251,21 @@
                         Camptodactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Camptodactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012385">HP:0012385</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012385</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5817,6 +6285,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5849,14 +6318,21 @@
                         Spastic paraparesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic paraparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002313">HP:0002313</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002313</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5876,6 +6352,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5917,14 +6394,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5944,6 +6428,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5976,14 +6461,21 @@
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6003,6 +6495,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6035,14 +6528,21 @@
                         Seizure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6062,6 +6562,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6103,14 +6604,23 @@
                         Hypoplastic alae nasi
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Underdeveloped nasal alae
+
+                        <span class="phenotype-term-label">Underdeveloped nasal alae</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000430">HP:0000430</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000430</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic alae nasi, annotated with Underdeveloped nasal alae (HP:0000430). HP:0000430 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6130,6 +6640,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6162,14 +6673,21 @@
                         Short palpebral fissure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short palpebral fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012745" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012745">HP:0012745</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012745" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012745</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short palpebral fissure (HP:0012745). HP:0012745 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6189,6 +6707,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32318302" target="_blank">PMID:32318302</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6223,14 +6742,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enamel hypomineralization
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006285" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006285">HP:0006285</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006285" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0006285</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enamel hypomineralization (HP:0006285). HP:0006285 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6250,6 +6776,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6284,14 +6811,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulp calcification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003771" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003771">HP:0003771</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003771</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulp stone, annotated with Pulp calcification (HP:0003771). HP:0003771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6311,6 +6845,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6345,14 +6880,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Curved dental root
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_4000104" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:4000104">HP:4000104</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:4000104</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Curved dental root (HP:4000104). HP:4000104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6372,6 +6914,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6406,14 +6949,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        4-5 finger cutaneous syndactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010705" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010705">HP:0010705</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0010705</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is 4-5 finger cutaneous syndactyly (HP:0010705). HP:0010705 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6433,6 +6983,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6465,14 +7016,21 @@
                         CNS hypomyelination
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CNS hypomyelination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003429">HP:0003429</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003429</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral hypomyelination, annotated with CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6492,6 +7050,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31023660" target="_blank">PMID:31023660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6570,13 +7129,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GJA1
 
 
-    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4274">hgnc:4274</a>
+    <a href="https://bioregistry.io/hgnc:4274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:4274</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GJA1 (hgnc:4274). hgnc:4274 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6606,6 +7170,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6627,6 +7192,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12457340" target="_blank">PMID:12457340</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6658,6 +7224,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6673,7 +7242,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6710,17 +7284,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Glaucoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microcornea
@@ -6728,11 +7309,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000482">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000482</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microphthalmia
@@ -6740,10 +7326,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6762,6 +7351,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26743931" target="_blank">PMID:26743931</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6784,6 +7374,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26743931" target="_blank">PMID:26743931</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6814,7 +7405,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6851,17 +7447,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Enamel hypoplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0006297</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microdontia
@@ -6869,11 +7472,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000691">HP:0000691</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000691</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Microdontia (HP:0000691). HP:0000691 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pulp stone
@@ -6881,10 +7489,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003771" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003771">HP:0003771</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pulp stone, annotated with Pulp calcification (HP:0003771). HP:0003771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6903,6 +7514,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20587963" target="_blank">PMID:20587963</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6925,6 +7537,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36990989" target="_blank">PMID:36990989</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6955,7 +7568,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6992,17 +7610,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Spastic paraparesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002313">HP:0002313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Spastic paraparesis (HP:0002313). HP:0002313 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
@@ -7010,11 +7635,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cerebral hypomyelination
@@ -7022,10 +7652,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003429">HP:0003429</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0003429</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cerebral hypomyelination, annotated with CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7044,6 +7677,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7066,6 +7700,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31023660" target="_blank">PMID:31023660</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7096,7 +7731,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7133,17 +7773,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         4-5 finger cutaneous syndactyly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010705" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010705">HP:0010705</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010705" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0010705</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets 4-5 finger cutaneous syndactyly (HP:0010705). HP:0010705 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Camptodactyly
@@ -7151,10 +7798,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012385">HP:0012385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012385</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7173,6 +7823,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29927410" target="_blank">PMID:29927410</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7203,7 +7854,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7251,6 +7907,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338053" target="_blank">PMID:19338053</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -7272,6 +7929,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29902798" target="_blank">PMID:29902798</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7317,6 +7975,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7333,7 +7994,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Oculodentodigital Dysplasia
 creation_date: &#39;2026-04-04T12:00:00Z&#39;
-updated_date: &#39;2026-04-19T07:26:55Z&#39;
 category: Mendelian
 description: &gt;
   Oculodentodigital dysplasia (ODDD) is a rare pleiotropic disorder caused by mutations
@@ -8250,6 +8910,7 @@ pathophysiology:
   - target: Camptodactyly
   - target: Conductive hearing impairment
 - name: Ocular developmental and glaucoma risk
+  conforms_to: &#34;ocular_morphogenesis_failure#Disrupted Optic Cup and Globe Morphogenesis&#34;
   description: &gt;
     GJA1/Cx43 disruption contributes to ocular developmental anomalies such as
     microphthalmia and microcornea, while ciliary body cysts and progressive
@@ -8261,6 +8922,21 @@ pathophysiology:
       id: GO:0007154
       label: cell communication
     modifier: DECREASED
+  - preferred_term: Eye morphogenesis
+    term:
+      id: GO:0048592
+      label: eye morphogenesis
+    modifier: ABNORMAL
+  - preferred_term: Camera-type eye morphogenesis
+    term:
+      id: GO:0048593
+      label: camera-type eye morphogenesis
+    modifier: ABNORMAL
+  locations:
+  - preferred_term: Eye
+    term:
+      id: UBERON:0000970
+      label: eye
   evidence:
   - reference: PMID:32318302
     reference_title: &#34;Oculodentodigital Dysplasia: A Case Report and Major Review of the Eye and Ocular Adnexa Features of 295 Reported Cases.&#34;
@@ -8893,7 +9569,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Oculodentodigital Dysplasia", "mondoId": "MONDO:0008111", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oculodentodigital_Dysplasia", "yamlRevision": "189f6f860419"};
+        const OS_CONFIG = {"diseaseName": "Oculodentodigital Dysplasia", "mondoId": "MONDO:0008111", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Oculodentodigital_Dysplasia", "yamlRevision": "a3a9ef767a45"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9312,5 +9988,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

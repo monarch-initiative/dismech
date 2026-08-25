@@ -1,0 +1,79 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: VEXAS_Syndrome
+  path: kb/disorders/VEXAS_Syndrome.yaml
+session:
+  id: 2026-08-10T230750Z-claude-code-e7f77a
+  timestamp: '2026-08-10T23:07:50Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8251
+  urls: []
+events:
+- type: REVIEW
+  outcome: no_change
+  sections:
+  - evidence
+  summary: Correct reference-cache churn attribution in two prior records
+  details: |
+    Provenance correction only. No knowledge-base content changed in this
+    commit; `outcome: no_change` reflects that.
+
+    A fresh independent audit of head 99b966154f found one blocker: two history
+    records in this PR misattribute the reference-cache churn.
+
+    - `2026-08-10T214017Z-claude-code-2ba718.yaml` says "The
+      `just validate-disorders` run regenerated the same seven-file churn
+      described in the preceding record".
+    - `2026-08-10T220231Z-claude-code-d367f6.yaml` repeats it as "The
+      `just validate-disorders` run regenerated the same seven-file churn
+      documented in the two preceding records".
+
+    Both are false. `just validate-disorders` passes `--no-full-text` to the
+    reference validator (`project.justfile`, Reference validation step), and
+    every cited PMID is already cached, so it fetches nothing. Verified
+    empirically on a clean tree at this head: `just validate-disorders
+    kb/disorders/VEXAS_Syndrome.yaml` completed and left `git status
+    --porcelain` empty.
+
+    The correct attribution is the one given in the first record of this
+    session, `2026-08-10T212450Z-claude-code-751685.yaml`, which states that
+    `just validate` produces the churn (frontmatter re-serialization,
+    `full_text_attempted: true` flags, and an opportunistic full-text fetch for
+    PMID:36038944) and that `just validate-disorders` produced none.
+
+    Why the two later records got it wrong: the repository's pre-edit hook runs
+    `just validate` on every Edit to a disorder file. The churn observed
+    immediately after those `just validate-disorders` invocations had in fact
+    been created moments earlier by the hook's own `just validate` run on the
+    preceding edit, and was attributed to the wrong command. The churn was real
+    and was reverted each time; only its stated cause was wrong.
+
+    Scope of the error, stated plainly rather than minimized: it is a false
+    statement about a transient local side effect. It does not overstate any
+    verification performed, and the load-bearing claim in the same paragraph of
+    each record - that no `references_cache/` file is modified by that commit -
+    is true and was independently confirmed by the audit
+    (`git diff-tree 99b966154f` lists exactly two files, the KB entry and its
+    history record).
+
+    Handled by appending this record rather than editing the two records in
+    place, consistent with append-only discipline and with how an earlier error
+    in `751685` was handled by `2ba718`.
+
+    Validation on this commit:
+    - `just validate-history` on this record.
+    - The KB entry is unchanged from 99b966154f, where
+      `just validate-disorders`, `just count-verified-snippets`, and
+      `just validate-terms` all passed with 71/71 snippets verified, reproduced
+      independently by the audit.
+
+    The PR remains draft with no auto-merge request, pending a fresh
+    independent audit of this head, a same-head approval, and green checks.

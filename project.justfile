@@ -13,6 +13,13 @@ ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
+# Wrapper script that applies the SAME patches to deep-research-client, which
+# since 0.2.9 calls linkml-reference-validator in-process to check a report's
+# references -- so it too reads and writes references_cache/ and must not run
+# unpatched. Notably it needs the issue #7697 delimiter-aware frontmatter read:
+# a truncated read surfaces as a false "unresolved reference", and curators are
+# told not to cite those.
+dr_client := "scripts/run_deep_research_client.sh"
 # Wrapper script that enforces warning-fail behavior for term validation
 term_validator := "scripts/run_term_validator.sh"
 
@@ -91,6 +98,42 @@ validate file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
+
+# Fast, non-mutating validation of a single disorder file, for the pre-edit hook
+# (.claude/hooks/validate_disorder_hook.py). This runs on EVERY Edit/Write to
+# kb/disorders, so it differs from `validate` in two deliberate ways (#8542):
+#
+# 1. It does not rewrite the caches. No `fix-references-cache`, no
+#    `normalize-cache`, and `--no-full-text` so reference validation neither
+#    downloads PDFs nor writes `full_text_attempted` back into cached records.
+#    Cache normalization is a curator/CI step; an editor keystroke should not
+#    leave the curator's worktree dirty. Measured on kb/disorders/Asthma.yaml
+#    (193 snippets): `validate` takes ~8m25s and leaves 106 modified
+#    references_cache/ files behind; this takes ~22s and leaves none. Keep it
+#    that way — a step added here must not modify tracked files. (Validating a
+#    newly cited reference still *creates* its cache record, which is wanted:
+#    that is a new untracked file the curator should commit, not churn.)
+#
+# 2. Only schema and term validation are blocking. Those are deterministic and
+#    offline, and cover what the hook exists to stop: malformed structure and
+#    hallucinated ontology IDs. Snippet verification depends on what the cache
+#    happens to hold — a quote from a paywalled paper's body is reported as
+#    unverified, not wrong — so failing an in-progress edit on it strands the
+#    curator mid-file. It is reported here as advisory and enforced for real by
+#    `just validate`, `just qc`, and CI before anything merges.
+[group('QC')]
+validate-pre-edit file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Term validation..."
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    echo "Reference validation (advisory, cache-bound)..."
+    if ! {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text; then
+        echo "⚠ Reference validation reported issues (advisory here; run \`just validate\` before committing)"
+    fi
+    echo "✓ Pre-edit validation passed for {{file}}"
 
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
@@ -601,9 +644,99 @@ check-cache-order:
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
+# --- Curation stub queue (stubs/) ------------------------------------------
+# The outstanding curation queue: one YAML per disease we intend to curate but
+# have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
+# curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
+
+# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# a bad enum value. Staleness (the disease got curated elsewhere, the term was
+# retired) is an advisory and never gates — stubs are informative, not curated
+# content, and an unrelated curation PR must not turn stub PRs red.
+# Check that each stub file is well formed
+[group('Curation')]
+check-stubs *args="":
+    uv run dismech-stubs check {{args}}
+
+# Deletes stubs whose disease has since been curated, and stubs naming a MONDO
+# term that has since been retired. Leaves possible_kb_duplicate advisories
+# alone — those are a judgement call between two MONDO IDs. Run periodically.
+# Sweep stale stubs out of the queue (--apply to delete)
+[group('Curation')]
+tidy-stubs *args="":
+    uv run dismech-stubs tidy {{args}}
+
+# Schema-validate every stub file against the CurationStub class.
+[group('Curation')]
+validate-stubs:
+    uv run linkml-validate -s src/dismech/schema/curation_stub.yaml -C CurationStub stubs/*.yaml
+
+# Ordering is the hand-set priority band, then an arbitrary but stable spread —
+# not a computed score. Pick one you know something about, not the first row.
+# Show the next stub(s) to curate
+[group('Curation')]
+next-stubs count="5" *args="":
+    uv run dismech-stubs next {{count}} {{args}}
+
+# Summarize the queue by status, entry type, and priority.
+[group('Curation')]
+stub-stats:
+    uv run dismech-stubs stats
+
+# Fetch every open claim issue in one list-API call (immediately consistent,
+# unlike a search) and write it where the other recipes can read it.
+# Fetch the open curation claims
+[group('Curation')]
+fetch-claims out="tmp/claims.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v gh >/dev/null 2>&1; then
+      echo "fetch-claims needs the gh CLI, which is not installed in this environment." >&2
+      echo >&2
+      echo "Claude Code web/remote sessions have no gh, and cannot reach api.github.com" >&2
+      echo "directly either -- the agent proxy denies it even though GH_TOKEN is set." >&2
+      echo "Use the GitHub MCP server instead: see 'No gh CLI (web and remote sessions)'" >&2
+      echo "in .claude/skills/claim-disease/SKILL.md for the exact fallback, including" >&2
+      echo "the minimal titles-only claims file that is enough to pick from." >&2
+      exit 127
+    fi
+    mkdir -p "$(dirname {{out}})"
+    gh issue list --repo monarch-initiative/dismech --label claim --state open \
+      --json number,title,assignees,url,createdAt,closedByPullRequestsReferences \
+      --limit 1000 > {{out}}
+    echo "wrote {{out}}"
+
+# Reports double-claims, claims with no MONDO ID in the title (they lock
+# nothing), and stale claims — old with no PR. An open PR is never stale.
+# Cross-check open claim issues against the stub queue
+[group('Curation')]
+check-claims claims="tmp/claims.json" *args="":
+    uv run dismech-stubs claims {{claims}} {{args}}
+
+# The two-phase pick: open claim issues, then the stub queue.
+# Show the next unclaimed stub(s) to curate
+[group('Curation')]
+next-unclaimed count="5" claims="tmp/claims.json" *args="":
+    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+
+# Never overwrites an existing stub. Default source format is the Monarch
+# rare-disease-identification prioritised list.
+# Add stubs for nominated diseases that are neither curated nor already stubbed
+[group('Curation')]
+seed-stubs source *args="":
+    uv run dismech-stubs seed {{source}} {{args}}
+
+# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
+# stub, so the lump/split call can be made from the file. Needs the MONDO
+# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Add MONDO context to the stub files
+[group('Curation')]
+enrich-stubs *args="":
+    uv run python scripts/enrich_curation_stubs.py {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -619,6 +752,14 @@ qc-deep-research-strict:
       --fail-on-missing-reference \
       --fail-on-unresolved-cache \
       --fail-on-holder-bucket
+
+# Census of ECTO/XCO exposure_term coverage on environmental[] entries, with the
+# pathograph-linked ones (influences_mechanisms) called out as the priority gap.
+# Advisory by default; --strict exits non-zero on any linked-but-unbound entry.
+# --format tsv writes a per-entry table carrying reuse candidates. See #8430.
+[group('QC')]
+environmental-term-audit *args="":
+    uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -777,6 +918,97 @@ check-reference-cache-frontmatter:
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
 
+# Guard against binding a term its own ontology flags `Not4Curation` (#8472).
+# RGD ontologies (XCO and siblings) mark terms they keep for hierarchy but do
+# not want annotated with a related synonym reading `Not4Curation`. That is a
+# synonym, not an obsoletion axiom, so such a term exists, matches its label and
+# is reachable from its enum roots -- it passes every check `just validate-terms`
+# performs. Three reached the #8430 tranches on exactly that basis. Checks the
+# prefixes with a LOCAL (sqlite:) adapter, which answer an alias query per term
+# offline; OLS-served prefixes are reported as skipped rather than silently
+# dropped (`--include-remote` opts in, at one network round trip per term).
+# Also reports, as a non-gating note, flagged CURIEs sitting in cache/ but
+# unused -- do NOT hand-delete those rows; the gate is the fix.
+# Reject ontology bindings flagged Not4Curation by their own ontology (#8472).
+[group('QC')]
+check-not4curation *args:
+    uv run python scripts/not4curation_audit.py "$@"
+
+# Apply the candidate node-class tree across kb/ (the executable half of the
+# pathograph node-classification design). `--format summary` reports coverage;
+# `tsv` emits per-node assignments; `debundle` lists nodes whose own GO
+# annotations span two classes -- each one a node making two claims; and
+# `conformance` compares every conforms_to edge's two sides, which is an
+# INDEPENDENT check on the classes because conforming pairs are curated as
+# "same kind of thing" by an unrelated process. Conformance is gated on both
+# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
+# in multiplies the mismatch rate several times over; pass --include-low to see
+# the rest, or `--format conformance-gates` for the current rate under each gate.
+# Design artifact -- nothing in kb/ or the schema depends on it.
+[group('QC')]
+node-class-scan *args:
+    uv run python -m dismech.node_class_scan {{args}}
+
+# Parse and check the compact pathograph node-class tree
+# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
+# -- nothing in kb/ or the schema depends on it -- but its leaves are real
+# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
+# worse than no tree because it still looks grounded. Bare invocation checks the
+# grammar only (instant); --verify-kb also resolves every cited leaf against
+# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
+# `text` being a stable round-trip of the compact form.
+[group('QC')]
+node-classes *args:
+    uv run python -m dismech.node_classes {{args}}
+
+# Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
+# the last value silently, so a duplicate is invisible to every test and
+# renderer here, while the ruamel-based reference validator rejects the file
+# outright. Duplicates arrive by MERGE -- two concurrent curation PRs adding the
+# same block at different points in one file merge without a git conflict -- so
+# this sweeps the whole KB rather than only the files a PR changed.
+[group('QC')]
+check-duplicate-keys *files:
+    uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Adjudicate free-text claims that a *cited source* is defective (#9226) --
+# "the cached abstract is truncated", "that record has no abstract", "the
+# abstract does not mention X". Every other gate here checks a SNIPPET against
+# the cache; nothing checked PROSE, so a false claim of this shape validated
+# cleanly indefinitely (it survived two fix rounds across three sites on #9207,
+# and four sites in Tetralogy_of_Fallot.yaml before that).
+#
+# Report-only by design, and it ADJUDICATES rather than pattern-matches: claims
+# of this shape are usually true and load-bearing, so a keyword gate would push
+# curators to delete accurate provenance to get a build green. A claim the cache
+# agrees with is CONFIRMED, a correction note narrating an old false claim is
+# NARRATED, and only a claim the cache demonstrably disagrees with is reported.
+# Offline, no OAK, no network (~19s over kb/).
+[group('QC')]
+check-source-defect-claims *files:
+    uv run python scripts/check_source_defect_claims.py "$@"
+
+# Every source-defect claim with its verdict, including the confirmed and
+# narrated ones the gate stays quiet about (triage view).
+[group('QC')]
+list-source-defect-claims *files:
+    uv run python scripts/check_source_defect_claims.py --all "$@"
+
+# The snippet half of #9226: a quote cut inside a word IS a substring of the
+# cached text, so it verifies -- which is exactly what hid the four mid-word
+# snippets on #9207 until a reviewer read the cache. Advisory sibling of
+# `count-verified-snippets`; strict matches only (a relaxed match strips all
+# spaces, so every one is flanked by word characters by construction).
+# Advisory, like `count-verified-snippets`: it exits 0 whatever it finds, so it
+# reports the backlog rather than gating on it. In `just qc` (~2m over kb/) so
+# the 126-snippet backlog stays visible and does not quietly grow; NOT in CI,
+# where a 2-minute step that can never fail would be pure cost.
+[group('QC')]
+check-snippet-boundaries *files:
+    uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} \
+        --config {{ref_validator_config}} --check-boundaries \
+        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/comorbidities/*.yaml" } else { files } }}
+
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
 # A baseline grandfathers the pre-existing backlog; this fails only on new ones.
@@ -811,6 +1043,57 @@ list-short-snippets:
 [group('QC')]
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
+
+# Guard against NEW evidence-free `environmental:` exposures in kb/ --
+# an entry with no `evidence:` block is an uncited causation claim that
+# `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
+# `evidence` is optional on the class (#8296). The pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+[group('QC')]
+check-environmental-evidence:
+    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+
+# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+[group('QC')]
+list-environmental-evidence-gaps:
+    uv run python scripts/check_environmental_evidence.py --all
+
+# Regenerate the environmental-evidence baseline after intentionally changing
+# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+[group('QC')]
+update-environmental-evidence-baseline:
+    uv run python scripts/check_environmental_evidence.py --update-baseline
+
+# Guard against evidence snippets that merely quote the cited paper's title,
+# which records that a question was examined rather than what was found (#8374).
+# Grandfathered against origin/main the same way the length check is.
+[group('QC')]
+check-title-snippets:
+    uv run python scripts/check_title_snippets.py --against-ref origin/main
+
+# List every title-quoting snippet, baselined or not (triage view).
+[group('QC')]
+list-title-snippets:
+    uv run python scripts/check_title_snippets.py --all
+
+# Regenerate the title-snippet baseline after intentionally changing the set.
+# Review the diff before committing.
+[group('QC')]
+update-title-snippet-baseline:
+    uv run python scripts/check_title_snippets.py --update-baseline
+
+# Guard against evidence items with an empty/whitespace-only `snippet`, which
+# pass `linkml-reference-validator`/`count-verified-snippets` vacuously
+# (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --
+# no baseline needed today, since the repo-wide backlog is zero).
+[group('QC')]
+check-empty-snippets:
+    uv run python scripts/check_empty_snippets.py
+
+# List every empty snippet, including NO_EVIDENCE-exempt ones (triage view).
+[group('QC')]
+list-empty-snippets:
+    uv run python scripts/check_empty_snippets.py --all
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
@@ -1080,7 +1363,10 @@ export-context-scores output_dir="output/context_scores":
     mkdir -p {{output_dir}}
     uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
 
-# Generate KGX edges from disorder knowledge base
+# Generate KGX edges from disorder knowledge base.
+# Emits three files: kgx_export_nodes.jsonl, kgx_export_edges.jsonl, and the
+# SEPIO evidence sidecar kgx_export_sepio.jsonl (joins to the edges on `id`).
+# See docs/sepio-export.md.
 [group('Export')]
 export-kgx:
     mkdir -p output/kgx
@@ -1227,6 +1513,35 @@ upload-cx2-test-all *args="":
 research_dir := "research"
 templates_dir := "templates"
 
+# Reference validation applied to a deep-research report as it is generated
+# (needs deep-research-client >= 0.2.10, which pulls in linkml-reference-validator
+# through its `validation` extra -- the same library the KB validators use).
+# Every PMID/DOI the report cites is resolved against PubMed/Crossref/DataCite,
+# and every quote attributed to one of them is checked against that source. Since
+# 0.2.10 each resolved reference is also weighed against the report's own
+# characteristic vocabulary, flagging citations that exist but look off topic --
+# free, since it re-reads records the existence check already fetched, and on by
+# default (turn it off with `--validation-no-relevance`). An off-topic flag is a
+# clue and not a verdict: it sets `needs_review` in the frontmatter but is
+# deliberately NOT a confabulation and does NOT affect the exit code. The
+# results are written into the report itself: a `## Reference Validation` section
+# at the end of the body, and a `reference_validation:` summary in the YAML
+# frontmatter. Lookups are cached into the same `references_cache/` the KB
+# validators read, so a reference checked here does not need re-fetching when it
+# is later cited from a `kb/` entry.
+#
+# The report is written to disk BEFORE validation runs, so a network failure
+# during validation costs you the validation section, never the report.
+#
+# THEREFORE: a non-zero exit from a research recipe does NOT mean the research
+# failed. Validation problems exit 3 with the report already saved. Do not re-run
+# the provider (a falcon run is ~20 minutes and costs real money) -- recover with
+#   just validate-research-reference <the report that was written>
+#
+# To skip it (quick iteration, or no network):
+#   just dr_validation='' research-disorder falcon Marfan_Syndrome
+dr_validation := "--validate-references --validation-cache-dir references_cache"
+
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
 # returns must be resolved against the repository API with
@@ -1252,7 +1567,7 @@ research-datasets provider disorder *args="":
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template {{templates_dir}}/disease_datasets_research.md \
         --var "disease_name=$disease_name" \
         --var "mondo_id=$mondo_id" \
@@ -1260,6 +1575,7 @@ research-datasets provider disorder *args="":
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # Verify that datasets[].accession values resolve to real repository records.
@@ -1340,7 +1656,7 @@ research-disorder provider disorder *args="":
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1348,6 +1664,7 @@ research-disorder provider disorder *args="":
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # Deep research on a shared mechanism module using specified provider
@@ -1407,7 +1724,7 @@ research-module provider module *args="":
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template "$template_file" \
         --var "module_name=$module_name" \
         --var "module_slug={{module}}" \
@@ -1417,6 +1734,7 @@ research-module provider module *args="":
         $provider_arg \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # Deep research on a comorbidity using specified provider
@@ -1473,7 +1791,7 @@ research-comorbidity provider comorbidity *args="":
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/comorbidity_deep_research.md.j2 \
 	    --var "disease_a_label=$disease_a_label" \
 	    --var "disease_b_label=$disease_b_label" \
@@ -1484,6 +1802,7 @@ research-comorbidity provider comorbidity *args="":
 	    $provider_arg \
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
+	    {{dr_validation}} \
 	    {{args}}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -1510,7 +1829,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
-	uv run deep-research-client research \
+	{{dr_client}} research \
 	    --template {{templates_dir}}/disease_surrogacy_research.md \
 	    --var "disease_name=$disease_name" \
 	    --var "surrogate={{surrogate}}" \
@@ -1518,6 +1837,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    $provider_arg \
 	    --output "$output_file" \
 	    --separate-citations "$output_file.citations.md" \
+	    {{dr_validation}} \
 	    {{args}}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -1536,7 +1856,7 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     echo "Researching: $disease_name (cyberian-codex) -> $output_file"
-    uv run deep-research-client research \
+    {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
@@ -1545,12 +1865,47 @@ research-disorder-cyberian-codex disorder *args="":
         --param agent_type=codex \
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
+        {{dr_validation}} \
         {{args}}
 
 # List available research providers
 [group('Research')]
 research-providers:
-    uv run deep-research-client providers
+    {{dr_client}} providers
+
+# Reference-check a deep-research report that already exists on disk -- the
+# retro-fit counterpart of the `dr_validation` flags baked into the recipes
+# above, for the reports generated before deep-research-client 0.2.9.
+#
+# Rewrites each report in place, replacing any previous `## Reference Validation`
+# section, so it is safe to re-run. Lookups land in `references_cache/` like every
+# other reference fetch.
+#
+# NOTE the asymmetry with generation-time validation: this adds the markdown
+# section but NOT a `reference_validation:` frontmatter block. Upstream only
+# *refreshes* a frontmatter summary that is already there, deliberately, so that
+# a tool asked to check citations never reformats a file's frontmatter. On a
+# retro-fitted report, read the section at the bottom.
+#
+# Examples:
+#   just validate-research-reference research/Marfan_Syndrome-deep-research-falcon.md
+#   # existence checks only, no quote checking (much faster on long bibliographies):
+#   just validate-research-reference research/Foo-deep-research-falcon.md --no-check-quotes
+#   # non-destructive preview to stdout, or JSON for tooling:
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md
+#   scripts/run_deep_research_client.sh validate-references research/Foo.md --json out.json
+#
+# Accepts a glob, but prefer one report at a time, as you come to curate it: a
+# tree-wide run rewrites ~1400 committed files and re-resolves tens of thousands
+# of references against PubMed for reports nobody is reading today.
+#
+# Reference-check a deep-research report that already exists on disk.
+[group('Research')]
+validate-research-reference +args:
+    {{dr_client}} validate-references \
+        --cache-dir references_cache \
+        --in-place \
+        {{args}}
 
 # Named Entity Confusion (NEC) preflight: verify a deep-research report is about
 # the disease entity you intend to curate, by cross-checking the report's
@@ -1628,7 +1983,7 @@ rehydrate-edison-trajectory trajectory_id output_file:
         echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
         exit 1
     fi
-    uv run deep-research-client edison-trajectory "{{trajectory_id}}" \
+    {{dr_client}} edison-trajectory "{{trajectory_id}}" \
         --output "{{output_file}}" \
         --separate-citations "{{output_file}}.citations.md"
 
@@ -1670,6 +2025,9 @@ fetch-reference +identifiers:
                 fi
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
+            ICTRP:*|ictrp:*)
+                uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
@@ -1686,6 +2044,19 @@ fetch-reference +identifiers:
 [group('Curation')]
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
+
+# Backfill missing publication titles on KB references and evidence items
+# (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).
+# Titles are read verbatim from references_cache/ frontmatter — nothing is
+# fabricated, and references with no cached title are reported, not guessed.
+# Fetch any missing cache entry first with `just fetch-reference <ID>`.
+#   just backfill-reference-titles                 # all of kb/
+#   just backfill-reference-titles --dry-run       # preview without writing
+#   just backfill-reference-titles --check         # exit 1 if any title is missing
+#   just backfill-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+backfill-reference-titles *args="":
+    uv run python scripts/backfill_reference_titles.py {{args}}
 
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
@@ -1806,6 +2177,50 @@ icees-rebuild *args="":
 [group('Research')]
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
+# Refresh STRchive loci JSON (pinned by data/strchive/MANIFEST.yaml)
+[group('Research')]
+strchive-refresh:
+    uv run python -m dismech.structured_sources.cli refresh strchive
+
+# Rebuild every references_cache/STRCHIVE_*.md from the current STRchive snapshot.
+# Use --id STRCHIVE:<locus> (e.g. STRCHIVE:SCA3_ATXN3) to limit to one locus.
+[group('Research')]
+strchive-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild strchive {{args}}
+
+# List the first N STRchive tandem-repeat locus identifiers
+[group('Research')]
+strchive-list limit="20":
+    uv run python -m dismech.structured_sources.cli list strchive --limit {{limit}}
+# Fetch WHO ICTRP trial registration record(s) into references_cache/.
+# Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
+# so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
+#   just ictrp-fetch ChiCTR2100045397 ISRCTN67795930
+[group('Research')]
+ictrp-fetch +identifiers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for identifier in "$@"; do
+        uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+    done
+
+# Refresh every cached references_cache/ICTRP_*.md from the ICTRP portal.
+# Use --id to restrict to specific trial identifiers.
+[group('Research')]
+ictrp-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ictrp {{args}}
+
+# List the trial identifiers already cached from WHO ICTRP
+[group('Research')]
+ictrp-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
+# is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
+[group('Research')]
+ictrp-audit *args="":
+    uv run python -m dismech.ictrp_audit {{args}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]

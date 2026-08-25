@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Gastroesophageal Reflux Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Gastroesophageal Reflux Disease</h1>
             <div class="header-meta">
 
@@ -3693,6 +3895,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3775,27 +3979,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">GASTROINTESTINAL</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3845,16 +4126,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Smooth Muscle Contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006939">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Smooth Muscle Contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3877,19 +4163,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Lower Esophageal Sphincter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004550" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004550">UBERON:0004550</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004550" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0004550</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Lower Esophageal Sphincter, annotated with gastroesophageal sphincter (UBERON:0004550). UBERON:0004550 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3907,6 +4199,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3927,6 +4220,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -3959,16 +4253,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Esophageal Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002252">CL:0002252</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002252" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Esophageal Epithelial Cell, annotated with epithelial cell of esophagus (CL:0002252). CL:0002252 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3998,19 +4297,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Esophageal Mucosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002469" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002469">UBERON:0002469</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002469" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002469</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Esophageal Mucosa, annotated with esophagus mucosa (UBERON:0002469). UBERON:0002469 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4028,6 +4333,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4048,6 +4354,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4087,16 +4394,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Digestion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007586" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007586">GO:0007586</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007586" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Digestion (GO:0007586). GO:0007586 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4119,19 +4431,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Esophagus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001043">UBERON:0001043</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Esophagus (UBERON:0001043). UBERON:0001043 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4149,6 +4467,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4194,6 +4513,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4205,6 +4525,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38177402" target="_blank">PMID:38177402</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4247,19 +4568,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Stomach
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000945">UBERON:0000945</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0000945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Stomach (UBERON:0000945). UBERON:0000945 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4277,6 +4604,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38449873" target="_blank">PMID:38449873</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4297,6 +4625,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38449873" target="_blank">PMID:38449873</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4339,19 +4668,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Esophageal Epithelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001976" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001976">UBERON:0001976</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001976" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Esophageal Epithelium, annotated with epithelium of esophagus (UBERON:0001976). UBERON:0001976 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4369,6 +4704,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17932229" target="_blank">PMID:17932229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4390,6 +4726,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17932229" target="_blank">PMID:17932229</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4409,6 +4746,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17932229" target="_blank">PMID:17932229</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4478,14 +4816,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastroesophageal reflux
+
+                        <span class="phenotype-term-label">Gastroesophageal reflux</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Regurgitation, annotated with Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4507,14 +4854,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4547,14 +4901,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Cough, annotated with Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4587,14 +4948,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hoarse voice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001609">HP:0001609</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001609</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hoarse Voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4627,14 +4995,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspepsia
+
+                        <span class="phenotype-term-label">Dyspepsia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410281" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410281">HP:0410281</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0410281</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Heartburn, annotated with Dyspepsia (HP:0410281). HP:0410281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4696,6 +5073,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FOXF1
+
+
+    <a href="https://bioregistry.io/hgnc:3809" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:3809</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXF1 (hgnc:3809). hgnc:3809 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4724,6 +5123,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4739,7 +5141,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">proton pump inhibitor pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">proton pump inhibitor pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is proton pump inhibitor pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -4788,6 +5195,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34807007" target="_blank">PMID:34807007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4817,7 +5225,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">H2 receptor antagonist pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">H2 receptor antagonist pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is H2 receptor antagonist pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -4863,7 +5276,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antacid pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">antacid pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antacid pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -4909,7 +5327,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary and lifestyle modification</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">dietary and lifestyle modification<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary and lifestyle modification, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -4955,7 +5378,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fundoplication</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">fundoplication<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fundoplication, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5001,7 +5429,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">magnetic sphincter augmentation device implantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">magnetic sphincter augmentation device implantation<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is magnetic sphincter augmentation device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5057,10 +5490,47 @@
                 <div class="item-name">Obesity</div>
 
 
+
+
+
+
                 <div class="item-desc">Major modifiable risk factor</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16952280" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16952280" target="_blank">PMID:16952280</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"demonstrates a positive association between increasing BMI and the presence of GERD"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 20 studies. PARTIAL because the association held within US studies after stratification by country, while European studies were heterogeneous.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5070,10 +5540,47 @@
                 <div class="item-name">Hiatal Hernia</div>
 
 
+
+
+
+
                 <div class="item-desc">Anatomical predisposition</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28258452" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28258452" target="_blank">PMID:28258452</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disruption of this balance occurs most commonly due to the presence of a hiatal hernia"</div>
+
+
+                <div class="evidence-explanation">Names hiatal hernia as the most common cause of failure of the antireflux barrier at the esophagogastric junction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5082,24 +5589,144 @@
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-21">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Reduces LES pressure</div>
 
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1591872" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1591872" target="_blank">PMID:1591872</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"smokers have chronically diminished lower esophageal sphincter (LES) pressure and that periods of smoking are associated with an increased rate of reflux events"</div>
+
+
+                <div class="evidence-explanation">Directly supports the annotated mechanism — smoking lowers LES pressure and increases reflux events.</div>
+
 
 
             </div>
 
-            <div class="item-box environmental-box anchor-target" id="environmental-alcohol" data-dismech-node="Alcohol" data-dismech-type="environmental">
-                <div class="item-name">Alcohol</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-alcohol-consumption" data-dismech-node="Alcohol Consumption" data-dismech-type="environmental">
+                <div class="item-name">Alcohol Consumption</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-22">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Relaxes LES</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29195669" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29195669" target="_blank">PMID:29195669</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"both tobacco smoking and alcohol consumption can reduce the lower oesophageal sphincter pressure, facilitating reflux"</div>
+
+
+                <div class="evidence-explanation">States the LES-relaxing effect of alcohol that this exposure records. The same review classes alcohol as a trigger of reflux episodes rather than a causal factor for GERD itself.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5109,10 +5736,47 @@
                 <div class="item-name">Dietary Factors</div>
 
 
+
+
+
+
                 <div class="item-desc">Fatty foods, caffeine, chocolate, citrus</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16682569" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16682569" target="_blank">PMID:16682569</a>
+                    </span>
+
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there was physiologic evidence that exposure to tobacco, alcohol, chocolate, and high-fat meals decreases lower esophageal sphincter pressure"</div>
+
+
+                <div class="evidence-explanation">Supports the physiologic effect of these dietary exposures on LES pressure. PARTIAL, and deliberately so — the same evidence-based review found no published evidence that dietary avoidance improves GERD outcomes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5121,11 +5785,71 @@
             <div class="item-box environmental-box anchor-target" id="environmental-medications" data-dismech-node="Medications" data-dismech-type="environmental">
                 <div class="item-name">Medications</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        medication exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-23">ECTO:0000509</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">NSAIDs, calcium channel blockers</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29199166" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29199166" target="_blank">PMID:29199166</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These drugs can contribute to GERD by directly causing mucosal damage, by reducing lower esophageal sphincter pressure (LESP), or by affecting esophagogastric motility"</div>
+
+
+                <div class="evidence-explanation">Systematic review covering NSAIDs and calcium channel blockers among others, giving the three routes by which medications contribute to GERD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5175,7 +5899,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse148381">
                 <div class="item-name">
                     Genome wide expression from esophageal biopsies of subjects with EoE-like inflammatory diseases, eosinophilic esophagitis, gastroesophageal reflux disease and healthy controls
 
@@ -5218,7 +5942,7 @@
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse226303">
                 <div class="item-name">
                     Characterisation of the sensory phenotype of the oesophageal mucosa in gastroesophageal reflux disease
 
@@ -5270,6 +5994,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5286,7 +6013,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Gastroesophageal Reflux Disease
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Gastroesophageal reflux disease (GERD) is a chronic condition in which retrograde
   movement of gastric contents into the esophagus produces troublesome symptoms or
@@ -5560,6 +6286,11 @@ biochemical:
   context: Increased acid exposure time on pH monitoring
 genetic:
 - name: FOXF1
+  gene_term:
+    preferred_term: FOXF1
+    term:
+      id: hgnc:3809
+      label: FOXF1
   association: Risk Factor
 - name: MHC region
   association: Risk Factor
@@ -5567,16 +6298,92 @@ genetic:
 environmental:
 - name: Obesity
   notes: Major modifiable risk factor
+  evidence:
+  - reference: PMID:16952280
+    reference_title: &#34;Body mass index and gastroesophageal reflux disease: a systematic review and meta-analysis&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: demonstrates a positive association between increasing BMI and the presence
+      of GERD
+    explanation: Meta-analysis of 20 studies. PARTIAL because the association held
+      within US studies after stratification by country, while European studies were
+      heterogeneous.
 - name: Hiatal Hernia
   notes: Anatomical predisposition
+  evidence:
+  - reference: PMID:28258452
+    reference_title: Pathophysiology of Gastroesophageal Reflux Disease
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Disruption of this balance occurs most commonly due to the presence of
+      a hiatal hernia
+    explanation: Names hiatal hernia as the most common cause of failure of the antireflux
+      barrier at the esophagogastric junction.
 - name: Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
   notes: Reduces LES pressure
-- name: Alcohol
+  evidence:
+  - reference: PMID:1591872
+    reference_title: Cigarette smoking and gastroesophageal reflux disease
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: smokers have chronically diminished lower esophageal sphincter (LES)
+      pressure and that periods of smoking are associated with an increased rate of
+      reflux events
+    explanation: Directly supports the annotated mechanism — smoking lowers LES pressure
+      and increases reflux events.
+- name: Alcohol Consumption
+  exposure_term:
+    preferred_term: exposure to alcohol consumption
+    term:
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
   notes: Relaxes LES
+  evidence:
+  - reference: PMID:29195669
+    reference_title: Tobacco smoking, alcohol consumption and gastro-oesophageal reflux
+      disease
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: both tobacco smoking and alcohol consumption can reduce the lower oesophageal
+      sphincter pressure, facilitating reflux
+    explanation: States the LES-relaxing effect of alcohol that this exposure records.
+      The same review classes alcohol as a trigger of reflux episodes rather than
+      a causal factor for GERD itself.
 - name: Dietary Factors
   notes: Fatty foods, caffeine, chocolate, citrus
+  evidence:
+  - reference: PMID:16682569
+    reference_title: &#34;Are lifestyle measures effective in patients with gastroesophageal reflux disease? An evidence-based approach&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: there was physiologic evidence that exposure to tobacco, alcohol, chocolate,
+      and high-fat meals decreases lower esophageal sphincter pressure
+    explanation: Supports the physiologic effect of these dietary exposures on LES
+      pressure. PARTIAL, and deliberately so — the same evidence-based review found
+      no published evidence that dietary avoidance improves GERD outcomes.
 - name: Medications
+  exposure_term:
+    preferred_term: medication exposure
+    term:
+      id: ECTO:0000509
+      label: exposure to drug
   notes: NSAIDs, calcium channel blockers
+  evidence:
+  - reference: PMID:29199166
+    reference_title: Which drugs are risk factors for the development of gastroesophageal
+      reflux disease?
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: These drugs can contribute to GERD by directly causing mucosal damage,
+      by reducing lower esophageal sphincter pressure (LESP), or by affecting esophagogastric
+      motility
+    explanation: Systematic review covering NSAIDs and calcium channel blockers among
+      others, giving the three routes by which medications contribute to GERD.
 treatments:
 - name: Proton Pump Inhibitors
   description: First-line therapy (omeprazole, esomeprazole, pantoprazole).
@@ -6155,7 +6962,7 @@ Recent high-quality studies converge on a mechanistic cascade: mechanical reflux
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gastroesophageal Reflux Disease", "mondoId": "MONDO:0007186", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastroesophageal_Reflux_Disease", "yamlRevision": "3d5acf30bfcc"};
+        const OS_CONFIG = {"diseaseName": "Gastroesophageal Reflux Disease", "mondoId": "MONDO:0007186", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastroesophageal_Reflux_Disease", "yamlRevision": "306cbe6a886a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6574,5 +7381,73 @@ Recent high-quality studies converge on a mechanistic cascade: mechanical reflux
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

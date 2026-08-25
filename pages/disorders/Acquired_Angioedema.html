@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -535,6 +549,72 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -1445,6 +1525,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1518,6 +1613,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2749,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2762,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2774,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2786,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2832,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2861,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2870,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +3021,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3380,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3715,17 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3552,7 +3754,7 @@
             <span>Acquired Angioedema</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acquired Angioedema</h1>
             <div class="header-meta">
 
@@ -3671,6 +3873,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3838,6 +4042,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -3867,6 +4072,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844846" target="_blank">PMID:37844846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3888,6 +4094,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -3916,6 +4123,7 @@
                 <div class="item-name">Anti-C1-INH Autoantibody-Mediated Inactivation</div>
 
                 <div class="item-desc">In an autoantibody-positive subset, anti-C1-INH antibodies abrogate inhibitor activity and can facilitate C1s-mediated cleavage by preventing formation of a stable protease-serpin complex.</div>
+
 
 
 
@@ -3961,6 +4169,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508789" target="_blank">PMID:9508789</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -3982,6 +4191,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9508789" target="_blank">PMID:9508789</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4010,6 +4220,7 @@
                 <div class="item-name">Acquired C1 Inhibitor Functional Deficiency</div>
 
                 <div class="item-desc">Secondary quantitative or functional loss of C1 inhibitor removes normal restraint on protease systems. Complement consumption produces useful low C4 and C1q diagnostic readouts, while swelling is modeled through the kallikrein-kinin and bradykinin pathway rather than through complement consumption itself.</div>
+
 
 
 
@@ -4055,6 +4266,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4076,6 +4288,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4104,6 +4317,7 @@
                 <div class="item-name">Bradykinin-Mediated Attack Signaling</div>
 
                 <div class="item-desc">Kallikrein-kinin dysregulation produces bradykinin-mediated attacks. Direct bradykinin measurement is difficult, so this node represents the established signaling mechanism without asserting a routinely measured circulating bradykinin concentration.</div>
+
 
 
 
@@ -4149,6 +4363,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34956216" target="_blank">PMID:34956216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4176,6 +4391,7 @@
                 <div class="item-name">Bradykinin B2-Receptor Signaling</div>
 
                 <div class="item-desc">Bradykinin-receptor signaling is a proximal effector of vascular leakage in C1-INH-deficiency angioedema. Experimental data also suggest contributions from B1 and gC1q receptors, so the B2 receptor is not modeled as the only possible receptor-level contributor.</div>
+
 
 
 
@@ -4221,6 +4437,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4253,16 +4470,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4289,16 +4511,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of vascular permeability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043117" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043117">GO:0043117</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043117" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0043117</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of vascular permeability (GO:0043117). GO:0043117 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4319,6 +4546,7 @@
 
 
                 </div>
+
 
 
 
@@ -4387,6 +4615,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4408,6 +4637,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4498,14 +4728,21 @@
                         Facial Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000282">HP:0000282</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0000282</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is facial edema (HP:0000282), qualified as temporality recurrent. HP:0000282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4543,6 +4780,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4584,14 +4822,21 @@
                         Peripheral Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is peripheral edema (HP:0012398), qualified as temporality recurrent. HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4629,6 +4874,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4670,14 +4916,21 @@
                         Recurrent Angioedema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Angioedema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100665">HP:0100665</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0100665</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is angioedema (HP:0100665), qualified as temporality recurrent. HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4716,6 +4969,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4747,14 +5001,21 @@
                         Laryngeal Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Laryngeal edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012027">HP:0012027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0012027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is laryngeal edema (HP:0012027), qualified as temporality recurrent; severity severe. HP:0012027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4795,6 +5056,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -4826,14 +5088,23 @@
                         Abdominal Angioedema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intestinal edema
+
+                        <span class="phenotype-term-label">Intestinal edema</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005225" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005225">HP:0005225</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005225" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0005225</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is intestinal edema (HP:0005225), qualified as temporality recurrent. HP:0005225 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4871,6 +5142,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -4934,6 +5206,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4949,7 +5224,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-8">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-8">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4979,16 +5259,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         human C1-esterase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C87730">NCIT:C87730</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-9">NCIT:C87730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5022,6 +5307,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5064,6 +5350,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30866985" target="_blank">PMID:30866985</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5093,7 +5380,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5123,16 +5415,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         conestat alfa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C96366" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C96366">NCIT:C96366</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C96366" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C96366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses conestat alfa (NCIT:C96366). NCIT:C96366 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5166,6 +5463,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5208,6 +5506,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5237,7 +5536,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5267,16 +5571,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         icatibant
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_68556" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:68556">CHEBI:68556</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68556" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-13">CHEBI:68556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses icatibant (CHEBI:68556). CHEBI:68556 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5310,6 +5619,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19796797" target="_blank">PMID:19796797</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -5352,6 +5662,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5381,7 +5692,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5411,16 +5727,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:48669">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:48669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5446,6 +5767,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5467,6 +5789,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5497,7 +5820,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5527,16 +5855,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         berotralstat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C169808" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C169808">NCIT:C169808</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C169808" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C169808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses berotralstat (NCIT:C169808). NCIT:C169808 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5570,6 +5903,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35212456" target="_blank">PMID:35212456</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5612,6 +5946,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37914894" target="_blank">PMID:37914894</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -5641,7 +5976,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">therapeutic procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
@@ -5699,6 +6039,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5740,6 +6081,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5769,7 +6111,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5799,16 +6146,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5842,6 +6194,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5884,6 +6237,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37844846" target="_blank">PMID:37844846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -5905,6 +6259,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39756409" target="_blank">PMID:39756409</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -5935,7 +6290,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5965,16 +6325,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         human C1-esterase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C87730">NCIT:C87730</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87730" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C87730</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human C1-esterase inhibitor (NCIT:C87730). NCIT:C87730 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6008,6 +6373,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6050,6 +6416,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
@@ -6071,6 +6438,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -6158,6 +6526,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6197,6 +6566,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33472202" target="_blank">PMID:33472202</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6269,6 +6639,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6308,6 +6679,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28284781" target="_blank">PMID:28284781</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6380,6 +6752,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6419,6 +6792,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32753245" target="_blank">PMID:32753245</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6491,6 +6865,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6530,6 +6905,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6571,7 +6947,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-angioedema-with-c1-inhibitor-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Hereditary_Angioedema.html">Hereditary Angioedema with C1 Inhibitor Deficiency</a>
@@ -6618,6 +6994,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6640,6 +7017,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42165046" target="_blank">PMID:42165046</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6661,6 +7039,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31397881" target="_blank">PMID:31397881</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6687,7 +7066,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-hereditary-angioedema-with-normal-c1-inhibitor">
                 <div class="item-name">
 
                     Hereditary Angioedema with Normal C1 Inhibitor
@@ -6728,6 +7107,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34956216" target="_blank">PMID:34956216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6753,7 +7133,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ace-inhibitor-or-ras-blocker-associated-angioedema">
                 <div class="item-name">
 
                     ACE Inhibitor- or RAS-Blocker-Associated Angioedema
@@ -6794,6 +7174,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42253962" target="_blank">PMID:42253962</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6819,7 +7200,7 @@
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mast-cell-mediated-angioedema-or-chronic-spontaneous-urticaria">
                 <div class="item-name">
 
                     Mast-Cell-Mediated Angioedema or Chronic Spontaneous Urticaria
@@ -6860,6 +7241,7 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31899843" target="_blank">PMID:31899843</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
@@ -6881,6 +7263,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38670233" target="_blank">PMID:38670233</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6920,7 +7303,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06818474">
                 <div class="item-name">
                     NCT06818474
 
@@ -6937,16 +7320,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         angioedema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100665">HP:0100665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100665</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6964,6 +7352,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06818474" target="_blank">clinicaltrials:NCT06818474</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -6988,7 +7377,7 @@
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct07266805">
                 <div class="item-name">
                     NCT07266805
 
@@ -7005,16 +7394,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         angioedema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100665">HP:0100665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100665</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets angioedema (HP:0100665). HP:0100665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7032,6 +7426,7 @@
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT07266805" target="_blank">clinicaltrials:NCT07266805</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
@@ -7054,6 +7449,7 @@
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38494092" target="_blank">PMID:38494092</a>
                     </span>
+
 
                     <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
@@ -7082,6 +7478,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9510,5 +9909,73 @@ A 2023 Orphanet Journal paper further argues CAC measurements can aid prediction
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
