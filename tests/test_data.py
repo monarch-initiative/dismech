@@ -1024,13 +1024,29 @@ def test_computational_model_mechanism_targets(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
 def test_animal_model_mechanism_targets(filepath):
-    """Animal model links should reference declared pathophysiology nodes."""
+    """Animal model links should reference a declared node in the same entry.
+
+    Pathophysiology is the preferred target, but a phenotype target is valid —
+    the same rule `test_environmental_mechanism_targets` already applies, and
+    the one CLAUDE.md documents for `influences_mechanisms`. Restricting this
+    test to `pathophysiology` was an inconsistency, and it made a legitimate
+    negative result unrepresentable: a `FAILS_TO_RECAPITULATE` link says the
+    model does not reproduce something, and what a model most often fails to
+    reproduce is a *phenotype* (dismech#9201 curated exactly that — a mouse
+    that does not reproduce the congenital deafness defining human DDOD).
+
+    Rerouting such a link to a pathophysiology node is not a workaround: in
+    the DDOD case the only hearing-related node is one the same model is
+    already declared to PARTIALLY_RECAPITULATE, so the entry would assert both
+    that the model reproduces that node and that it fails to.
+    """
     with open(filepath) as f:
         data = safe_load(f)
 
     valid_targets = {
         item["name"]
-        for item in data.get("pathophysiology", [])
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
         if isinstance(item, dict) and item.get("name")
     }
     if not valid_targets:
