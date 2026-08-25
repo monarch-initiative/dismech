@@ -1046,7 +1046,7 @@ def test_animal_model_mechanism_targets(filepath):
     valid_targets = {
         item["name"]
         for section in ("pathophysiology", "phenotypes")
-        for item in data.get(section, [])
+        for item in data.get(section, []) or []
         if isinstance(item, dict) and item.get("name")
     }
     if not valid_targets:
