@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trichotillomania · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Trichotillomania</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Trichotillomania</h1>
+                
+                <p class="report-subtitle">Trichotillomania (Hair-Pulling Disorder): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-21</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013189" target="_blank" rel="noopener noreferrer">MONDO:0013189</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">36 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Trichotillomania (Hair-Pulling Disorder): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Trichotillomania (TTM), also termed hair-pulling disorder or trichotillosis, is a psychiatric condition classified in DSM-5 under "Obsessive-Compulsive and Related Disorders" and characterized by recurrent pulling out of one's own hair, resulting in noticeable hair loss, repeated attempts to decrease or stop the behavior, and clinically significant distress or impairment not better explained by another medical or mental disorder. The HPO clinical definition captures the phenomenology precisely: "repetitive pulling out of one's hair resulting in noticeable hair loss," with "a rising subjective sense of tension before pulling out the hair and a sense of gratification or relief when pulling out the hair" (HPO term below).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #613229 (TRICHOTILLOMANIA; TTM) — <a href="https://www.omim.org/entry/613229">OMIM entry</a>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0013189" target="_blank" rel="noopener noreferrer">MONDO:0013189</a>
+- <strong>ICD-11:</strong> 6B25.0 (grouped under Obsessive-Compulsive or Related Disorders)
+- <strong>ICD-10-CM:</strong> F63.3 (Trichotillomania), historically also coded under impulse-control disorders
+- <strong>HPO:</strong> <a href="http://purl.obolibrary.org/obo/HP_0012167" target="_blank" rel="noopener noreferrer">HP:0012167</a> (Trichotillomania)
+- <strong>MeSH:</strong> D014307 (Trichotillomania)
+- <strong>DSM-5 code:</strong> 312.39 (F63.3)</p>
+<p><strong>Synonyms:</strong> hair-pulling disorder, trichotillosis, trichomania, hair pulling disorder, alopecia due to trichotillomania (as a phenotypic consequence).</p>
+<p><strong>Data provenance note:</strong> Most of the literature base for TTM is aggregated disease-level (clinical trials, cross-sectional cohort/epidemiological studies, twin registries, structural neuroimaging case-control series) rather than large-scale EHR-derived data — nationwide epidemiological studies specifically targeting TTM prevalence are notably lacking, with most estimates drawn from smaller convenience or college-based samples plus a handful of population-based twin registries (e.g., TwinsUK).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal model.</strong> TTM is understood as a multifactorial neuropsychiatric condition arising from an interaction of polygenic genetic vulnerability, altered cortico-striatal habit/reward circuitry, and environmental/psychological stressors, situated on the obsessive-compulsive/body-focused repetitive behavior (BFRB) spectrum alongside skin-picking (excoriation) disorder.</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>SLITRK1</strong> (chromosome 13q31.1; OMIM 609678): Two rare variants (a frameshift and a 3′UTR SNP, var321) were identified in TTM patients and estimated to account for <strong>~5% of TTM cases</strong> in the original family-based discovery study; mutations have also been reported in Tourette syndrome. Subsequent replication attempts in independent OCD/TTM cohorts have had mixed success. (<a href="https://www.nature.com/articles/4001865">Nature Molecular Psychiatry</a>)
+- <strong>SAPAP3 (DLGAP3)</strong>: A SNP (rs11583978) in SAPAP3 was associated with TTM in the OCD Collaborative Genetics Study, supporting SAPAP3 as a shared genetic risk factor across TTM and OCD-spectrum pathological grooming. (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10885776/">PMC</a>)
+- <strong>Polygenic/GWAS evidence:</strong> The first case-control GWAS of TTM (Halvorsen et al. 2025, medRxiv/AJMG-B; 101 European-ancestry TTM cases vs. 488 matched controls) found <strong>no genome-wide-significant loci</strong>, but demonstrated that TTM cases carry a significantly elevated burden of <strong>cross-disorder psychiatric polygenic risk</strong> (using a large trans-diagnostic psychiatric GWAS as reference), plus a trend toward excess large CNV deletions impacting constrained/dosage-sensitive genes. Summary statistics were released publicly to enable future meta-analysis. (<a href="https://www.medrxiv.org/content/10.1101/2025.01.23.25321045v1">medRxiv</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40511557/">PubMed 40511557</a>)
+- <strong>Twin heritability estimates:</strong> Two published twin studies give divergent heritability estimates — Novak et al. (24 MZ, 10 DZ pairs) estimated <strong>h²≈76%</strong>, with MZ:DZ DSM-IV concordance of 38.1% vs. 0%; Monzani et al. (TwinsUK, population-based, 5,409 female twins) estimated <strong>h²≈32%</strong>. Both support a substantial genetic component but with considerable unexplained (largely non-shared environmental) variance. (<a href="https://pubmed.ncbi.nlm.nih.gov/19199280/">PubMed 19199280</a>)</p>
+<p><strong>Environmental/psychosocial risk factors:</strong> Stress and negative affect states are the most consistently reported precipitants/triggers of pulling episodes; boredom and sedentary/passive activities (e.g., reading, watching TV) are common antecedents of "automatic" (low-awareness) pulling, while tension/anxiety precede "focused" pulling. Family history of OCD-spectrum illness is a reported correlate. Age and sex are strong demographic modifiers of course (see Sections 8–9).</p>
+<p><strong>Protective factors:</strong> No genetic protective variants are established. Early treatment engagement and, for very-early-onset (pre-school) pulling, spontaneous natural remission are the best-documented "protective" trajectories (see Section 8).</p>
+<p><strong>Gene-environment interaction:</strong> Not well characterized specifically for TTM; the field draws on the broader OCD-spectrum literature (e.g., stress reactivity interacting with polygenic risk) rather than TTM-specific G×E studies.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core behavioral/psychiatric phenotype</h3>
+<ul>
+<li><strong>Hair-pulling behavior</strong> — recurrent, resulting in noticeable hair loss; may be "focused" (purposeful, preceded by rising tension and followed by relief/gratification) or "automatic" (out-of-awareness, occurring during sedentary/passive activities). Suggested term: <strong><a href="http://purl.obolibrary.org/obo/HP_0012167" target="_blank" rel="noopener noreferrer">HP:0012167</a> Trichotillomania</strong>.</li>
+<li><strong>Rising tension before pulling, relief/gratification after pulling</strong> — the core DSM-5 phenomenological criteria (not required for diagnosis in DSM-5, unlike DSM-IV, but frequently present).</li>
+<li><strong>Repeated unsuccessful attempts to decrease/stop pulling.</strong></li>
+<li><strong>Trichophagia</strong> (hair-eating) — occurs in a substantial minority and is the direct precursor to trichobezoar formation.</li>
+<li><strong>Trichotemnomania</strong> (compulsive hair-cutting) — a related but distinct BFRB sometimes comorbid.</li>
+</ul>
+<h3>Physical/dermatologic manifestations</h3>
+<ul>
+<li><strong>Alopecia</strong> — patchy, irregular, incomplete hair loss with hairs of varying length in affected areas (contrasted with complete, well-demarcated patches in alopecia areata). Suggested term: <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a> (Alopecia) as a parent/associated term, with <a href="http://purl.obolibrary.org/obo/HP_0012167" target="_blank" rel="noopener noreferrer">HP:0012167</a> as the more specific disease-behavior term.</li>
+<li><strong>Trichoscopic/dermoscopic findings</strong>: black dots (variable size/shape), coiled/hook hairs, flame hairs, "V-sign," tulip hairs, trichoptilosis (split ends), hair powder, follicular microhemorrhages, upright regrowing hairs; <strong>absence of exclamation-mark hairs and yellow dots</strong> helps distinguish TTM from alopecia areata. (<a href="https://www.medicaljournals.se/acta/content/html/10.2340/00015555-1674">Acta Derm Venereol</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3500069/">PMC3500069</a>)</li>
+<li><strong>Trichobezoar/Rapunzel syndrome</strong> — in patients with trichophagia, ingested hair accumulates in the stomach (± extension into small bowel = Rapunzel syndrome), producing gastric outlet obstruction, ulceration, perforation, peritonitis, intussusception, pancreatitis, obstructive jaundice, protein-losing enteropathy, and iron-deficiency/megaloblastic anemia. (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10449238/">PMC10449238</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9637412/">PMC9637412</a>)</li>
+<li>Sites: scalp (most common), eyebrows, eyelashes, pubic/body hair.</li>
+</ul>
+<h3>Psychiatric/functional phenotypes</h3>
+<ul>
+<li>Marked distress, shame, guilt, and social avoidance related to visible hair loss.</li>
+<li>Impaired occupational, academic, and social functioning; financial burden (wigs, dermatologic treatment, camouflage).</li>
+</ul>
+<h3>Onset, severity, progression</h3>
+<ul>
+<li><strong>Age of onset</strong>: mean overall ~17.7 years in some series; other estimates cite mean onset ~13 years or bimodal childhood peaks around 8 years (boys) / 12 years (girls); onset before age 5 has a distinct, often self-limiting course.</li>
+<li><strong>Severity</strong>: measured clinically using the <strong>Massachusetts General Hospital Hairpulling Scale (MGH-HPS)</strong> — a 7-item, 0–4 Likert self-report scale (total range 0–28) with a two-factor structure (Severity; Resistance and Control), good internal consistency (α 0.80–0.85). (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0022399906005290">ScienceDirect</a>)</li>
+<li><strong>Progression</strong>: chronic, waxing-and-waning course typical when onset occurs in later childhood/adolescence; later age of onset is associated with greater severity, more treatment resistance, and higher comorbidity, whereas very-early (pre-school) onset frequently resolves spontaneously ("natural recovery").</li>
+<li><strong>Frequency in affected individuals</strong>: comorbid psychiatric illness present in ~79% of TTM patients (see Section 9/comorbidity below).</li>
+</ul>
+<h3>Quality-of-life impact</h3>
+<p>Multiple case-control studies (e.g., Diefenbach et al.) show TTM patients report significantly worse psychological distress, self-esteem, and quality of life than non-psychiatric controls, with effects substantially mediated by comorbid depression; shame, embarrassment, social isolation, and avoidance of activities that expose hair loss (swimming, wind, intimacy, hairdressers) are consistently reported. (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0005796704001354">ScienceDirect</a>)</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal/risk genes</strong>: <strong>SLITRK1</strong> (chr13q31.1, OMIM 609678) — integral membrane protein homologous to TRK neurotrophin receptors, implicated in neurite outgrowth/synaptic connectivity; a frameshift deletion and the noncoding variant var321 were identified in TTM (and Tourette) pedigrees. <strong>SAPAP3/DLGAP3</strong> (chr1p34.3) — postsynaptic scaffolding protein at glutamatergic corticostriatal synapses, interacting with PSD-95/Shank family proteins in the striatum (caudate); rs11583978 associated with TTM/pathological grooming.</li>
+<li><strong>Variant classification</strong>: Both SLITRK1 and SAPAP3 findings are common/rare-variant <em>association</em> findings rather than ClinVar-curated pathogenic/likely-pathogenic single-gene Mendelian variants; TTM is not modeled as a single-gene Mendelian disorder — genetic architecture is best characterized as <strong>polygenic</strong>, overlapping substantially with general psychiatric risk (per the 2025 GWAS).</li>
+<li><strong>Structural variation</strong>: The 2025 GWAS reported a nominal excess of <strong>large, constrained-gene-impacting copy-number deletions</strong> in TTM cases vs. controls (trend-level, not genome-wide significant given small sample).</li>
+<li><strong>Functional consequence framing</strong>: SLITRK1 loss-of-function variants are hypothesized to impair neurite/synapse formation ("faulty wiring") producing the urge to pull; SAPAP3 dysfunction is hypothesized to alter glutamatergic corticostriatal synaptic structure/function, consistent with the NAC (glutamate-modulator) treatment rationale (Section 12) and with Sapap3-knockout mouse hyperglutamatergic/hypergrooming phenotypes.</li>
+<li><strong>Epigenetics/somatic</strong>: No disease-defining epigenetic or somatic-mosaicism findings are established for TTM specifically.</li>
+<li><strong>Chromosomal abnormalities</strong>: None established as causal.</li>
+</ul>
+<p>Suggested annotations: HGNC gene symbols <code>SLITRK1</code> (<a href="https://bioregistry.io/HGNC:20297" target="_blank" rel="noopener noreferrer">HGNC:20297</a>) and <code>DLGAP3</code>/<code>SAPAP3</code> (<a href="https://bioregistry.io/HGNC:19071" target="_blank" rel="noopener noreferrer">HGNC:19071</a>); GO terms such as <a href="http://purl.obolibrary.org/obo/GO_0007416" target="_blank" rel="noopener noreferrer">GO:0007416</a> (synapse assembly) and <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> (chemical synaptic transmission) for mechanistic framing.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Psychosocial stressors</strong>: acute and chronic stress, negative affect, boredom, and sedentary cognitive load (reading, screen time) are the most consistently identified situational triggers/exacerbators, rather than toxin/occupational exposures.</li>
+<li><strong>No infectious etiology</strong> — TTM is not infection-associated; tinea capitis is a key infectious differential diagnosis to exclude (see Section 10), not a cause.</li>
+<li><strong>Lifestyle factors</strong>: sedentary/passive activity contexts specifically associated with "automatic" subtype pulling.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (proposed):</strong> genetic vulnerability (polygenic risk overlapping general psychiatric risk; candidate SLITRK1/SAPAP3 variants) → <strong>altered cortico-striato-thalamo-cortical (CSTC) circuitry</strong>, particularly striatal (caudate/putamen), orbitofrontal/cingulate, and cerebellar nodes involved in habit formation, motor sequencing, and affect regulation → dysregulated <strong>glutamatergic neurotransmission</strong> in corticostriatal/nucleus accumbens circuits (supported by NAC's mechanism and Sapap3-knockout hyperglutamatergic grooming) → maladaptive habit-learning loop in which hair-pulling becomes negatively reinforced by tension relief (or is captured by an automatic, low-awareness habit circuit) → recurrent pulling behavior, hair-follicle trauma, and (if trichophagia present) secondary GI bezoar pathology.</p>
+<ul>
+<li><strong>Molecular pathways</strong>: Glutamatergic signaling in nucleus accumbens/striatum implicated via the SAPAP3/Shank–PSD95 postsynaptic density complex and via NAC's efficacy as a cystine-glutamate antiporter modulator restoring extracellular glutamate tone. Serotonergic dysregulation is also implicated (basis for SSRI trials, though evidence is weaker than for OCD proper).</li>
+<li><strong>Cellular processes</strong>: Aberrant corticostriatal synaptic structure — Sapap3-knockout mice show excess dendritic spine density and pre/postsynaptic structural defects in striatum; Hoxb8-mutant mice show corticostriatal circuit defects (excess dendritic spines, LTP and miniature postsynaptic current abnormalities) on Golgi/ultrastructural/electrophysiological study. (<a href="https://www.nature.com/articles/mp2017180">Nature Molecular Psychiatry</a>)</li>
+<li><strong>Neuroimmune mechanism (Hoxb8 model)</strong>: Hoxb8 lineage in brain labels <strong>bone-marrow-derived microglia</strong> exclusively; Hoxb8-mutant mice display doubled grooming time leading to hair removal and self-inflicted sores, and this pathological grooming is <strong>rescued by wild-type bone-marrow transplantation</strong>, implicating a hematopoietic/microglial origin for the corticostriatal circuit defect — a striking "neuroimmunological" mechanistic candidate for compulsive grooming disorders. (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2894573/">PMC2894573</a>, <a href="https://www.sciencedirect.com/science/article/pii/S0092867410003740">Cell/ScienceDirect</a>)</li>
+<li><strong>Structural neuroimaging in humans</strong>: Morphometric MRI shows increased gray-matter density in left striatum, left amygdalo-hippocampal formation, and cingulate/supplementary motor/frontal cortex bilaterally — regions implicated in habit learning, cognition, and affect regulation (<a href="https://www.cambridge.org/core/journals/the-british-journal-of-psychiatry/article/grey-matter-abnormalities-in-trichotillomania-morphometric-magnetic-resonance-imaging-study/7DE602B3AF7E77C2853898828DF072BE">Cambridge/BJP</a>). A separate parcellation study found <strong>reduced cerebellar volumes</strong> in TTM (n=14) vs. controls (n=12), implicating the cerebellum's role in complex motor sequencing. White-matter volume alterations and structural brain network connectivity differences have also been reported, though the overall imaging literature is described as "limited and inconsistent," and (unlike OCD) TTM-specific CSTC circuit dysfunction has not been as extensively or consistently mapped as in OCD proper.</li>
+<li><strong>Tissue-level mechanism</strong>: repeated mechanical traction on hair follicles causes anagen hair extraction with variable catagen/telogen involvement (trichogram shows catagen and anagen hairs with ruptured root sheaths, absence of telogen hairs), producing irregular patchy alopecia without epidermal inflammation/scarring — distinguishing TTM histologically/trichoscopically from alopecia areata and cicatricial alopecias.</li>
+<li><strong>GI pathophysiology (trichobezoar)</strong>: swallowed hair is resistant to digestion and peristaltic transit due to its smooth, slippery surface; it accumulates in the gastric rugae, becomes matted with mucus/food, and can extend through the pylorus into the small bowel (Rapunzel syndrome), producing obstruction, pressure necrosis/ulceration, and perforation via impaired local blood supply.</li>
+</ul>
+<p><strong>Suggested ontology terms</strong>: <a href="http://purl.obolibrary.org/obo/GO_0035640" target="_blank" rel="noopener noreferrer">GO:0035640</a> (exploration behavior) / behavioral GO terms are limited for this domain — more precise: <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> (synaptic transmission), <a href="http://purl.obolibrary.org/obo/GO_0050890" target="_blank" rel="noopener noreferrer">GO:0050890</a> (cognition), <a href="http://purl.obolibrary.org/obo/GO_0007612" target="_blank" rel="noopener noreferrer">GO:0007612</a> (learning); CL terms for microglia (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>) and medium spiny neurons (<a href="http://purl.obolibrary.org/obo/CL_1001474" target="_blank" rel="noopener noreferrer">CL:1001474</a>) given the Hoxb8/microglial and striatal-neuron mechanistic threads; <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a> (striatum), <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum), <a href="http://purl.obolibrary.org/obo/UBERON_0001870" target="_blank" rel="noopener noreferrer">UBERON:0001870</a> (frontal cortex).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary)</strong>: Skin/hair follicles of the <strong>scalp</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002385" target="_blank" rel="noopener noreferrer">UBERON:0002385</a> or more specific scalp term), <strong>eyebrows</strong>, <strong>eyelashes</strong>, and other body hair sites. <strong>Secondary</strong>: gastrointestinal tract (stomach/small intestine) via trichobezoar in patients with trichophagia.</li>
+<li><strong>Body systems</strong>: primarily the <strong>integumentary system</strong> (behaviorally driven) and <strong>central nervous system</strong> (etiological/mechanistic locus — corticostriatal circuitry); secondary <strong>gastrointestinal system</strong> involvement in trichophagic patients.</li>
+<li><strong>Tissue/cell level</strong>: hair follicle epithelium and dermal papilla (mechanical trauma); striatal medium spiny neurons and corticostriatal glutamatergic synapses (CNS mechanism); microglia (Hoxb8 mouse model).</li>
+<li><strong>Subcellular level</strong>: postsynaptic density complex (PSD-95/SAPAP3/Shank) at glutamatergic synapses; dendritic spines (structural remodeling in animal models).</li>
+<li><strong>Localization/laterality</strong>: Scalp involvement is typically patchy and can be unilateral or bilateral depending on hand dominance and pulling pattern (e.g., "Friar Tuck" pattern on the vertex/crown is a recognized presentation); eyebrow/eyelash involvement can be unilateral if one hand is dominantly used.</li>
+</ul>
+<p>Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" rel="noopener noreferrer">UBERON:0002481</a> (skin of scalp region — or closest scalp term), <a href="http://purl.obolibrary.org/obo/UBERON_0006914" target="_blank" rel="noopener noreferrer">UBERON:0006914</a> (eyebrow), <a href="http://purl.obolibrary.org/obo/UBERON_0006414" target="_blank" rel="noopener noreferrer">UBERON:0006414</a> (eyelash region... check exact ID), <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a> (stomach) for trichobezoar site, <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" rel="noopener noreferrer">UBERON:0002108</a> (small intestine) for Rapunzel-syndrome extension.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset</strong>: bimodal/variable — early childhood (mean ~8 y boys / ~12 y girls in one series, sexes roughly equally affected in childhood) versus adolescent onset (mean overall ~17.7 y; males ~19.0 y, females ~14.8 y in another series). Onset pattern is typically <strong>insidious</strong> rather than acute.</li>
+<li><strong>Progression</strong>: <strong>Childhood-onset (pre-school, &lt;5 years) TTM</strong> frequently shows spontaneous cessation over time and is often considered a transient, self-limited habit requiring little intervention. <strong>Adolescent/later-onset TTM</strong> more often becomes a <strong>chronic, waxing-and-waning condition</strong> persisting into adulthood if untreated, and is associated with greater severity, treatment resistance, and psychiatric comorbidity than early-onset disease.</li>
+<li><strong>Course pattern</strong>: chronic, relapsing-remitting/fluctuating severity over the lifespan is the modal pattern in clinical (as opposed to community/subclinical) samples; "automatic" pulling in passive/sedentary contexts and "focused," tension-driven pulling can co-occur and fluctuate with stress.</li>
+<li><strong>Remission</strong>: Natural (untreated) recovery is documented, more common in childhood-onset disease; treatment-induced remission is achievable with behavioral therapy but relapse is common (see Section 12).</li>
+<li><strong>Critical periods</strong>: Adolescence appears to be a period of both risk (onset) and relative treatment resistance if onset occurs then, versus early childhood onset, where the window is more one of spontaneous resolution.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- <strong>Lifetime prevalence</strong>: estimates range 0.6–2.2%, with a pooled meta-analytic estimate of <strong>1.14%</strong> (95% CI 0.66–1.96%) across 30 studies/38,526 participants; other single estimates cite ~1.7%.
+- <strong>Nationwide/population-representative incidence data are lacking</strong>; most prevalence estimates derive from college/community convenience samples.</p>
+<p><strong>Sex ratio</strong>: Clinical samples classically report a strong female predominance (as high as ~9:1 female:male in adult clinical populations), while population-based/meta-analytic data do <strong>not</strong> consistently confirm female preponderance, with substantial cross-study heterogeneity — sexes are reported as roughly equally affected in <strong>childhood</strong>, with the female skew emerging/persisting more strongly in <strong>adulthood</strong> (possibly reflecting differential treatment-seeking or persistence rather than true incidence difference).</p>
+<p><strong>Inheritance pattern</strong>: TTM is <strong>not Mendelian</strong> — best characterized as <strong>complex/multifactorial (polygenic)</strong> inheritance with candidate contributory rare variants (SLITRK1, SAPAP3) of modest individual effect. No established penetrance/expressivity figures analogous to single-gene disorders; no genetic anticipation, germline mosaicism, or founder-effect data reported. No specific carrier-frequency data (not applicable to a polygenic/complex trait in this framework).</p>
+<p><strong>Population demographics</strong>: No strong evidence for differential prevalence by ethnicity/geography has been robustly established in the literature reviewed; data are concentrated in North American/European clinical and web-recruited cohorts (e.g., the 2025 GWAS cohort was European-ancestry, US-recruited via the Trichotillomania Learning Center).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical criteria (DSM-5)</strong>: (A) recurrent pulling out of one's hair resulting in hair loss; (B) repeated attempts to decrease/stop; (C) clinically significant distress or impairment; (D) not attributable to another medical condition (e.g., dermatologic); (E) not better explained by another mental disorder.</p>
+<p><strong>Physical/dermatologic exam and trichoscopy</strong> (key tool):
+- Trichoscopic features suggestive of TTM: black dots of variable size/shape, coiled/hook hairs, "flame hairs," "V-sign," "tulip hairs," trichoptilosis (split ends), broken hairs of varying length, hair powder, follicular microhemorrhages, upright regrowing hairs; <strong>absence of exclamation-mark hairs and yellow dots</strong> (the latter two being more typical of alopecia areata). (<a href="https://www.medicaljournals.se/acta/content/html/10.2340/00015555-1674">Acta Derm Venereol</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3500069/">PMC3500069</a>)
+- Trichogram: catagen and anagen hairs with ruptured root sheaths; absence of telogen hairs.
+- Scalp biopsy (when diagnosis unclear): pigment casts, increased catagen hairs, perifollicular hemorrhage, empty follicles, trichomalacia — without significant inflammation or scarring.</p>
+<p><strong>Differential diagnosis</strong>:
+- <strong>Alopecia areata</strong>: complete hair loss within well-demarcated patches, exclamation-mark hairs present, uniform black-dot morphology, autoimmune pathogenesis.
+- <strong>Tinea capitis</strong>: scaling, erythema, crusting, broken hairs at the scalp surface, positive fungal culture/KOH.
+- <strong>Traction alopecia</strong>: history of chronic mechanical tension (braiding, tight hairstyles) rather than compulsive pulling.
+- Androgenetic alopecia, telogen effluvium, and other cicatricial alopecias in atypical presentations.</p>
+<p><strong>Standardized severity/assessment tools</strong>:
+- <strong>MGH-HPS (Massachusetts General Hospital Hairpulling Scale)</strong> — 7-item self-report, 0–28 total, two-factor (Severity; Resistance and Control) structure. (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0022399906005290">ScienceDirect</a>)
+- Trichotillomania Impact Project scales, Milwaukee Inventory for Subtypes of Trichotillomania (MIST), NIMH-TTM Severity Scale.</p>
+<p><strong>Genetic testing</strong>: No clinically validated single-gene or panel-based genetic test exists for TTM diagnosis (it is a behavioral/clinical diagnosis); research-only genotyping (GWAS arrays) has been used investigationally.</p>
+<p><strong>Imaging</strong>: Not diagnostic/routine; structural MRI (VBM) has been used in research settings to characterize gray-matter and cerebellar volume differences (Section 6) but has no established individual diagnostic utility.</p>
+<p><strong>Screening</strong>: No population screening programs exist; case identification is via clinical interview, often supplemented by trichoscopy for confirmation and to exclude dermatologic mimics. GI imaging (ultrasound/CT) is indicated diagnostically when trichobezoar/Rapunzel syndrome is suspected in patients with a trichophagia history presenting with abdominal mass, obstruction, or GI bleeding.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality</strong>: TTM itself is not directly life-threatening, but <strong>trichobezoar-related complications</strong> (gastric/intestinal perforation, peritonitis, severe malnutrition) carry real morbidity/mortality risk in trichophagic patients if unrecognized and untreated; case-report literature documents severe outcomes including perforation peritonitis and multi-organ complications (pancreatitis, cholangitis).</li>
+<li><strong>Morbidity/functional impact</strong>: Significant impairment in psychosocial functioning, self-esteem, and quality of life, substantially mediated by comorbid depression; occupational, academic, and social impairment and financial burden are well documented.</li>
+<li><strong>Course/complications</strong>: chronic waxing-and-waning course in clinical samples; comorbidity with mood/anxiety disorders is associated with greater severity and poorer prognosis. Up to <strong>50–67% of initial treatment responders relapse</strong> during long-term follow-up after habit reversal-based behavioral therapy, underscoring a high relapse burden even among treatment responders.</li>
+<li><strong>Prognostic factors</strong>: later age of onset, comorbid OCD/anxiety/depression, and greater experiential avoidance are associated with more severe/treatment-resistant course; very early (pre-school) onset is prognostically favorable (frequent spontaneous remission).</li>
+<li><strong>Recovery potential</strong>: Natural recovery is well documented, especially in early-onset cases; with behavioral treatment (habit reversal-based therapy), large effect sizes are achievable in the short-to-medium term (see Section 12), though durability is limited without maintenance.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Behavioral/psychotherapeutic (first-line, strongest evidence base)</h3>
+<ul>
+<li><strong>Habit Reversal Training (HRT)</strong> / broader <strong>behavior therapy</strong> — large effect vs. control conditions (SMD ≈ <strong>−1.22</strong>); superior to pharmacotherapy (clomipramine or SSRIs) in comparative meta-analyses. Suggested NCIT: closest fit is a behavioral therapy/counseling term (e.g., NCIT:C15315 Rehabilitation or a psychotherapy-specific term); no MAXO/NCIT-specific "habit reversal training" term is confirmed — use free-text <code>preferred_term</code> with <code>therapeutic_modality: BEHAVIORAL</code>.</li>
+<li><strong>Acceptance and Commitment Therapy (ACT)-enhanced HRT</strong>: RCT (Woods et al., 25 adults) found significant reductions in MGH-HPS severity, impairment, experiential avoidance, anxiety, and depression vs. waitlist; <strong>66% response rate</strong> in the ACT/HRT arm vs. <strong>8%</strong> in waitlist control, with gains generally maintained at 3-month follow-up. ("Strong support" designation also given in a more recent evidence review, alongside plain HRT and NAC.) (<a href="https://pubmed.ncbi.nlm.nih.gov/16039603/">PubMed 16039603</a>)</li>
+<li><strong>Comprehensive Behavioral (ComB) model</strong>, cognitive therapy (targeting self-control cognitions), telehealth/virtual HRT delivery — virtual-delivery real-world data show median 33.3% severity reduction (Hedges' g=1.01).</li>
+<li><strong>Limitation</strong>: 50–67% of initial responders relapse long-term.</li>
+</ul>
+<h3>Pharmacotherapy (adjunctive/second-line; overall low-certainty evidence per Cochrane)</h3>
+<ul>
+<li><strong>N-acetylcysteine (NAC)</strong> — glutamate modulator (restores extracellular glutamate in nucleus accumbens via cystine-glutamate antiporter). <strong>Adult RCT (Grant, Odlaug, Kim 2009, Arch Gen Psychiatry)</strong>: 50 adults, NAC 1200–2400 mg/day × 12 weeks; 56% "much/very much improved" vs. 16% placebo — significant benefit, well tolerated. (<a href="https://jamanetwork.com/journals/jamapsychiatry/fullarticle/483113">JAMA Network</a>) <strong>Pediatric RCT</strong> (39 children/adolescents 8–17y, 12 weeks, add-on design): <strong>no significant difference</strong> from placebo on MGH-HPS. Suggests efficacy may be age-dependent (adults &gt; children). CHEBI candidate: <a href="http://purl.obolibrary.org/obo/CHEBI_47704" target="_blank" rel="noopener noreferrer">CHEBI:47704</a> (N-acetyl-L-cysteine).</li>
+<li><strong>Clomipramine</strong> (TCA with SRI action, 50→250 mg/day) — low-certainty evidence of benefit from a single small trial. NCIT/CHEBI: clomipramine has an established CHEBI ID.</li>
+<li><strong>Olanzapine</strong> (atypical antipsychotic, 2.5→10 mg/day) — low-certainty benefit from one small RCT.</li>
+<li><strong>SSRIs</strong>: commonly used clinically but evidence base for TTM specifically is weaker/inconsistent compared to OCD.</li>
+<li>Overall Cochrane conclusion: evidence is <strong>low-certainty</strong>, from few, small (n often &lt;50), short-duration (5–13 week) trials; treatment decisions should be individualized based on severity and comorbidity. (<a href="https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD007662.pub3/full">Cochrane</a>)</li>
+<li><strong>Experimental/investigational</strong>: valbenazine (VMAT2 inhibitor) trial ongoing (NCT05207085); milk thistle pediatric/adult trial (NCT02473913).</li>
+</ul>
+<h3>Surgical/interventional</h3>
+<ul>
+<li><strong>Trichobezoar/Rapunzel syndrome</strong>: surgical (open or laparoscopic) gastrotomy/enterotomy for bezoar removal is definitive management for GI complications; endoscopic removal may be attempted for smaller bezoars.</li>
+</ul>
+<h3>Supportive care</h3>
+<ul>
+<li>Psychoeducation, family therapy (especially pediatric cases), dermatologic camouflage/wig counseling, and treatment of comorbid mood/anxiety disorders as part of a comprehensive plan.</li>
+</ul>
+<h3>Treatment algorithm</h3>
+<p>Behavioral therapy (HRT ± ACT enhancement) is generally first-line given the strongest and most consistent effect sizes; pharmacotherapy (NAC in adults, or SSRIs/clomipramine/olanzapine) is used adjunctively or when behavioral therapy access is limited or comorbidity (e.g., depression, OCD) predominates.</p>
+<p>Suggested NCIT terms: NCIT:C15986 (Pharmacotherapy) for drug treatments generally, paired with <code>therapeutic_agent</code> CHEBI terms for clomipramine, olanzapine, and NAC; NCIT:C15302 (Physical Therapy) is not appropriate — HRT/ACT are psychological/behavioral interventions best captured with <code>therapeutic_modality: BEHAVIORAL</code>.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>No established primary prevention</strong> (no vaccine, no modifiable single risk factor with proven prevention efficacy).</li>
+<li><strong>Secondary prevention/early detection</strong>: early clinical recognition in childhood-onset cases to differentiate transient (likely self-resolving) pulling from a pattern likely to become chronic, enabling earlier behavioral intervention when indicated.</li>
+<li><strong>Tertiary prevention</strong>: prevention of trichobezoar/GI complications via early identification and treatment of trichophagia in TTM patients (screening for hair-eating behavior specifically, given the outsized morbidity risk of undetected bezoar formation).</li>
+<li><strong>Genetic counseling</strong>: not a standard part of TTM management given its complex/polygenic, non-Mendelian architecture; family history of OCD-spectrum illness may be discussed as a risk correlate in counseling contexts but no formal risk-prediction tools exist.</li>
+<li><strong>Behavioral/public health interventions</strong>: stress-reduction and habit-awareness psychoeducation in at-risk youth (e.g., those with early automatic pulling behaviors or comorbid anxiety) is a plausible but not rigorously trial-validated preventive strategy.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>TTM-like body-focused repetitive/compulsive grooming behaviors occur naturally across multiple species, supporting cross-species translational relevance:</p>
+<ul>
+<li><strong>Avian — feather-picking/feather-damaging behavior in parrots</strong>: proposed as a naturalistic model with phenomenological similarities to TTM (behavior pattern, proposed stress-related etiology, evoking cues, and shared responsiveness to behavioral and SSRI-based pharmacological treatment). (<a href="https://www.sciencedirect.com/science/article/abs/pii/0005791694900191">ScienceDirect</a>)</li>
+<li><strong>Canine — acral lick dermatitis</strong>: dogs lick paws/flank to the point of ulceration/infection, proposed as a compulsive-grooming veterinary analog.</li>
+<li><strong>Feline and nonhuman primate — psychogenic alopecia</strong>: self-induced hair loss from excessive grooming, described as phenotypically analogous.</li>
+<li><strong>Swine</strong>: tail/ear biting behaviors described in the same conceptual family of body-focused repetitive disorders.</li>
+<li><strong>Rodent (naturalistic)</strong>: inbred <strong>C57BL/6J mice</strong> display spontaneous barbering behavior with phenotypic parallels to TTM; <strong>alcohol-preferring (P) rats</strong> selectively bred for alcohol preference show elevated scratching/oral grooming predictive of subsequent dermatitis/skin lesion development, proposed as an additional naturalistic model. (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8875168/">PMC8875168</a>)</li>
+</ul>
+<p>These natural/spontaneous animal presentations are distinct from the induced genetic models below but reinforce that compulsive self-grooming with tissue damage is a conserved cross-species behavioral phenotype.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Genetic/induced mouse models:</strong></p>
+<ul>
+<li><strong>Sapap3 (Dlgap3) knockout mice</strong>: exhibit excessive/compulsive grooming with facial injuries and increased anxiety-like behavior, closely paralleling human TTM/OCD-spectrum pathological grooming. Quantitatively, pre-stressor (pre-spray) grooming was 31 s (KO) vs. 8 s (WT); post-spray, 167 s (KO) vs. 52 s (WT). Underlying mechanism: SAPAP3 (a PSD-95/Shank-interacting postsynaptic scaffolding protein enriched in the striatum/caudate) loss produces corticostriatal glutamatergic synaptic dysfunction. Recent extensions include study of the <strong>nucleus accumbens circuit and oxytocin as a candidate therapeutic</strong> in this model. (<a href="https://www.nature.com/articles/s41598-025-14076-y">Scientific Reports 2025</a>, <a href="https://www.biorxiv.org/content/10.1101/2020.01.22.915215v1.full">bioRxiv</a>)</li>
+<li><strong>Hoxb8 mutant mice</strong>: spend roughly double the grooming time of wild-type littermates, developing hair removal and self-inflicted open sores highly analogous to human TTM. Mechanistically notable for its <strong>hematopoietic/microglial origin</strong> — Hoxb8 lineage in brain exclusively marks bone-marrow-derived microglia, and pathological grooming is <strong>rescued by wild-type bone-marrow transplantation</strong> (though the associated sensory/nociceptive defect is not rescued), and corticostriatal circuit defects (excess dendritic spines, synaptic/LTP abnormalities) are demonstrable by Golgi, ultrastructural, and electrophysiological study. Disruption of Hoxb8 restricted to the hematopoietic lineage alone recapitulates pathological grooming. (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2894573/">PMC2894573</a>, <a href="https://www.nature.com/articles/mp2017180">Molecular Psychiatry 2018</a>)</li>
+<li><strong>iNOS (NOS2) knockout mice</strong>: proposed as an additional model of trichotillomania-like behavior (nitric oxide synthase pathway implicated in compulsive grooming; bioRxiv preprint).</li>
+</ul>
+<p><strong>Model characteristics and translational fidelity</strong>: Both Sapap3-KO and Hoxb8-mutant models recapitulate the core surface phenotype (excessive, injurious self-grooming/hair removal) and implicate convergent corticostriatal circuit and glutamatergic synaptic pathology, aligning with human structural imaging (striatal/cingulate gray-matter changes) and the clinical efficacy of the glutamate-modulator NAC. A key <strong>limitation</strong>: these are models of pathological <em>grooming</em> generally (shared across TTM and OCD-spectrum compulsive behavior) rather than TTM-specific models, and the Hoxb8 model's microglial/hematopoietic mechanism, while mechanistically striking, has an uncertain degree of translational specificity to human TTM (a candidate <code>HUMAN_MODEL_MISMATCH</code> consideration for KB curation, given no direct human confirmation of a hematopoietic/microglial causal contribution to TTM).</p>
+<p><strong>Research applications</strong>: These models are used to probe corticostriatal synaptic and microglial mechanisms of compulsive grooming, to screen candidate pharmacotherapies (e.g., oxytocin, NAC-related glutamate modulators), and to study circuit-level (nucleus accumbens, striatum) intervention targets.</p>
+<p>Suggested NCBITaxon terms: NCBITaxon:10090 (Mus musculus), NCBITaxon:10116 (Rattus norvegicus, P rats), NCBITaxon:9615 (Canis lupus familiaris), and relevant Psittaciformes taxa for parrot feather-picking models.</p>
+<hr />
+<h2>Summary of Suggested Ontology Term Bindings</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0013189" target="_blank" rel="noopener noreferrer">MONDO:0013189</a>; <a href="https://bioregistry.io/OMIM:613229" target="_blank" rel="noopener noreferrer">OMIM:613229</a>; ICD-11:6B25.0</td>
+</tr>
+<tr>
+<td>Core phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012167" target="_blank" rel="noopener noreferrer">HP:0012167</a> (Trichotillomania)</td>
+</tr>
+<tr>
+<td>Associated phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a> (Alopecia)</td>
+</tr>
+<tr>
+<td>Genes</td>
+<td><a href="https://bioregistry.io/HGNC:20297" target="_blank" rel="noopener noreferrer">HGNC:20297</a> (SLITRK1); <a href="https://bioregistry.io/HGNC:19071" target="_blank" rel="noopener noreferrer">HGNC:19071</a> (DLGAP3/SAPAP3)</td>
+</tr>
+<tr>
+<td>Biological process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> (chemical synaptic transmission); <a href="http://purl.obolibrary.org/obo/GO_0007612" target="_blank" rel="noopener noreferrer">GO:0007612</a> (learning)</td>
+</tr>
+<tr>
+<td>Cell types</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_1001474" target="_blank" rel="noopener noreferrer">CL:1001474</a> (medium spiny neuron); <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (microglial cell)</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a> (striatum); <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum); <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a> (stomach, for trichobezoar)</td>
+</tr>
+<tr>
+<td>Chemical/drug</td>
+<td>CHEBI: N-acetyl-L-cysteine; clomipramine; olanzapine</td>
+</tr>
+<tr>
+<td>Treatment (NCIT)</td>
+<td>NCIT:C15986 (Pharmacotherapy) + <code>therapeutic_agent</code>; behavioral therapy via <code>therapeutic_modality: BEHAVIORAL</code> (no precise NCIT HRT term identified)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.omim.org/entry/613229">OMIM #613229 — Trichotillomania</a></li>
+<li><a href="https://www.nature.com/articles/4001865">SLITRK1 mutations in Trichotillomania — Molecular Psychiatry</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10885776/">Sapap3 and pathological grooming in humans — PMC</a></li>
+<li><a href="https://www.nature.com/articles/s41598-025-14076-y">Exploring the nucleus accumbens circuit and oxytocin therapy in a Sapap3 knockout mouse model — Scientific Reports 2025</a></li>
+<li><a href="https://www.biorxiv.org/content/10.1101/2020.01.22.915215v1.full">The Sapap3-knockout mouse model manifests a spectrum of repetitive behaviours — bioRxiv</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2894573/">Hematopoietic Origin of Pathological Grooming in Hoxb8 Mutant Mice — PMC</a></li>
+<li><a href="https://www.nature.com/articles/mp2017180">Corticostriatal circuit defects in Hoxb8 mutant mice — Molecular Psychiatry</a></li>
+<li><a href="https://psychiatryonline.org/doi/10.1176/appi.ajp.2016.15111432">Trichotillomania — American Journal of Psychiatry review</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK493186/">Trichotillomania — StatPearls/NCBI Bookshelf</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32390221/">Pharmacological and behavioral treatment for trichotillomania: updated systematic review with meta-analysis — PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11513794/">The genetics of trichotillomania and excoriation disorder: A systematic review — PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19199280/">A twin concordance study of trichotillomania — PubMed</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6908854/">Comorbidity in trichotillomania: A cluster analytical approach — PMC</a></li>
+<li><a href="https://www.cambridge.org/core/journals/the-british-journal-of-psychiatry/article/grey-matter-abnormalities-in-trichotillomania-morphometric-magnetic-resonance-imaging-study/7DE602B3AF7E77C2853898828DF072BE">Grey matter abnormalities in trichotillomania: morphometric MRI study — British Journal of Psychiatry</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s11682-019-00170-z">White matter volume alterations in hair-pulling disorder — Brain Imaging and Behavior</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9637412/">Rapunzel Syndrome: A Case of Trichobezoar with Small Bowel Complications — PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10449238/">A Rare Case of Rapunzel Syndrome Presenting with Perforation Peritonitis — PMC</a></li>
+<li><a href="https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD007662.pub3/full">Pharmacotherapy for trichotillomania — Cochrane Library</a></li>
+<li><a href="https://jamanetwork.com/journals/jamapsychiatry/fullarticle/483113">N-Acetylcysteine, a Glutamate Modulator, in the Treatment of Trichotillomania — JAMA Network (Arch Gen Psychiatry 2009)</a></li>
+<li><a href="https://www.jaacap.org/article/S0890-8567(12)01006-4/abstract">N-Acetylcysteine in the Treatment of Pediatric Trichotillomania — JAACAP</a></li>
+<li><a href="https://www.medicaljournals.se/acta/content/html/10.2340/00015555-1674">New Trichoscopy Findings in Trichotillomania — Acta Dermato-Venereologica</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3500069/">Trichoscopy as an aid in the diagnosis of trichotillomania — PMC</a></li>
+<li><a href="https://emedicine.medscape.com/article/1071854-differential">Trichotillomania Differential Diagnoses — Medscape</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0022399906005290">Factor analysis of the Massachusetts General Hospital Hairpulling Scale</a></li>
+<li><a href="https://www.medrxiv.org/content/10.1101/2025.01.23.25321045v1">Genomic Analysis of Trichotillomania — medRxiv/PubMed 40511557</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16039603/">A controlled evaluation of acceptance and commitment therapy plus habit reversal for trichotillomania — PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15896284/">Trichotillomania: impact on psychosocial functioning and quality of life — PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/7852601/">Feather picking disorder and trichotillomania: An avian model of human psychopathology — PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8875168/">Predictive Value of Grooming Behavior for Development of Dermatitis in Selectively Bred P Rats — PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21135642/">Age of onset of trichotillomania symptoms: investigating clinical correlates — PubMed</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7614802/">Natural Recovery in Trichotillomania — PMC</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0165178120303553">Prevalence, gender correlates, and co-morbidity of trichotillomania — ScienceDirect</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Trichothiodystrophy-openscientist.html">← Trichothiodystrophy (OpenScientist)</a>
+                
+                
+                <a href="Triglyceride_Storage_Disease_Type_1-falcon.html">Triglyceride Storage Disease Type 1 (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Trichotillomania.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Trichotillomania-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

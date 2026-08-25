@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glioblastoma, IDH-Wildtype · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Glioblastoma, IDH-Wildtype</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Glioblastoma, IDH-Wildtype</h1>
+                
+                <p class="report-subtitle">Glioblastoma, IDH-Wildtype — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0850335" target="_blank" rel="noopener noreferrer">MONDO:0850335</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">28 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Glioblastoma, IDH-Wildtype — Comprehensive Disease Characteristics Report</h1>
+<p><em>Autonomous discovery investigation • WHO CNS5 (2021) framework • Evidence base: 30 papers reviewed, 2 confirmed findings, 3 supported hypotheses</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Glioblastoma, IDH-wildtype (GBM)</strong> is the most common and most aggressive malignant primary brain tumor in adults. Under the 2021 WHO Classification of CNS Tumors (WHO CNS5), it is defined as a WHO grade-4 <strong>diffuse astrocytic glioma</strong> that is <strong>wild-type for <em>IDH1/IDH2</em></strong> and carries at least one of three molecular hallmarks — <strong>TERT promoter mutation</strong>, <strong>EGFR amplification</strong>, or <strong>combined whole-chromosome gain of 7 and loss of 10 (+7/−10)</strong> — even in the absence of the classic grade-4 histological features of microvascular proliferation or necrosis (so-called "molecular GBM") (<a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>). This molecular definition marked a fundamental shift away from purely histological diagnosis.</p>
+<p>Mechanistically, GBM is a <strong>sporadic, somatic-genetic disease</strong>. Its driver alterations converge on three core signaling axes — the <strong>RTK/PI3K (growth factor)</strong>, <strong>TP53</strong>, and <strong>RB</strong> pathways — with <em>EGFR</em> and <em>CDKN2A/B</em> aberrations found in essentially all tumors, and single-copy <em>PTEN</em> loss plus <em>TERT</em> promoter point mutation acting as the earliest founder events (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>). Downstream, the tumor establishes a profoundly <strong>immunosuppressive microenvironment</strong> dominated by M2-like tumor-associated macrophages, regulatory T cells, myeloid-derived suppressor cells, and hypoxia-driven tryptophan–kynurenine metabolism that drives T-cell exhaustion — the principal reason immunotherapy has largely failed in GBM.</p>
+<p>Clinically, GBM presents in older adults (median age ~64 years, male predominance) with progressive neurological deficits, headache, and seizures. Despite maximal safe surgical resection, radiotherapy, and temozolomide (the <strong>Stupp protocol</strong>), median overall survival is only <strong>~14.6 months</strong>, rising to <strong>~21.7 months</strong> when the <strong><em>MGMT</em> promoter is methylated</strong> — the single most important predictive/prognostic biomarker (<a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a>). The addition of <strong>Tumor Treating Fields (TTFields)</strong> to maintenance temozolomide significantly improves survival (pooled HR 0.68 for both OS and PFS) (<a href="https://pubmed.ncbi.nlm.nih.gov/41741710/">PMID: 41741710</a>). Five-year survival remains under ~7%. This report synthesizes disease information, etiology, phenotypes, molecular biology, mechanism, anatomy, temporal course, epidemiology, diagnostics, prognosis, treatment, prevention, and model systems for this entity.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Glioblastoma, IDH-wildtype is a WHO grade-4 diffuse astrocytic tumor of the central nervous system arising from glial or glial-precursor lineage cells. It is characterized histologically (when features are present) by dense cellularity, nuclear atypia, brisk mitotic activity, <strong>microvascular/endothelial proliferation</strong>, and <strong>palisading necrosis</strong>, and biologically by diffuse infiltration of surrounding brain parenchyma that renders the tumor surgically incurable. In WHO CNS5 (2021), diagnosis no longer requires these histological features: an IDH-wildtype diffuse astrocytoma with any of the three molecular signatures (TERT promoter mutation, EGFR amplification, +7/−10) is classified as GBM (<a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>).</p>
+<p><strong>Key identifiers.</strong>
+| Resource | Identifier |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0018177" target="_blank" rel="noopener noreferrer">MONDO:0018177</a> (glioblastoma); IDH-wildtype subtype under adult diffuse glioma |
+| ICD-O-3 morphology | 9440/3 (glioblastoma, NOS) |
+| ICD-11 | 2A00.00 (Glioblastoma of brain) |
+| ICD-10 | C71.x (malignant neoplasm of brain) |
+| MeSH | D005909 (Glioblastoma) |
+| OMIM | 137800 (Glioma susceptibility 1) |
+| SNOMED CT | 63634009 (Glioblastoma multiforme) |
+| ICD-O-3 (IDH-mutant grade 4, for contrast) | 9445/3 (Astrocytoma, IDH-mutant, grade 4) (<a href="https://pubmed.ncbi.nlm.nih.gov/42581490/">PMID: 42581490</a>) |</p>
+<p><strong>Synonyms / alternative names.</strong> Glioblastoma multiforme (GBM, historical), grade IV astrocytoma, "molecular GBM" (mGBM) when diagnosed by molecular criteria, "histological GBM" (hGBM) when diagnosed by classic morphology, giant cell glioblastoma and gliosarcoma (morphologic patterns). Note the 2021 reclassification <strong>removed</strong> "IDH-mutant glioblastoma," which is now "Astrocytoma, IDH-mutant, grade 4" — a clinically distinct, better-prognosis entity (<a href="https://pubmed.ncbi.nlm.nih.gov/42581490/">PMID: 42581490</a>).</p>
+<p><strong>Data source type.</strong> The information in this report is drawn from <strong>aggregated disease-level resources</strong> — WHO classifications, population-based registries (SEER, Spanish and Colombian registries), multicenter cohorts (e.g., the international Histo-Mol GBM Collaborative of 1,857 patients), and mechanistic/omics studies — rather than individual EHR records.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary causal factors.</strong> GBM IDH-wildtype is overwhelmingly a <strong>sporadic somatic disease</strong>; the vast majority of tumors have no identifiable germline cause. Tumorigenesis is driven by accumulated <strong>somatic genomic alterations</strong> in glial/precursor cells that activate growth-factor signaling and inactivate tumor-suppressor and cell-cycle control. In multifocal GBM, comprehensive profiling proved <strong>monoclonal origin</strong> with early founder events (single-copy <em>PTEN</em> loss, <em>TERT</em> promoter mutation) followed by divergent clonal evolution (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>).</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Somatic drivers (not inherited):</strong> <em>TERT</em> promoter mutations, <em>EGFR</em> amplification/mutation (incl. EGFRvIII), <em>PTEN</em> loss, <em>CDKN2A/B</em> deletion, <em>TP53</em> mutation, <em>NF1</em> loss, <em>PIK3CA/PIK3R1</em>, <em>RB1</em>, <em>PDGFRA</em>, <em>MDM2/4</em> amplification.
+- <strong>Germline susceptibility (rare):</strong> Low-penetrance GWAS loci (e.g., near <em>TERT</em>, <em>EGFR</em>, <em>CDKN2A/B</em>, <em>RTEL1</em>, <em>TP53</em>). Hereditary cancer syndromes predispose to gliomas: <strong>Li-Fraumeni</strong> (<em>TP53</em>), <strong>Lynch/constitutional mismatch-repair deficiency</strong>, <strong>neurofibromatosis type 1</strong> (<em>NF1</em>), and <strong>Turcot syndrome</strong>. OMIM 137800 catalogs glioma susceptibility.</p>
+<p><strong>Environmental risk factors.</strong>
+- <strong>Ionizing radiation</strong> to the head (e.g., prior therapeutic cranial irradiation) is the only firmly established exogenous risk factor.
+- <strong>Age</strong> (rising incidence with age, peak 65–75), <strong>male sex</strong> (male predominance; male sex an independent adverse survival factor, HR ~1.37 in one registry) (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>), and <strong>European/White ancestry</strong> (higher incidence) are demographic risk factors.
+- No consistent causal role has been established for mobile-phone radiofrequency exposure, occupational chemicals, diet, or head trauma.</p>
+<p><strong>Protective factors.</strong> Epidemiological studies have repeatedly noted an <strong>inverse association with atopic/allergic disease and elevated IgE</strong>, suggesting immune surveillance may be protective, though this is correlative. No validated genetic protective allele is established. No dietary or lifestyle factor has robust protective evidence.</p>
+<p><strong>Gene–environment interactions.</strong> The clearest example is prior <strong>therapeutic ionizing radiation</strong> interacting with germline DNA-repair deficiency (e.g., mismatch-repair or <em>TP53</em> pathway defects) to accelerate secondary glioma formation. Otherwise GxE data are sparse for this tumor.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>GBM phenotypes are <strong>neurological signs and symptoms</strong> produced by mass effect, infiltration, edema, and disruption of eloquent brain regions. Onset is <strong>adult/geriatric</strong>, course is <strong>progressive</strong> and typically <strong>subacute</strong> (symptoms often &lt; 3 months), and severity is <strong>moderate-to-severe</strong> with major quality-of-life impact.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+<td>Very common; often progressive, worse in morning</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>Sign/symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Seizure at onset in ~25–60%; ~28% (49/177) in one IDH-WT cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">PMID: 34794192</a>)</td>
+</tr>
+<tr>
+<td>Focal motor weakness / hemiparesis</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" rel="noopener noreferrer">HP:0001269</a> / <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" rel="noopener noreferrer">HP:0002061</a></td>
+<td>Common; slowly progressive neurological deficit (<a href="https://pubmed.ncbi.nlm.nih.gov/29248175/">PMID: 29248175</a>)</td>
+</tr>
+<tr>
+<td>Aphasia / speech disturbance (dysphasia)</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" rel="noopener noreferrer">HP:0002381</a></td>
+<td>With dominant temporoparietal lesions (<a href="https://pubmed.ncbi.nlm.nih.gov/29062690/">PMID: 29062690</a>)</td>
+</tr>
+<tr>
+<td>Cognitive/behavioral change</td>
+<td>Behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a></td>
+<td>Personality change, confusion (<a href="https://pubmed.ncbi.nlm.nih.gov/42607912/">PMID: 42607912</a>)</td>
+</tr>
+<tr>
+<td>Nausea/vomiting, papilledema (raised ICP)</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" rel="noopener noreferrer">HP:0002017</a> / <a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" rel="noopener noreferrer">HP:0001085</a></td>
+<td>From mass effect and edema</td>
+</tr>
+<tr>
+<td>Cognitive decline</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a></td>
+<td>Progressive with tumor growth/treatment</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype–anatomy correlation.</strong> In IDH-WT GBM presenting with seizures, lesions are disproportionately located in the <strong>parietal lobe</strong>, <strong>left/dominant hemisphere</strong>, and involve the <strong>subventricular zone (SVZ)</strong>; seizure-onset tumors are typically smaller at diagnosis, and generalized seizure at onset associated with longer overall survival (<a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">PMID: 34794192</a>). Speech arrest / paroxysmal dysphasia can localize to the dominant temporal lobe (<a href="https://pubmed.ncbi.nlm.nih.gov/29062690/">PMID: 29062690</a>).</p>
+<p><strong>Quality of life.</strong> GBM severely impairs daily functioning through neurological deficits, seizures, fatigue, corticosteroid side effects, and cognitive decline; performance status (KPS) is both a QoL indicator and a strong prognostic factor. Higher intratumoral serotonin was associated with better patient-reported general health in one biobank cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/42377764/">PMID: 42377764</a>).</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Defining and causal genes (somatic).</strong> GBM IDH-wildtype is <em>diagnosed by molecular criteria</em>. Per WHO CNS5, any IDH-wildtype diffuse astrocytoma with <strong>TERT promoter mutation</strong>, <strong>EGFR amplification</strong>, or <strong>+7/−10</strong> is GBM (<a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>). The confirmed molecular architecture (Finding F001) is that all tumors harbor alterations across three core pathways:</p>
+<blockquote>
+<p><em>"All tumors harbored alterations in the 3 GBM core pathways: RTK/PI3K, p53, and RB regulatory pathways with aberrations of EGFR and CDKN2A/B in all (100%) patients."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a></p>
+<p><em>"Only 2 events were found to be early in all patients: single copy loss of PTEN and TERT promoter point mutations."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a></p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene (HGNC)</th>
+<th>Alteration</th>
+<th>Pathway</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>TERT</em></td>
+<td>Promoter point mutation (C228T/C250T)</td>
+<td>Telomere maintenance</td>
+<td>GoF — telomerase reactivation (early founder)</td>
+</tr>
+<tr>
+<td><em>EGFR</em></td>
+<td>Amplification, EGFRvIII, mutation</td>
+<td>RTK/PI3K</td>
+<td>GoF — constitutive growth signaling</td>
+</tr>
+<tr>
+<td><em>PTEN</em></td>
+<td>Single-copy loss / mutation</td>
+<td>RTK/PI3K–AKT</td>
+<td>LoF (early founder)</td>
+</tr>
+<tr>
+<td><em>CDKN2A/B</em></td>
+<td>Homozygous deletion</td>
+<td>RB / cell cycle</td>
+<td>LoF — loss of p16/p14ARF</td>
+</tr>
+<tr>
+<td><em>TP53</em></td>
+<td>Mutation / <em>MDM2/4</em> amplification</td>
+<td>p53</td>
+<td>LoF — apoptosis/senescence escape</td>
+</tr>
+<tr>
+<td><em>NF1</em></td>
+<td>Mutation / deletion</td>
+<td>RTK/RAS</td>
+<td>LoF — RAS activation</td>
+</tr>
+<tr>
+<td><em>RB1</em></td>
+<td>Deletion / mutation</td>
+<td>RB</td>
+<td>LoF — cell-cycle deregulation</td>
+</tr>
+<tr>
+<td><em>PDGFRA</em>, <em>PIK3CA/R1</em>, <em>MET</em></td>
+<td>Amplification/mutation</td>
+<td>RTK/PI3K</td>
+<td>GoF</td>
+</tr>
+<tr>
+<td>Chr 7 gain / Chr 10 loss (+7/−10)</td>
+<td>Aneuploidy</td>
+<td>Multiple</td>
+<td>Diagnostic hallmark</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification / origin.</strong> These are <strong>somatic</strong> alterations (COSMIC/TCGA), not germline; standard ACMG germline pathogenicity classification does not apply. Population allele frequencies (gnomAD) are irrelevant since these arise somatically. Functional consequences are a mix of <strong>gain-of-function</strong> (EGFR, TERT, PDGFRA amplifications) and <strong>loss-of-function</strong> (PTEN, CDKN2A/B, TP53, NF1, RB1). EGFR pathway alterations are also prognostically adverse, correlating with rapid early progression (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>).</p>
+<p><strong>Epigenetic information.</strong> The most clinically important epigenetic mark is <strong><em>MGMT</em> promoter methylation</strong>, which silences the DNA-repair enzyme O6-methylguanine-DNA methyltransferase, sensitizing tumors to alkylating chemotherapy (see Sections 10–12). DNA-methylation profiling (methylation-class subgrouping) is increasingly used for diagnosis. GBM lacks the <strong>G-CIMP</strong> hypermethylator phenotype that characterizes IDH-mutant gliomas.</p>
+<p><strong>Modifier genes.</strong> MGMT methylation status modifies both chemosensitivity and the survival benefit of surgical cytoreduction (<a href="https://pubmed.ncbi.nlm.nih.gov/41680847/">PMID: 41680847</a>). An 11-gene malignant–myeloid interaction signature (incl. <em>TPST1</em>, <em>CHI3L1</em>, <em>NNMT</em>) modifies prognosis and immunotherapy response (<a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">PMID: 41838327</a>).</p>
+<p><strong>Chromosomal abnormalities.</strong> Whole-chromosome <strong>+7 gain and −10 loss</strong> is near-universal and diagnostic; focal amplifications (EGFR, PDGFRA, MDM2, CDK4/6) and homozygous deletions (CDKN2A/B, PTEN) are frequent. GBM genomes are highly aneuploid.</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors (CTD/EPA domain):</strong> <strong>Ionizing radiation</strong> is the only established environmental cause. No consistent evidence implicates pesticides, industrial solvents, formaldehyde, or air pollution as causal, though these remain under study.</li>
+<li><strong>Lifestyle factors:</strong> No robust causal lifestyle factor. Smoking, alcohol, and diet have not shown consistent associations. Antidepressant (SSRI) use is common among patients; fluoxetine/sertraline were associated with better survival than other SSRIs (HR 0.62, 95% CI 0.44–0.88) in an observational cohort — hypothesis-generating, not causal (<a href="https://pubmed.ncbi.nlm.nih.gov/42377764/">PMID: 42377764</a>).</li>
+<li><strong>Infectious agents:</strong> No pathogen is an established cause. <strong>CMV</strong> nucleic acids/antigens have been detected in GBM tissue by some groups, but a causal role is unproven and contested. Importantly, <strong>cerebral cryptococcoma</strong> and other infectious masses can radiologically <em>mimic</em> GBM, a diagnostic pitfall (<a href="https://pubmed.ncbi.nlm.nih.gov/42607912/">PMID: 42607912</a>).</li>
+</ul>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<p><strong>Molecular pathways.</strong> GBM biology is organized around three convergent core pathways (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>):
+1. <strong>RTK/PI3K–AKT–mTOR</strong> growth signaling (EGFR/PDGFRA/MET amplification, PTEN loss, PIK3CA) — <a href="http://purl.obolibrary.org/obo/GO_0038083" target="_blank" rel="noopener noreferrer">GO:0038083</a>, KEGG hsa05214.
+2. <strong>TP53</strong> apoptosis/senescence axis (TP53 mutation, MDM2/4, CDKN2A/<em>p14ARF</em>) — <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" rel="noopener noreferrer">GO:0072331</a>.
+3. <strong>RB / cell-cycle control</strong> (CDKN2A/B deletion, RB1 loss, CDK4/6, CCND2) — <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" rel="noopener noreferrer">GO:0007049</a>, <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" rel="noopener noreferrer">GO:0000082</a>.
+Plus <strong>telomere maintenance</strong> via TERT reactivation — <a href="http://purl.obolibrary.org/obo/GO_0007004" target="_blank" rel="noopener noreferrer">GO:0007004</a>.</p>
+<p><strong>Causal chain (upstream → downstream).</strong></p>
+<pre><code>Somatic founder events                 Core-pathway convergence            Malignant phenotype
+(PTEN loss, TERT promoter mut.)  ─►  RTK/PI3K↑ + p53↓ + RB↓ + TERT↑  ─►  uncontrolled proliferation,
+                                                          apoptosis evasion, immortalization
+│                                                                         │
+▼                                                                         ▼
+  Clonal evolution / intratumoral        Angiogenesis (VEGF), hypoxia/           Diffuse infiltration,
+  heterogeneity (monoclonal origin) ─►   necrosis, glioma stem cells        ─►   necrosis, microvascular
+                                                                 proliferation
+                                     │
+                                     ▼
+            Immunosuppressive tumor microenvironment (TAMs/MDSCs/Treg,
+            IDO1–kynurenine, T-cell exhaustion) ─► immune escape, treatment resistance
+                                     │
+                                     ▼
+            Progressive neurological deficits, seizures, death (~14.6 mo)
+</code></pre>
+<p><strong>Cellular processes.</strong> Sustained proliferation, evasion of apoptosis, replicative immortality, angiogenesis, invasion/infiltration, and maintenance of a <strong>glioma stem-cell</strong> compartment. Hypoxia drives pseudopalisading necrosis and VEGF-mediated neovascularization.</p>
+<p><strong>Immune system involvement — a defining feature.</strong> GBM builds an intensely <strong>immunosuppressive TME</strong>. Tumor-associated macrophages (M2-like), regulatory T cells, MDSCs, dysfunctional NK and dendritic cells, and exhausted CD8+ T cells cooperate to enforce immune escape; low neoantigen burden, antigenic heterogeneity, and poor immune infiltration further blunt immunity (<a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">PMID: 42383800</a>). A <strong>hypoxia-driven tryptophan–kynurenine metabolic circuit</strong> is central:</p>
+<blockquote>
+<p><em>"the axis of hypoxia-driven tryptophan degradation … IDO1/TDO2-mediated breakdown of tryptophan and the consequent accumulation of kynurenine, a metabolite that triggers GCN2- and AHR-mediated CD8+ T-cell exhaustion and supports regulatory T-cell differentiation and expansion."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41893336/">PMID: 41893336</a></p>
+</blockquote>
+<p>Glial cells (astrocytes, microglia, oligodendrocyte-lineage) spatially organize immune cells into <strong>immunosuppressive niches / spatial microdomains</strong> that foster local T-cell exhaustion and coordinated immune escape (<a href="https://pubmed.ncbi.nlm.nih.gov/42613643/">PMID: 42613643</a>). Malignant–myeloid crosstalk (e.g., an 11-gene signature including <em>TPST1</em>, via PTN–NCL and EREG/AREG–EGFR signaling) shapes the immunosuppressive milieu and predicts poor prognosis/immunotherapy resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">PMID: 41838327</a>).</p>
+<p><strong>Metabolic changes.</strong> Aerobic glycolysis (Warburg effect), hypoxia-inducible metabolism, and tryptophan catabolism (IDO1/TDO2 → kynurenine, driving VEGFA via the Trp–GCN2–ATF4 axis, linking immunosuppression to angiogenesis) (<a href="https://pubmed.ncbi.nlm.nih.gov/41893336/">PMID: 41893336</a>). Intratumoral serotonin/5-HIAA metabolism is measurable and linked to patient-reported wellbeing (<a href="https://pubmed.ncbi.nlm.nih.gov/42377764/">PMID: 42377764</a>).</p>
+<p><strong>Tissue damage mechanisms.</strong> Oxidative stress, hypoxia/ischemia, pseudopalisading necrosis, blood–brain-barrier breakdown with vasogenic edema, and destruction of eloquent neural tissue.</p>
+<p><strong>Molecular profiling &amp; advanced technologies.</strong> Multi-omics/single-cell/spatial-transcriptomic studies reveal profound <strong>intratumoral heterogeneity</strong> and immune spatial architecture (<a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42613643/">PMID: 42613643</a>). Integrative multi-omics defined the malignant–myeloid interaction signature that outperformed standard clinicopathological factors (<a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">PMID: 41838327</a>).</p>
+<p><strong>Suggested GO/CL terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0002829" target="_blank" rel="noopener noreferrer">GO:0002829</a>/<a href="http://purl.obolibrary.org/obo/GO_0002534" target="_blank" rel="noopener noreferrer">GO:0002534</a> (immunosuppression); <a href="http://purl.obolibrary.org/obo/CL_0000878" target="_blank" rel="noopener noreferrer">CL:0000878</a> (CNS macrophage/microglia), <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (glial cell), <a href="http://purl.obolibrary.org/obo/CL_0000784" target="_blank" rel="noopener noreferrer">CL:0000784</a>/<a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" rel="noopener noreferrer">CL:0000815</a> (dendritic/regulatory T cell), <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte), glioma stem cell.</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong> Primary organ: the <strong>brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), a nervous-system malignancy. Most common site: <strong>cerebral hemispheres / supratentorial white matter</strong>, especially the <strong>frontal</strong> and <strong>temporal lobes</strong>; spread along white-matter tracts and across the <strong>corpus callosum</strong> ("butterfly glioma") is characteristic (<a href="https://pubmed.ncbi.nlm.nih.gov/29248175/">PMID: 29248175</a>). Rare extension to dura, galea, and calvarium (<a href="https://pubmed.ncbi.nlm.nih.gov/29248175/">PMID: 29248175</a>). Body system: <strong>central nervous system</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Structure</th>
+<th>UBERON</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Brain</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a></td>
+<td>Primary organ</td>
+</tr>
+<tr>
+<td>Cerebral hemisphere / cerebrum</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001869" target="_blank" rel="noopener noreferrer">UBERON:0001869</a></td>
+<td>Most common location</td>
+</tr>
+<tr>
+<td>Frontal lobe</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0016525" target="_blank" rel="noopener noreferrer">UBERON:0016525</a></td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Temporal lobe</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" rel="noopener noreferrer">UBERON:0001871</a></td>
+<td>Frequent; dominant-lobe speech deficits</td>
+</tr>
+<tr>
+<td>Parietal lobe</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001872" target="_blank" rel="noopener noreferrer">UBERON:0001872</a></td>
+<td>Enriched in seizure-onset tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">PMID: 34794192</a>)</td>
+</tr>
+<tr>
+<td>Corpus callosum</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a></td>
+<td>Butterfly spread</td>
+</tr>
+<tr>
+<td>Subventricular zone</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0004024" target="_blank" rel="noopener noreferrer">UBERON:0004024</a></td>
+<td>Putative origin; SVZ involvement in seizure-onset GBM (<a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">PMID: 34794192</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Tissue / cell level.</strong> Nervous tissue; malignant <strong>astrocyte/glial-lineage</strong> cells and <strong>glioma stem cells</strong>; heavy infiltration by tumor-associated macrophages/microglia and other immune cells. CL terms: <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (glial cell), <a href="http://purl.obolibrary.org/obo/CL_0000878" target="_blank" rel="noopener noreferrer">CL:0000878</a> (CNS macrophage/microglia).</p>
+<p><strong>Subcellular level.</strong> Nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> — genomic instability, TP53/RB dysregulation), plasma membrane/cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> — EGFR/RTK signaling), mitochondria (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a> — altered metabolism), telomeres (<a href="http://purl.obolibrary.org/obo/GO_0000781" target="_blank" rel="noopener noreferrer">GO:0000781</a> — TERT reactivation).</p>
+<p><strong>Localization / lateralization.</strong> Typically <strong>unilateral</strong> but diffusely infiltrative and often <strong>multilobar</strong> (multilobar involvement ~65% on MRI in molecular GBM) (<a href="https://pubmed.ncbi.nlm.nih.gov/41619575/">PMID: 41619575</a>); can be multifocal/multicentric (monoclonal) (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>). Left/dominant hemisphere predominance in seizure-onset cases (<a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">PMID: 34794192</a>).</p>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult/geriatric; median age ~61–64 years; ~46.5% of patients are ≥65 years (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>). Onset is <strong>subacute/insidious</strong>, with symptoms typically &lt; 3 months.</li>
+<li><strong>Progression:</strong> <strong>Rapid and progressive.</strong> GBM is WHO <strong>grade 4</strong> (highest grade); there is no formal TNM staging for primary brain tumors. <strong>Rapid early progression (REP)</strong> — MRI progression after resection but before adjuvant therapy — occurs in ~45–50% and correlates with <strong>EGFR pathway alterations</strong> (multivariate p=0.006) (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>).</li>
+<li><strong>Course pattern:</strong> Relentlessly <strong>progressive</strong>; near-universal recurrence after initial therapy. Disease is effectively <strong>chronic-lethal</strong> over months.</li>
+<li><strong>Remission / critical periods:</strong> True remission is rare; treatment-induced responses are temporary. Timing of chemoradiation initiation matters — starting chemoradiotherapy 32–49 days post-surgery independently improved outcome in MGMT-methylated patients (<a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>). Prognosis is dynamic — conditional survival improves markedly with time survived (in giant-cell GBM, projected 5-yr survival rose from a 14% baseline to 69–83% among 3–4-year survivors) (<a href="https://pubmed.ncbi.nlm.nih.gov/42189411/">PMID: 42189411</a>).</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> GBM is the <strong>most common malignant primary brain tumor in adults</strong> — ~27.9% of malignant CNS tumors in one registry (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>); ~50.1% of high-grade gliomas were IDH-wildtype GBM in a Spanish cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41133515/">PMID: 41133515</a>). Incidence is roughly <strong>3–5 per 100,000 per year</strong> and rising in recent series (<a href="https://pubmed.ncbi.nlm.nih.gov/41133515/">PMID: 41133515</a>).</p>
+<p><strong>Inheritance.</strong> Essentially <strong>sporadic/somatic</strong>; not Mendelian. Susceptibility is <strong>multifactorial/polygenic</strong> (low-penetrance GWAS loci) with rare high-penetrance familial cancer syndromes (Li-Fraumeni, Lynch/CMMRD, NF1, Turcot). Concepts of penetrance, expressivity, anticipation, mosaicism, founder effects, consanguinity, and carrier frequency are <strong>generally not applicable</strong> to this somatic tumor except within the rare inherited syndromes.</p>
+<p><strong>Population demographics.</strong>
+- <strong>Sex:</strong> <strong>Male predominance</strong> (~1.4–1.6:1); male sex an independent adverse prognostic factor (HR ~1.37) (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>).
+- <strong>Age:</strong> Peak incidence 65–75; older age strongly worsens survival, with steepest decline ≥70 years (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>).
+- <strong>Ancestry/geography:</strong> Higher incidence in White/European-ancestry populations; global data limited, particularly in Latin America (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>).</p>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Imaging (first-line).</strong> Contrast-enhanced <strong>MRI</strong> is the primary modality: a heterogeneously <strong>ring-enhancing</strong> mass with central necrosis, surrounding FLAIR-hyperintense vasogenic edema, mass effect, and midline shift. However, <strong>molecular GBM often mimics low-grade glioma</strong> — enhancement absent in ~39% or faint; infiltrative FLAIR abnormality nearly constant, multilobar in ~65%, diffusion restriction in ~64%, and elevated rCBV (&gt;1.75) in ~88% — so infiltrative FLAIR, multilobar spread, diffusion restriction, or high perfusion should raise suspicion, especially in older patients (<a href="https://pubmed.ncbi.nlm.nih.gov/41619575/">PMID: 41619575</a>). Advanced <strong>18F-FDG PET/MRI</strong> discriminates high-grade/IDH-wildtype status (SUVmax AUC 0.938; CBF AUC 0.875/0.825) (<a href="https://pubmed.ncbi.nlm.nih.gov/41913661/">PMID: 41913661</a>).</p>
+<p><strong>Histopathology / IHC (gold standard).</strong> Tissue diagnosis via resection or <strong>biopsy</strong> (biopsy more common in molecular GBM, ~69% vs 30%, and in older/frailer patients) (<a href="https://pubmed.ncbi.nlm.nih.gov/41504931/">PMID: 41504931</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>). Histology: pleomorphic astrocytic tumor with mitoses, microvascular proliferation, necrosis. IHC: <strong>GFAP+, S-100+, OLIG2+, CD68+ (macrophages), p53</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29248175/">PMID: 29248175</a>); IDH1 R132H immunonegativity supports IDH-wildtype status.</p>
+<p><strong>Molecular/genetic testing (now diagnostic).</strong> Required per WHO CNS5:
+- <strong>IDH1/IDH2</strong> status (IHC + sequencing) — must be wild-type.
+- <strong>TERT promoter</strong> mutation, <strong>EGFR</strong> amplification (FISH/NGS), <strong>chromosome +7/−10</strong> (CMA/NGS) — any one defines GBM (<a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>).
+- <strong><em>MGMT</em> promoter methylation</strong> — predictive/prognostic (methylation-specific PCR/pyrosequencing).
+- <strong>CDKN2A/B, PTEN, TP53, NF1, PIK3CA, MTAP</strong> via <strong>NGS panels</strong> — prognostic/therapeutic (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>).
+- <strong>DNA-methylation array classification</strong> for difficult cases.
+Molecular testing is applied less comprehensively in older patients, a care disparity (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>).</p>
+<p><strong>Clinical criteria.</strong> 2021 <strong>WHO CNS5</strong> classification; cIMPACT-NOW updates 8–11 refine the framework (<a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>).</p>
+<p><strong>Differential diagnosis.</strong> Brain metastasis, primary CNS lymphoma, IDH-mutant astrocytoma grade 4, oligodendroglioma, abscess, demyelination, and — critically — <strong>infectious mass lesions such as cerebral cryptococcoma</strong>, which can radiologically mimic high-grade glioma even in immunocompetent hosts (serum/CSF cryptococcal antigen aids differentiation) (<a href="https://pubmed.ncbi.nlm.nih.gov/42607912/">PMID: 42607912</a>).</p>
+<p><strong>Screening.</strong> No population-level screening exists or is recommended; the disease is sporadic, rapidly progressive, and lacks an asymptomatic detectable window.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<p><strong>Survival — dismal.</strong> Median overall survival with standard care is <strong>~14.6 months</strong> overall (Finding F002):</p>
+<blockquote>
+<p><em>"The standard Stupp protocol (60 Gy/30 fractions with temozolomide [TMZ]) improves overall survival (OS) to 14.6 months, with greater benefits in O6-methylguanine-DNA methyltransferase (MGMT)-methylated tumors (21.7 months)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a></p>
+</blockquote>
+<p>5-year survival is ~7% or lower. Real-world median OS was ~12.9 months in a population-based surgical cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">PMID: 41733819</a>); glioblastoma carried the worst prognosis among CNS tumors in a registry (~20.9% survival in mixed cohorts; HR 9.64) (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>).</p>
+<p><strong>Prognostic factors (multiple validated):</strong>
+| Factor | Direction | Evidence |
+|---|---|---|
+| <strong><em>MGMT</em> promoter methylation</strong> | Favorable (predictive + prognostic) | 21.7 vs 14.6 mo (<a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a>); EF-14 methylated OS 31.6 mo (<a href="https://pubmed.ncbi.nlm.nih.gov/41741710/">PMID: 41741710</a>) |
+| <strong>Extent of resection</strong> | Favorable | RANO class 1 (supramaximal) OS 21.0 vs 4.5 mo for class 4 (<a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">PMID: 41733819</a>) |
+| <strong>Younger age</strong> | Favorable | mOS 19.2 (&lt;65) vs 15.0 (≥65) mo (<a href="https://pubmed.ncbi.nlm.nih.gov/40971171/">PMID: 40971171</a>) |
+| <strong>Good performance status (KPS/NANO)</strong> | Favorable | Preoperatively intact = longer OS (<a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">PMID: 41733819</a>) |
+| <strong>Treatment intensity / adjuvant completion</strong> | Favorable | Independent predictor (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>) |
+| <strong>EGFR pathway alteration</strong> | Adverse (rapid early progression) | REP multivariate p=0.006 (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>) |
+| <strong>Male sex, higher grade</strong> | Adverse | HR 1.37 / 7.46 (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>) |
+| <strong>11-gene malignant–myeloid signature</strong> | Adverse; outperforms standard factors | (<a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">PMID: 41838327</a>) |</p>
+<p><strong>Morbidity/QoL.</strong> Progressive neurological disability, seizures, cognitive decline, and dependency; performance status is central to both prognosis and QoL. Prognosis is <strong>dynamic</strong> — conditional survival improves substantially for those surviving the high-risk early years (<a href="https://pubmed.ncbi.nlm.nih.gov/42189411/">PMID: 42189411</a>).</p>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>Standard of care — the Stupp protocol.</strong> Maximal safe surgical resection → <strong>concurrent radiotherapy (60 Gy/30 fractions) + temozolomide</strong> → adjuvant temozolomide (NCIT: C62554 Temozolomide; C15313 Radiation Therapy; C15329 Surgery). Protocol completion significantly improves OS in both MGMT-methylated and unmethylated patients (p&lt;0.0001) (<a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>). Optimizations: initiate chemoradiation ~32–49 days post-surgery, add stereotactic sequential boost in methylated patients, minimize dexamethasone (≥1.2 mg/m² worsens outcomes), and avoid age bias (<a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>).</p>
+<p><strong>Tumor Treating Fields (TTFields)</strong> (NCIT: C118835). Alternating electric fields added to maintenance TMZ significantly prolong survival (Finding F002, Hypothesis H003):</p>
+<blockquote>
+<p><em>"Pooled analysis showed that TTFields significantly improved OS, HR = 0.68, 95% CI 0.60–0.78, p &lt; 0.0001"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41741710/">PMID: 41741710</a></p>
+</blockquote>
+<p>(also PFS HR 0.68; EF-14 MGMT-methylated median OS 31.6 months).</p>
+<p><strong>Pharmacotherapy / pharmacogenomics.</strong> Temozolomide is the backbone alkylator; its efficacy depends on <strong>MGMT</strong> methylation — a pharmacogenomic biomarker where the unmethylated (active) enzyme repairs O6-methylguanine and confers resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a>). Bevacizumab (anti-VEGF; NCIT: C2039) is used for recurrence/edema (improves PFS, not OS). Lomustine and other nitrosoureas at recurrence.</p>
+<p><strong>Immunotherapy — largely unsuccessful to date.</strong> Checkpoint inhibitors, CAR-T, and vaccines have shown limited efficacy owing to the immunosuppressive TME, low neoantigen burden, and antigenic heterogeneity (<a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">PMID: 42383800</a>). Emerging strategies combine checkpoint blockade with metabolic reprogramming, myeloid modulation, and interferon reactivation, guided by spatial/single-cell biomarkers (<a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>). Metabolic-immune targeting (IDO1 inhibitor BMS-986205 + nivolumab + RT) was safe in a phase I trial (RP2D 50 mg; NCT04047706) (<a href="https://pubmed.ncbi.nlm.nih.gov/42189896/">PMID: 42189896</a>).</p>
+<p><strong>Surgical.</strong> Maximal safe / <strong>supramaximal resection</strong> is a strong independent survival predictor; mild-to-moderate new postoperative deficits did not reduce survival, supporting aggressive resection (<a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">PMID: 41733819</a>). Re-resection at recurrence benefits patients, with benefit modulated by MGMT status (greater residual-volume effect in unmethylated tumors) (<a href="https://pubmed.ncbi.nlm.nih.gov/41680847/">PMID: 41680847</a>).</p>
+<p><strong>Elderly-specific strategy.</strong> Fit patients &lt;70 benefit from conventionally fractionated chemoradiation; <strong>hypofractionated</strong> regimens are appropriate ≥70 (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>). Age alone should not dictate therapy — fit elderly with good KPS and MGMT methylation achieve outcomes similar to younger patients on standard protocols (<a href="https://pubmed.ncbi.nlm.nih.gov/40971171/">PMID: 40971171</a>).</p>
+<p><strong>Supportive care.</strong> Antiepileptics for seizures, corticosteroids (minimized) for edema, rehabilitation, and palliative care.</p>
+<p><strong>Personalized medicine.</strong> MGMT-stratified surgical and radiotherapy decision-making (<a href="https://pubmed.ncbi.nlm.nih.gov/41680847/">PMID: 41680847</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>); NGS-guided identification of EGFR-driven rapid progressors for expedited adjuvant therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>).</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No established modifiable strategy exists, as GBM lacks proven controllable causes. Avoiding unnecessary therapeutic cranial ionizing radiation is the only rational measure.</li>
+<li><strong>Secondary prevention / screening:</strong> No population screening — rapid progression and lack of an asymptomatic detectable phase make screening impractical.</li>
+<li><strong>Tertiary prevention:</strong> Optimizing treatment (complete resection, protocol completion, TTFields, seizure/edema control, minimizing dexamethasone) to delay progression and preserve function (<a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>).</li>
+<li><strong>Immunization / behavioral / public-health / prophylaxis:</strong> Not applicable — no vaccine, no validated lifestyle prevention, no infectious cause to interrupt.</li>
+<li><strong>Genetic counseling:</strong> Relevant only for the rare hereditary cancer syndromes (Li-Fraumeni, Lynch/CMMRD, NF1) that predispose to gliomas.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Primarily <strong>Homo sapiens</strong> (NCBI:txid9606). Naturally occurring glioma is well recognized in <strong>dogs</strong> (<em>Canis lupus familiaris</em>, NCBI:txid9615), especially brachycephalic breeds (Boxer, Boston Terrier, Bulldog), making canine glioma a valued spontaneous comparative model. Gliomas also occur in cats and other mammals.</li>
+<li><strong>Breed:</strong> Brachycephalic dog breeds are over-represented (VBO breed identifiers apply to canine breeds such as Boxer, Boston Terrier).</li>
+<li><strong>Orthologous genes:</strong> Core drivers are conserved — <em>Egfr</em>, <em>Pten</em>, <em>Tp53</em>, <em>Cdkn2a</em>, <em>Nf1</em>, <em>Rb1</em>, <em>Tert</em> have clear mouse/rat/dog orthologs (NCBI Gene).</li>
+<li><strong>Comparative biology:</strong> Canine gliomas share histological features and some pathway alterations (RTK/PI3K, cell cycle) with human GBM, though molecular concordance is incomplete; they are used to study invasion, imaging, and therapy. Evolutionary conservation of the RTK/PI3K, p53, and RB pathways underlies cross-species relevance.</li>
+<li><strong>Transmission:</strong> Not applicable — GBM is a non-transmissible somatic neoplasm with <strong>no zoonotic potential</strong>.</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Model types:</strong> Mammalian in vivo (mouse, rat), cell lines, patient-derived xenografts (PDX), organoids, and iPSC/neural-stem-cell–derived systems.</li>
+<li><strong>Mouse genetic models:</strong> <strong>Genetically engineered mouse models (GEMMs)</strong> combining core-pathway lesions recapitulate GBM: <em>Nf1/Trp53/Pten</em> conditional knockouts, <em>EGFRvIII</em> transgenics, and RCAS/tv-a and Cre-lox conditional systems targeting glial/neural progenitors. These reproduce diffuse infiltration, necrosis, and the three-pathway (RTK/PI3K, p53, RB) architecture confirmed in human tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>).</li>
+<li><strong>Xenograft / PDX / organoid models:</strong> Human GBM lines (e.g., U87, U251) and glioma-stem-cell–enriched PDX/organoids preserve intratumoral heterogeneity and are used for drug testing; single-cell and spatial platforms increasingly interrogate the immune microenvironment (<a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> GEMMs and orthotopic models reproduce invasion, angiogenesis, necrosis, and immunosuppressive myeloid infiltration; syngeneic models (GL261, CT-2A) are standard for immunotherapy studies.</li>
+<li><strong>Limitations:</strong> Mouse models incompletely capture human intratumoral/spatial heterogeneity, the mature human immune microenvironment, TERT-promoter biology, and blood–brain-barrier pharmacology — a key reason therapies effective in mice often fail clinically (<a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">PMID: 42383800</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>).</li>
+<li><strong>Resources:</strong> MGI, IMPC/KOMP (mouse alleles), Cellosaurus/ATCC (cell lines), and spontaneous canine glioma cohorts (comparative oncology).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Integrated Interpretation</h2>
+<p>GBM IDH-wildtype is best understood as a <strong>convergent somatic-genetic disease with an immunosuppressive systems-level phenotype</strong>. Two early founder events (single-copy <em>PTEN</em> loss, <em>TERT</em> promoter mutation) initiate a monoclonal tumor that universally acquires lesions across three core pathways — <strong>RTK/PI3K</strong> (proliferation/survival), <strong>p53</strong> (apoptosis/senescence escape), and <strong>RB</strong> (cell-cycle deregulation) — with EGFR and CDKN2A/B involved in essentially all tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>). This genomic program yields diffuse infiltration, angiogenesis, hypoxia-driven necrosis, and a glioma-stem-cell reservoir. Downstream, glial cells organize a spatially structured, <strong>immunosuppressive microenvironment</strong> (M2 TAMs, MDSCs, Treg, IDO1–kynurenine-driven T-cell exhaustion) that enforces immune escape and treatment resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/42613643/">PMID: 42613643</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41893336/">PMID: 41893336</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">PMID: 42383800</a>). Clinically this manifests as older adults with progressive deficits/seizures and a ~14.6-month median survival despite trimodal therapy, with <strong>MGMT methylation</strong> the dominant lever on chemosensitivity and <strong>extent of resection</strong> the dominant surgical lever (<a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">PMID: 41733819</a>).</p>
+<hr />
+<h2>Evidence Base — Key Literature</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Support / challenge</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">42159911</a></td>
+<td>WHO CNS5 molecular definition of GBM</td>
+<td>Supports F001 / H001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">28201779</a></td>
+<td>Three core pathways; EGFR/CDKN2A/B in 100%; PTEN/TERT founders; monoclonal origin</td>
+<td>Supports F001 / H001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">41007699</a></td>
+<td>Stupp OS 14.6 mo; MGMT-methylated 21.7 mo</td>
+<td>Supports F002 / H002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41741710/">41741710</a></td>
+<td>TTFields meta-analysis OS/PFS HR 0.68</td>
+<td>Supports F002 / H003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">42397615</a></td>
+<td>Stupp optimization; timing, dexamethasone, boost</td>
+<td>Supports treatment section</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41733819/">41733819</a></td>
+<td>Extent of resection &amp; neurological status prognostic</td>
+<td>Supports prognosis/surgery</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">41212363</a></td>
+<td>EGFR alterations → rapid early progression</td>
+<td>Supports temporal/prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">42240773</a></td>
+<td>Age, treatment intensity, MGMT predict survival; elderly care</td>
+<td>Epidemiology/treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41504931/">41504931</a></td>
+<td>mGBM vs hGBM outcomes (WHO CNS5)</td>
+<td>Disease info/diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41619575/">41619575</a></td>
+<td>MRI features of molecular GBM</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41913661/">41913661</a></td>
+<td>FDG-PET/MRI for grade/IDH status</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42613643/">42613643</a></td>
+<td>Glial-organized immune niches</td>
+<td>Mechanism/immunity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41893336/">41893336</a></td>
+<td>IDO1–kynurenine → T-cell exhaustion</td>
+<td>Mechanism/immunity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">42383800</a></td>
+<td>Immunosuppressive TME; immunotherapy barriers</td>
+<td>Mechanism/treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">41838327</a></td>
+<td>11-gene malignant–myeloid signature; TPST1</td>
+<td>Mechanism/prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34794192/">34794192</a></td>
+<td>Seizure phenotype localization</td>
+<td>Phenotypes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">41247425</a></td>
+<td>Registry epidemiology/prognosis</td>
+<td>Epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41133515/">41133515</a></td>
+<td>Incidence IDH-WT GBM vs IDH-mutant</td>
+<td>Epidemiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42607912/">42607912</a></td>
+<td>Cryptococcoma mimicking GBM</td>
+<td>Differential dx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42189896/">42189896</a></td>
+<td>Phase I RT+nivolumab+IDO1 inhibitor</td>
+<td>Experimental treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42581490/">42581490</a></td>
+<td>WHO 2021 reclassification of IDH-mutant GBM</td>
+<td>Disease info</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42377764/">42377764</a></td>
+<td>Serotonin/antidepressants, QoL</td>
+<td>Environmental/QoL</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42189411/">42189411</a></td>
+<td>Conditional survival dynamics</td>
+<td>Temporal/prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40971171/">40971171</a></td>
+<td>Elderly on standard protocol</td>
+<td>Treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41680847/">41680847</a></td>
+<td>MGMT modifies re-resection benefit</td>
+<td>Treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">41892350</a></td>
+<td>Precision immunotherapy framework</td>
+<td>Treatment/mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29248175/">29248175</a></td>
+<td>Calvarial GBM, IHC markers</td>
+<td>Anatomy/diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29062690/">29062690</a></td>
+<td>Temporal-lobe epilepsy presentation</td>
+<td>Phenotypes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27893285/">27893285</a></td>
+<td>Molecular subtyping of CNS tumors</td>
+<td>Disease info</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary data analysis.</strong> This report is a literature/knowledge synthesis under WHO CNS5; no patient-level dataset was analyzed in the investigation.</li>
+<li><strong>Retrospective/observational bias.</strong> Much survival and prognostic evidence comes from registries and retrospective cohorts subject to selection and indication bias (e.g., resection favoring fitter patients) (<a href="https://pubmed.ncbi.nlm.nih.gov/41504931/">PMID: 41504931</a>).</li>
+<li><strong>Immunotherapy mechanisms outpace clinical benefit.</strong> Elegant TME biology has not yet translated to survival gains; predictive biomarkers remain unvalidated prospectively (<a href="https://pubmed.ncbi.nlm.nih.gov/42383800/">PMID: 42383800</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>).</li>
+<li><strong>Etiology largely unexplained.</strong> Beyond ionizing radiation and rare syndromes, the causes of sporadic GBM are unknown; no actionable prevention exists.</li>
+<li><strong>Underdiagnosis of molecular GBM.</strong> mGBM mimics low-grade glioma radiologically, risking treatment delays (<a href="https://pubmed.ncbi.nlm.nih.gov/41619575/">PMID: 41619575</a>); molecular testing is applied unevenly, especially in older patients (<a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>).</li>
+<li><strong>Sparse global/LMIC data</strong>, particularly outside North America/Europe (<a href="https://pubmed.ncbi.nlm.nih.gov/41247425/">PMID: 41247425</a>).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective biomarker-stratified immunotherapy trials</strong> integrating spatial/single-cell profiling to select interferon-competent, myeloid-defined subgroups (<a href="https://pubmed.ncbi.nlm.nih.gov/41892350/">PMID: 41892350</a>).</li>
+<li><strong>Target the hypoxia–tryptophan–kynurenine axis</strong> in rational combinations (IDO1/TDO2 + checkpoint + anti-angiogenic), building on the phase I RT+nivolumab+BMS-986205 safety signal (<a href="https://pubmed.ncbi.nlm.nih.gov/42189896/">PMID: 42189896</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41893336/">PMID: 41893336</a>).</li>
+<li><strong>Validate the 11-gene malignant–myeloid signature (incl. TPST1)</strong> prospectively as a prognostic/predictive tool and evaluate TPST1 as a therapeutic target (<a href="https://pubmed.ncbi.nlm.nih.gov/41838327/">PMID: 41838327</a>).</li>
+<li><strong>EGFR-guided adjuvant acceleration:</strong> test whether expediting chemoradiation in EGFR-altered (REP-prone) tumors improves outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/41212363/">PMID: 41212363</a>).</li>
+<li><strong>MGMT-stratified surgical/RT algorithms</strong> at diagnosis and recurrence in prospective cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/41680847/">PMID: 41680847</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42397615/">PMID: 42397615</a>).</li>
+<li><strong>Improve molecular-GBM recognition</strong> through radiomic/imaging criteria and universal molecular testing regardless of age (<a href="https://pubmed.ncbi.nlm.nih.gov/41619575/">PMID: 41619575</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42240773/">PMID: 42240773</a>).</li>
+</ol>
+<hr />
+<h2>Confirmed Findings and Hypotheses (from investigation)</h2>
+<p><strong>Findings</strong>
+- <strong>F001:</strong> GBM IDH-wildtype is defined molecularly by TERT/EGFR/+7-10 and converges on RTK/PI3K, p53, and RB core pathways (EGFR &amp; CDKN2A/B in 100%; PTEN loss and TERT promoter mutation as early founders) — <a href="https://pubmed.ncbi.nlm.nih.gov/42159911/">PMID: 42159911</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28201779/">PMID: 28201779</a>.
+- <strong>F002:</strong> Standard therapy yields ~14.6-month median survival; MGMT methylation (21.7 mo) and TTFields (OS/PFS HR 0.68) improve outcomes — <a href="https://pubmed.ncbi.nlm.nih.gov/41007699/">PMID: 41007699</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41741710/">PMID: 41741710</a>.</p>
+<p><strong>Hypotheses</strong>
+- <strong>H001 [supported]:</strong> GBM IDH-wildtype defined by core molecular alterations converging on RTK/PI3K, p53, RB pathways.
+- <strong>H002 [supported]:</strong> MGMT promoter methylation is a predictive/prognostic biomarker; methylated tumors benefit more from temozolomide.
+- <strong>H003 [supported]:</strong> Adding TTFields to maintenance temozolomide improves OS and PFS.</p>
+<p><em>Ontology quick-reference:</em> <a href="http://purl.obolibrary.org/obo/MONDO_0018177" target="_blank" rel="noopener noreferrer">MONDO:0018177</a> • MeSH D005909 • ICD-O 9440/3 • ICD-11 2A00.00 • <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain) • <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000878" target="_blank" rel="noopener noreferrer">CL:0000878</a> (microglia) • <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis), <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" rel="noopener noreferrer">GO:0007049</a> (cell cycle) • CHEBI temozolomide, kynurenine • NCIT C62554 (temozolomide), C118835 (TTFields).</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Glioblastoma_IDH_Wildtype-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Glioblastoma_IDH_Wildtype-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>29</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Glioblastoma_IDH_Wildtype-falcon.html">← Glioblastoma, IDH-Wildtype (Falcon)</a>
+                
+                
+                <a href="Glioma-falcon.html">Glioma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Glioblastoma,_IDH-Wildtype.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Glioblastoma_IDH_Wildtype-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Glioblastoma_IDH_Wildtype-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
