@@ -12,6 +12,7 @@ from pathlib import Path
 from string import Template
 from typing import Any
 
+from dismech.compare.mondo_export import load_candidates_meta
 from dismech.compare.mondo_priority import (
     _extract_family_stem,
     _grouping_term,
@@ -290,12 +291,25 @@ def _build_rows(
     return rows
 
 
-def _build_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    total_candidates = len(rows)
-    already_curated = sum(
+def _build_summary(
+    rows: list[dict[str, Any]],
+    excluded_curated: int = 0,
+) -> dict[str, Any]:
+    """Summarize the candidate queue.
+
+    ``excluded_curated`` is the number of already-curated roots the exporter
+    dropped before writing the TSV (see ``mondo_export.candidates_meta_path``).
+    Those rows never reach ``rows``, so counting only the surviving
+    ``ALREADY_CURATED`` rows reported zero curated diseases against a KB with
+    well over a thousand of them (#7425). They belong in *both* halves of the
+    coverage fraction: they are curated, and they were candidates.
+    """
+    curated_rows = sum(
         1 for row in rows if row["recommended_action"] == _CURATED_ACTION
     )
-    remaining_candidates = total_candidates - already_curated
+    already_curated = curated_rows + max(excluded_curated, 0)
+    remaining_candidates = len(rows) - curated_rows
+    total_candidates = remaining_candidates + already_curated
     root_action_candidates = sum(
         1 for row in rows if row["recommended_action"] in _ROOT_ACTIONS
     )
@@ -320,6 +334,7 @@ def _build_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "total_candidates": total_candidates,
         "nec_risk_candidates": nec_risk_candidates,
         "already_curated": already_curated,
+        "already_curated_excluded_from_export": max(excluded_curated, 0),
         "remaining_candidates": remaining_candidates,
         "root_action_candidates": root_action_candidates,
         "coverage_percent": coverage_percent,
@@ -549,6 +564,13 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
     thresholds = dict(scoring.get("thresholds") or {})
     curated_width = summary["coverage_percent"]
     remaining_width = max(0.0, 100.0 - curated_width)
+    excluded_curated = int(summary.get("already_curated_excluded_from_export", 0) or 0)
+    export_exclusion_note = (
+        f" {excluded_curated} of them were dropped from the candidate export "
+        "and so do not appear in the table below."
+        if excluded_curated
+        else ""
+    )
     weight_controls = _render_weight_controls(scoring.get("weights") or {})
     action_options = _render_action_filter_options()
     bucket_options = _render_bucket_filter_options(rows)
@@ -1084,7 +1106,7 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
         <section class="chart-card">
             <h2>Coverage Summary</h2>
             <p class="priority-note">
-                $already_curated of $total_candidates candidates already have a local dismech root.
+                $already_curated of $total_candidates candidates already have a local dismech root.$export_exclusion_note
                 Remaining candidates still include review and drop recommendations; the bar only reflects current root coverage.
             </p>
             <div class="progress-legend">
@@ -2022,6 +2044,7 @@ $category_section
         nec_risk_candidates=str(summary.get("nec_risk_candidates", 0)),
         nec_risk_register=html.escape(NEC_RISK_REGISTER),
         already_curated=str(summary["already_curated"]),
+        export_exclusion_note=export_exclusion_note,
         remaining_candidates=str(summary["remaining_candidates"]),
         root_action_candidates=str(summary["root_action_candidates"]),
         coverage_percent=f"{summary['coverage_percent']:.1f}",
@@ -2118,7 +2141,12 @@ def generate_priority_dashboard_report(
         kb_dir=kb_dir,
         config_path=config_path,
     )
-    summary = _build_summary(rows)
+    meta = load_candidates_meta(candidates_path) or {}
+    try:
+        excluded_curated = int(meta.get("excluded_curated") or 0)
+    except (TypeError, ValueError):
+        excluded_curated = 0
+    summary = _build_summary(rows, excluded_curated=excluded_curated)
     action_breakdown = _build_action_breakdown(rows)
     category_summary = _build_category_summary(rows)
     generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")

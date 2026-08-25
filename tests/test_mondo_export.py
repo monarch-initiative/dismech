@@ -133,6 +133,18 @@ def test_export_mondo_priority_candidates_excludes_curated_and_builds_categories
     assert result["excluded_curated"] == 1
     assert result["exported_rows"] == 4
 
+    # The dropped roots leave no trace in the TSV, so the count has to survive
+    # in the sidecar or the priority dashboard cannot report coverage (#7425).
+    meta = mondo_export.load_candidates_meta(output_path)
+    assert meta == {
+        "disease_root_id": "MONDO:0000001",
+        "kb_dir": str(kb_dir),
+        "total_descendants": 5,
+        "excluded_curated": 1,
+        "exported_rows": 4,
+    }
+    assert result["meta_path"] == mondo_export.candidates_meta_path(output_path)
+
     assert "MONDO:2000001" not in by_id
     assert "MONDO:2000002" not in by_id
 
@@ -187,6 +199,30 @@ def test_export_mondo_priority_candidates_limit_applies_after_curated_filter(
     rows = _read_tsv(output_path)
     assert result["exported_rows"] == 2
     assert len(rows) == 2
+
+    # No --kb-dir means nothing was excluded; the sidecar has to say so rather
+    # than be absent, otherwise a consumer cannot tell "zero" from "unknown".
+    assert mondo_export.load_candidates_meta(output_path) == {
+        "disease_root_id": "MONDO:0000001",
+        "kb_dir": None,
+        "total_descendants": 2,
+        "excluded_curated": 0,
+        "exported_rows": 2,
+    }
+
+
+def test_load_candidates_meta_tolerates_missing_and_malformed_sidecar(
+    tmp_path: Path,
+) -> None:
+    """A hand-built TSV is a legitimate input, so absence is not an error."""
+    candidates = tmp_path / "candidates.tsv"
+    candidates.write_text("mondo_id\tlabel\n", encoding="utf-8")
+    assert mondo_export.load_candidates_meta(candidates) is None
+
+    mondo_export.candidates_meta_path(candidates).write_text(
+        "{not json", encoding="utf-8"
+    )
+    assert mondo_export.load_candidates_meta(candidates) is None
 
 
 def test_export_mondo_priority_candidates_materializes_default_mondo_db(
