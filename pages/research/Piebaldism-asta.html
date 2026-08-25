@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piebaldism · Asta · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Piebaldism</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Piebaldism</h1>
+                
+                <p class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Piebaldism. Core disease mechanisms, molecular and cellular pathways, invo...</p>
+                
+                
+                <div class="report-date">2026-08-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-asta">Asta</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008244" target="_blank" rel="noopener noreferrer">MONDO:0008244</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Asta Scientific Corpus Retrieval</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of Piebaldism. Core disease mechanisms, molecular and cellular pathways, invo...</h1>
+<p>This report is retrieval-only and is generated directly from Asta results.</p>
+<ul>
+<li>Papers retrieved: 20</li>
+<li>Snippets retrieved: 20</li>
+</ul>
+<h2>Relevant Papers</h2>
+<h3>[1] Changes in Serum Proteomic Profiles at Different Stages of Pregnancy Toxemia in Goats</h3>
+<ul>
+<li>Authors: M. Uzti̇mür, C. N. Ünal, Gurler Akpinar</li>
+<li>Year: 2025</li>
+<li>Venue: Journal of Veterinary Internal Medicine</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/4b9c488b5dbd65d7b26fd2ad9aed70e8c4b59942" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/4b9c488b5dbd65d7b26fd2ad9aed70e8c4b59942</a></li>
+<li><a href="https://doi.org/10.1111/jvim.70139" target="_blank" rel="noopener noreferrer">DOI: 10.1111/jvim.70139</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40492724/" target="_blank" rel="noopener noreferrer">PMID: 40492724</a></li>
+<li>PMCID: 12150350</li>
+<li>Citations: 2</li>
+<li>Summary: Understanding the serum proteome profiles of goats with pregnancy toxemia might help identify the proteomes and pathways responsible for the development of this disease and improve diagnosis and treatment.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.386)
+    &gt; The pathophysiology and progression of this disease are not fully understood.
+    &gt; Traditional biomedical research has focused on the analysis of single genes, proteins, metabolites, or metabolic pathways in diseases. This molecular reductionist approach is based on the assumption that identifying genetic variations and molecular components will lead to new treatments for diseases [13][14][15][16]. However, many diseases are complex and multifactorial, and in order to determine the phenotype of such diseases, it is necessary to understand the changes that occur in more than one gene, pathway, protein, or metabolite at the cellular, tissue, and organismal levels [17][18][19]. Therefore, in recent years, proteomics, as one field of multi-omics technologies, has helped in evaluating the complex pathogenetic mechanisms of different diseases from a broad perspective and has made substantial contributions [20,21]. In veterinary medicine, proteomic analysis of metabolic diseases such as ketosis [16], hypocalcemia [22], and fatty liver [23] in dairy cows has contributed valuable insights for the definition of new pathophysiological pathways and new diagnosis and treatment protocols for these diseases. The proteomic approach can contribute importantly to a broad and detailed understanding of the changes that occur at the organismal level associated with the increase in BHBA concentration in goats with pregnancy toxemia. Our aim was to evaluate the serum protein profiles of goats with SPT or CPT using proteomic techniques to determine the proteomic profiles of these animals and to identify the relevant pathophysiological mechanisms.</li>
+</ul>
+<h3>[2] New therapeutic targets in rare genetic skeletal diseases</h3>
+<ul>
+<li>Authors: M. Briggs, Peter A. Bell, M. Wright, K. A. Pirog</li>
+<li>Year: 2015</li>
+<li>Venue: Expert Opinion on Orphan Drugs</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/1363107f71ae6d2d60abca471cddf3da5d13644b" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/1363107f71ae6d2d60abca471cddf3da5d13644b</a></li>
+<li><a href="https://doi.org/10.1517/21678707.2015.1083853" target="_blank" rel="noopener noreferrer">DOI: 10.1517/21678707.2015.1083853</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26635999/" target="_blank" rel="noopener noreferrer">PMID: 26635999</a></li>
+<li>PMCID: 4643203</li>
+<li>Citations: 39</li>
+<li>Influential citations: 1</li>
+<li>Summary: An overview of disease mechanisms that are shared amongst groups of different GSDs and potential therapeutic approaches that are under investigation are described to generate critical mass for the identification and validation of novel therapeutic targets and biomarkers.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.381)
+    &gt; However, emerging knowledge suggests that the primary genetic defect may be less important than the cells' response to the expression of the mutant gene product [107]. Moreover, the largely overlooked response of a cell (i.e. chondrocyte) to the abnormal extracellular environment is also important for disease progression as illustrated by several GSDs discussed in this review.
+    &gt; It is important that 'omics'-based approaches and technologies are systematically applied to the study of rare GSDs so that definitive reference profiles and disease signatures are generated for each phenotype. These can then be used in a Systems Biology approach to identify both common and dissimilar pathological signatures and disease mechanisms. This approach is entirely dependent upon relevant in vitro and in vivo models (and also novel 'disease-mechanism phenocopies' [107]) for testing new diagnostic and prognostic tools and for determining the molecular mechanisms that underpin the pathophysiology so that effective therapeutic treatments can be developed and validated. This approach will eventually lead to personalized treatments and care strategies centred on shared disease mechanisms with the use of relevant biomarkers to monitor the efficacy of treatment and disease progression.
+    &gt; It is vital that all relevant stakeholders are involved from the outset in defining the appropriate outcomes of any potential therapeutic regime. The perceptions of a successful therapy can differ widely between the clinical academic community and the relevant patient-support groups and it is vital that there is engagement on all these issues.
+    &gt; In summary, the identification of causative genes and mutations for GSDs over the last 20 years, coupled with the generation and in-depth analysis of a plethora of relevant cell and mouse models, has derived new knowledge on disease mechanisms and suggested potential therapeutic targets. The fast-evolving hypothesis that clinically disparate diseases can share common disease mechanisms is a powerful concept that will generate critical mass for the identification and validation of novel therapeutic targets and biomarkers.</li>
+</ul>
+<h3>[3] From molecular signatures to predictive biomarkers: modeling disease pathophysiology and drug mechanism of action</h3>
+<ul>
+<li>Authors: A. Heinzel, P. Perco, G. Mayer, R. Oberbauer, A. Lukas et al.</li>
+<li>Year: 2014</li>
+<li>Venue: Frontiers in Cell and Developmental Biology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/36d6c03a528c1358c0ae5b667cca5ce73b2fbee5" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/36d6c03a528c1358c0ae5b667cca5ce73b2fbee5</a></li>
+<li><a href="https://doi.org/10.3389/fcell.2014.00037" target="_blank" rel="noopener noreferrer">DOI: 10.3389/fcell.2014.00037</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25364744/" target="_blank" rel="noopener noreferrer">PMID: 25364744</a></li>
+<li>PMCID: 4207010</li>
+<li>Citations: 27</li>
+<li>Summary: This work exemplifies a computational workflow for expanding from statistics-based association analysis toward deriving molecular pathway and process models for characterizing phenotypes and drug mechanism of action, in turn providing precision medicine hypotheses utilizing predictive biomarkers.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.374)
+    &gt; Omics profiling significantly expanded the molecular landscape describing clinical phenotypes. Association analysis resulted in first diagnostic and prognostic biomarker signatures entering clinical utility. However, utilizing Omics for deepening our understanding of disease pathophysiology, and further including specific interference with drug mechanism of action on a molecular process level still sees limited added value in the clinical setting. We exemplify a computational workflow for expanding from statistics-based association analysis toward deriving molecular pathway and process models for characterizing phenotypes and drug mechanism of action. Interference analysis on the molecular model level allows identification of predictive biomarker candidates for testing drug response. We discuss this strategy on diabetic nephropathy (DN), a complex clinical phenotype triggered by diabetes and presenting with renal as well as cardiovascular endpoints. A molecular pathway map indicates involvement of multiple molecular mechanisms, and selected biomarker candidates reported as associated with disease progression are identified for specific molecular processes. Selective interference of drug mechanism of action and disease-associated processes is identified for drug classes in clinical use, in turn providing precision medicine hypotheses utilizing predictive biomarkers.</li>
+</ul>
+<h3>[4] Cellular reprogramming and inherited peripheral neuropathies: perspectives and challenges</h3>
+<ul>
+<li>Authors: M. Saporta</li>
+<li>Year: 2015</li>
+<li>Venue: Neural Regeneration Research</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/8c3dabb1b4abf93506e2026564b8a329c0ec37c6" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/8c3dabb1b4abf93506e2026564b8a329c0ec37c6</a></li>
+<li><a href="https://doi.org/10.4103/1673-5374.158345" target="_blank" rel="noopener noreferrer">DOI: 10.4103/1673-5374.158345</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26199602/" target="_blank" rel="noopener noreferrer">PMID: 26199602</a></li>
+<li>PMCID: 4498347</li>
+<li>Citations: 4</li>
+<li>Summary: iPSC-based models of neuromuscular disorders, including amyotrophic lateral sclerosis (ALS), spinal muscular atrophy (SMA) and inherited peripheral neuropathies, have successfully reproduced pathophysiological findings from previous animal and cellular models and have also identified new disease mechanisms with potential therapeutical implications.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.361)
+    &gt; Inherited peripheral neuropathies (or Charcot-Marie-Tooth disease, CMT) are a phenotypically and genetically heterogeneous group of disorders, which are currently untreatable. They are the most common inherited neuromuscular disorder, affecting around 1 in every 2,500 people (over 120,000 people in the US). Based on clinical neurophysiological and histopathological features, inherited neuropathies can be divided into two major forms: demyelinating (type 1) and axonal (type 2) CMT (Saporta, 2014). From a biological standpoint, these two major forms of CMT are associated with mutations in different sets of genes, affecting Schwann cell development and myelination (type 1) or peripheral axon physiology (type 2), although some overlap does exist (Figure 1). To date, over 70 genes have been associated with a CMT phenotype, making CMT an attractive natural model to study peripheral nervous system biology. Despite significant advances made in our knowledge of disease mechanisms in CMT, findings from animal models have so far translated poorly in clinical trials, underscoring the need for innovative methods to investigate the pathophysiology of these human disorders. Induced pluripotent stem cells (iPSCs) offer an unlimited source of patient specific, disease-relevant cell lines that can be used as a platform for identification of disease mechanisms, discovery of molecular targets and development of phenotypic screens for drug discovery (Saporta et al., 2011). iPSC-based models of neuromuscular disorders, including amyotrophic lateral sclerosis (ALS), spinal muscular atrophy (SMA) and inherited peripheral neuropathies, have successfully reproduced pathophysiological findings from previous animal and cellular models and have also identified new disease mechanisms with potential therapeutical implications.</li>
+</ul>
+<h3>[5] Role of Transcriptomics in Precision Oncology</h3>
+<ul>
+<li>Authors: Ruby Srivastava</li>
+<li>Year: 2024</li>
+<li>Venue: Reports of Radiotherapy and Oncology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/0bd862558bbb7286336111d9dfd232b5f905d3d9" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/0bd862558bbb7286336111d9dfd232b5f905d3d9</a></li>
+<li><a href="https://doi.org/10.5812/rro-142195" target="_blank" rel="noopener noreferrer">DOI: 10.5812/rro-142195</a></li>
+<li>Citations: 5</li>
+<li>Summary: : Transcriptome profiling is one of the most widely used approaches in the field of multiomics research. It plays a crucial role in the prognostic, diagnostic, and predictive treatment of cancer patients. Novel next-generation sequencing (NGS) technologies permit the identification of cancer biomarkers, gene signatures, and their abnormal expression, affecting oncogenic and molecular targets and novel biomarkers for cancer therapies. Multiomics studies have changed the overall understanding o...</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.359)
+    &gt; : Transcriptome profiling is one of the most widely used approaches in the field of multiomics research. It plays a crucial role in the prognostic, diagnostic, and predictive treatment of cancer patients. Novel next-generation sequencing (NGS) technologies permit the identification of cancer biomarkers, gene signatures, and their abnormal expression, affecting oncogenic and molecular targets and novel biomarkers for cancer therapies. Multiomics studies have changed the overall understanding of cancer and opened a precise perspective for tumor diagnostics and therapy. The use of these approaches has strengthened our understanding of disease pathophysiology and classifications at the molecular level, including specific interference with drug mechanisms of action. Still, it has limited added value in the clinical setting. The omics data on precision medicine include the application of data from genes, transcripts, and proteins for diagnosis, monitoring of diseases, risk factor determination, counseling, and development of novel therapeutics. Bioinformatics applications have expanded statistics-based analysis toward deriving molecular pathways and process models for characterizing phenotypes and drug action mechanisms. In this review, we will discuss transcriptomics and interference analysis that allows the identification of predictive biomarkers at the molecular level to test drug response and analyze the molecular process interface of disease progression-relevant pathophysiology and mechanism of action to propose predictive biomarkers.</li>
+</ul>
+<h3>[6] Modelling Mitochondrial Disease in Human Pluripotent Stem Cells: What Have We Learned?</h3>
+<ul>
+<li>Authors: Cameron L. McKnight, Y. C. Low, D. Elliott, D. Thorburn, Ann E. Frazier</li>
+<li>Year: 2021</li>
+<li>Venue: International Journal of Molecular Sciences</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/bf41f9d980522896fcd2284bd630fbb418e55941" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/bf41f9d980522896fcd2284bd630fbb418e55941</a></li>
+<li><a href="https://doi.org/10.3390/ijms22147730" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms22147730</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34299348/" target="_blank" rel="noopener noreferrer">PMID: 34299348</a></li>
+<li>PMCID: 8306397</li>
+<li>Citations: 21</li>
+<li>Summary: Mitochondrial diseases disrupt cellular energy production and are among the most complex group of inherited genetic disorders. Affecting approximately 1 in 5000 live births, they are both clinically and genetically heterogeneous, and can be highly tissue specific, but most often affect cell types with high energy demands in the brain, heart, and kidneys. There are currently no clinically validated treatment options available, despite several agents showing therapeutic promise. However, modell...</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.359)
+    &gt; Mitochondrial disease hPSC models provide a system to study disease gene-or mutation-related pathomechanisms in tissues relevant to the clinical phenotype. Ultimately, the long-term goal of these models would be to identify a phenotype in a clinically relevant cell type that could be used to validate efficacy of targeted treatments, or for use in highthroughput treatment trials [94][95][96] (Figure 2).
+    &gt; There are now a wide range of endpoints that have been validated in terminally differentiated cell types to investigate the underlying cellular mechanisms of disease and efficiently identify targetable pathways. Many of these approaches can also be adapted to suit different cell types and even organoids at scale. The tissue specific nature of mitochondrial diseases means that mitochondrial function post-differentiation can be distinct to that from the undifferentiated stem cells or original fibroblast line, often greatly exaggerating any underlying defects [97]. Additionally, detailed transcriptomic and proteomic analyses can elucidate cellular compensation mechanisms and potential target pathways to inform downstream treatment studies [98,99]. Other approaches include microscopic visualization of key cellular features to determine a mutation's impact on cell structure or function [100]. For cardiomyocytes and neurons, electrophysiology can provide highly sensitive data to identify even subtle functional changes [101]. Calcium imaging can be particularly informative in the context of mitochondrial diseases, since calcium handling is a key role of mitochondria [102,103].</li>
+</ul>
+<h3>[7] Cardiomyocytes Derived from Induced Pluripotent Stem Cells as a Disease Model for Propionic Acidemia</h3>
+<ul>
+<li>Authors: Esmeralda Alonso-Barroso, B. Pérez, L. Desviat, E. Richard</li>
+<li>Year: 2021</li>
+<li>Venue: International Journal of Molecular Sciences</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/da649a0f04477c53b448c5ac5f873f8762235290" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/da649a0f04477c53b448c5ac5f873f8762235290</a></li>
+<li><a href="https://doi.org/10.3390/ijms22031161" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms22031161</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33503868/" target="_blank" rel="noopener noreferrer">PMID: 33503868</a></li>
+<li>PMCID: 7865492</li>
+<li>Citations: 17</li>
+<li>Influential citations: 1</li>
+<li>Summary: The novel results show that PA iPSC-cardiomyocytes represent a promising model for investigating the pathological mechanisms underlying PA cardiomyopathies, also serving as an ex vivo platform for therapeutic evaluation.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.359)
+    &gt; The study of the mechanisms involved in disease physiopathology has been mainly performed using the hypomorphic PA mouse model that mimics the biochemical and clinical phenotype [5]. Using this model, bioenergetic failure, oxidative damage and deregulation of miRNAs induced by accumulating propionyl-CoA have been described as potential mechanisms contributing to PA physiopathology [6][7][8]. The limitations of animal models for the study of cardiac energy metabolism [9] and of the commonly available cellular human models such as fibroblasts, underline the importance of generating new relevant cell models to provide deeper insight into the underlying mechanisms of disease. The use of in vitro models with human cellular context is highly recommended and, in this sense, induced pluripotent stem cells (iPSCs) have certain advantages since they provide the genetic background of the patient and represent an unlimited source of biological material for the study of pathophysiology and treatment effectiveness [10]. We have previously generated an iPSC line from a PA patient with defects in the PCCA gene that showed full pluripotency, differentiation capacity and genetic stability [11].
+    &gt; In the present study, we aimed to establish a platform that served as a disease model to study the cellular and molecular alterations operating in cardiac tissue affected by PA disease. We described the characterization of cardiomyocytes derived from the PCCA iPSC line (PCCA iPSC-CMs) and the analysis of specific pathways potentially involved in cardiac PA physiopathology.</li>
+</ul>
+<h3>[8] Discovering cell types underlying rare disease phenotypes using scRNA-seq data from non-diseased tissues</h3>
+<ul>
+<li>Authors: Jorge Novoa, F. Pazos, M. Chagoyen</li>
+<li>Year: 2025</li>
+<li>Venue: bioRxiv</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/c038b1472f7b42b58e9068eae4b0b0bf3970657e" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/c038b1472f7b42b58e9068eae4b0b0bf3970657e</a></li>
+<li><a href="https://doi.org/10.64898/2025.12.09.693155" target="_blank" rel="noopener noreferrer">DOI: 10.64898/2025.12.09.693155</a></li>
+<li>Summary: Applied across diverse tissues and phenotypes, Cell4Rare was validated against literature-based associations and highlights the potential of computational analyses of non-diseased scRNA-seq data to uncover the cellular basis of rare disease phenotypes, paving the way for improved diagnostics and therapeutic strategies.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.358)
+    &gt; Rare diseases, despite their individual low prevalence, collectively affect millions worldwide and pose persistent challenges for both diagnosis and treatment. The majority of these conditions have a genetic basis, with mutations that disrupt molecular and cellular pathways, ultimately manifesting as distinct and often severe phenotypes. Experimental approaches such as CRISPR-Cas9 gene editing, animal models, patient-derived iPSCs, and in vitro functional assays have become indispensable tools for validating the pathogenicity of specific variants and establishing the molecular and cellular pathways disrupted (MacArthur et al., 2014). These strategies provide critical insights into disease etiology by enabling the direct interrogation of gene function and phenotype. However, they are often limited by high costs, extended timelines, and scalability challenges-particularly in the context of rare diseases, where patient samples and resources are scarce. These limitations underscore the urgent need for robust, scalable computational tools that make use of the more abundant healthy omics data to facilitate the discovery and understanding of rare disease-causing mechanisms.
+    &gt; A major obstacle in rare disease research is determining the specific cellular contexts in which pathogenic genetic variants exert their effects. This is especially challenging given that many rare disease-associated genes are broadly expressed across tissues but lead to phenotypes that are restricted to a small subset of cell types (Feiglin et al., 2017). Pinpointing these relevant cellular targets is crucial for understanding disease mechanisms and for designing effective, targeted therapies. Recent advances in single-cell transcriptomics, along with growing databases of genotype-phenotype associations, offer an unprecedented opportunity to study gene activity at cellular resolution. Yet, for most rare diseases-many of which have pediatric onset-single-cell data from affected individuals remain unavailable, making traditional case-control approaches impractical.
+    &gt; In this context, computational methods that extract mechanistic insights from single-cell data derived from non-diseased tissues offer a valuable alternative. These approaches can help infer the cellular consequences of genetic alterations and guide the selection of the most relevant experimental systems for downstream validation.</li>
+</ul>
+<h3>[9] The Lamin Proteins in Nuclear Structure, Functions, and Laminopathies</h3>
+<ul>
+<li>Authors: Gan Zhao, Ziheng Chen, Caifeng Yang, Mingzheng Liu, Weiyong Wang et al.</li>
+<li>Year: 2026</li>
+<li>Venue: Cells</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/9db8088d893cc5c3de80d3afda68b52e1cf501fc" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/9db8088d893cc5c3de80d3afda68b52e1cf501fc</a></li>
+<li><a href="https://doi.org/10.3390/cells15121051" target="_blank" rel="noopener noreferrer">DOI: 10.3390/cells15121051</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42346079/" target="_blank" rel="noopener noreferrer">PMID: 42346079</a></li>
+<li>PMCID: 13296569</li>
+<li>Citations: 1</li>
+<li>Summary: Collectively, studies of lamin protein function reveal how the nucleus maintains its structures and functions, while studies of laminopathies demonstrate how nuclear dysfunction drives systemic disease and points toward mechanism-based therapies.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.358)
+    &gt; Laminopathies represent a clinically diverse class of human diseases caused by mutations in genes encoding components of the nuclear lamina and associated nuclear envelope proteins. Here, we summarize the mutation sites, phenotypes, and underlying molecular mechanisms of laminopathies (Table 1). Although mutations in LMNA account for the majority of reported cases, disease-causing alterations in B-type lamins, particularly LMNB1, as well as mutations in other nuclear envelope proteins, also give rise to distinct laminopathy phenotypes [13,77]. The pathogenesis of laminopathies is explained through several interconnected mechanistic frameworks. The classical structural hypothesis attributes disease to compromised nuclear integrity and impaired mechanical signaling, leading to stress-induced cellular damage, particularly in striated muscle tissues [23]. In contrast, the "gene expression hypothesis" emphasizes that lamin mutations disrupt chromatin organization and intracellular signaling pathways, thereby altering transcriptional programs [12,119]. More recently, these perspectives have been integrated with models highlighting cellular senescence, stem cell exhaustion, and chronic inflammation as additional pathogenic contributors, especially in progeroid syndromes [112]. Current evidence suggests that these mechanisms are not mutually exclusive but operate within an interconnected and synergistic network that drives disease progression [120].
+    &gt; In laminopathies, mutations affect structural components present in nearly all nucleated cells. Nevertheless, laminopathies exhibit marked tissue-specific vulnerability, predominantly affecting striated muscle, adipose tissue, peripheral nerves, or, in some cases, causing systemic premature aging [12,15]. This tissue selectivity likely arises from the interaction between a specific lamin mutation and the distinct mechanical demands, transcriptional programs, and developmental context of individual tissues [15,119]. Consequently, although laminopathies share common molecular roots, their clinical manifestations are highly system-oriented.
+    &gt; For this reason, laminopathies are conventionally classified according to the primary tissue or organ system affected, despite substantial phenotypic overlap among categories [14]. This classification provides a clinically practical framework while acknowledging that shared pathogenic mechanisms underlie seemingly distinct disease entities.
+    &gt; Striated muscle laminopathies represent a major disease category.</li>
+</ul>
+<h3>[10] Solving the Evidence Interpretability Crisis in Health Technology Assessment: A Role for Mechanistic Models?</h3>
+<ul>
+<li>Authors: E. Courcelles, J. Boissel, J. Massol, I. Klingmann, R. Kahoul et al.</li>
+<li>Year: 2022</li>
+<li>Venue: Frontiers in Medical Technology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/877d5b1b75599745f704a9c8371f74601ff17e2f" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/877d5b1b75599745f704a9c8371f74601ff17e2f</a></li>
+<li><a href="https://doi.org/10.3389/fmedt.2022.810315" target="_blank" rel="noopener noreferrer">DOI: 10.3389/fmedt.2022.810315</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35281671/" target="_blank" rel="noopener noreferrer">PMID: 35281671</a></li>
+<li>PMCID: 8907708</li>
+<li>Citations: 7</li>
+<li>Summary: Light is shed on different stakeholder's contributions and needs in the appraisal phase and how mechanistic modeling strategies and reporting can contribute to this effort to implement mechanistic models central in the evidence generation, synthesis, and appraisal of HTA so that the totality of mechanistic and clinical evidence can be leveraged by all relevant stakeholders.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.356)
+    &gt; Example use of MIDD relevant to address uncertainty potentially also during HTA What is the optimal dosage in the clinical context? Physiologically based pharmacokinetic models can investigate dosing-regimens relevant for regulatory review and product labels (9) and can also mimic real-life adherence to prescribed treatment regimens (see also below) or pharmacology-relevant characteristics of special populations as well as drug-drug interactions.
+    &gt; What is the duration of the effectiveness, especially with chronic use of a treatment? Mechanistic models can predict the long-term disease progression by extrapolation of shorter-term findings under the constraints of how the components of the system function (and these constraints convey biological plausibility by design). An example is the use of a mechanism-based disease progression model for comparison of long-term effects of pioglitazone, metformin, and gliclazide on disease processes underlying Type 2 Diabetes Mellitus (10). Another example is prediction of long-term outcomes by short-term marker data as demonstrated by a semi-mechanistic approach in context of osteoporosis treatment (11).
+    &gt; What is the efficacy for relevant clinical outcomes? Mechanistic models combined with pharmacometric approaches can translate findings for one outcome to a range of other outcomes. An example of survival modeling on the back of a mechanistic description is the modeling framework for CD19-Specific CAR-T cell immunotherapy using a quantitative systems pharmacology model (12).
+    &gt; What is the size of the clinical effect dependent on patient characteristics and extrinsic factors? Data-driven modeling techniques can capture correlation within clinical data. Describing the clinical effect of a drug can also be based on mechanistic considerations. Such models either (a) link disease phenotypes to increasingly granular mathematical representations of pathophysiologic processes (top-down approach) or (b) derive functional, computable cellular networks from the molecular building blocks of genes and proteins to elucidate the impact of pathologic or therapeutic alterations on network operating states and hence clinical phenotype (bottom-up) [see (13)].</li>
+</ul>
+<h3>[11] Protein kinases in neurodegenerative diseases: current understandings and implications for drug discovery</h3>
+<ul>
+<li>Authors: Xiaolei Wu, Zhang-zhong Yang, Jinjun Zou, Huile Gao, Zhenhua Shao et al.</li>
+<li>Year: 2025</li>
+<li>Venue: Signal Transduction and Targeted Therapy</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/57c532f807605e5181ca30a675ad0d79e3625453" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/57c532f807605e5181ca30a675ad0d79e3625453</a></li>
+<li><a href="https://doi.org/10.1038/s41392-025-02179-x" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41392-025-02179-x</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40328798/" target="_blank" rel="noopener noreferrer">PMID: 40328798</a></li>
+<li>PMCID: 12056177</li>
+<li>Citations: 59</li>
+<li>Influential citations: 2</li>
+<li>Summary: The role and complexity of kinase–kinase networks in the pathogenesis of neurodegenerative diseases are discussed, and the advances of clinical applications of protein kinase inhibitors or novel kinase-targeted therapeutic strategies for effective prevention and early intervention are illustrated.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.355)
+    &gt; Neurodegenerative diseases (e.g., Alzheimer’s, Parkinson’s, Huntington’s disease, and Amyotrophic Lateral Sclerosis) are major health threats for the aging population and their prevalences continue to rise with the increasing of life expectancy. Although progress has been made, there is still a lack of effective cures to date, and an in-depth understanding of the molecular and cellular mechanisms of these neurodegenerative diseases is imperative for drug development. Protein phosphorylation, regulated by protein kinases and protein phosphatases, participates in most cellular events, whereas aberrant phosphorylation manifests as a main cause of diseases. As evidenced by pharmacological and pathological studies, protein kinases are proven to be promising therapeutic targets for various diseases, such as cancers, central nervous system disorders, and cardiovascular diseases. The mechanisms of protein phosphatases in pathophysiology have been extensively reviewed, but a systematic summary of the role of protein kinases in the nervous system is lacking. Here, we focus on the involvement of protein kinases in neurodegenerative diseases, by summarizing the current knowledge on the major kinases and related regulatory signal transduction pathways implicated in diseases. We further discuss the role and complexity of kinase–kinase networks in the pathogenesis of neurodegenerative diseases, illustrate the advances of clinical applications of protein kinase inhibitors or novel kinase-targeted therapeutic strategies (such as antisense oligonucleotides and gene therapy) for effective prevention and early intervention.</li>
+</ul>
+<h3>[12] 18O-assisted dynamic metabolomics for individualized diagnostics and treatment of human diseases</h3>
+<ul>
+<li>Authors: E. Nemutlu, Song Zhang, N. Juranic, A. Terzic, S. Macura et al.</li>
+<li>Year: 2012</li>
+<li>Venue: Croatian Medical Journal</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/880f053c7f060db4b990e447d0a22c4b69372ddb" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/880f053c7f060db4b990e447d0a22c4b69372ddb</a></li>
+<li><a href="https://doi.org/10.3325/cmj.2012.53.529" target="_blank" rel="noopener noreferrer">DOI: 10.3325/cmj.2012.53.529</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23275318/" target="_blank" rel="noopener noreferrer">PMID: 23275318</a></li>
+<li>PMCID: 3541579</li>
+<li>Citations: 30</li>
+<li>Summary: The potential use of dynamic phosphometabolomic platform for disease diagnostics currently under development at Mayo Clinic is described and discussed briefly.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.351)
+    &gt; Living cells represent an integrated and interacting network of genes, transcripts, proteins, small signaling molecules, and metabolites that define cellular phenotype and function. Traditionally the focus of biomedical research was on individual genes, single protein targets, single metabolites, and metabolic or signaling pathways. This "molecular reductionist" paradigm was based on the assumption that identifying genetic variations and molecular components would lead to discovery of cures for human diseases. However, most of diseases are complex and multi-factorial and the disease phenotype is determined by the alterations of multiple genes, pathways, proteins and metabolites (at cellular, tissue, and organismal levels). Therefore, an integrated "omics" approach is more viable direction for uncovering alterations in metabolic networks, disease mechanisms, and mechanisms of drug effects.
+    &gt; Recent advent of large-scale metabolomics and fluxomic (metabolite dynamics and metabolic flux analysis) completed the "omics revolution" (Figure 1), where genomics, transcriptomics, proteomics, metabolomics, and fluxomics all together complement phenotype determination of living organism. Such integrated "omics" cascades provide a framework for advances in system and network biology, integrative physiology, and system medicine as well as system pharmacology and regenerative medicine. Noteworthy is the "reverse omic" approach or "metabolomicsinformed pharmacogenomics, " where discovery of specific metabolite changes have led to discovery of genetic alterations (2). Therefore, bringing new "omics" technologies to clinical practice will improve disease diagnostics and treatment by targeting drugs and procedures for each unique transcriptomic and metabolomic profiles.</li>
+</ul>
+<h3>[13] The Road to Precision Nanomedicine: An Insight on Drug Repurposing and Advances in Nanoformulations for Treatment of Cancer</h3>
+<ul>
+<li>Authors: Yasmina Elmahboub, Rofida Albash, Sadek Ahmed, Salwa Salah</li>
+<li>Year: 2025</li>
+<li>Venue: AAPS PharmSciTech</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/99ba7d48af7a24ad21ddc5cb0f5586c790877f11" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/99ba7d48af7a24ad21ddc5cb0f5586c790877f11</a></li>
+<li><a href="https://doi.org/10.1208/s12249-025-03233-1" target="_blank" rel="noopener noreferrer">DOI: 10.1208/s12249-025-03233-1</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41053454/" target="_blank" rel="noopener noreferrer">PMID: 41053454</a></li>
+<li>Citations: 28</li>
+<li>Summary: Results revealed that drug-encapsulated nanoparticles enhanced antitumor effects compared to the free drug solutions, attributed to the synergism from the nanocarrier’s functionalization, sustained drug release, and improved cellular uptake within tumors that leads to targeting multiple cancer hallmarks.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.349)
+    &gt; In contrast, knowledge-based repurposing utilizes existing information about a drug to uncover new mechanisms, such as unidentified drug targets or novel biomarkers. This approach enables the detection of multiple indications of a single drug, supported by tools, such as bioinformatics, cheminformatics, and data mining [84].
+    &gt; Nevertheless, the pathway-based approach uses diseaseassociated omics data, where disease-related molecular pathways are mapped to uncover new targets for repurposed drugs. This method utilizes information from metabolic and signaling pathways to predict potential associations or similarities between drugs and diseases [84,92]. For instance, a study utilized bioinformatics analysis, molecular docking, molecular dynamics simulation, and protein-protein interaction networks to explore the therapeutic mechanism of the antiangiogenic drug enzastaurin for the treatment of colorectal cancer. Although the drug was previously used in cancer, this study identified key dysregulated genes involved in the pathogenesis of colorectal cancer, including positive regulation of protein phosphorylation, inhibition of apoptosis, protein tyrosine kinase activity, focal adhesion pathway, and phosphoinositide-3-kinase regulatory Subunit 1 signaling pathway. Notably, the drug showed a strong binding affinity to two crucial hub proteins, including caspase-3 and myeloid cell leukemia 1 (MCL1), that are responsible for cancer progression [93].
+    &gt; Similarly, the signature-based repurposing strategy depends on gene expression patterns obtained from diseaserelated omics data, to uncover previously unrecognized offtarget effects or undiscovered disease mechanisms targeted by drugs. This method enables the identification of novel drug mechanisms by analyzing alterations in gene and protein expression [84]. A recent study utilized bladder cancerrelated proteomic and transcriptomic data to identify drugs capable of reversing the molecular signatures associated  Finally, the target mechanism-based approach integrates data from signaling pathways, protein-protein interaction networks, and treatment-related omics to uncover novel MoAs of drugs. This strategy provides valuable insights into treatment-specific mechanisms and supports the development of precision medicine [84].</li>
+</ul>
+<h3>[14] Exploring the molecular mechanisms of subarachnoid hemorrhage and potential therapeutic targets: insights from bioinformatics and drug prediction</h3>
+<ul>
+<li>Authors: Yi Liu, Yang Zhang, Huan Wei, Li Wang, Lishang Liao</li>
+<li>Year: 2025</li>
+<li>Venue: Scientific Reports</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/19a91d9c8cabec6a5a186729d545077e252ecb67" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/19a91d9c8cabec6a5a186729d545077e252ecb67</a></li>
+<li><a href="https://doi.org/10.1038/s41598-025-97642-8" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41598-025-97642-8</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40229542/" target="_blank" rel="noopener noreferrer">PMID: 40229542</a></li>
+<li>PMCID: 11997208</li>
+<li>Citations: 1</li>
+<li>Summary: The findings not only elucidate the molecular mechanisms underlying SAH but also provide robust bioinformatics and experimental evidence supporting IRN as a promising therapeutic candidate, offering novel insights for future intervention strategies in SAH.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.346)
+    &gt; involved in SAH pathology. As a result, our understanding of the cellular composition and microenvironment in SAH remains incomplete 8 .
+    &gt; Advances in bioinformatics provide powerful tools to analyze large-scale gene expression data and understand complex biological processes. By integrating transcriptomic data with immune cell infiltration analysis, we can gain a deeper understanding of the molecular mechanisms underlying SAH and identify potential key genes as therapeutic targets 9,10 . Previous studies have indicated that inflammation, oxidative stress, and cell death play crucial roles in the development of SAH, processes that are often closely associated with changes in specific cell types and immune responses 11 .
+    &gt; The goal of this study is to explore the molecular mechanisms of SAH, with a focus on immune cell infiltration and its role in disease progression. We aim to identify key genes and signaling pathways associated with SAH and investigate potential therapeutic strategies. Specifically, we will examine Isorhynchophylline (IRN) as a potential treatment for SAH and analyze its effects on relevant targets and signaling pathways. Through a comprehensive understanding of the pathological features of SAH, this study aims to provide valuable insights into future clinical interventions and treatment strategies.</li>
+</ul>
+<h3>[15] Novel Approaches to Studying SLC13A5 Disease</h3>
+<ul>
+<li>Authors: Adriana S. Beltran</li>
+<li>Year: 2024</li>
+<li>Venue: Metabolites</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/8469c534cd81d96f84b61e2d963dead12088feb7" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/8469c534cd81d96f84b61e2d963dead12088feb7</a></li>
+<li><a href="https://doi.org/10.3390/metabo14020084" target="_blank" rel="noopener noreferrer">DOI: 10.3390/metabo14020084</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38392976/" target="_blank" rel="noopener noreferrer">PMID: 38392976</a></li>
+<li>PMCID: 10890222</li>
+<li>Citations: 2</li>
+<li>Summary: Current technologies for generating patient-specific induced pluripotent stem cells (iPSCs) and their inherent advantages and limitations are discussed, followed by a summary of the methods for differentiating iPSCs into neurons, hepatocytes, and organoids.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.346)
+    &gt; The precise pathophysiology underlying how SLC13A5 loss-of-function results in epilepsy refractory to treatment is a subject of open and ongoing research. Several hypotheses suggest SLC13A5 alters metabolic pathways, leading to neuronal dysfunction. Conversely, therapeutic inhibition of NaCT in the liver is a target to improve metabolic diseases, including non-alcoholic fatty liver disease, obesity, and insulin resistance. Thus, functionally accurate modeling and characterization of the mechanisms involved in citrate transport disruption are critical for understanding its role in human disease.
+    &gt; IPSC-derived cellular systems are a powerful tool for modeling rare human genetic diseases, such as SLC13A5 (Figure 5). IPSCs derived from patients containing the genetic information of the disease can overcome the limitations of animal models, providing access to relevant human cell types that recapitulate the disease phenotype. For instance, patient-derived iPSCs differentiated into neurons or hepatocytes can be used to investigate molecular and cellular mechanisms, including citrate transport and accumulation, energy metabolism, oxidative stress, and other cellular processes. They can also be used to define the spectrum of the disease and how different mutations might lead to various disease severities, screen for potential therapeutic compounds that can restore the transporter function or ameliorate the symptoms, and enable personalized medicine approaches that can tailor treatments to individual patients based on their genetic background and disease severity.
+    &gt; transport disruption are critical for understanding its role in human disease.
+    &gt; IPSC-derived cellular systems are a powerful tool for modeling rare human genetic diseases, such as SLC13A5 (Figure 5). IPSCs derived from patients containing the genetic information of the disease can overcome the limitations of animal models, providing access to relevant human cell types that recapitulate the disease phenotype. For instance, patient-derived iPSCs differentiated into neurons or hepatocytes can be used to investigate molecular and cellular mechanisms, including citrate transport and accumulation, energy metabolism, oxidative stress, and other cellular processes.</li>
+</ul>
+<h3>[16] Mechanistic Models of Signaling Pathways Reveal the Drug Action Mechanisms behind Gender-Specific Gene Expression for Cancer Treatments</h3>
+<ul>
+<li>Authors: C. Çubuk, F. Can, M. Peña-Chilet, J. Dopazo</li>
+<li>Year: 2020</li>
+<li>Venue: Cells</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/e40f7a3b8f72ba01374ba00fbf308a47a3fa5dd4" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/e40f7a3b8f72ba01374ba00fbf308a47a3fa5dd4</a></li>
+<li><a href="https://doi.org/10.3390/cells9071579" target="_blank" rel="noopener noreferrer">DOI: 10.3390/cells9071579</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32610626/" target="_blank" rel="noopener noreferrer">PMID: 32610626</a></li>
+<li>PMCID: 7408716</li>
+<li>Citations: 9</li>
+<li>Summary: Despite the existence of differences in gene expression across numerous genes between males and females having been known for a long time, these have been mostly ignored in many studies, including drug development and its therapeutic use. In fact, the consequences of such differences over the disease mechanisms or the drug action mechanisms are completely unknown. Here we applied mechanistic mathematical models of signaling activity to reveal the ultimate functional consequences that gender-s...</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.346)
+    &gt; Therefore, a proper interpretation of the effect that differences in gene expression have over phenotypes, such as drug response or disease progression, involves understanding the mechanisms of the disease or the mode of action of drugs, which can be interpreted through mechanistic models of cell signaling [12] or cell metabolism [13]. Mechanistic models have helped to understand the disease mechanisms behind different cancers [14,15], including neuroblastoma [16,17], breast cancer [18], rare diseases [19], complex diseases [20], the mechanisms of action of drugs [21,22], and other biologically interesting scenarios such as the molecular mechanisms that explain how stress-induced activation of brown adipose tissue prevents obesity [23] or the molecular mechanisms of death and the post-mortem ischemia of a tissue [24]. Among the few available proposals of mechanistic modeling algorithms that model different aspects of signaling pathway activity, Hipathia has demonstrated having superior sensitivity and specificity [12].
+    &gt; Here, we propose the use of mechanistic models [13,14] of signaling activity related with cancer hallmarks [25], other cancer-related signaling pathways, and some extra relevant cellular functions to understand the functional consequences of the gender bias in gene expression. Such mechanistic models use gene expression data to produce an estimation of profiles of signaling or metabolic circuit activity within pathways [13,14]. An interesting property of mechanistic models is that they can be used not only to understand molecular mechanisms of disease or of drug action but also to predict the potential consequences of gene perturbations over the circuit activity in a given condition [26]. Actually, in a recent work, our group has successfully predicted therapeutic targets in cancer cell lines with a precision over 60% [15]. Therefore, we will use this mechanistic framework to understand what is the molecular basis of the different effects of cancer drugs by directly simulating their effect in the patients. This approach has recently been used by us to understand the generation of resistances in cancer at the single cell level in glioblastoma [27].</li>
+</ul>
+<h3>[17] Navigating the Landscape of CMT1B: Understanding Genetic Pathways, Disease Models, and Potential Therapeutic Approaches</h3>
+<ul>
+<li>Authors: Mary Kate McCulloch, Fatemeh Mehryab, A. Rashnonejad</li>
+<li>Year: 2024</li>
+<li>Venue: International Journal of Molecular Sciences</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/3a73907f30006839edf2882c1107c017a9eb811c" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/3a73907f30006839edf2882c1107c017a9eb811c</a></li>
+<li><a href="https://doi.org/10.3390/ijms25179227" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25179227</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39273178/" target="_blank" rel="noopener noreferrer">PMID: 39273178</a></li>
+<li>PMCID: 11395143</li>
+<li>Citations: 7</li>
+<li>Summary: A comprehensive overview of the disease mechanisms, preclinical models, and recent advancements in therapeutic research for CMT1B is presented, while also addressing the existing challenges in the field.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.345)
+    &gt; In addition to molecular biomarkers, quantifying fat fractions of the calf muscle via magnetic resonance imaging (MRI) has emerged as another potential CMT disease biomarker [108]. The pattern of fatty infiltration has been shown to correlate with CMT subtype; however, all CMT1 patients in this study were from the CMT1A subtype [108]. Further investigations are necessary to identify more CMT1B-specific biomarkers, which facilitate monitoring of disease progression and treatment response for future therapeutic evaluations. Additionally, by employing a comprehensive set of multiple biomarkers, the success rate of clinical trials may be significantly improved.
+    &gt; Another challenge in designing clinical trials for CMT1B lies in the variable disease severity across the three major onset stages-infantile, childhood, and adult. Conducting natural history studies can significantly enhance the design of clinical trials tailored to each group [109][110][111]. Additionally, the complex disease mechanism of CMT1B, which is driven by over 200 mutations in the MPZ gene, presents another significant challenge. This review summarizes the multiple mechanisms involved in CMT1B pathogenesis.
+    &gt; Several groups are exploring various therapeutic solutions for CMT1B disease, including mechanism-based pharmaceutical therapy [15,92,93,96,97] and gene therapy [68,84]. Each approach aims to address different aspects of the disease's pathology, offering multiple potential strategies for effective treatment. Since pharmaceutical agents target specific pathways, several drugs need to be developed to address the diverse pathomechanisms within the CMT1B patient population. Accordingly, some potential small molecules were introduced and discussed in the pharmaceuticals section of this paper [15,92,93,96,97]. Researchers are still trying to optimize and target these drug candidates.
+    &gt; Additionally, there are some recent publications on the application of stem cells in CMT1A disease models and a CMT patient case, suggesting improved phenotypes [112,113]. It was reported that a 19-year-old male patient was successfully treated with the Regentime procedure, an autologous bone marrow mononuclear progenitor stem cell transplantation via intrathecal and intravenous routes.</li>
+</ul>
+<h3>[18] Nasopharyngeal Carcinoma Signaling Pathway: An Update on Molecular Biomarkers</h3>
+<ul>
+<li>Authors: W. Tulalamba, T. Janvilisri</li>
+<li>Year: 2012</li>
+<li>Venue: International Journal of Cell Biology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/307cb9186444d9dad6e2e3b53763be0de76de186" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/307cb9186444d9dad6e2e3b53763be0de76de186</a></li>
+<li><a href="https://doi.org/10.1155/2012/594681" target="_blank" rel="noopener noreferrer">DOI: 10.1155/2012/594681</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22500174/" target="_blank" rel="noopener noreferrer">PMID: 22500174</a></li>
+<li>PMCID: 3303613</li>
+<li>Citations: 96</li>
+<li>Influential citations: 5</li>
+<li>Summary: The molecular signaling pathways in the NPC are discussed for the holistic view of NPC development and progression and the important insights toward NPC pathogenesis may offer strategies for identification of novel biomarkers for diagnosis and prognosis.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.343)
+    &gt; In the pregenomic eras, highly integrated and complex circuitry of molecular signaling in NPC pathogenesis was only partially understood. Over the past decade, the knowledge of the molecular mechanisms in NPC carcinogenesis has been rapidly accumulated. Dysregulation and abnormal protein expression of molecules in certain signaling pathways involved in cellular functions including proliferation, adhesion, survival, and apoptosis has been demonstrated in the NPC cells. Detailed information on the complex network in signaling pathway leading to a coordinated pattern of gene expression and regulation in NPC will undoubtedly provide important clues to develop novel prognostic and therapeutic strategies for this cancer. Refining molecular markers into clinically relevant assays may assist in the detection of NPC in asymptomatic patients, as well as stage classification and monitoring disease progression and treatments. Furthermore, selective regulation of particular proteins targeting cancer cell proliferation, invasion, and apoptosis is a hopeful prospect for future anticancer therapy that slow disease progression and improve survival.</li>
+</ul>
+<h3>[19] Cafe-au-lait spots as a clinical sign of syndromes</h3>
+<ul>
+<li>Authors: A. Carvalho, D. Martelli, M. Carvalho, M. Swerts, Hercílio Martelli Júnior</li>
+<li>Year: 2021</li>
+<li>Venue: Research, Society and Development</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/05192400a833f3c8e9960ef9739f32b36a9211a0" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/05192400a833f3c8e9960ef9739f32b36a9211a0</a></li>
+<li><a href="https://doi.org/10.33448/RSD-V10I9.17607" target="_blank" rel="noopener noreferrer">DOI: 10.33448/RSD-V10I9.17607</a></li>
+<li>Citations: 6</li>
+<li>Influential citations: 1</li>
+<li>Summary: The objective of this study was to provide health professionals with an instrument containing a broad spectrum of genetic diseases coincident with the presence of cafe-au-lait spots in order to facilitate the differential and final diagnosis of these syndromes.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.343)
+    &gt; In this context, the genes identified that represent novel genes causative for RASopathy include the RIT1, SOS2, RASA2, RRAS, and SYNGAP1 genes (Tidyman &amp; Rauen, 2016). The RAS/MAPK pathway has been shown to be the predominant biochemical hallmark of the RASopathies. However, aberrant Ras signaling due to other effector pathways also appears to play an important role (Tidyman &amp; Rauen, 2016).
+    &gt; Piebaldism, Waardenburg syndrome and peripheral demyelinating neuropathy-central dysmyelinating-Waardenburg syndrome-Hirschsprung disease (PCWH) are genetic disorders secondary to aberrant melanoblast migration during embryogenesis (Oiso et al., 2013). The binding of the KIT ligand (KITLG) to its KIT tyrosine kinase receptor, that triggers the Ras⁄mitogen-activated protein kinase signaling pathway, regulates melanocyte migration, differentiation and survival, as well as cell proliferation, melanogenesis and melanosome transfer (Oiso et al., 2013). Among these reported diseases, piebaldism (Zhang et al., 2016) and Waardenburg syndrome type 2E may present CALM as a clinical manifestation. Other disorders related to the KITLG / KIT signaling pathway that may also have CALM are familial progressive hyperpigmentation and hypopigmentation (FPHH) and familial progressive hyperpigmentation (FPH) (Oiso et al., 2013;Zhang et al., 2016).
+    &gt; Defects at any stage of neural crest cell development, such as migration, proliferation, cell-to-cell interaction, differentiation or growth, are associated with the pathophysiology of neurocutaneous syndrome or phakomatoses (Sarnat &amp; Flores-Sarnat, 2005;Gursoy &amp; Erçal, 2018). This group includes pathologies with different genetic mechanisms (Sarnat &amp; Flores-Sarnat, 2005;Klar, Cohen &amp; Lin, 2016).</li>
+</ul>
+<h3>[20] Phenotypic categorization of genetic skin diseases reveals new relations between phenotypes, genes and pathways</h3>
+<ul>
+<li>Authors: R. Sadreyev, J. Feramisco, H. Tsao, N. Grishin</li>
+<li>Year: 2009</li>
+<li>Venue: Bioinformatics</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/c53babf10fe6c28338852adee48cf41949958e14" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/c53babf10fe6c28338852adee48cf41949958e14</a></li>
+<li><a href="https://doi.org/10.1093/bioinformatics/btp538" target="_blank" rel="noopener noreferrer">DOI: 10.1093/bioinformatics/btp538</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19744994/" target="_blank" rel="noopener noreferrer">PMID: 19744994</a></li>
+<li>PMCID: 2773259</li>
+<li>Citations: 7</li>
+<li>Summary: Analysis of genetic skin disorders and a manually designed set of elementary phenotypes whose combinations define diseases as points in a multidimensional space reveals new patterns that suggest previously unknown functional links between proteins, signaling pathways and disease phenotypes.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.342)
+    &gt; Rigorous quantitative analysis of disease phenotypes is a key problem on our way to understanding systemic effects of human gene mutations. Such understanding would enable statistical prediction of clinical manifestations for genome abnormalities, inference of causative genes from complex disease phenotypes, as well as deeper insights into molecular mechanisms of pathophysiology. This tremendous task requires the development of new approaches to link the rapidly growing dataset of gene-disease associations with the many complex and overlapping phenotypes of human disease.
+    &gt; Previously reported approaches to this problem ranged from considering diseases as individual entities connected through shared causative genes (Goh et al., 2007) or co-occurrence in the same patient (Rzhetsky et al., 2007), to more detailed classifications involving the comparison of disease phenotypes, usually based on ontologies of phenotypic terms derived from natural-language phenotype descriptions through automated or semi-automated text analysis (Robinson et al., 2008;van Driel et al., 2006). These analyses may include additional high-throughput data on protein associations (Lage et al., 2007;Wu et al., 2008), improving prediction of new connections between diseases and proteins involved. Here we suggest a different approach to quantitative gene-phenotype analysis. By focusing on the set of genetic skin disorders, we are able to manually analyze the corresponding descriptions of phenotypic manifestations and design a set of elementary phenotypic features whose combinations define any given disease as a point in a multidimensional space. Placing the known gene-disease associations in the context of this space reveals new patterns that suggest previously unknown functional links between disease phenotypes, proteins and signaling pathways. In particular, analysis of telangiectasias (spider vein diseases), reveals a previously unrecognized interplay between the TGF-β signaling cascade and pentose phosphate pathway (PPP), which may mediate glucose-dependent regulation of TGF-β signaling in diabetes.</li>
+</ul>
+<h2>Notes</h2>
+<ul>
+<li>This provider combines <code>search_papers_by_relevance</code> with <code>snippet_search</code>.</li>
+<li>No synthesis or second-stage model call is performed.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>37</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pick_Disease-falcon.html">← Pick Disease (Falcon)</a>
+                
+                
+                <a href="Pigment_Dispersion_Syndrome-falcon.html">Pigment Dispersion Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Piebaldism.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Piebaldism-deep-research-asta.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-asta" aria-current="page">Asta</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
