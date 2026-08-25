@@ -87,6 +87,29 @@ BASELINE_PATH = ROOT / "tests" / "environmental_evidence_baseline.txt"
 BASELINE_REF_ENV = "ENVIRONMENTAL_EVIDENCE_BASELINE_REF"
 
 
+def _has_quoted_evidence(entry: dict) -> bool:
+    """True if *entry* carries at least one evidence item with a real snippet.
+
+    An `evidence:` block whose items all have an empty/whitespace-only
+    `snippet` is not actually cited -- it is the same "structurally valid,
+    substantively empty" shape dismech#8550 describes for evidence items in
+    general, reachable here specifically because this check's original
+    predicate (`if entry.get("evidence")`) only checked block *presence*, so
+    an exposure could be silently "retired" from the #8296 backlog by an
+    evidence item that quotes nothing.
+    """
+    evidence = entry.get("evidence")
+    if not isinstance(evidence, list):
+        return False
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        snippet = item.get("snippet")
+        if isinstance(snippet, str) and snippet.strip():
+            return True
+    return False
+
+
 def find_violations(data):
     """Yield ``(location, name)`` for each evidence-free `environmental[]` entry."""
     entries = data.get("environmental") or []
@@ -95,7 +118,7 @@ def find_violations(data):
     for idx, entry in enumerate(entries):
         if not isinstance(entry, dict):
             continue
-        if entry.get("evidence"):
+        if _has_quoted_evidence(entry):
             continue
         name = entry.get("name") or "<unnamed>"
         yield (f"environmental[{idx}]", name)

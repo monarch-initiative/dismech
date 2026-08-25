@@ -135,6 +135,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -1349,6 +1363,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2704,6 +2733,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {{ entity_ref_kind_aliases | tojson }};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2712,7 +2755,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3459,6 +3502,9 @@
                     <span class="evidence-ref">
                         <a href="{{ ev.reference | curie_to_url }}" target="_blank">{{ ev.reference }}</a>
                     </span>
+                    {% if is_preprint(ev.reference) %}
+                    <span class="badge-preprint" title="This reference is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
+                    {% endif %}
                     {% if ev.supports %}
                     <span class="evidence-support support-{{ ev.supports }}">{{ ev.supports }}</span>
                     {% endif %}
@@ -3787,6 +3833,19 @@
     {% endif %}
     {% endmacro %}
 
+    {% macro render_outcome_list(title, outcomes) %}
+    {% if outcomes %}
+    <div class="experiment-section">
+        <div class="experiment-section-title">{{ title }}</div>
+        <ul class="experiment-outcome-list">
+            {% for outcome in outcomes %}
+            <li>{{ outcome }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_entity_ref(ref) %}
     {% set ref_href = ref | semantic_ref_href %}
     {% if ref_href %}
@@ -3815,6 +3874,9 @@
             <span class="tag tag-dataset">
                 <a href="{{ model.publication | curie_to_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ model.publication }} link</a>
             </span>
+            {% endif %}
+            {% if is_preprint(model.publication) %}
+            <span class="badge-preprint" title="This publication is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
             {% endif %}
         </div>
         {% if model.organism %}
@@ -4013,6 +4075,8 @@
         {% endif %}
         {{ render_entity_refs("Would support", experiment.would_support) }}
         {{ render_entity_refs("Would refute", experiment.would_refute) }}
+        {{ render_outcome_list("Supporting outcome", experiment.supporting_outcome) }}
+        {{ render_outcome_list("Refuting outcome", experiment.refuting_outcome) }}
         {% if experiment.protocol_reference %}
         <div class="mapping-notes">Protocol: {{ experiment.protocol_reference }}</div>
         {% endif %}
@@ -4066,6 +4130,64 @@
     {% endif %}
     {% if inheritance_item.parent_of_origin_effect %}
     <div class="item-desc"><strong>Parent-of-origin effect:</strong> {{ inheritance_item.parent_of_origin_effect }}</div>
+    {% endif %}
+    {% endmacro %}
+
+    {# ExternalAssertion is bound to both Variant and Disease, so its rendering
+       lives in a shared macro: variants call it inline (issue #8037/#8042) and
+       the disease-level "External Assertions" card calls it too (issue #8044).
+       External assertions are not pathograph nodes -- dismech.graph emits none
+       -- so the cards carry a stable anchor id but no data-dismech-node pair. #}
+    {% macro render_external_assertion_body(assertion) %}
+    {% if assertion.name %}
+    <div class="item-name">{{ assertion.name }}</div>
+    {% endif %}
+    <div class="item-meta">
+        {% if assertion.source %}
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
+        {% endif %}
+        {% if assertion.assertion_type %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if assertion.external_id %}
+        {% set assertion_id = assertion.external_id | string %}
+        {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+        {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+        <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion_id }}">{{ assertion_id }}</a>
+        {% elif is_curie(assertion_id) %}
+        {# No usable URL, but a CURIE goes through the same `curie_to_url` every
+           other identifier chip on the page uses -- ORPHA:558 and OMIM:154700
+           should not be dead grey text. Neither prefix is in the schema prefix
+           map, so both take that helper's bioregistry fallback, which is also
+           how they already render as evidence references further down. #}
+        {{ render_curie_link(assertion_id) }}
+        {% else %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion_id }}</span>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% if assertion.description %}
+    <div class="item-desc">{{ assertion.description }}</div>
+    {% endif %}
+    {# `notes` often records how the external record's scope differs from this
+       entry's -- a lump/split caveat that contradicts the description if the
+       reader only sees the description. #}
+    {% if assertion.notes %}
+    <div class="mapping-notes">{{ assertion.notes }}</div>
+    {% endif %}
+    {{ render_evidence(assertion.evidence) }}
+    {% endmacro %}
+
+    {% macro render_external_assertions_block(assertions) %}
+    {% if assertions %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">External assertions</div>
+        {% for assertion in assertions %}
+        <div class="variant-effect">
+            {{ render_external_assertion_body(assertion) }}
+        </div>
+        {% endfor %}
+    </div>
     {% endif %}
     {% endmacro %}
 
@@ -4158,38 +4280,7 @@
         {% endfor %}
     </div>
     {% endif %}
-    {% if variant.external_assertions %}
-    <div class="crosslink-block">
-        <div class="crosslink-title">External assertions</div>
-        {% for assertion in variant.external_assertions %}
-        <div class="variant-effect">
-            {% if assertion.name %}
-            <div class="item-name">{{ assertion.name }}</div>
-            {% endif %}
-            <div class="item-meta">
-                {% if assertion.source %}
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
-                {% endif %}
-                {% if assertion.assertion_type %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
-                {% endif %}
-                {% if assertion.external_id %}
-                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
-                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
-                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
-                {% else %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
-                {% endif %}
-                {% endif %}
-            </div>
-            {% if assertion.description %}
-            <div class="item-desc">{{ assertion.description }}</div>
-            {% endif %}
-            {{ render_evidence(assertion.evidence) }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    {{ render_external_assertions_block(variant.external_assertions) }}
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
@@ -4233,7 +4324,7 @@
             <span>{{ disorder.name }}</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>{{ disorder.name }}</h1>
             <div class="header-meta">
                 {% if disorder.category %}
@@ -4576,64 +4667,48 @@
 
         <!-- Classifications -->
         {% if disorder.classifications %}
+        {# Slots whose values are mechanism/pathway statements rather than nosology #}
+        {# placements; styled differently, as they were before this became a loop.  #}
+        {% set mechanistic_slots = ['mechanistic_category', 'lysosomal_storage_category', 'channelopathy_category'] %}
+        {% set groups_with_content = [] %}
+        {% for group in classification_spec %}
+        {% set present = [] %}
+        {% for member in group.members %}
+        {% if disorder.classifications.get(member.slot) %}{% set _ = present.append(member) %}{% endif %}
+        {% endfor %}
+        {% if present %}{% set _ = groups_with_content.append({'label': group.label, 'members': present, 'multi': group.members | length > 1}) %}{% endif %}
+        {% endfor %}
+        {% if groups_with_content %}
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            {% if disorder.classifications.harrisons_chapter %}
+            {# Driven by classification_spec, derived from DiseaseClassifications in the   #}
+            {# schema, so a newly added classification slot renders with no template edit. #}
+            {# Labels are the slots' LinkML `title`; nesting follows their `slot_group`.   #}
+            {% for group in groups_with_content %}
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">{{ group.label }}</div>
+                {% for member in group.members %}
+                {% set entry = disorder.classifications[member.slot] %}
+                {% set items = entry if entry is sequence and entry is not mapping else [entry] %}
                 <div class="tag-list">
-                    {% for hc in disorder.classifications.harrisons_chapter %}
-                    <span class="tag tag-classification">{{ hc.classification_value }}</span>
+                    {# A grouped slot needs its own sub-label; a lone slot would just #}
+                    {# repeat the group heading it is the sole member of.             #}
+                    {% if group.multi %}
+                    <span style="font-size: 0.78rem; color: #6b7280;">{{ member.label }}</span>
+                    {% endif %}
+                    {% for item in items %}
+                    {% set value = item.classification_value %}
+                    <span class="tag {{ 'tag-mechanistic' if member.slot in mechanistic_slots else 'tag-classification' }}"{% if item.notes %} title="{{ item.notes }}"{% endif %}>{{ value | replace('_', ' ') }}{% if value is string and value.startswith('suspected_') %} (Annex II — suspected){% endif %}</span>
                     {% endfor %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
-            {% if disorder.classifications.mechanistic_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Mechanistic Nosology</div>
-                <div class="tag-list">
-                    {% for mc in disorder.classifications.mechanistic_category %}
-                    <span class="tag tag-mechanistic">{{ mc.classification_value }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.icdo_morphology %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">ICD-O Morphology</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.icdo_morphology.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.lysosomal_storage_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Lysosomal Storage</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.lysosomal_storage_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.iuis_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">IUIS Category</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.iuis_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.channelopathy_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Channelopathy</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.channelopathy_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
 
         <!-- Mappings -->
@@ -4873,7 +4948,7 @@
                 <span class="card-count">{{ disorder.definitions | length }}</span>
             </div>
             {% for definition in disorder.definitions %}
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target"{% if definition._anchor_id %} id="{{ definition._anchor_id }}"{% endif %}>
                 <div class="item-name">{{ definition.name }}</div>
                 {% if definition.description %}
                 <div class="item-desc">{{ definition.description }}</div>
@@ -4937,7 +5012,7 @@
                 <span class="card-count">{{ disorder.inheritance | length }}</span>
             </div>
             {% for inheritance_item in disorder.inheritance %}
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target"{% if inheritance_item._anchor_id %} id="{{ inheritance_item._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ inheritance_item.name }}
                     {% if inheritance_item.inheritance_term and inheritance_item.inheritance_term.term %}
@@ -4983,7 +5058,7 @@
                 {% set subtype_term_id = subtype.subtype_term.term.id if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id else None %}
                 {% set subtype_mondo_mappings = subtype.mappings.mondo_mappings if subtype.mappings and subtype.mappings.mondo_mappings else [] %}
                 {% set subtype_ncit_mappings = subtype.mappings.ncit_mappings if subtype.mappings and subtype.mappings.ncit_mappings else [] %}
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target"{% if subtype._anchor_id %} id="{{ subtype._anchor_id }}"{% endif %}>
                     {% set subtype_display = subtype.display_name or subtype.name %}
                     <div class="item-name">
                         {{ subtype_display }}
@@ -5518,7 +5593,7 @@
                 <span class="card-count">{{ disorder.histopathology | length }}</span>
             </div>
             {% for histo in disorder.histopathology %}
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target"{% if histo._anchor_id %} id="{{ histo._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ histo.name }}
                     {% if histo.frequency %}
@@ -5782,6 +5857,22 @@
             </div>
             {% for variant in disorder.variants %}
             {{ render_variant_card(variant) }}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+        {% if disorder.external_assertions %}
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">{{ disorder.external_assertions | length }}</span>
+            </div>
+            {% for assertion in disorder.external_assertions %}
+            <div class="item-box anchor-target"{% if assertion._anchor_id %} id="{{ assertion._anchor_id }}"{% endif %}>
+                {{ render_external_assertion_body(assertion) }}
+            </div>
             {% endfor %}
         </div>
         {% endif %}
@@ -6055,6 +6146,32 @@
                     {% endif %}
                 </div>
                 {% endif %}
+                {# Exposure/agent-level classifications: hazard type, route, duration, IARC group, #}
+                {# GHS class, exposome domain. These classify the AGENT, not the disease, which is #}
+                {# why they render on the exposure card rather than in the Classifications card. #}
+                {% if env.exposure_classifications %}
+                {% set exposure_axes = [
+                    ("Hazard type", env.exposure_classifications.hazard_agent_type),
+                    ("Route", env.exposure_classifications.exposure_route),
+                    ("Duration", env.exposure_classifications.exposure_duration),
+                    ("IARC group", env.exposure_classifications.iarc_carcinogen_group),
+                    ("GHS hazard class", env.exposure_classifications.ghs_health_hazard_class),
+                    ("Exposome domain", env.exposure_classifications.exposome_domain)
+                ] %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    {% for axis_label, axis_value in exposure_axes %}
+                    {% if axis_value %}
+                    {% set axis_items = axis_value if axis_value is sequence and axis_value is not mapping else [axis_value] %}
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">{{ axis_label }}:</strong>
+                        {% for assignment in axis_items %}
+                        <span class="tag tag-classification"{% if assignment.notes %} title="{{ assignment.notes }}"{% endif %}>{{ assignment.classification_value | replace('_', ' ') }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% if env.notes %}
                 <div class="item-desc">{{ env.notes }}</div>
                 {% endif %}
@@ -6258,7 +6375,7 @@
             {% for diff in disorder.differential_diagnoses %}
             {% set diff_term_id = diff.disease_term.term.id if diff.disease_term and diff.disease_term.term and diff.disease_term.term.id else None %}
             {% set diff_has_local_page = (diff_term_id | has_local_disorder_page) if diff_term_id else False %}
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target"{% if diff._anchor_id %} id="{{ diff._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {% if diff.dismech_page_href %}
                     <a class="item-name-link" href="{{ diff.dismech_page_href }}">{{ diff.name }}</a>
@@ -6311,7 +6428,7 @@
                 <span class="card-count">{{ disorder.datasets | length }}</span>
             </div>
             {% for ds in disorder.datasets %}
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target"{% if ds._anchor_id %} id="{{ ds._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ ds.title }}
                     {% if ds.accession %}
@@ -6404,7 +6521,7 @@
                 <span class="card-count">{{ disorder.clinical_trials | length }}</span>
             </div>
             {% for trial in disorder.clinical_trials %}
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target"{% if trial._anchor_id %} id="{{ trial._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ trial.name }}
                     {% if trial.phase %}

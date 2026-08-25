@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stiff Skin Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Stiff Skin Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Stiff Skin Syndrome</h1>
+                
+                <p class="report-subtitle">Stiff Skin Syndrome — Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-16</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008492" target="_blank" rel="noopener noreferrer">MONDO:0008492</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Stiff Skin Syndrome — Disease Characteristics Research Report</h1>
+<p><strong>Prepared:</strong> 2026-08-16 · <strong>Target:</strong> <code>Stiff_Skin_Syndrome</code> · <strong>Category:</strong> Mendelian</p>
+<hr />
+<h2>0. The one-paragraph version</h2>
+<p>Stiff skin syndrome (SSS) is what happens when the scaffolding protein your skin's connective tissue hangs on loses its handshake with the cells living in it. Fibrillin-1 normally forms long polymer cables (microfibrils) that do two jobs at once: they're the rebar that elastic fibers get built around, <em>and</em> they're a leash that holds the growth factor TGF-β in a latent, inactive state. One tiny stretch of fibrillin-1 — a three-amino-acid RGD motif sitting in its fourth TB domain — is the grip cells use to hold onto that rebar via surface receptors called integrins. Break that grip with a missense change and you get: cells that can't feel their own matrix, matrix that piles up in disorganized excess, elastic fibers that never assemble properly, and a TGF-β leash that goes slack. The result is skin that literally goes rock-hard from birth or early childhood, welding itself to the tissue underneath and freezing the big joints in flexion — <strong>without</strong> the inflammation, autoantibodies, Raynaud phenomenon, or visceral involvement of ordinary scleroderma. It's fibrosis with the immune system taken out of the equation, which is exactly why it became such a valuable window into systemic sclerosis.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>SSS is a rare, non-inflammatory, slowly progressive fibrosing disorder of skin and subcutis. The Orphanet definition (<a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a>, record dated 2026-07-02, retrieved via the Orphanet API) reads verbatim:</p>
+<blockquote>
+<p>"Stiff skin syndrome is a rare, slowly progressive cutaneous disease characterized by rock-hard skin bound firmly to the underlying tissues (mainly on the shoulders, lower back, buttocks and thighs), mild hypertrichosis and hyperpigmentation overlying the affected areas of skin, as well as limited joint mobility (mainly of large joints) with flexion contractures. Cutaneous nodules, affecting mostly distal interphalangeal joints, as well as extracutaneous manifestations, including diffuse entrapment neuropathy, scoliosis, a tiptoe gait and a narrow thorax, may be associated. Restrictive pulmonary changes, muscle weakness, short stature and growth delay have also been reported. <strong>No vascular hyperreactivity, immunologic abnormalities nor visceral, muscular or bone involvement has been described.</strong>"</p>
+</blockquote>
+<p>That last sentence is the diagnostic hinge — it's the negative space that separates SSS from systemic sclerosis.</p>
+<p>The MONDO/GARD description (<a href="http://purl.obolibrary.org/obo/MONDO_0008492" target="_blank" rel="noopener noreferrer">MONDO:0008492</a>, via OLS4 and the HPO API) adds lipodystrophy, scoliosis, muscle weakness, slow growth, short stature, and eye-muscle weakness/paralysis to the picture.</p>
+<p>First described by Esterly &amp; McKusick in 1971 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/5100776/" target="_blank" rel="noopener noreferrer">PMID:5100776</a></strong>, <em>Pediatrics</em> 47(2):360-9, "Stiff skin syndrome"; companion piece <strong><a href="https://pubmed.ncbi.nlm.nih.gov/5173296/" target="_blank" rel="noopener noreferrer">PMID:5173296</a></strong>, <em>Birth Defects Orig Artic Ser</em>). The molecular cause sat unknown for 39 years until Loeys et al. 2010.</p>
+<h3>1.2 Key identifiers (all verified live)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><code>MONDO:0008492</code> (label: <em>stiff skin syndrome</em>) — <strong>use this as <code>disease_term</code></strong></td>
+</tr>
+<tr>
+<td><strong>OMIM</strong></td>
+<td><code>OMIM:184900</code> (phenotype)</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td><code>ORPHA:2833</code> (typology: Disease; classification level: Disorder; preferential parent <a href="https://bioregistry.io/ORPHA:89826" target="_blank" rel="noopener noreferrer">ORPHA:89826</a> <em>Rare skin disease</em>)</td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td><code>MESH:C566112</code></td>
+</tr>
+<tr>
+<td><strong>NCIT</strong></td>
+<td><code>NCIT:C118636</code></td>
+</tr>
+<tr>
+<td><strong>UMLS</strong></td>
+<td><code>UMLS:C1861456</code></td>
+</tr>
+<tr>
+<td><strong>MedGen</strong></td>
+<td><code>MedGen:348877</code></td>
+</tr>
+<tr>
+<td><strong>SNOMED CT</strong></td>
+<td><code>765187004</code></td>
+</tr>
+<tr>
+<td><strong>DOID</strong></td>
+<td><code>DOID:0111561</code></td>
+</tr>
+<tr>
+<td><strong>GARD</strong></td>
+<td><code>GARD:0005025</code></td>
+</tr>
+<tr>
+<td><strong>ICD-11 (foundation)</strong></td>
+<td><code>642409035</code></td>
+</tr>
+<tr>
+<td><strong>Causal gene</strong></td>
+<td>FBN1 — <code>hgnc:3603</code>, <code>NCBIGene:2200</code>, <code>OMIM:134797</code>, UniProt P35555, locus 15q21.1</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Two animal-side MONDO terms also exist and are worth knowing about so you don't cross-wire them: <code>MONDO:1010789</code> <em>stiff skin syndrome, dog</em> and <code>MONDO:1010147</code> <em>stiff skin syndrome, non-human animal</em>.</p>
+<h3>1.3 Synonyms</h3>
+<ul>
+<li><strong>SSKS</strong> (the MONDO exact synonym, and the label ClinVar uses)</li>
+<li><strong>Congenital scleroderma</strong> — the framing Loeys et al. used in their title</li>
+<li><strong>Congenital fascial dystrophy</strong> — used interchangeably in the clinical literature (see <strong><a href="https://pubmed.ncbi.nlm.nih.gov/24630430/" target="_blank" rel="noopener noreferrer">PMID:24630430</a></strong>, <em>Actas Dermosifiliogr</em> 2014, titled "Congenital fascial dystrophy or stiff skin syndrome: a case report")</li>
+<li><strong>Stiff-skin syndrome</strong> (hyphenated variant, e.g. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a></strong>)</li>
+</ul>
+<p>Recognized clinical variants (see §1.4): <strong>widespread/classic SSS</strong>, <strong>generalized segmental SSS</strong>, <strong>localized (segmental) SSS</strong>.</p>
+<h3>1.4 Classification — two competing schemes, both from real cohorts</h3>
+<p>This matters for the KB because it determines whether you model subtypes.</p>
+<p><strong>Two-way split (Myers et al. 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>, 52 cases):</strong> segmental vs widespread. Verbatim: <em>"Of 52 total cases, 18 (35%) were segmentally distributed and 34 (65%) were widespread."</em> Conclusion verbatim: <em>"We propose a distinct clinical entity, segmental SSS, characterized by a segmental distribution, later age of onset, and less severe functional limitation. Both segmental SSS and widespread SSS share common diagnostic histopathologic features."</em></p>
+<p><strong>Three-way split (Zhao et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>, 83 cases):</strong> classic widespread / generalized segmental / localized. Verbatim: <em>"Among the 83 patients, 27.7, 41, and 31.3% had classic widespread, generalized segmental, and localized SSS, respectively. Joint immobility was present in 100, 71, and 20% of classic, generalized, and localized cases, respectively."</em></p>
+<p>The three-way scheme is the more recent one and carries prognostic weight (see §8.2). My recommendation for the KB: model these as <code>has_subtypes</code> with short names <code>Classic</code>, <code>Generalized segmental</code>, <code>Localized</code>, and note the older two-way scheme in the description.</p>
+<h3>1.5 Information provenance</h3>
+<p>Everything here is <strong>aggregate disease-level literature</strong> — case reports, retrospective case series, and one molecular-genetics landmark. There is <strong>no EHR-derived or registry-derived dataset</strong> for SSS that I could find, no natural-history study, and no clinical trial (see §12.5). The largest evidence pools are:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>n</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zhang 2025 (16 own + 138 literature, pediatric)</td>
+<td>154</td>
+<td>40551142</td>
+</tr>
+<tr>
+<td>Issa Jules 2026 systematic review (27 articles)</td>
+<td>204</td>
+<td>42165429</td>
+</tr>
+<tr>
+<td>Zhao 2024 (24 own + 59 literature)</td>
+<td>83</td>
+<td>38844593</td>
+</tr>
+<tr>
+<td>Myers 2016 (4 own + 48 literature)</td>
+<td>52</td>
+<td>26944597</td>
+</tr>
+<tr>
+<td>Wen 2023 single-department series</td>
+<td>31</td>
+<td>37594328</td>
+</tr>
+<tr>
+<td>Sanchez-Espino 2024 (Toronto, imaging-focused)</td>
+<td>11</td>
+<td>37864376</td>
+</tr>
+<tr>
+<td>Loeys 2010 (molecularly confirmed, HPO source)</td>
+<td>8</td>
+<td>20375004</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note the heavy overlap — these series re-review each other's published cases, so total <em>distinct</em> reported patients worldwide is on the order of 200–300, not the sum of the column.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary cause — genetic, and beautifully specific</h3>
+<p>Widespread/classic SSS is caused by heterozygous missense mutations in <strong>FBN1</strong>, and not just anywhere in FBN1 — they cluster in the <strong>single domain that carries an RGD integrin-binding motif</strong>, the fourth TGF-β-binding-protein-like domain (TB4).</p>
+<p><strong>Landmark: Loeys BL et al., <em>Sci Transl Med</em> 2010;2(23):23ra20 — <a href="https://pubmed.ncbi.nlm.nih.gov/20375004/" target="_blank" rel="noopener noreferrer">PMID:20375004</a>.</strong> Verbatim from the abstract:</p>
+<blockquote>
+<p>"We report that stiff skin syndrome (SSS), an autosomal dominant congenital form of scleroderma, is caused by mutations in the sole Arg-Gly-Asp sequence-encoding domain of fibrillin-1 that mediates integrin binding."</p>
+<p>"Ordered polymers of fibrillin-1 (termed microfibrils) initiate elastic fiber assembly and bind to and regulate the activation of the profibrotic cytokine transforming growth factor-beta (TGFbeta). Altered cell-matrix interactions in SSS accompany excessive microfibrillar deposition, impaired elastogenesis, and increased TGFbeta concentration and signaling in the dermis."</p>
+</blockquote>
+<p><strong>Confirmation and penetrance (Gerber EE et al., <em>Nature</em> 2013;503:126-30 — <a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a>).</strong> Verbatim:</p>
+<blockquote>
+<p>"we studied stiff skin syndrome (SSS), a rare but tractable Mendelian disorder leading to childhood onset of diffuse skin fibrosis with autosomal dominant inheritance and complete penetrance."</p>
+<p>"SSS mutations all localize to the only domain in fibrillin-1 that harbours an Arg-Gly-Asp (RGD) motif needed to mediate cell-matrix interactions by binding to cell-surface integrins."</p>
+</blockquote>
+<p><strong>Domain assignment restated independently (Del Cid JS et al., <em>J Biol Chem</em> 2019 — <a href="https://pubmed.ncbi.nlm.nih.gov/31640988/" target="_blank" rel="noopener noreferrer">PMID:31640988</a>).</strong> Verbatim: <em>"Fibrillin-1 is a modular glycoprotein that includes 7 latent transforming growth factor β (TGFβ)-binding protein-like (TB) domains and mediates cell adhesion through integrin binding to the RGD motif in its 4th TB domain. A subset of missense mutations within TB4 cause stiff skin syndrome (SSS), a rare autosomal dominant form of scleroderma."</em></p>
+<h3>2.2 The segmental problem — a genuine open question</h3>
+<p>Here's the interesting wrinkle, and it's the single biggest knowledge gap in this disease. <strong>Segmental SSS is, in most reported cases, FBN1-negative.</strong> Its molecular basis is unknown.</p>
+<p><strong><a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a></strong> (Fusco C et al., <em>Int J Mol Sci</em> 2020) states it verbatim: <em>"SSS is distinct in a widespread form, caused by recurrent germline variants of FBN1 encoding a key molecule of the TGF-β signaling, and a segmental form with unknown molecular basis."</em></p>
+<p>Because segmental SSS is unilateral/blaschkoid in distribution, the natural hypothesis is <strong>post-zygotic somatic mosaicism</strong> — a mutation arising in a patch of embryonic ectoderm/mesoderm rather than in the germline. I want to be explicit: <strong>I found no publication that demonstrates mosaicism in segmental SSS.</strong> It is a reasonable inference from the distribution, not an established fact, and it should be curated as a <code>KNOWLEDGE_GAP</code> discussion rather than as mechanism.</p>
+<p>One single-case genetic finding exists: <strong><a href="https://pubmed.ncbi.nlm.nih.gov/32212274/" target="_blank" rel="noopener noreferrer">PMID:32212274</a></strong> (Rangu S et al., <em>Clin Exp Dermatol</em> 2020) titled <em>"Segmental stiff skin syndrome: a novel case with an interleukin-17C mutation successfully treated with secukinumab."</em> ⚠ This record is <strong>abstract-free in PubMed</strong> (title/metadata only), so no quotable snippet exists from the abstract. Treat the IL17C association as a single unreplicated observation, not an established second locus. It is nonetheless the stated rationale for anti-IL-17 therapy in segmental disease.</p>
+<h3>2.3 Risk factors</h3>
+<p><strong>Genetic:</strong>
+- Causal: heterozygous FBN1 TB4 missense (see §4). Autosomal dominant, <strong>complete penetrance</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a>).
+- Susceptibility loci: none known. No GWAS exists for SSS (n far too small).
+- Modifier genes: none identified. Variable expressivity is documented but unexplained (see §9.3).</p>
+<p><strong>Environmental / demographic:</strong>
+- <strong>None established.</strong> No toxin, drug, infection, occupational exposure, diet, or lifestyle factor has been implicated. This is a clean Mendelian disorder.
+- Age: onset is congenital-to-early-childhood and essentially deterministic given genotype, not a "risk factor" in the epidemiological sense.
+- Sex: no established predominance (see §9.4).
+- Family history: relevant for inherited cases; multigenerational families are documented (<a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a> — a two-generation non-consanguineous Northern Irish family with three affected members; <a href="https://pubmed.ncbi.nlm.nih.gov/37115944/" target="_blank" rel="noopener noreferrer">PMID:37115944</a> — father and son).</p>
+<h3>2.4 Protective factors</h3>
+<p>None known, genetic or environmental. There is one <em>adjacent</em> protective-variant finding worth logging as a cross-reference: in <strong>Leri's pleonosteosis</strong> (a differential diagnosis, §10.4), Banka et al. found that in a systemic sclerosis cohort <em>"the minor allele of a missense SDC2 variant, p.Ser71Thr, could confer protection against disease (p&lt;1×10(-5))"</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/24442880/" target="_blank" rel="noopener noreferrer">PMID:24442880</a></strong>). That's a systemic-sclerosis protective allele, <strong>not</strong> an SSS one — don't cross-wire it.</p>
+<h3>2.5 Gene–environment interactions</h3>
+<p>None described. The mouse work argues the phenotype is cell-autonomous to the matrix defect and does not require an environmental second hit: <a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a> concludes verbatim <em>"These results show that alterations in cell-matrix interactions are sufficient to initiate and sustain inflammatory and pro-fibrotic programmes."</em> The word doing the work there is <strong>sufficient</strong>.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 The curated HPO annotation set (source: HPO API, disease <a href="https://bioregistry.io/OMIM:184900" target="_blank" rel="noopener noreferrer">OMIM:184900</a>)</h3>
+<p>All frequencies below trace to <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20375004/" target="_blank" rel="noopener noreferrer">PMID:20375004</a></strong> (the 8 molecularly-confirmed Loeys patients) and are the official HPOA annotations. These are directly usable as <code>phenotypes</code> entries with <code>frequency</code> backed by an n/N count.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Label</th>
+<th>Frequency (n/N)</th>
+<th>Category</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HP:0030053</code></td>
+<td><strong>Stiff skin</strong></td>
+<td>8/8</td>
+<td>Skin</td>
+</tr>
+<tr>
+<td><code>HP:0002987</code></td>
+<td><strong>Elbow flexion contracture</strong></td>
+<td>8/8</td>
+<td>Connective tissue</td>
+</tr>
+<tr>
+<td><code>HP:0012385</code></td>
+<td><strong>Camptodactyly</strong></td>
+<td>8/8</td>
+<td>Connective tissue</td>
+</tr>
+<tr>
+<td><code>HP:0003577</code></td>
+<td><strong>Congenital onset</strong></td>
+<td>8/8</td>
+<td>Clinical course</td>
+</tr>
+<tr>
+<td><code>HP:0006380</code></td>
+<td>Knee flexion contracture</td>
+<td>7/8</td>
+<td>Connective tissue</td>
+</tr>
+<tr>
+<td><code>HP:0006467</code></td>
+<td>Limited shoulder movement</td>
+<td>7/8</td>
+<td>Other</td>
+</tr>
+<tr>
+<td><code>HP:0000545</code></td>
+<td>Myopia</td>
+<td>6/8</td>
+<td>Eye</td>
+</tr>
+<tr>
+<td><code>HP:0002020</code></td>
+<td>Gastroesophageal reflux</td>
+<td>4/8</td>
+<td>Digestive</td>
+</tr>
+<tr>
+<td><code>HP:0000518</code></td>
+<td>Cataract</td>
+<td>2/8 (onset <code>HP:0003596</code>)</td>
+<td>Eye</td>
+</tr>
+<tr>
+<td><code>HP:0009830</code></td>
+<td>Peripheral neuropathy</td>
+<td>2/8</td>
+<td>Nervous system</td>
+</tr>
+<tr>
+<td><code>HP:0001647</code></td>
+<td>Bicuspid aortic valve</td>
+<td>1/8</td>
+<td>Cardiovascular</td>
+</tr>
+<tr>
+<td><code>HP:0009125</code></td>
+<td>Lipodystrophy</td>
+<td>Occasional</td>
+<td>Connective tissue</td>
+</tr>
+<tr>
+<td><code>HP:0004322</code></td>
+<td>Short stature</td>
+<td>Occasional</td>
+<td>Growth</td>
+</tr>
+<tr>
+<td><code>HP:0001324</code></td>
+<td>Muscle weakness</td>
+<td>Occasional</td>
+<td>Musculature</td>
+</tr>
+<tr>
+<td><code>HP:0000006</code></td>
+<td>Autosomal dominant inheritance</td>
+<td>—</td>
+<td>Inheritance</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Mapping to dismech <code>FrequencyEnum</code>: 8/8 → <code>VERY_FREQUENT</code> (or <code>OBLIGATE</code> for stiff skin, arguably); 7/8 (87.5%) → <code>VERY_FREQUENT</code>; 6/8 (75%) → <code>FREQUENT</code>; 4/8 (50%) → <code>FREQUENT</code>; 2/8 (25%) → <code>OCCASIONAL</code>; 1/8 (12.5%) → <code>OCCASIONAL</code>. <strong>Careful</strong> — n=8 is a tiny denominator and these are the <em>molecularly confirmed classic</em> cases, which skew severe. Per the dismech frequency SOP, cite the count in the evidence explanation and don't let an 8-patient series masquerade as a population frequency.</p>
+<h3>3.2 Cohort-derived frequencies (much larger denominators, different populations)</h3>
+<p>These come from clinically-diagnosed cohorts that mix segmental and widespread cases, so they run <em>lower</em> than the Loeys numbers. Both sets are true; they describe different populations.</p>
+<p><strong>Zhang et al. 2025 (n=154 pediatric; <a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>)</strong> — verbatim:</p>
+<blockquote>
+<p>"Thigh skin sclerosis (81, 52.6%) was the most common manifestation observed in these patients. Joint restriction was present in 55(35.7%) patients."</p>
+</blockquote>
+<p><strong>Issa Jules et al. 2026 systematic review (n=204; <a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a>)</strong> — verbatim:</p>
+<blockquote>
+<p>"The segmental form was predominant compared with the widespread form (73.5% versus 26.5%). Major sign was the indurated skin in all patients (100%). Hypertrichosis, hyperpigmentation, subcutaneous signs, and limited temporomandibular joint mobility were considered minor signs, found at respective rates of 10%, 5%, 5%, and 1%."</p>
+</blockquote>
+<p><strong>Myers et al. 2016 (n=52; <a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>)</strong> — verbatim:</p>
+<blockquote>
+<p>"Limitation in joint mobility affected 44% of patients with segmental SSS and 97% of patients with widespread SSS."</p>
+</blockquote>
+<p><strong>Zhao et al. 2024 (n=83; <a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>)</strong> — joint immobility 100% / 71% / 20% across classic / generalized segmental / localized.</p>
+<h3>3.3 Additional phenotypes with suggested HPO terms (verified labels)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Suggested HP term</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thickened skin</td>
+<td><code>HP:0001072</code> Thickened skin</td>
+<td>Orphanet, all series</td>
+</tr>
+<tr>
+<td>Hypertrichosis over lesions</td>
+<td><code>HP:0000998</code> Hypertrichosis</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a> (10%); <a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a></td>
+</tr>
+<tr>
+<td>Hyperpigmentation over lesions</td>
+<td><code>HP:0000953</code> Hyperpigmentation of the skin</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a></td>
+</tr>
+<tr>
+<td>Limitation of joint mobility</td>
+<td><code>HP:0001376</code> Limitation of joint mobility</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a></td>
+</tr>
+<tr>
+<td>Joint contracture (generic)</td>
+<td><code>HP:0034392</code> Joint contracture</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a></td>
+</tr>
+<tr>
+<td>Hip contracture</td>
+<td><code>HP:0003273</code> Hip contracture</td>
+<td>clinical series</td>
+</tr>
+<tr>
+<td>Scoliosis</td>
+<td><code>HP:0002650</code> Scoliosis</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a></td>
+</tr>
+<tr>
+<td>Tip-toe gait</td>
+<td><code>HP:0030051</code> Tip-toe gait</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a></td>
+</tr>
+<tr>
+<td>Narrow chest</td>
+<td><code>HP:0000774</code> Narrow chest</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a></td>
+</tr>
+<tr>
+<td>Restrictive ventilatory defect</td>
+<td><code>HP:0002091</code> Restrictive ventilatory defect</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a> ("restrictive pulmonary changes")</td>
+</tr>
+<tr>
+<td>Entrapment neuropathy</td>
+<td><code>HP:0012181</code> Entrapment neuropathy</td>
+<td><a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a> ("diffuse entrapment neuropathy")</td>
+</tr>
+<tr>
+<td>Reduced subcutaneous adipose tissue</td>
+<td><code>HP:0003758</code> Reduced subcutaneous adipose tissue</td>
+<td>MONDO/GARD def; mouse model <a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a></td>
+</tr>
+<tr>
+<td>Ophthalmoplegia</td>
+<td><code>HP:0000602</code> Ophthalmoplegia</td>
+<td><strong><a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a></strong> — see below</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Ocular phenotype is a genuinely underappreciated feature.</strong> Chamney et al. (<em>Eye</em> 2016, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a></strong>) verbatim:</p>
+<blockquote>
+<p>"All three patients had ophthalmoplegia of varying degrees. Direct sequencing of the FBN1 gene detected a heterozygous pathogenic mutation (c.4710G&gt;C; p.Trp1570Cys) in all affected patients."
+"This is the first report of ophthalmoplegia in association with SSS."</p>
+</blockquote>
+<p>That's a molecularly-anchored genotype–phenotype observation in a three-member family — good <code>HUMAN_CLINICAL</code> evidence, though n=3 and a single family, so the appropriate frequency band is at most <code>OCCASIONAL</code> with the caveat stated.</p>
+<h3>3.4 Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> congenital in classic SSS (<code>HP:0003577</code> at 8/8 in the molecular cohort); early childhood otherwise. Median onset across 154 pediatric patients was <strong>2.0 years (IQR 0.5–4.8)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>). Segmental onset is later: <strong>4.1 years vs 1.6 years</strong> for widespread (<a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>).</li>
+<li><strong>Severity:</strong> variable, and severity tracks distribution — classic &gt; generalized segmental &gt; localized (<a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>).</li>
+<li><strong>Progression:</strong> slowly progressive, non-remitting. See §8.</li>
+<li><strong>Quality-of-life impact:</strong> ⚠ <strong>No formal QoL instrument (EQ-5D, SF-36, PROMIS, CDLQI) has been applied to SSS in any publication I could find.</strong> What is documented is functional: joint contractures limiting mobility, restrictive chest wall mechanics, diagnostic delay, and pain. <a href="https://pubmed.ncbi.nlm.nih.gov/36825671/" target="_blank" rel="noopener noreferrer">PMID:36825671</a> verbatim: <em>"Segmental stiff skin syndrome is a rare fibrosing scleroderma-like disorder characterized by progressive indurations of the skin leading to joint contractures, decreased mobility, and pain."</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a> notes verbatim: <em>"Patients with joint contractures had longer diagnostic delays compared with those without joint contractures."</em> That last one is a nice, curatable statement about the cost of delayed diagnosis.</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene</h3>
+<p><strong>FBN1</strong>, fibrillin-1. <code>hgnc:3603</code> · <code>NCBIGene:2200</code> · <code>OMIM:134797</code> · UniProt P35555 · 15q21.1 · 65 exons, 56 domains.</p>
+<p>The pleiotropy here is remarkable and worth stating explicitly, because it's the thing that makes SSS mechanistically interesting. From Sakai &amp; Keene, <em>Matrix Biol</em> 2019 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/30219651/" target="_blank" rel="noopener noreferrer">PMID:30219651</a></strong>), verbatim:</p>
+<blockquote>
+<p>"Most of the more than 3000 mutations known today in FBN1 cause the Marfan syndrome. Marfan mutations can occur in any of the 56 domains that compose fibrillin-1. In contrast, rare mutations in FBN1 that are confined to only certain domains cause several different types of acromelic dysplasia."</p>
+<p>"Many of the phenotypes of acromelic dysplasias are the opposite of those found in Marfan syndrome. Knowledge of the functions and structural organization of fibrillin molecules within microfibrils is required to understand how one protein and one gene can be the basis for multiple genetic disorders."</p>
+</blockquote>
+<p>So: <strong>TB4 → stiff skin syndrome. TB5 → acromelic dysplasias (acromicric, geleophysic, Weill-Marchesani). Everywhere else → Marfan.</strong> One gene, three phenotypic universes, sorted by domain.</p>
+<h3>4.2 Pathogenic variants — verified against ClinVar and OMIM allelic-variant IDs</h3>
+<p>These four are the canonical SSS alleles. I pulled the ClinVar VCV XML directly and confirmed each carries an OMIM allelic-variant xref in the <code>134797.005x</code> block <strong>and</strong> a trait xref to <code>OMIM:184900</code> / trait names "STIFF SKIN SYNDROME" and "SSKS".</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>cDNA (NM_000138.5)</th>
+<th>Protein</th>
+<th>ClinVar</th>
+<th>OMIM allelic variant</th>
+<th>Classification</th>
+<th>GRCh38</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.4710G&gt;T</td>
+<td>p.Trp1570Cys</td>
+<td><code>VCV000016469</code></td>
+<td>FBN1 <strong>.0050</strong></td>
+<td>Pathogenic</td>
+<td>chr15:48467975</td>
+</tr>
+<tr>
+<td>c.4710G&gt;C</td>
+<td>p.Trp1570Cys</td>
+<td><code>VCV000016470</code></td>
+<td>FBN1 <strong>.0051</strong></td>
+<td>Pathogenic</td>
+<td>chr15:48467975</td>
+</tr>
+<tr>
+<td>c.4691G&gt;C</td>
+<td>p.Cys1564Ser</td>
+<td><code>VCV000016471</code></td>
+<td>FBN1 <strong>.0052</strong></td>
+<td>Pathogenic</td>
+<td>chr15:48467994</td>
+</tr>
+<tr>
+<td>c.4729T&gt;G</td>
+<td>p.Cys1577Gly</td>
+<td><code>VCV000016472</code></td>
+<td>FBN1 <strong>.0053</strong></td>
+<td>Pathogenic (criteria provided, single submitter)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note the elegance of the first two rows: <strong>two different nucleotide changes at the same codon producing the same p.Trp1570Cys substitution</strong>, in independent families. That's convergent evidence that the <em>residue</em>, not the nucleotide, is what matters — a nice recurrent-hotspot argument.</p>
+<ul>
+<li><strong>Variant type/class:</strong> all <strong>missense</strong>. No truncating, frameshift, splice-site, or structural variants have been reported as causing SSS — and mechanistically they <em>shouldn't</em>, because the disease requires a mutant protein that still gets built into microfibrils (§4.4).</li>
+<li><strong>Somatic vs germline:</strong> germline for classic SSS. Segmental SSS is hypothesized (<strong>not demonstrated</strong>) to be post-zygotic somatic.</li>
+<li><strong>Allele frequency:</strong> I queried gnomAD v4 by the GRCh38 coordinates above and both returned <em>"Variant not found"</em> — i.e. <strong>absent from gnomAD</strong>, consistent with private/family-specific pathogenic alleles.</li>
+<li><strong>De novo vs inherited:</strong> both occur. Multigenerational transmission is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37115944/" target="_blank" rel="noopener noreferrer">PMID:37115944</a>).</li>
+</ul>
+<p><strong>Notable non-SSS TB4 variant, useful for a differential-diagnosis note:</strong> Wilson et al. (<em>Am J Med Genet A</em> 2013, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/23794388/" target="_blank" rel="noopener noreferrer">PMID:23794388</a></strong>) report <em>"a variant in an evolutionarily conserved residue that stabilizes the integrin binding fragment of FBN1, associated with juvenile idiopathic arthritis, mitral valve prolapse or apparently normal phenotype in different family members."</em> So not every TB4-region change gives SSS — the RGD-proximal geometry is what counts.</p>
+<p><strong>Adjacent-domain phenocopy:</strong> Wang et al. 2020 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32406602/" target="_blank" rel="noopener noreferrer">PMID:32406602</a></strong>) report <em>"acromicric dysplasia with stiff skin syndrome-like severe cutaneous presentation"</em> from FBN1 c.5243G&gt;A (p.Cys1748Tyr), exon 42 — outside TB4. Verbatim conclusion: <em>"This is a report about acromicric dysplasia with stiff skin syndrome-like severe cutaneous presentation caused by a single hotspot mutation, further revealing the gene pleiotropy of FBN1."</em> Note this variant is <strong>not in ClinVar</strong> under that protein change (I checked — zero hits), so it's a single-report allele.</p>
+<h3>4.3 Functional consequence — selective, not global, loss of integrin binding</h3>
+<p>This is the most mechanistically precise piece of the whole story. Del Cid et al. 2019 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/31640988/" target="_blank" rel="noopener noreferrer">PMID:31640988</a></strong>) tested every RGD-binding integrin against wild-type and mutant fibrillin-1. Verbatim:</p>
+<blockquote>
+<p>"Our data show that 7 of the 8 RGD-binding integrins can mediate adhesion to fibrillin-1. A single amino acid substitution responsible for SSS (W1570C) markedly inhibited adhesion mediated by integrins α5β1, αvβ5, and αvβ6, partially inhibited adhesion mediated by αvβ1, and did not inhibit adhesion mediated by α8β1 or αIIbβ3."</p>
+<p>"In the SSS mutant background, the presence of a cysteine residue in place of highly conserved tryptophan 1570 alters the conformation of the region containing the exposed RGD sequence within the same domain to differentially affect fibrillin's interactions with distinct RGD-binding integrins."</p>
+</blockquote>
+<p>So the mutation doesn't blow up the RGD motif — it <strong>warps the loop's presentation</strong>, and different integrins, which read that loop differently, are affected to different degrees. It's a change of handshake, not an amputation of the hand. Critically, <strong>αvβ6 and αvβ5 are the integrins that activate latent TGF-β</strong>, so losing those specifically is a direct line to the TGF-β phenotype.</p>
+<h3>4.4 Dominance mechanism — why SSS is <em>not</em> Marfan</h3>
+<p>Jensen et al. 2015 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/25979247/" target="_blank" rel="noopener noreferrer">PMID:25979247</a></strong>) built a GFP-tagged full-length fibrillin-1 secretion/assembly assay and found the crucial asymmetry. Verbatim:</p>
+<blockquote>
+<p>"We show that substitutions in fibrillin-1 domains TB4 and TB5 that cause SSS and the acromelic dysplasias do not prevent fibrillin-1 from being secreted or assembled into microfibrils, whereas MFS-associated substitutions in these domains result in a loss of recombinant protein in the culture medium and no association with microfibrils."</p>
+<p>"These results suggest fundamental differences in the dominant pathogenic mechanisms underlying MFS, SSS and the acromelic dysplasias, which give rise to TGFβ dysregulation associated with these diseases."</p>
+</blockquote>
+<p>Read that carefully, because it's the whole thing: <strong>in SSS the mutant protein gets made, secreted, and built into the cable.</strong> The cable exists; it just talks to cells wrongly. In Marfan the mutant protein never makes it into the cable at all. Same gene, same domains, opposite failure mode — which is why the phenotypes are near-mirror-images (tall/loose/aneurysmal vs short/stiff/fibrotic).</p>
+<p>For dismech: this is a <code>functional_impact_category</code> question on <code>GeneticContext</code>. Neither plain <code>LOSS_OF_FUNCTION</code> nor <code>GAIN_OF_FUNCTION</code> fits cleanly. The most defensible call is <strong><code>NEOMORPHIC</code></strong> or <strong><code>DOMINANT_NEGATIVE</code></strong> with the Jensen result quoted as the justification — the incorporated mutant subunit poisons the signaling properties of the polymer it joins. I'd lean <code>DOMINANT_NEGATIVE</code> and say why in the evidence explanation.</p>
+<h3>4.5 Modifier genes, epigenetics, chromosomal abnormalities</h3>
+<ul>
+<li><strong>Modifier genes:</strong> none identified.</li>
+<li><strong>Epigenetics:</strong> ⚠ <strong>No DNA-methylation, histone-modification, or chromatin study of SSS exists.</strong> I searched; there is nothing in ENCODE, Roadmap, or the primary literature. This is a real, curatable <code>KNOWLEDGE_GAP</code>.</li>
+<li><strong>Chromosomal abnormalities:</strong> none in SSS. (For contrast, the differential Leri's pleonosteosis <em>is</em> a copy-number disorder — 8q22.1 microduplication, <a href="https://pubmed.ncbi.nlm.nih.gov/24442880/" target="_blank" rel="noopener noreferrer">PMID:24442880</a>.)</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Short section, because the honest answer is short.</p>
+<ul>
+<li><strong>Environmental factors:</strong> none established. No CTD entry, no toxicological association, no radiation or pollution link.</li>
+<li><strong>Lifestyle factors:</strong> none.</li>
+<li><strong>Infectious agents:</strong> none. Not applicable.</li>
+</ul>
+<p>The only environmental-adjacent claim in the literature is a <em>negative</em> one: Orphanet explicitly states <em>"No vascular hyperreactivity, immunologic abnormalities nor visceral, muscular or bone involvement has been described"</em> — i.e. the environmental/immune triggers that drive acquired scleroderma are conspicuously absent here.</p>
+<p>For the dismech <code>environmental:</code> block: <strong>leave it empty</strong>, or record a single entry documenting the negative with <code>supports: NO_EVIDENCE</code>. Don't manufacture an exposure.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 The causal chain (proposed pathograph)</h3>
+<p>Here's the chain as I'd model it, upstream → downstream. Every arrow below has a citable source.</p>
+<pre><code>[1] FBN1 TB4 missense (W1570C / C1564S / C1577G)          MOLECULAR
+      ↓ (mutant protein IS secreted and IS assembled — PMID:25979247)
+[2] Conformationally altered RGD loop in fibrillin-1 TB4    MOLECULAR
+      ↓
+[3] Selective loss of integrin binding (α5β1, αvβ5, αvβ6)   MOLECULAR
+      ↓ ────────────────────────┐
+[4] Impaired fibroblast          │  [4b] Loss of αvβ6/αvβ5-dependent
+    cell–matrix adhesion          │       latent-TGF-β restraint
+    CELLULAR                      │       MOLECULAR
+      ↓                           ↓
+[5] Excessive microfibrillar deposition + impaired elastogenesis   TISSUE
+      ↓
+[6] Increased TGF-β concentration and signaling in dermis          MOLECULAR
+    (↑ nuclear pSmad2, ↑ CTGF)
+      ↓
+[7] Fibroblast activation: ↑COL1A1, ↑COL3A1, ↑fibronectin-1,
+    ↑thrombospondin-1, ↑LTBP, ↑ITGB1; ↓MMP-2 activity            CELLULAR
+      ↓
+[8] Dense, disorganized collagen accumulation in reticular dermis,
+    subcutaneous septa and fascia; adipocyte entrapment           TISSUE
+      ↓
+[9] Rock-hard skin bound to underlying tissue                     TISSUE
+      ↓
+[10] Joint flexion contractures, restricted mobility,
+     restrictive chest wall, entrapment neuropathy                ORGANISM
+</code></pre>
+<p>Plus a <strong>branch that only fires in mice</strong> (see §6.6 — this is important):</p>
+<pre><code>[3/4] Altered cell–matrix interaction
+      ↓ (MOUSE ONLY)
+[M1] Dermal infiltration by pDC, Th2/Th17/Th9 cells, plasma cells
+      ↓
+[M2] Anti-nuclear and anti-topoisomerase I autoantibodies
+</code></pre>
+<h3>6.2 Molecular pathways</h3>
+<ul>
+<li><strong>TGF-β / SMAD signaling</strong> — the central axis. <code>GO:0007179</code> transforming growth factor beta receptor signaling pathway; <code>GO:0060395</code> SMAD protein signal transduction; <code>GO:0071559</code> response to transforming growth factor beta; <code>GO:0050431</code> transforming growth factor beta binding. Modifier: <code>INCREASED</code> (or <code>GAIN_OF_FUNCTION</code> if you want to claim the pathway has escaped normal regulatory restraint — and here you arguably can, since the <em>restraint mechanism itself</em> is what's broken; but per the dismech guidance, <code>INCREASED</code> is the safer default and the quantitative claim is the one the evidence directly supports).</li>
+<li><strong>Integrin-mediated signaling</strong> — <code>GO:0007229</code> integrin-mediated signaling pathway; <code>GO:0005178</code> integrin binding; <code>GO:0007160</code> cell-matrix adhesion. Modifier: <code>DECREASED</code>.</li>
+<li><strong>ERK/MAPK and NF-κB</strong> — documented in segmental SSS patient fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a>, below).</li>
+<li><strong>Reactome/KEGG:</strong> relevant pathways are "Molecules associated with elastic fibres" (R-HSA-2129379), "Elastic fibre formation" (R-HSA-1566948), "Signaling by TGFB family members" (R-HSA-9006936), and KEGG hsa04350 (TGF-beta signaling) / hsa04510 (Focal adhesion) / hsa04512 (ECM-receptor interaction). ⚠ I did not independently verify those specific Reactome/KEGG accession numbers against the databases — treat as leads, not evidence.</li>
+</ul>
+<h3>6.3 The segmental-SSS fibroblast experiment — the best mechanistic data on the non-FBN1 form</h3>
+<p>Fusco et al. 2020 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a></strong>) is the single most useful paper for building the downstream half of the pathograph, because it measured actual signaling in patient cells. Verbatim:</p>
+<blockquote>
+<p>"Lesional fibroblast studies showed a higher phosphorylation level of extracellular signal-regulated kinase 1/2 (ERK1/2), increased levels of nuclear factor-kB (NFkB), and a nuclear accumulation of phosphorylated Smad2 via Western blot and microscopy analyses."</p>
+<p>"Quantitative PCR expression analysis of genes encoding key extracellular matrix proteins revealed increased levels of COL1A1, COL3A1, AGT, LTBP and ITGB1, while zymography assay reported a reduced metalloproteinase 2 enzymatic activity."</p>
+<p>"In vitro exposure of patient's fibroblasts to losartan led to the partial restoration of normal transforming growth factor β (TGF-β) marker protein levels."</p>
+<p>"Our results for the first time reported that aberrant TGF-β signaling may drive the pathogenesis of segmental SSS and might open the way to novel therapeutic approaches."</p>
+</blockquote>
+<p>Two things worth flagging. First, <strong>↓MMP-2 activity</strong> means this isn't only over-production of matrix — it's also under-clearance. The fibrosis is a bathtub with the tap open <em>and</em> the drain plugged. Second, the losartan rescue <em>in vitro</em> is the direct mechanistic rationale for the losartan case reports in §12.</p>
+<p>Note this is <code>IN_VITRO</code> evidence from <strong>one patient's fibroblasts</strong>. Tag it accordingly.</p>
+<h3>6.4 The human tissue-expression study — and its awkward result</h3>
+<p>Guiducci et al. 2009 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/19468049/" target="_blank" rel="noopener noreferrer">PMID:19468049</a></strong>) profiled a single SSS patient's dermis before the gene was known, and got a result that partly <em>conflicts</em> with the "TGF-β is up" narrative. Verbatim:</p>
+<blockquote>
+<p>"Histopathological examination showed flattened dermal papillae, a scarce presence of sub-epidermal microvessels and mild dermal fibrosis, but no inflammatory infiltrates. In the SSS dermis, the expression of IL-1beta, -6 and MCP-1 was low, whereas VEGF was intensively expressed. <strong>No differences were observed for TGF-beta, CTGF and ET-1.</strong> In contrast, col1A2, fibronectin-1 and thrombospondin-1 were overexpressed in the SSS dermis."</p>
+<p>"In our SSS patient, an overexpression of ECM proteins was detected, whereas no inflammatory infiltrates or up-regulation of pro-fibrotic cytokines were found. The data suggest that fibrosis in SSS might be independent from inflammation."</p>
+</blockquote>
+<p><strong>Do not paper over this.</strong> Guiducci measured TGF-β <em>transcript</em> by qPCR and found it unchanged; Loeys measured TGF-β <em>signaling output</em> (nuclear pSmad2, CTGF protein) and found it up. Those aren't necessarily contradictory — TGF-β dysregulation in fibrillinopathies is about <strong>bioavailability of the already-made latent pool</strong>, not about transcription. But the honest curation move is to record both, tag Guiducci's TGF-β finding as <code>PARTIAL</code> or as a distinct claim, and note the reconciliation in the explanation. This is exactly the kind of thing that makes a <code>mechanistic_hypotheses</code> block earn its keep.</p>
+<p>The inflammation-independence finding, by contrast, is <strong>strongly replicated</strong>. Wen et al. 2023 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a></strong>, n=31) verbatim: <em>"Compared with morphea, SSS showed more prominent proliferation of fibroblasts and completely lacked lymphocyte infiltration."</em> And: <em>"Histopathologically, SSS shows proliferation of fibroblasts, sclerosis and an absence of inflammation."</em></p>
+<h3>6.5 Protein dysfunction</h3>
+<ul>
+<li><strong>Structure:</strong> fibrillin-1 is a 350 kDa modular glycoprotein — 47 cbEGF domains, 7 TB (TGF-β-binding-protein-like) domains, hybrid domains. TB4 is the only one carrying an RGD. UniProt P35555; AlphaFold model available.</li>
+<li><strong>Misfolding/aggregation:</strong> ⚠ Not the mechanism here. Unlike Marfan TB4/TB5 substitutions (which cause secretion failure — <a href="https://pubmed.ncbi.nlm.nih.gov/25979247/" target="_blank" rel="noopener noreferrer">PMID:25979247</a>), SSS substitutions fold and secrete fine.</li>
+<li><strong>The W1570C twist:</strong> the substitution introduces an <strong>unpaired cysteine</strong> where a highly conserved tryptophan sat. In a domain already full of structural disulfides, a spare free thiol is a loaded gun — it can form aberrant intermolecular bonds. <a href="https://pubmed.ncbi.nlm.nih.gov/31640988/" target="_blank" rel="noopener noreferrer">PMID:31640988</a> attributes the phenotype to conformational change in the RGD loop rather than to aberrant disulfides specifically, but the free-cysteine motif is a recurring theme in TB-domain disease. (For an analogous mechanism in a different protein, cf. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39864627/" target="_blank" rel="noopener noreferrer">PMID:39864627</a></strong> on pathological NOTCH3 thiol reactivity in CADASIL — same structural logic, unrelated disease.)</li>
+<li><strong>Loss vs gain:</strong> best described as <strong>dominant-negative/neomorphic</strong> — see §4.4.</li>
+</ul>
+<h3>6.6 Immune involvement — and the human/model mismatch you must flag</h3>
+<p>This is the single most important caveat in the whole entry, and I'd curate it as a <code>HUMAN_MODEL_MISMATCH</code> discussion rather than a <code>KNOWLEDGE_GAP</code>.</p>
+<p><strong>In the mouse</strong>, the phenotype is emphatically inflammatory. Gerber et al. 2013 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a></strong>) verbatim:</p>
+<blockquote>
+<p>"Mutant mice show skin infiltration of pro-inflammatory immune cells including plasmacytoid dendritic cells, T helper cells and plasma cells, and also autoantibody production; these findings are normalized by integrin-modulating therapies or TGF-β antagonism."</p>
+</blockquote>
+<p><strong>In humans</strong>, the histology is famously <em>bland</em>. Guiducci: "no inflammatory infiltrates." Wen (n=31): "completely lacked lymphocyte infiltration." Orphanet: "no ... immunologic abnormalities."</p>
+<p>Those two statements do not obviously coexist. Possible reconciliations: the mouse model is homozygous or on a permissive background; human biopsies are taken years into established disease and miss an early inflammatory window; species differences in dermal immune surveillance; or the immune arm genuinely requires something mice have and humans don't. <strong>Nobody has resolved this.</strong> That's a real, publishable-grade open question, and it's precisely what the <code>HUMAN_MODEL_MISMATCH</code> kind exists for. Proposed experiments: early-lesion biopsy series with immunophenotyping; single-cell RNA-seq of SSS lesional skin (none exists); serial ANA/anti-Scl-70 in a molecularly confirmed cohort.</p>
+<h3>6.7 Metabolic changes, biochemical abnormalities</h3>
+<ul>
+<li><strong>Metabolic:</strong> none described. No metabolomics study of SSS exists.</li>
+<li><strong>Biochemical:</strong> no enzyme deficiency, no receptor mutation, no channelopathy. The defect is purely structural-plus-signaling in the ECM. Notably, <strong>routine labs are normal</strong> — that's diagnostically load-bearing (§10).</li>
+<li>One histochemical finding: <a href="https://pubmed.ncbi.nlm.nih.gov/32406602/" target="_blank" rel="noopener noreferrer">PMID:32406602</a> (the acromicric/SSS-overlap case) reports <em>"Alcian blue staining indicated dermal mucopolysaccharide deposition"</em> — glycosaminoglycan accumulation alongside the collagen. Worth a <code>biochemical</code> entry with the caveat that it's from an overlap phenotype, not classic SSS.</li>
+</ul>
+<h3>6.8 Molecular profiling — what exists and what doesn't</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transcriptomics</td>
+<td>⚠ <strong>No published RNA-seq or microarray of SSS skin.</strong> Only targeted qPCR panels (<a href="https://pubmed.ncbi.nlm.nih.gov/19468049/" target="_blank" rel="noopener noreferrer">PMID:19468049</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a>). No GEO series that I could identify.</td>
+</tr>
+<tr>
+<td>Proteomics</td>
+<td>⚠ <strong>None.</strong></td>
+</tr>
+<tr>
+<td>Metabolomics</td>
+<td>⚠ <strong>None.</strong></td>
+</tr>
+<tr>
+<td>Lipidomics</td>
+<td>⚠ <strong>None.</strong></td>
+</tr>
+<tr>
+<td>Single-cell</td>
+<td>⚠ <strong>None.</strong> No Human Cell Atlas or Single Cell Portal dataset.</td>
+</tr>
+<tr>
+<td>Spatial transcriptomics</td>
+<td>⚠ <strong>None.</strong></td>
+</tr>
+<tr>
+<td>Multi-omics</td>
+<td>⚠ <strong>None.</strong></td>
+</tr>
+<tr>
+<td>CRISPR/RNAi screens</td>
+<td>⚠ <strong>None specific to SSS.</strong></td>
+</tr>
+<tr>
+<td>Ultrastructure (EM)</td>
+<td>Yes — Loeys 2010 reports abnormal microfibrillar architecture and patchy elastin.</td>
+</tr>
+<tr>
+<td>Targeted in vitro assays</td>
+<td>Yes — microfibril assembly assay (<a href="https://pubmed.ncbi.nlm.nih.gov/25979247/" target="_blank" rel="noopener noreferrer">PMID:25979247</a>), integrin adhesion panel (<a href="https://pubmed.ncbi.nlm.nih.gov/31640988/" target="_blank" rel="noopener noreferrer">PMID:31640988</a>), patient fibroblast signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a>).</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>For the <code>datasets:</code> block: I found no SSS-specific accession in GEO, PRIDE, MetaboLights, or ArrayExpress.</strong> Per the dismech dataset SOP, do not go fishing on the gene symbol — searching FBN1 will surface Marfan and aortic-aneurysm datasets, which is exactly the Named-Entity-Confusion-via-dataset-search trap. Better to leave <code>datasets:</code> empty and record the absence in <code>notes:</code>.</p>
+<h3>6.9 Suggested ontology terms (all labels verified live via OLS4)</h3>
+<p><strong>GO — biological process / molecular function / cellular component:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CURIE</th>
+<th>Verified label</th>
+<th>Suggested modifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GO:0007179</code></td>
+<td>transforming growth factor beta receptor signaling pathway</td>
+<td><code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0060395</code></td>
+<td>SMAD protein signal transduction</td>
+<td><code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0071559</code></td>
+<td>response to transforming growth factor beta</td>
+<td><code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0050431</code></td>
+<td>transforming growth factor beta binding</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>GO:0007229</code></td>
+<td>integrin-mediated signaling pathway</td>
+<td><code>DECREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0005178</code></td>
+<td>integrin binding</td>
+<td><code>DECREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0007160</code></td>
+<td>cell-matrix adhesion</td>
+<td><code>DECREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0030198</code></td>
+<td>extracellular matrix organization</td>
+<td><code>ABNORMAL</code> / <code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0085029</code></td>
+<td>extracellular matrix assembly</td>
+<td><code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0048251</code></td>
+<td>elastic fiber assembly</td>
+<td><code>DECREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0001527</code></td>
+<td>microfibril (cellular component)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>GO:0032964</code></td>
+<td>collagen biosynthetic process</td>
+<td><code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>GO:0030199</code></td>
+<td>collagen fibril organization</td>
+<td><code>ABNORMAL</code></td>
+</tr>
+<tr>
+<td><code>GO:0005201</code></td>
+<td>extracellular matrix structural constituent</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>CL — cell types:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CURIE</th>
+<th>Verified label</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CL:0000057</code></td>
+<td>fibroblast</td>
+<td>Primary effector cell</td>
+</tr>
+<tr>
+<td><code>CL:0002620</code></td>
+<td>skin fibroblast</td>
+<td>The specific population — prefer this</td>
+</tr>
+<tr>
+<td><code>CL:0000136</code></td>
+<td>adipocyte</td>
+<td>Entrapped in fibrotic septa (<a href="https://pubmed.ncbi.nlm.nih.gov/29505473/" target="_blank" rel="noopener noreferrer">PMID:29505473</a>)</td>
+</tr>
+<tr>
+<td><code>CL:0000784</code></td>
+<td>plasmacytoid dendritic cell</td>
+<td><strong>Mouse model only</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a>)</td>
+</tr>
+<tr>
+<td><code>CL:0000899</code></td>
+<td>T-helper 17 cell</td>
+<td><strong>Mouse model only</strong></td>
+</tr>
+<tr>
+<td><code>CL:0000786</code></td>
+<td>plasma cell</td>
+<td><strong>Mouse model only</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>UBERON — anatomy:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CURIE</th>
+<th>Verified label</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UBERON:0002097</code></td>
+<td>skin of body</td>
+</tr>
+<tr>
+<td><code>UBERON:0002067</code></td>
+<td>dermis</td>
+</tr>
+<tr>
+<td><code>UBERON:0002072</code></td>
+<td>hypodermis</td>
+</tr>
+<tr>
+<td><code>UBERON:0002190</code></td>
+<td>subcutaneous adipose tissue</td>
+</tr>
+<tr>
+<td><code>UBERON:0008982</code></td>
+<td>fascia</td>
+</tr>
+<tr>
+<td><code>UBERON:0000982</code></td>
+<td>skeletal joint</td>
+</tr>
+<tr>
+<td><code>UBERON:0001085</code></td>
+<td>skin of trunk</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>CHEBI / NCIT — see §12.6.</strong></p>
+<h3>6.10 Module conformance opportunities</h3>
+<p>SSS is a strong candidate conformer for <strong><code>fibrotic_response</code></strong> — but with an important asterisk. The module's canonical chain runs <em>tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction</em>, and <strong>SSS skips the inflammation node entirely</strong> (that's its whole scientific point). So conformance should be declared at the mesenchymal-activation and excessive-ECM nodes and explicitly <em>not</em> at the inflammation node, with the Guiducci and Wen quotes as the justification. That asymmetry is genuinely informative rather than a gap — SSS is the natural experiment showing the fibrotic module can run without its inflammatory trigger.</p>
+<p>Also worth checking: <code>aortopathy_tgfbeta_dysregulation</code> shares the FBN1/TGF-β logic but its downstream (medial degeneration → aortic dilation) is absent in SSS — one 1/8 bicuspid aortic valve does not an aortopathy make. <strong>Do not</strong> conform SSS to it.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ level</h3>
+<p><strong>Primary:</strong> skin (<code>UBERON:0002097</code>) — specifically dermis (<code>UBERON:0002067</code>) and hypodermis/subcutis (<code>UBERON:0002072</code>), extending into fascia (<code>UBERON:0008982</code>).</p>
+<p><strong>Regional distribution</strong> (verbatim, <a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a>): <em>"Skin lesions of widespread SSS generally showed skin sclerosis concentrating over the lumbar, buttocks, thighs, proximal part of limbs, and shoulders with specific abnormal gait and posture. Skin lesions of segmental SSS generally showed sclerotic plaques involving the thigh, lumbar area and buttocks, associated with hypertrichosis, hyperpigmentation and a cobblestone appearance."</em></p>
+<p>The <strong>limb girdles</strong> are the signature territory. Sanchez-Espino 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/37864376/" target="_blank" rel="noopener noreferrer">PMID:37864376</a>) verbatim: <em>"MRI readings showed abnormal high signal intensity of the affected tissue correlating with the anatomical site of involvement in all cases, specifically, in the shoulder/pelvic girdle with limb extension."</em> And thigh sclerosis is the single most common finding at <strong>52.6%</strong> of 154 pediatric patients (<a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>).</p>
+<p><strong>Secondary organ involvement:</strong>
+- <strong>Musculoskeletal</strong> — joints (<code>UBERON:0000982</code>) via contracture; spine via scoliosis. This is mechanical, secondary to the cutaneous encasement, not primary joint disease.
+- <strong>Respiratory</strong> — restrictive ventilatory defect from a rigid, narrow thorax. Not lung parenchymal disease.
+- <strong>Peripheral nervous system</strong> — entrapment neuropathy from compression within fibrotic tissue; documented at 2/8 in the Loeys cohort.
+- <strong>Eye</strong> — ophthalmoplegia (<a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a>), myopia 6/8, cataract 2/8.
+- <strong>Craniofacial</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a> found <em>"limited temporomandibular joint mobility"</em> in 1% of 204 patients; facial skin induration occurs.
+- <strong>Cardiovascular</strong> — 1/8 bicuspid aortic valve. <strong>No aortopathy.</strong> Do not extrapolate Marfan cardiovascular surveillance to SSS on this basis.
+- <strong>GI</strong> — gastroesophageal reflux 4/8. Mechanism unclear; possibly mechanical.</p>
+<p><strong>Explicitly NOT involved</strong> (per Orphanet, and this is diagnostically decisive): visceral organs, vasculature (no Raynaud, no vascular hyperreactivity), bone (primary), and the immune system.</p>
+<h3>7.2 Tissue and cell level</h3>
+<ul>
+<li><strong>Connective tissue</strong> is the target. Specifically the <strong>reticular dermis</strong> and <strong>subcutaneous fibrous septa</strong>.</li>
+<li>Zhao 2024 quantified the depth distribution by subtype, verbatim: <em>"54.5% of classic and 50% of generalized cases occurred throughout the dermis or the subcutis, whereas 76% of localized cases were mainly involved in the reticular dermis or subcutis."</em></li>
+<li><strong>Cell populations:</strong> dermal/skin fibroblasts (<code>CL:0002620</code>) are the effectors — and unusually for a fibrosis, they're described as <em>proliferating</em>, not merely activated. <a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a> verbatim: <em>"SSS showed more prominent proliferation of fibroblasts."</em></li>
+<li><strong>Adipocytes</strong> (<code>CL:0000136</code>) get <strong>entrapped</strong> by advancing collagen — <a href="https://pubmed.ncbi.nlm.nih.gov/29505473/" target="_blank" rel="noopener noreferrer">PMID:29505473</a> verbatim: <em>"biopsy showing adipocyte entrapment which we believe is an unrecognized key pathological finding in diagnosis of this entity."</em> Separately, subcutaneous fat is <em>lost</em> over time in the mouse model.</li>
+<li><strong>Epidermis</strong> is essentially spared — the only change is flattened dermal papillae (<a href="https://pubmed.ncbi.nlm.nih.gov/19468049/" target="_blank" rel="noopener noreferrer">PMID:19468049</a>), i.e. a passive consequence of the dermis below going rigid.</li>
+</ul>
+<h3>7.3 Subcellular level</h3>
+<p>The action is <strong>extracellular</strong>, which is itself notable. Relevant GO cellular components: <code>GO:0001527</code> microfibril; extracellular matrix and extracellular space. There is no reported mitochondrial, lysosomal, nuclear, or ER compartment pathology in SSS. (Contrast: the Marfan-type TB4 mutations <em>do</em> cause ER retention — but those aren't SSS.)</p>
+<h3>7.4 Localization and lateralization</h3>
+<ul>
+<li><strong>Classic/widespread SSS:</strong> bilateral, roughly <strong>symmetric</strong>, girdle-predominant.</li>
+<li><strong>Segmental SSS:</strong> <em>"largely unilateral, segmental distribution"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>) — often following a blaschkoid or dermatomal-ish pattern. This asymmetry is the strongest clinical argument for mosaicism.</li>
+</ul>
+<p>So lateralization is itself a subtype discriminator, which is a nice thing to encode.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li><strong>Pattern:</strong> insidious, chronic. Never acute.</li>
+<li><strong>Classic SSS:</strong> congenital — <code>HP:0003577</code> congenital onset at <strong>8/8</strong> in the molecularly confirmed cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/20375004/" target="_blank" rel="noopener noreferrer">PMID:20375004</a>). Case reports of neonatal presentation exist (<a href="https://pubmed.ncbi.nlm.nih.gov/22998194/" target="_blank" rel="noopener noreferrer">PMID:22998194</a> "Stiff skin syndrome in a newborn infant").</li>
+<li><strong>Overall pediatric cohort:</strong> median onset <strong>2.0 years (IQR 0.5–4.8)</strong>, median age at diagnosis <strong>9.0 years (IQR 5.0–13.0)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>). That's a <strong>~7-year diagnostic delay</strong> — one of the more actionable numbers in this whole report.</li>
+<li><strong>By subtype:</strong> segmental 4.1 y vs widespread 1.6 y (<a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>).</li>
+<li><strong>Systematic review:</strong> <em>"The age of onset of this syndrome was predominantly early childhood"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a>).</li>
+<li>Adult-onset/adult-diagnosed cases exist but are rare and probably represent late recognition of long-standing disease (<a href="https://pubmed.ncbi.nlm.nih.gov/30874234/" target="_blank" rel="noopener noreferrer">PMID:30874234</a>, "Middle-Aged Female Diagnosed With Widespread Stiff Skin Syndrome").</li>
+</ul>
+<h3>8.2 Progression — with actual transition probabilities</h3>
+<p>This is the most useful prognostic dataset available, from Zhao 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>), verbatim:</p>
+<blockquote>
+<p>"In patients with incipient localized SSS, 42% (21/50) developed generalized SSS, and only 6% (3/50) progressed to classic SSS, whereas more than half of the incipient generalized SSS cases (60.6%, 20/33) developed classic SSS."</p>
+</blockquote>
+<p>Those are real, curatable transition rates for a <code>progression</code> block:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>From</th>
+<th>To</th>
+<th>Rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Localized</td>
+<td>Generalized segmental</td>
+<td>42% (21/50)</td>
+</tr>
+<tr>
+<td>Localized</td>
+<td>Classic widespread</td>
+<td>6% (3/50)</td>
+</tr>
+<tr>
+<td>Generalized segmental</td>
+<td>Classic widespread</td>
+<td>60.6% (20/33)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The paper's conclusion, verbatim: <em>"We propose a distinct clinical classification characterized by lesion distribution, including classic widespread, generalized segmental, and localized SSS, associated with disease severity and prognosis."</em></p>
+<ul>
+<li><strong>Rate:</strong> slow. Described as "slowly progressive" by Orphanet and consistently in case reports.</li>
+<li><strong>Course pattern:</strong> <strong>progressive</strong>, not relapsing-remitting, not episodic. Long-term follow-up is documented in <a href="https://pubmed.ncbi.nlm.nih.gov/38664099/" target="_blank" rel="noopener noreferrer">PMID:38664099</a> ("Stiff skin syndrome: long-term follow-up").</li>
+<li><strong>Duration:</strong> chronic, lifelong.</li>
+</ul>
+<h3>8.3 Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> ⚠ <strong>Spontaneous remission has not been reported.</strong> Treatment-induced remission has not been achieved either — the 2025 series is blunt about this (verbatim): <em>"these treatments are not capable of reversing established skin lesions."</em></li>
+<li><strong>Critical periods:</strong> the therapeutic logic — such as it is — is that <strong>early intervention before contractures fix</strong> is the only window that matters. The evidence for that is indirect (the diagnostic-delay/contracture correlation in <a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>) rather than interventional. In the mouse, prevention worked and reversal <em>also</em> worked with TGF-β blockade, which is at least encouraging about the existence of a window (§15.2).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<ul>
+<li><strong>Prevalence:</strong> ⚠ <strong>No quantitative estimate exists.</strong> I queried the Orphanet API for <a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a> — the record carries a definition but the prevalence endpoint returned nothing retrievable. The disease is universally described as "rare"/"ultrarare"; <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a> calls it verbatim <em>"an ultrarare and untreatable condition."</em> Practical framing for the KB: use <code>prevalence_class: UNKNOWN</code> or <code>NOT_YET_DOCUMENTED</code> with <code>measure_type: CASES_IN_LITERATURE</code>, and record the case counts below in <code>notes</code>.</li>
+<li><strong>Cumulative reported cases:</strong> the largest systematic review found <strong>204 patients across 27 articles spanning 1970–2025</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a>). Accounting for overlap between series, the world literature holds on the order of <strong>200–300 distinct reported cases</strong>.</li>
+<li><strong>Incidence:</strong> unknown. No population-based estimate.</li>
+</ul>
+<h3>9.2 Inheritance</h3>
+<ul>
+<li><strong>Pattern:</strong> <strong>autosomal dominant</strong> — <code>HP:0000006</code>. Verbatim from <a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a>: <em>"a rare but tractable Mendelian disorder leading to childhood onset of diffuse skin fibrosis with autosomal dominant inheritance and complete penetrance."</em></li>
+<li><strong>Penetrance:</strong> <strong>complete</strong> (same quote). Note the mild dissonance with <a href="https://pubmed.ncbi.nlm.nih.gov/23794388/" target="_blank" rel="noopener noreferrer">PMID:23794388</a>, which reports an FBN1 integrin-binding-fragment variant giving <em>"apparently normal phenotype in different family members"</em> — but that variant causes JIA/MVP, not SSS, so it isn't a counterexample to SSS penetrance.</li>
+<li><strong>Expressivity:</strong> <strong>variable.</strong> The three-subtype severity spectrum is the clearest evidence.</li>
+<li><strong>Genetic anticipation:</strong> not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> not reported. <strong>Somatic</strong> mosaicism is the leading (unproven) hypothesis for segmental disease.</li>
+<li><strong>Founder effects:</strong> none identified. The recurrence of p.Trp1570Cys is a <strong>mutational hotspot</strong> (two different nucleotide changes at the same codon in unrelated families), not a founder haplotype — an important distinction.</li>
+<li><strong>Consanguinity:</strong> irrelevant for a dominant disorder. <a href="https://pubmed.ncbi.nlm.nih.gov/26471116/" target="_blank" rel="noopener noreferrer">PMID:26471116</a> specifically describes a <em>"two generation nonconsanguineous"</em> family.</li>
+<li><strong>Carrier frequency:</strong> not applicable (dominant, fully penetrant). Pathogenic alleles are absent from gnomAD.</li>
+<li><strong>De novo rate:</strong> unquantified; both de novo and inherited cases occur.</li>
+</ul>
+<h3>9.3 Genetic testing yield — a number worth having</h3>
+<p>Implicit in the literature but rarely stated: <strong>FBN1 testing is high-yield in classic widespread SSS and low-yield in segmental SSS.</strong> Zhang 2025's cohort was 14/16 segmental, and the recommendation is hedged accordingly (verbatim): <em>"The diagnosis of SSS should involve a thorough investigation of family history, detailed physical examination, comprehensive pathological assessment, genetic testing when applicable, and careful exclusion of other scleroderma-like diseases."</em> Note "<strong>when applicable</strong>" — that hedge is doing real work.</p>
+<h3>9.4 Population demographics</h3>
+<ul>
+<li><strong>Affected populations:</strong> cases reported worldwide — USA, UK/Northern Ireland, Belgium, Italy, Spain, Chile, Mexico, Brazil, Lebanon, China, Canada, Côte d'Ivoire, Argentina, Australia. <strong>No ethnic predilection identified.</strong> The two largest series happen to be Chinese (Peking Union, n=16 own; Xi'an Jiaotong, n=24 own; Xijing, n=31), which reflects tertiary-referral concentration and publication activity, not a true population skew.</li>
+<li><strong>Geographic distribution of variants:</strong> none. p.Trp1570Cys has been reported in geographically unrelated families (a hotspot, not a regional allele).</li>
+<li><strong>Sex ratio:</strong> ⚠ <strong>Not established.</strong> None of the cohort papers I read reported a male:female breakdown in the abstract. Do not assert a ratio.</li>
+<li><strong>Age distribution:</strong> overwhelmingly pediatric at presentation; the prevalent population is all ages, since the disease is lifelong and not fatal.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Laboratory tests — the diagnostic value is in the negatives</h3>
+<p>There is <strong>no diagnostic biomarker</strong> for SSS. What makes labs useful is that they are <em>normal</em>, which rules the imitators out:</p>
+<ul>
+<li><strong>ANA:</strong> negative (positive ANA points to morphea/SSc).</li>
+<li><strong>Anti-Scl-70 / anti-centromere / anti-RNA-pol III:</strong> negative.</li>
+<li><strong>Eosinophils:</strong> normal (elevated → eosinophilic fasciitis).</li>
+<li><strong>Inflammatory markers (ESR/CRP):</strong> normal.</li>
+<li><strong>Serum/urine paraprotein:</strong> absent (present → scleromyxedema, scleredema of Buschke).</li>
+<li><strong>Glucose/HbA1c:</strong> normal (abnormal → scleredema diabeticorum).</li>
+</ul>
+<p>⚠ I found <strong>no LOINC-coded reference-range study specific to SSS</strong>, and no <code>reference_ranges</code> block is warranted — there's no analyte to bound.</p>
+<h3>10.2 Imaging — the most practically useful modern addition</h3>
+<p><strong>High-frequency ultrasound and shear-wave elastography</strong> have become the workhorse non-invasive tools. Sanchez-Espino 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/37864376/" target="_blank" rel="noopener noreferrer">PMID:37864376</a>) verbatim:</p>
+<blockquote>
+<p>"The sclerotic changes were measured clinically and radiologically, by a total of 16 imaging studies: 13 magnetic resonance imaging (MRI) and 3 ultrasound. MRI readings showed abnormal high signal intensity of the affected tissue correlating with the anatomical site of involvement in all cases, specifically, in the shoulder/pelvic girdle with limb extension. Shear wave ultrasound elastography (SWE) demonstrated higher values within the dermis compared to the control site."</p>
+<p>"Skin SWE is a feasible, noninvasive, and objective instrument to evaluate and monitor sclerotic changes overtime, it could be potentially extrapolated to other pediatric skin sclerotic conditions."</p>
+</blockquote>
+<p>The 2026 case report (<a href="https://pubmed.ncbi.nlm.nih.gov/42021647/" target="_blank" rel="noopener noreferrer">PMID:42021647</a>) makes the resource-limited-settings argument, verbatim: <em>"Ultrasound demonstrated dermal thickening and prominent hypodermal fibrous septa, findings that correlated with the characteristic hypoinflammatory lattice arrangement seen on histology. This case highlights the diagnostic value of integrating advanced imaging and pathology to ensure accuracy and avoid treatment delays, particularly in resource-limited settings where genetic testing is unavailable."</em></p>
+<p>Also: <a href="https://pubmed.ncbi.nlm.nih.gov/30704628/" target="_blank" rel="noopener noreferrer">PMID:30704628</a> (ultrasound morphology with clinical-histological correlation), <a href="https://pubmed.ncbi.nlm.nih.gov/32697852/" target="_blank" rel="noopener noreferrer">PMID:32697852</a> (sonographic features of segmental SSS — verbatim: <em>"High-frequency ultrasonography can represent a useful clinical adjunct in the differential diagnosis of this condition"</em>).</p>
+<h3>10.3 Biopsy / histopathology — the diagnostic gold standard</h3>
+<p>Three findings, in decreasing order of specificity:</p>
+<ol>
+<li><strong>The subcutaneous lattice.</strong> McCalmont &amp; Gilliam (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/22211327/" target="_blank" rel="noopener noreferrer">PMID:22211327</a></strong>), titled: <em>"A subcutaneous lattice-like array of thick collagen is a clue to the diagnosis of stiff skin syndrome."</em> ⚠ Abstract-free record — the title is the finding, and per the dismech title-snippet rule, this title <em>does</em> state a result rather than a topic, so it's quotable with that noted in the explanation.</li>
+<li><strong>Absence of inflammation.</strong> Replicated across <a href="https://pubmed.ncbi.nlm.nih.gov/19468049/" target="_blank" rel="noopener noreferrer">PMID:19468049</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a> (n=31), <a href="https://pubmed.ncbi.nlm.nih.gov/37864376/" target="_blank" rel="noopener noreferrer">PMID:37864376</a>.</li>
+<li><strong>Adipocyte entrapment.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/29505473/" target="_blank" rel="noopener noreferrer">PMID:29505473</a>, verbatim: <em>"biopsy showing adipocyte entrapment which we believe is an unrecognized key pathological finding in diagnosis of this entity."</em> (Proposed by a single group; treat as a supportive rather than defining feature.)</li>
+</ol>
+<p>Plus: thickened dermis with sclerotic, densely packed collagen extending into subcutaneous septa; fibroblast proliferation; normal epidermis with flattened dermal papillae; increased fibrillin-1 and elastin deposition on immunostaining with abnormal microfibrillar ultrastructure on EM.</p>
+<p><strong>Biopsy must be deep</strong> — a punch that stops at mid-dermis will miss the septal/fascial pathology entirely and can be read as normal. That's a genuine clinical pitfall and belongs in the entry.</p>
+<h3>10.4 Differential diagnosis — the "great imitators" problem</h3>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/32513403/" target="_blank" rel="noopener noreferrer">PMID:32513403</a> is literally titled <em>"Sclerodermalike syndromes: Great imitators."</em> Distinguishing features:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Morphea / localized scleroderma</strong></td>
+<td>Lymphocytic infiltrate present; SSS <em>"completely lacked lymphocyte infiltration"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37594328/" target="_blank" rel="noopener noreferrer">PMID:37594328</a>). Also violaceous border, epidermal atrophy.</td>
+</tr>
+<tr>
+<td><strong>Systemic sclerosis</strong></td>
+<td>Raynaud, nailfold capillary abnormalities, ANA/anti-Scl-70, visceral involvement — all absent in SSS.</td>
+</tr>
+<tr>
+<td><strong>Scleredema (Buschke / diabeticorum)</strong></td>
+<td>Upper back/neck predominance, mucin deposition, diabetes or post-infectious association. <a href="https://pubmed.ncbi.nlm.nih.gov/34411278/" target="_blank" rel="noopener noreferrer">PMID:34411278</a> addresses exactly this discrimination.</td>
+</tr>
+<tr>
+<td><strong>Eosinophilic fasciitis</strong></td>
+<td>Peripheral eosinophilia, "groove sign", post-exertional onset, steroid-responsive.</td>
+</tr>
+<tr>
+<td><strong>Nephrogenic systemic fibrosis</strong></td>
+<td>Renal failure + gadolinium exposure history.</td>
+</tr>
+<tr>
+<td><strong>Acromicric / geleophysic dysplasia</strong></td>
+<td>Same gene, TB5 domain; short stature, brachydactyly, cone-shaped epiphyses dominate. Can overlap — <a href="https://pubmed.ncbi.nlm.nih.gov/32406602/" target="_blank" rel="noopener noreferrer">PMID:32406602</a>.</td>
+</tr>
+<tr>
+<td><strong>Weill-Marchesani syndrome</strong></td>
+<td>FBN1 (dominant) or ADAMTS10 (recessive); microspherophakia, ectopia lentis, glaucoma.</td>
+</tr>
+<tr>
+<td><strong>Myhre syndrome</strong></td>
+<td>SMAD4; stiff thick skin + short stature + hearing loss + intellectual disability. Another "TGF-β-pathy."</td>
+</tr>
+<tr>
+<td><strong>Leri's pleonosteosis</strong></td>
+<td>8q22.1 microduplication (GDF6, SDC2); <em>"Scleroderma-like skin thickening can be seen in some individuals with LP"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24442880/" target="_blank" rel="noopener noreferrer">PMID:24442880</a>).</td>
+</tr>
+<tr>
+<td><strong>Infantile systemic hyalinosis / hyaline fibromatosis</strong></td>
+<td>ANTXR2; gingival hypertrophy, painful nodules (<a href="https://pubmed.ncbi.nlm.nih.gov/26207694/" target="_blank" rel="noopener noreferrer">PMID:26207694</a>).</td>
+</tr>
+<tr>
+<td><strong>Winchester syndrome</strong></td>
+<td>MMP2; osteolysis.</td>
+</tr>
+<tr>
+<td><strong>Congenital fascial dystrophy</strong></td>
+<td>Considered synonymous by many (<a href="https://pubmed.ncbi.nlm.nih.gov/24630430/" target="_blank" rel="noopener noreferrer">PMID:24630430</a>).</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/24442880/" target="_blank" rel="noopener noreferrer">PMID:24442880</a> gives a lovely framing sentence for the whole neighborhood, verbatim: <em>"We propose that LP is an additional member of the growing 'TGF-β-pathies' group of musculoskeletal disorders, which includes Myhre syndrome, acromicric dysplasia, geleophysic dysplasias, Weill-Marchesani syndromes and stiff skin syndrome."</em> That's a ready-made <code>Grouping</code> rationale if you ever want one.</p>
+<h3>10.5 Genetic testing</h3>
+<ul>
+<li><strong>Recommended approach:</strong> targeted <strong>FBN1</strong> sequencing (single-gene) is the highest-yield first test in classic widespread SSS with a compatible phenotype. Focus on <strong>exons encoding TB4</strong> (the c.4691–c.4729 region, exons 37–38).</li>
+<li><strong>Gene panels:</strong> connective-tissue-disorder / aortopathy panels all contain FBN1 and will work, but return many Marfan-oriented VUS.</li>
+<li><strong>WES/WGS:</strong> appropriate when the phenotype is atypical or the FBN1 test is negative — this is how <a href="https://pubmed.ncbi.nlm.nih.gov/32406602/" target="_blank" rel="noopener noreferrer">PMID:32406602</a> (WGS + Sanger) and <a href="https://pubmed.ncbi.nlm.nih.gov/27188772/" target="_blank" rel="noopener noreferrer">PMID:27188772</a> (canine WGS) were solved.</li>
+<li><strong>CMA / karyotype / FISH / mtDNA / repeat-expansion testing:</strong> <strong>not indicated.</strong> No copy-number or cytogenetic mechanism in SSS. (CMA <em>is</em> the right test if Leri's pleonosteosis is on the differential.)</li>
+<li><strong>Yield caveat:</strong> in segmental SSS, expect a negative result. <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a> verbatim: <em>"a segmental form with unknown molecular basis."</em> Genetic testing being unavailable is also a real-world constraint (<a href="https://pubmed.ncbi.nlm.nih.gov/42021647/" target="_blank" rel="noopener noreferrer">PMID:42021647</a>).</li>
+<li><strong>ACMG classification:</strong> the four canonical alleles are ClinVar Pathogenic; three carry "no assertion criteria provided" (legacy OMIM submissions), one has "criteria provided, single submitter."</li>
+</ul>
+<h3>10.6 Omics-based diagnostics</h3>
+<p>None available or in development. See §6.8.</p>
+<h3>10.7 Clinical criteria</h3>
+<p>⚠ <strong>There are no formally validated diagnostic criteria</strong> — no society guideline, no consensus statement, no ICD-linked criteria set. Diagnosis is a gestalt of: compatible clinical picture (rock-hard girdle skin ± hypertrichosis/hyperpigmentation, joint limitation) + supportive histopathology (thick lattice collagen, no inflammation) + supportive imaging (US/MRI) + exclusion of imitators + FBN1 confirmation where available.</p>
+<p>The closest thing to a criteria statement is the 2026 systematic review's conclusion, verbatim: <em>"Stiff skin syndrome should be considered systematically in any patient presenting with facial skin induration and should be investigated thoroughly, excluding any visceral or biological abnormalities."</em></p>
+<p>For the dismech <code>definitions:</code> block, this would be a <code>derivation_basis: ESTABLISHED_CRITERIA</code>? <strong>No</strong> — I'd argue it isn't established. There is no consensus criteria set. If you write a definition, it should be honest about that.</p>
+<h3>10.8 Screening</h3>
+<ul>
+<li><strong>Newborn screening:</strong> not performed, not proposed. Would fail every Wilson-Jungner criterion (no treatment that changes outcome).</li>
+<li><strong>Carrier screening:</strong> not applicable (dominant).</li>
+<li><strong>Cascade screening:</strong> reasonable in a family with a known FBN1 TB4 variant — but note the disease is fully penetrant and clinically obvious, so cascade <em>testing</em> mostly serves reproductive planning rather than presymptomatic detection.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival and mortality</h3>
+<ul>
+<li><strong>Life expectancy:</strong> not established to be reduced. SSS is <strong>not</strong> a fatal disease in the way systemic sclerosis is — no pulmonary arterial hypertension, no renal crisis, no interstitial lung disease, no cardiac involvement.</li>
+<li><strong>Survival rate / mortality rate / disease-specific mortality:</strong> ⚠ <strong>No published figures.</strong> No registry, no cohort with mortality follow-up.</li>
+<li><strong>Theoretical risk:</strong> severe restrictive chest-wall disease could compromise respiratory function in the most severe classic cases, and anesthetic management is genuinely hazardous (<a href="https://pubmed.ncbi.nlm.nih.gov/32761718/" target="_blank" rel="noopener noreferrer">PMID:32761718</a>, "Anesthetic implications of a pediatric patient with stiff skin syndrome" — rigid skin complicates airway access, IV access, and positioning). But no mortality series exists.</li>
+</ul>
+<h3>11.2 Morbidity and function</h3>
+<p>Morbidity, not mortality, is the whole story:</p>
+<ul>
+<li><strong>Joint contractures</strong> — the dominant disability. 100% in classic, 71% generalized, 20% localized (<a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>).</li>
+<li><strong>Restricted mobility and pain</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36825671/" target="_blank" rel="noopener noreferrer">PMID:36825671</a>).</li>
+<li><strong>Restrictive pulmonary changes</strong> (Orphanet).</li>
+<li><strong>Entrapment neuropathy</strong> (Orphanet; 2/8 in Loeys cohort).</li>
+<li><strong>Chronic exertional compartment syndrome</strong> — an unusual but instructive complication. <a href="https://pubmed.ncbi.nlm.nih.gov/37115944/" target="_blank" rel="noopener noreferrer">PMID:37115944</a>: <em>"Chronic Exertional Compartment Syndrome Requiring Bilateral Fasciotomy: An Atypical Complication of Familial Stiff Skin Syndrome in a Father and Son."</em> When the fascia itself becomes an inelastic casing, muscle has nowhere to expand.</li>
+<li><strong>Growth impairment and short stature</strong> (Orphanet, MONDO).</li>
+<li><strong>Diagnostic delay</strong> — ~7 years median (<a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>), and <em>"Patients with joint contractures had longer diagnostic delays."</em></li>
+<li><strong>Disability outcomes:</strong> ⚠ no ICF-coded or formal disability data.</li>
+<li><strong>QoL measures:</strong> ⚠ none applied. See §3.4.</li>
+</ul>
+<h3>11.3 Disease course and recovery</h3>
+<ul>
+<li><strong>Complications:</strong> contractures, compartment syndrome, restrictive lung physiology, neuropathy, anesthetic risk, psychosocial impact of visible disfigurement.</li>
+<li><strong>Recovery potential:</strong> essentially nil for established lesions. The 2025 series states it flatly (verbatim): <em>"these treatments are not capable of reversing established skin lesions."</em></li>
+</ul>
+<h3>11.4 Prognostic factors</h3>
+<p>The one genuinely validated prognostic factor is <strong>lesion distribution at presentation</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38844593/" target="_blank" rel="noopener noreferrer">PMID:38844593</a>) — localized carries the best prognosis, with only 6% progressing to classic disease, while generalized segmental progresses to classic in 60.6%. That's the number to put in a <code>progression</code> block.</p>
+<p>Secondary prognostic considerations: earlier onset associates with widespread disease (1.6 y vs 4.1 y, <a href="https://pubmed.ncbi.nlm.nih.gov/26944597/" target="_blank" rel="noopener noreferrer">PMID:26944597</a>); joint involvement at diagnosis predicts functional impairment.</p>
+<p><strong>Prognostic biomarkers:</strong> ⚠ none. SWE elastography is a promising <em>monitoring</em> tool (<a href="https://pubmed.ncbi.nlm.nih.gov/37864376/" target="_blank" rel="noopener noreferrer">PMID:37864376</a>) but has not been shown to predict outcome.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 The honest headline</h3>
+<p><strong>There is no disease-modifying therapy for stiff skin syndrome.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a> calls it verbatim <em>"an ultrarare and untreatable condition."</em> Every systemic agent below rests on case reports and small series — zero randomized trials, zero controlled comparisons.</p>
+<p>The 2025 case series states the position most carefully (verbatim, <a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>):</p>
+<blockquote>
+<p>"Currently, there is limited evidence supporting the use of systemic treatment options targeting the transforming growth factor-β or interleukin-17 pathways (such as MMF, losartan, and secukinumab) to slow disease progression. However, these treatments are not capable of reversing established skin lesions, and further investigations are imperative to assess their therapeutic efficacy in SSS."</p>
+</blockquote>
+<p>And on what patients actually receive (verbatim): <em>"Patients were primarily treated with physical therapy, while some patients received medications such as mycophenolate mofetil (MMF), losartan, and secukinumab. However, the prognosis varied."</em></p>
+<h3>12.2 Physical therapy — the actual mainstay</h3>
+<p>Physiotherapy and stretching to preserve range of motion and delay contracture is the <strong>only intervention with consistent support across every series</strong>. It is supportive, not disease-modifying, and its evidence base is "everyone does it and it seems to help," which is to say uncontrolled.</p>
+<p>Combined-modality report: <a href="https://pubmed.ncbi.nlm.nih.gov/27846975/" target="_blank" rel="noopener noreferrer">PMID:27846975</a>, <em>"Segmental stiff skin syndrome (SSS): Two additional cases with a positive response to mycophenolate mofetil and physical therapy."</em> ⚠ Abstract-free record; the title states the result.</p>
+<h3>12.3 Pharmacotherapy — three anecdotal options, three different rationales</h3>
+<p><strong>Mycophenolate mofetil (MMF)</strong> — antimetabolite, IMPDH inhibitor, broadly antifibrotic/antiproliferative. Reported with "positive response" in two segmental cases (<a href="https://pubmed.ncbi.nlm.nih.gov/27846975/" target="_blank" rel="noopener noreferrer">PMID:27846975</a>) and used in the Zhang cohort.</p>
+<p><strong>Losartan</strong> — angiotensin II type 1 receptor blocker, which reduces TGF-β signaling. This is the <strong>mechanistically best-motivated</strong> oral agent, borrowed straight from Marfan aortopathy. Case report: <a href="https://pubmed.ncbi.nlm.nih.gov/29110325/" target="_blank" rel="noopener noreferrer">PMID:29110325</a> ("A case of segmental stiff skin syndrome treated with systemic losartan"). And critically, there's supporting in-vitro data in the <em>right</em> cells: <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a> verbatim: <em>"In vitro exposure of patient's fibroblasts to losartan led to the partial restoration of normal transforming growth factor β (TGF-β) marker protein levels."</em> Note <strong>"partial."</strong></p>
+<p><strong>Secukinumab</strong> — anti-IL-17A monoclonal antibody. Two independent segmental-SSS reports: <a href="https://pubmed.ncbi.nlm.nih.gov/32212274/" target="_blank" rel="noopener noreferrer">PMID:32212274</a> (the IL17C-variant case) and <a href="https://pubmed.ncbi.nlm.nih.gov/36825671/" target="_blank" rel="noopener noreferrer">PMID:36825671</a>, the latter verbatim: <em>"Treatment options are limited; we report a patient that showed improvement with anti-IL17 biologic therapy."</em></p>
+<p>⚠ <strong>A caution worth curating:</strong> the secukinumab rationale is IL-17<strong>A</strong> blockade, while the reported variant was in IL-17<strong>C</strong>. Those are different cytokines with different receptors (IL-17C signals through IL-17RE). The mechanistic link between the reported variant and the drug that worked is <strong>not established</strong> — it's a plausible-sounding leap. Flag it rather than repeating it as mechanism.</p>
+<p>Other reported/attempted agents (generally with poor or absent response): systemic and intralesional corticosteroids, methotrexate, D-penicillamine, phototherapy/PUVA, cyclosporine. One outlier case: <a href="https://pubmed.ncbi.nlm.nih.gov/23910622/" target="_blank" rel="noopener noreferrer">PMID:23910622</a>, "Stiff skin syndrome and myeloma treated with autologous stem cell transplantation" — a coincidental-comorbidity report, not an SSS therapy.</p>
+<h3>12.4 Advanced therapeutics — all preclinical</h3>
+<p><strong>This is where SSS gets genuinely exciting</strong>, and it's the part most likely to matter for a mechanism KB. Gerber et al. 2013 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a></strong>) showed in knock-in mice:</p>
+<blockquote>
+<p>"Here we show that mouse lines harbouring analogous amino acid substitutions in fibrillin-1 recapitulate aggressive skin fibrosis that is prevented by integrin-modulating therapies and reversed by antagonism of the pro-fibrotic cytokine transforming growth factor β (TGF-β)."</p>
+<p>"Mutant mice show skin infiltration of pro-inflammatory immune cells including plasmacytoid dendritic cells, T helper cells and plasma cells, and also autoantibody production; these findings are normalized by integrin-modulating therapies or TGF-β antagonism."</p>
+</blockquote>
+<p>Note the two verbs: integrin modulation <strong>prevented</strong>; TGF-β blockade <strong>reversed</strong>. If that reversal translates, it's the only lead pointing at established-lesion regression. <strong>None of this has entered human trials.</strong> No gene therapy, no ASO, no siRNA, no cell therapy, no gene editing exists or is in development for SSS.</p>
+<h3>12.5 Clinical trials</h3>
+<p>⚠ <strong>I searched ClinicalTrials.gov via the v2 API for "stiff skin syndrome" and got zero studies.</strong> There is no interventional or observational trial for this disease. The <code>clinical_trials:</code> block should be <strong>empty</strong>. (The only hit on a loose condition search was NCT05687474, "Baby Detect: Genomic Newborn Screening," which lists hundreds of conditions and is not an SSS study — do not curate it.)</p>
+<h3>12.6 Surgical, supportive, rehabilitative</h3>
+<ul>
+<li><strong>Surgery:</strong> limited and reactive. <strong>Fasciotomy</strong> for compartment syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/37115944/" target="_blank" rel="noopener noreferrer">PMID:37115944</a>). Contracture release has been attempted but recurrence from ongoing fibrosis is the expected problem. Oral/maxillofacial procedures for TMJ restriction (<a href="https://pubmed.ncbi.nlm.nih.gov/42165429/" target="_blank" rel="noopener noreferrer">PMID:42165429</a>).</li>
+<li><strong>Anesthesia:</strong> requires specific planning — see <a href="https://pubmed.ncbi.nlm.nih.gov/32761718/" target="_blank" rel="noopener noreferrer">PMID:32761718</a>.</li>
+<li><strong>Rehabilitation:</strong> PT/OT, stretching, splinting, mobility aids.</li>
+<li><strong>Supportive:</strong> pain management, respiratory monitoring in severe thoracic involvement, psychosocial support.</li>
+</ul>
+<h3>12.7 Suggested NCIT / CHEBI annotations (all verified live via OLS4)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th><code>treatment_term</code></th>
+<th><code>therapeutic_agent</code></th>
+<th><code>therapeutic_modality</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Physical therapy</td>
+<td><code>NCIT:C15302</code> Physical Therapy</td>
+<td>—</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Occupational therapy</td>
+<td><code>NCIT:C121351</code> Occupational Therapy</td>
+<td>—</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Rehabilitation</td>
+<td><code>NCIT:C15315</code> Rehabilitation</td>
+<td>—</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Mycophenolate mofetil</td>
+<td><code>NCIT:C15986</code> Pharmacotherapy</td>
+<td><code>CHEBI:8764</code> mycophenolate mofetil <em>(or <code>NCIT:C1468</code>)</em></td>
+<td><code>SMALL_MOLECULE</code></td>
+</tr>
+<tr>
+<td>Losartan</td>
+<td><code>NCIT:C15986</code> Pharmacotherapy</td>
+<td><code>CHEBI:6541</code> losartan <em>(or <code>NCIT:C66869</code>)</em></td>
+<td><code>SMALL_MOLECULE</code></td>
+</tr>
+<tr>
+<td>Secukinumab</td>
+<td><code>NCIT:C15986</code> Pharmacotherapy</td>
+<td><code>NCIT:C152315</code> Secukinumab</td>
+<td><code>MONOCLONAL_ANTIBODY</code></td>
+</tr>
+<tr>
+<td>Methotrexate</td>
+<td><code>NCIT:C15986</code> Pharmacotherapy</td>
+<td><code>CHEBI:44185</code> methotrexate</td>
+<td><code>SMALL_MOLECULE</code></td>
+</tr>
+<tr>
+<td>Fasciotomy / surgery</td>
+<td><code>NCIT:C15329</code> Surgical Procedure</td>
+<td>—</td>
+<td><code>SURGERY</code></td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td><code>NCIT:C15240</code> Genetic Counseling</td>
+<td>—</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Per the KB's memory note about NCIT drug terms failing <code>therapeutic_agent</code> validation, <strong>prefer the CHEBI IDs</strong> where they exist. Secukinumab has no CHEBI term, so NCIT is the only option there.</p>
+<p><strong><code>target_mechanisms</code> suggestions</strong> (for the pathograph links):
+- Losartan → <code>INHIBITS</code> the "Increased TGF-β signaling" node (supported by <a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a>'s in-vitro partial rescue).
+- Secukinumab → the IL-17 axis — but <strong>only if you model an IL-17 node</strong>, and I'd argue you shouldn't, because the human evidence is one case. Better to record the treatment without a mechanism link than to invent a node to hang it on.
+- MMF → fibroblast proliferation node.</p>
+<h3>12.8 Pharmacogenomics, treatment algorithms, personalized medicine</h3>
+<ul>
+<li><strong>Pharmacogenomics:</strong> ⚠ none for SSS. (Generic MMF/IMPDH and losartan/CYP2C9 PGx exists in PharmGKB but is disease-agnostic.)</li>
+<li><strong>Treatment algorithm:</strong> none published. In practice: confirm diagnosis → PT/OT immediately → consider losartan or MMF in progressive disease → consider anti-IL-17 in segmental disease → surgical intervention only for complications.</li>
+<li><strong>Combination therapy:</strong> PT + MMF is the only combination with a published report (<a href="https://pubmed.ncbi.nlm.nih.gov/27846975/" target="_blank" rel="noopener noreferrer">PMID:27846975</a>).</li>
+<li><strong>Genotype-guided treatment:</strong> ⚠ <strong>does not exist.</strong> No genotype–treatment-response data.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> <strong>not possible.</strong> A dominant, fully penetrant, congenital-onset genetic disorder with no environmental component has no primary prevention. Do not manufacture one.</li>
+<li><strong>Secondary prevention (early detection):</strong> the actionable target is the <strong>~7-year diagnostic delay</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40551142/" target="_blank" rel="noopener noreferrer">PMID:40551142</a>). Earlier recognition → earlier PT → potentially fewer fixed contractures. That inference is reasonable but <em>unproven</em> — the delay/contracture correlation in that paper is associational, and reverse causation (more severe disease presents earlier) is not excluded. Curate carefully.</li>
+<li><strong>Tertiary prevention:</strong> contracture prevention via sustained PT/stretching/splinting; respiratory monitoring; pre-operative anesthetic planning (<a href="https://pubmed.ncbi.nlm.nih.gov/32761718/" target="_blank" rel="noopener noreferrer">PMID:32761718</a>). This is where essentially all realistic prevention effort sits.</li>
+<li><strong>Immunization:</strong> not applicable.</li>
+<li><strong>Screening programs:</strong> none; not warranted (see §10.8).</li>
+<li><strong>Genetic screening:</strong> prenatal diagnosis and preimplantation genetic testing are technically available for families with a known FBN1 variant. ⚠ I found no publication reporting either being performed for SSS.</li>
+<li><strong>Risk stratification:</strong> the Zhao subtype classification (§8.2) is the only validated stratifier, and it stratifies <em>progression</em>, not risk of onset.</li>
+<li><strong>Behavioral interventions:</strong> none reduce risk of disease. Maintaining range of motion reduces <em>disability</em>.</li>
+<li><strong>Genetic counseling</strong> (<code>NCIT:C15240</code>): 50% recurrence risk per pregnancy for an affected parent; complete penetrance means an inheriting child <em>will</em> be affected; severity is not predictable from genotype. Counseling for segmental disease is genuinely harder — if it's post-zygotic somatic, recurrence risk is likely low but germline mosaicism cannot be formally excluded, and <strong>there is no data to quote</strong>. Say so.</li>
+<li><strong>Public health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>There are two distinct canine conditions here, and they are <strong>not the same disease</strong> — mixing them up is the obvious trap.</p>
+<h3>14.1 West Highland white terrier "stiff skin-like syndrome"</h3>
+<p>Doelle et al., <em>Vet Dermatol</em> 2016 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/27188772/" target="_blank" rel="noopener noreferrer">PMID:27188772</a></strong>). Verbatim:</p>
+<blockquote>
+<p>"Affected dogs exhibited markedly indurated skin that was attached firmly to the underlying tissue and incomplete closure of the mouth and eyes."</p>
+<p>"Histologically, the dermis and pannicular septa were thickened by a marked increase in coarse collagen fibres and a mild to moderate increase in collagen fibre diameter. The syndrome most likely follows an autosomal recessive mode of inheritance. <strong>The sequence analysis did not reveal any obvious causative variant in the investigated candidate genes ADAMTSL2 and FBN1.</strong>"</p>
+<p>"Unlike in humans, or previously described beagles with stiff skin, there was no restriction of joint mobility. Genetic analysis did not detect a candidate causative variant and warrants further research."</p>
+</blockquote>
+<p>So: <strong>phenotypic mimic, different inheritance (recessive), unknown gene, no joint restriction.</strong> It is <em>not</em> a model of human SSS in any mechanistic sense — it's a phenocopy. Curate it as such or not at all.</p>
+<ul>
+<li>Species: dog, <code>NCBITaxon:9615</code></li>
+<li>Breed: West Highland White Terrier — ⚠ I did not verify a VBO identifier; look it up before curating.</li>
+<li>Related MONDO: <code>MONDO:1010789</code> <em>stiff skin syndrome, dog</em></li>
+</ul>
+<h3>14.2 Musladin-Lueke Syndrome (MLS) in Beagles — ADAMTSL2</h3>
+<p>Bader et al., <em>PLoS One</em> 2010 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/20862248/" target="_blank" rel="noopener noreferrer">PMID:20862248</a></strong>). Verbatim:</p>
+<blockquote>
+<p>"Musladin-Lueke Syndrome (MLS) is a hereditary disorder affecting Beagle dogs that manifests with extensive fibrosis of the skin and joints. In this respect, it resembles human stiff skin syndrome and the Tight skin mouse, each of which is caused by gene defects affecting fibrillin-1, a major component of tissue microfibrils."</p>
+<p>"Sequence analysis of a candidate gene at this locus, ADAMTSL2, which is responsible for the human TGFβ dysregulation syndrome, Geleophysic Dysplasia (GD), uncovered a mutation in exon 7 (c.660C&gt;T; p.R221C) perfectly associated with MLS (p-value=10(-12))."</p>
+<p>"The genetic basis of MLS is a founder mutation in ADAMTSL2, previously shown to interact with latent TGF-β binding protein, which binds fibrillin-1. The molecular effect of the founder mutation on ADAMTSL2 is formation of disulfide-bonded dimers."</p>
+</blockquote>
+<p>MLS is genetically a <strong>geleophysic-dysplasia</strong> homolog, not an SSS homolog — but it lands in the same microfibril/LTBP/TGF-β network one node over. <strong>Autosomal recessive, founder mutation.</strong> Good comparative-biology material; bad "animal model of SSS" material.</p>
+<ul>
+<li>Species: dog, <code>NCBITaxon:9615</code>; breed Beagle (⚠ VBO id unverified)</li>
+<li>Orthologous gene: ADAMTSL2 (<code>NCBIGene:9719</code> in human; canine ortholog per Ensembl)</li>
+<li>OMIA: MLS is catalogued in OMIA — ⚠ I did not retrieve the OMIA accession; look it up before curating.</li>
+</ul>
+<h3>14.3 Comparative biology and evolutionary conservation</h3>
+<p>The FBN1 RGD motif and the TB-domain architecture are deeply conserved across vertebrates — which is exactly why the mouse knock-in works (mouse W1572 = human W1570, a 2-residue offset from a small indel in the alignment). The broader lesson from the animal side: <strong>you can arrive at stiff, fibrotic skin from multiple points in the fibrillin/LTBP/ADAMTSL/TGF-β network</strong> — fibrillin-1 itself (human SSS, Tsk mouse), ADAMTSL2 (dog MLS, human GD), ADAMTS10 (Weill-Marchesani; and <em>"although surviving mice were slightly smaller and had stiff skin"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30201140/" target="_blank" rel="noopener noreferrer">PMID:30201140</a>). The network has one output and several inputs.</p>
+<h3>14.4 Transmission</h3>
+<p><strong>Zoonotic potential: none.</strong> Cross-species susceptibility: not applicable. Genetic disorder, not transmissible.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Genetic mouse models — the flagship</h3>
+<p><strong>Gerber et al. 2013 knock-in lines (<a href="https://pubmed.ncbi.nlm.nih.gov/24107997/" target="_blank" rel="noopener noreferrer">PMID:24107997</a>)</strong> are the definitive SSS models and the source of essentially all interventional mechanism data.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Allele</th>
+<th>Nature</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Fbn1 W1572C</strong></td>
+<td>Knock-in, mouse equivalent of human W1570C</td>
+<td>The disease-analogous model</td>
+</tr>
+<tr>
+<td><strong>Fbn1 D1545E</strong></td>
+<td>Knock-in, RGD→RGE</td>
+<td>Obligate loss of integrin binding — the mechanistic control</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Abstract-level verbatim support: <em>"mouse lines harbouring analogous amino acid substitutions in fibrillin-1 recapitulate aggressive skin fibrosis that is prevented by integrin-modulating therapies and reversed by antagonism of the pro-fibrotic cytokine transforming growth factor β (TGF-β)."</em></p>
+<p>⚠ <strong>Full-text details</strong> (retrieved via an automated reader, not verified against the PDF — <strong>verify before quoting as evidence</strong>): heterozygotes showed increased collagen deposition by 1 month and reduced subcutaneous fat by 3 months; homozygous W1572C showed accelerated fibrosis; homozygous D1545E was embryonic-lethal before E10.5; treatments were a β1-integrin-activating antibody (9EG7) and a panspecific TGF-β neutralizing antibody (1D11) over 12 weeks; β3-integrin haploinsufficiency/deficiency also normalized the phenotype; immune findings included CD317+ pDCs expressing IL-6 and IFN-α, plus CD4+IL-4+ Th2, CD4+IL-17+ Th17 and CD4+IL-9+ Th9 cells, with anti-nuclear and anti-topoisomerase I autoantibodies. <strong>These are excellent leads for <code>readouts</code> and <code>modeled_mechanisms</code>, but they came out of a summarizer and need the actual paper before they go in a KB entry.</strong></p>
+<h3>15.2 The Tight-skin (Tsk) mouse — related but not SSS</h3>
+<p><code>Fbn1^Tsk</code> — a spontaneous <strong>in-frame internal duplication</strong> in Fbn1. <a href="https://pubmed.ncbi.nlm.nih.gov/19541933/" target="_blank" rel="noopener noreferrer">PMID:19541933</a> verbatim: <em>"the tight-skin (TSK) mouse, which harbors a spontaneous internal duplication in the microfibrillar glycoprotein fibrillin-1."</em> <a href="https://pubmed.ncbi.nlm.nih.gov/15022335/" target="_blank" rel="noopener noreferrer">PMID:15022335</a> verbatim: <em>"Skin fibrosis in the TSK mouse, a model of skin fibrosis seen in systemic sclerosis (SSc), is caused by a large in-frame duplication in the Fbn1 gene, tsk-Fbn1."</em></p>
+<p>Mechanistic finding (<a href="https://pubmed.ncbi.nlm.nih.gov/15022335/" target="_blank" rel="noopener noreferrer">PMID:15022335</a>, verbatim): <em>"Expression of tsk-Fbn1 in cultured MEF cells altered the morphology of Fbn-1 fibers and increased the deposition of type I collagen into the extracellular matrix (ECM) without concomitantly changing messenger RNA expression, secretion, or processing of type I procollagen."</em></p>
+<p><strong>That last clause is the important one:</strong> the collagen surplus arises from <strong>altered matrix deposition/retention</strong>, not from cranking up collagen transcription. Same conclusion as the reduced-MMP-2 finding in human segmental fibroblasts, arrived at independently. Both point at the drain, not just the tap.</p>
+<p>Tsk is a <strong>structurally distinct</strong> lesion (duplication vs missense) and is conventionally an SSc model rather than an SSS model. Relationship: <code>PARTIALLY_RECAPITULATES</code> at best, with the duplication-vs-missense difference as an explicit <code>limitations</code> entry. Also note the Tsk lung phenotype (emphysema, <a href="https://pubmed.ncbi.nlm.nih.gov/19541933/" target="_blank" rel="noopener noreferrer">PMID:19541933</a>) which human SSS does <strong>not</strong> have — that's a <code>FAILS_TO_RECAPITULATE</code> candidate.</p>
+<h3>15.3 Network-adjacent mouse models</h3>
+<ul>
+<li><strong>Adamtsl2^−/−</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25762570/" target="_blank" rel="noopener noreferrer">PMID:25762570</a>) — geleophysic dysplasia model; neonatal lethal; <em>"An increase in microfibrils in the bronchial wall was associated with increased FBN2 and microfibril-associated glycoprotein-1 (MAGP1) staining."</em> Notably: <em>"treatment with TGFβ-neutralizing antibody did not correct the epithelial dysplasia"</em> — a useful negative result showing not everything in this network is TGF-β-downstream.</li>
+<li><strong>Adamts10^−/−</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30201140/" target="_blank" rel="noopener noreferrer">PMID:30201140</a>) — <em>"surviving mice were slightly smaller and had stiff skin"</em>; identified fibrillin-2 as a novel ADAMTS10 substrate.</li>
+</ul>
+<h3>15.4 Cellular and in vitro systems</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>What it's good for</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Patient lesional dermal fibroblasts</td>
+<td>Signaling (pERK1/2, NF-κB, nuclear pSmad2), ECM gene expression, MMP-2 zymography, drug rescue</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32698527/" target="_blank" rel="noopener noreferrer">PMID:32698527</a></td>
+</tr>
+<tr>
+<td>GFP-tagged full-length fibrillin-1 microfibril assembly assay</td>
+<td>Discriminating secretion failure (MFS) from assembly-competent mutants (SSS)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25979247/" target="_blank" rel="noopener noreferrer">PMID:25979247</a></td>
+</tr>
+<tr>
+<td>Recombinant fibrillin-1 fragment + integrin-transfected adhesion panel</td>
+<td>Per-integrin dissection of the adhesion defect</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31640988/" target="_blank" rel="noopener noreferrer">PMID:31640988</a></td>
+</tr>
+<tr>
+<td>Recombinant-cell early fibrillin-1 assembly monitoring</td>
+<td>Assembly kinetics</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24559401/" target="_blank" rel="noopener noreferrer">PMID:24559401</a></td>
+</tr>
+<tr>
+<td>Conditional tsk-Fbn1 expression in MEFs</td>
+<td>Matrix deposition without transcriptional change</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15022335/" target="_blank" rel="noopener noreferrer">PMID:15022335</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>⚠ <strong>No iPSC-derived model, no organoid, no skin-on-chip, and no immortalized SSS cell line</strong> exists for this disease. That's a <code>KNOWLEDGE_GAP</code> with a concrete <code>proposed_experiments</code> entry attached — patient-derived iPSC → fibroblast/skin-organoid differentiation would be a genuinely useful thing for someone to build.</p>
+<h3>15.5 Model limitations, stated plainly</h3>
+<ol>
+<li><strong>The inflammation discrepancy</strong> (§6.6) — the mouse has a florid immune infiltrate and autoantibodies; human histology is bland. This is the headline mismatch.</li>
+<li><strong>Homozygous vs heterozygous</strong> — human SSS is heterozygous; several mouse findings come from homozygotes.</li>
+<li><strong>Contractures</strong> — mouse skin fibrosis is not obviously accompanied by the joint contractures that dominate human morbidity. The mouse is a skin model, not a disability model.</li>
+<li><strong>Tsk is the wrong mutation class</strong> and carries a lung phenotype humans lack.</li>
+<li><strong>The dog "models" aren't models</strong> — one has no identified gene and recessive inheritance (WHWT), the other is in a different gene entirely (Beagle/ADAMTSL2).</li>
+</ol>
+<h3>15.6 Model resources</h3>
+<p>MGI (Fbn1, <a href="https://bioregistry.io/MGI:95489" target="_blank" rel="noopener noreferrer">MGI:95489</a> — ⚠ ID not independently verified this session), IMSR, Alliance of Genome Resources, JAX (Tsk strain is a long-standing JAX line), OMIA for the canine conditions.</p>
+<hr />
+<h2>⚠ Verification notes — what I could NOT confirm</h2>
+<p>Being explicit so nothing here gets curated as fact when it's a lead:</p>
+<ol>
+<li><strong>Loeys 2010 full text is paywalled.</strong> Europe PMC returned zero bytes for PMC2953713. The four SSS variants are confirmed via <strong>ClinVar + OMIM allelic-variant xrefs</strong> (FBN1 .0050–.0053, all xref'd to <a href="https://bioregistry.io/OMIM:184900" target="_blank" rel="noopener noreferrer">OMIM:184900</a>), which is solid independent confirmation. But per-family assignments, de novo status, and the exact elastin/pSmad2/CTGF wording came from an automated page reader and are <strong>not</strong> verbatim-verified. <strong>Do not use them as evidence snippets.</strong> One number that reader gave me was outright wrong (it said "Gly1594Asn"; ClinVar says p.Gly1594<strong>Asp</strong>) — treat everything else from that source with matching suspicion.</li>
+<li><strong>Gerber 2013 full-text details</strong> in §15.1 (doses, antibody clones, timelines, immune subsets) — same caveat. The <em>abstract</em> quotes in §6.6 and §12.4 are verbatim and safe.</li>
+<li><strong>ICD-10 code</strong> — not verified. MONDO carries an ICD-11 <em>foundation</em> id (642409035) only. Don't assert an ICD-10 code.</li>
+<li><strong>Orphanet prevalence</strong> — the API's prevalence endpoint didn't resolve for <a href="https://bioregistry.io/ORPHA:2833" target="_blank" rel="noopener noreferrer">ORPHA:2833</a>. No quantitative estimate obtained.</li>
+<li><strong>Sex ratio</strong> — no abstract reported one. Don't assert.</li>
+<li><strong>VBO breed IDs and the OMIA accession for MLS</strong> — not retrieved.</li>
+<li><strong>gnomAD absence</strong> — I queried by ClinVar-derived GRCh38 coordinates (15:48467975, 15:48467994) with C&gt;G alleles and got "Variant not found" for both. FBN1 is on the minus strand, so I inferred the genomic allele from cDNA; the "not found" result is consistent with absence but I did not separately confirm the reference base.</li>
+<li><strong>Reactome/KEGG pathway accessions</strong> in §6.2 — written from knowledge, not looked up. Verify before use.</li>
+<li><strong><a href="https://bioregistry.io/MGI:95489" target="_blank" rel="noopener noreferrer">MGI:95489</a></strong> — not verified this session.</li>
+<li><strong>Several key papers are abstract-free in PubMed</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22211327/" target="_blank" rel="noopener noreferrer">PMID:22211327</a>, 27846975, 32212274, 34411278, 30704628, 25200307, 5100776, 5173296). Per the dismech title-snippet rule, their titles are the only quotable text; some of those titles <em>do</em> state results (22211327, 27846975) and are usable with that noted, but the two 1971 Esterly papers are pure topic titles and should not be cited as evidence snippets — cite them in <code>notes:</code> as historical provenance instead.</li>
+</ol>
+<hr />
+<h2>Curation recommendations for the dismech entry</h2>
+<p>A few things that jumped out as I went, in rough priority order:</p>
+<ol>
+<li><strong>The <code>HUMAN_MODEL_MISMATCH</code> discussion in §6.6 is the highest-value thing in this entry.</strong> Mouse = inflammatory fibrosis with autoantibodies; human = "completely lacked lymphocyte infiltration" across 31 biopsies. That's not a hedge, it's a genuine unresolved translational question, and it's exactly what that discussion kind exists for.</li>
+<li><strong>Two evidence-conflict items need <code>mechanistic_hypotheses</code> or careful <code>supports</code> grading:</strong> Guiducci's unchanged TGF-β transcript vs Loeys's elevated TGF-β signaling (§6.4), and the IL17C-variant-to-anti-IL17A-drug leap (§12.3).</li>
+<li><strong><code>fibrotic_response</code> conformance should be declared node-by-node</strong>, explicitly skipping the inflammation node. The skip is the science.</li>
+<li><strong>Leave <code>datasets:</code> and <code>clinical_trials:</code> empty</strong> and record the absence in <code>notes:</code>. I checked both; there's genuinely nothing, and searching FBN1 for datasets will drag in Marfan material — the exact NEC-via-dataset-search trap the SOP warns about.</li>
+<li><strong>Fetch the four reference-cache entries before writing any evidence</strong>: <code>just fetch-reference PMID:20375004 PMID:24107997 PMID:25979247 PMID:31640988</code> plus the cohort papers. Several of my best quotes are long compound sentences — pre-test them against the cache before the first Write, since a blocked write is a no-op and you'd be re-emitting the whole file.</li>
+<li><strong>Watch the square brackets.</strong> A few of the abstracts contain bracketed frequency notation like "Very frequent (99-80%)" — fine — but the ClinVar titles use <code>&gt;</code> characters that HTML-escape oddly, and the ORPHA-style pipe rows need care. Nothing I quoted above has square brackets, but check anything you pull fresh.</li>
+</ol>
+<p>There's a They Might Be Giants line about a person who's "a self-contained, self-perpetuating system" — which is more or less what an SSS fibroblast is doing. No inflammatory trigger, no autoimmune drumbeat, no external insult. Just a cell that can't feel the matrix it built, building more of it, forever. That's the whole disease in one sentence, and it's why it taught us so much about the fibrosis that <em>does</em> have a trigger.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Stiff_Person_Syndrome-perplexity.html">← Stiff Person Syndrome (Perplexity)</a>
+                
+                
+                <a href="STING_Associated_Vasculopathy_with_Onset_in_Infancy-asta.html">STING-Associated Vasculopathy with Onset in Infancy (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Stiff_Skin_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Stiff_Skin_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

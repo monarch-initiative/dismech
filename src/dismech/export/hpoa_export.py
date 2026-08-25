@@ -56,6 +56,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from dismech.export.utils import (
+    pathophysiology_node_names,
+    phenotype_is_upstream_risk_state,
+)
 from dismech.yaml_io import safe_load_path
 
 HPOA_VERSION = "dismech-extended-v1"
@@ -220,6 +224,7 @@ def hpoa_rows_for_disorder(
 
     hpoa_rows: list[dict[str, str]] = []
     comorb_rows: list[dict[str, str]] = []
+    patho_names = pathophysiology_node_names(data)
 
     for phenotype in data.get("phenotypes") or []:
         term = ((phenotype.get("phenotype_term") or {}).get("term") or {})
@@ -241,6 +246,17 @@ def hpoa_rows_for_disorder(
                         "biocuration": biocuration,
                     }
                 )
+            continue
+
+        # An upstream risk-state phenotype (one driving a pathophysiology node,
+        # e.g. a nutritional deficiency) is not a manifestation of the disease.
+        # Emitting a phenotype.hpoa row would assert `disease has_phenotype <term>`
+        # and invert the curated causal direction, so skip it entirely. This is
+        # checked after the MONDO branch above, which keeps its already
+        # direction-neutral `biolink:associated_with` comorbidity row; and it is
+        # deliberately unguarded by `term_id`, so an ontology-unbound risk state
+        # cannot slip through onto the synthetic `DISMECH:` id below.
+        if phenotype_is_upstream_risk_state(phenotype, patho_names):
             continue
 
         hpo_id = term_id or f"DISMECH:{entry_slug}#{slugify(phen_name)}"

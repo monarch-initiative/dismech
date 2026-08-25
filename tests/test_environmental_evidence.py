@@ -85,6 +85,30 @@ def test_accepts_an_entry_with_evidence():
     assert not list(find_violations({"environmental": [entry]}))
 
 
+def test_flags_an_entry_whose_only_evidence_item_has_an_empty_snippet():
+    # dismech#8550: `if entry.get("evidence")` only checked block presence, so
+    # an evidence item that cites a real PMID but quotes nothing (snippet: '')
+    # was silently treated as "cited". A block whose items are all
+    # empty-snippet must still count as evidence-free.
+    entry = _entry(
+        "Smoking",
+        evidence=[{"reference": "PMID:1", "supports": "SUPPORT", "snippet": ""}],
+    )
+    findings = list(find_violations({"environmental": [entry]}))
+    assert findings == [("environmental[0]", "Smoking")]
+
+
+def test_accepts_an_entry_with_one_quoted_item_among_empty_ones():
+    entry = _entry(
+        "Smoking",
+        evidence=[
+            {"reference": "PMID:1", "supports": "NO_EVIDENCE", "snippet": ""},
+            {"reference": "PMID:2", "supports": "SUPPORT", "snippet": "Real quote."},
+        ],
+    )
+    assert not list(find_violations({"environmental": [entry]}))
+
+
 def test_missing_environmental_key_yields_no_findings():
     assert not list(find_violations({}))
 
