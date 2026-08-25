@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Exposure and Hazard Classification - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: #fff;
+            color: var(--gray-800);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Sticky nav */
+        nav.site-nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+        .nav-links a { color: var(--gray-600); text-decoration: none; }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+        }
+
+        .breadcrumb span {
+            color: var(--text-muted);
+        }
+
+        .page-header {
+            background: var(--teal-50);
+            border: 1px solid var(--gray-200);
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-header::before { display: none; }
+
+        .page-header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        .page-header p {
+            position: relative;
+            max-width: 820px;
+            color: var(--gray-700);
+        }
+
+        .header-meta {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: rgba(0, 131, 143, 0.1);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .summary-card {
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .section-copy {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .tree {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .node {
+            margin: 12px 0;
+            padding: 18px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .node-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .node-name {
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .node-key {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: #ecfeff;
+            border-radius: 999px;
+            padding: 3px 9px;
+        }
+
+        .node-body {
+            margin-top: 12px;
+        }
+
+        .node-desc {
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .linkout {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .dismech-link {
+            background: #ecfccb;
+            color: #3f6212;
+        }
+
+        .children {
+            list-style: none;
+            padding-left: 18px;
+            margin: 12px 0 0;
+            border-left: 2px solid var(--tree-border);
+        }
+
+        .disorders {
+            list-style: none;
+            padding-left: 0;
+            margin: 12px 0 0;
+            display: grid;
+            gap: 8px;
+        }
+
+        .disorders li {
+            font-size: 0.95rem;
+        }
+
+        .disorder-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f0fdfa;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .disorder-link:hover {
+            text-decoration: none;
+            border-color: var(--primary-light);
+        }
+
+        @media (max-width: 720px) {
+            .container {
+                padding: 16px;
+            }
+
+            .page-header {
+                padding: 32px 24px;
+            }
+
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="index.html" class="active">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a>
+            <span> / </span>
+            <a href="index.html">Classifications</a>
+            <span> / </span>
+            <span>Exposure and Hazard Classification</span>
+        </div>
+
+        <header class="page-header">
+            <h1>Exposure and Hazard Classification</h1>
+            
+            <p>Sanctioned classification axes for an **exposure or its agent** — as distinct from the disease-level nosologies in ``DiseaseClassifications``.
+This is the load-bearing distinction in this module. ``ILOCausativeAgentEnum``, ``ILODiseaseCategoryEnum`` and ``EUOccupationalScheduleEnum`` classify a *disease*, so they hang off ``Disease.classifications`` — note that even the ILO&#39;s causative-agent axis is a statement about which agent-indexed item a *disease* is recognised under, not a property of the agent itself. Everything here classifies the *agent or the exposure event* — &#34;benzene is an IARC Group 1 carcinogen&#34; is a statement about benzene, not about any disease benzene causes. Putting agent-level facts into a disease-level slot would assert, wrongly, that the disease itself carries the hazard classification. These enums are therefore reached through ``Environmental.exposure_classifications``.
+Each axis below is an independent, published standard; they are deliberately separate enums rather than one blended vocabulary, because an exposure has a value on several of them at once (chronic + inhalation + chemical + IARC Group 1 is a normal, non-redundant description of occupational benzene).
+These annotate an exposure that dismech has already grounded to ECTO/ExO via ``Environmental.exposure_term``. They do not replace that grounding — ECTO post-composes the exposure event itself (&#34;exposure to arsenic in water via ingestion&#34;), while these axes record the regulatory and toxicological classification of the agent and the exposure&#39;s shape. Where an ECTO term already encodes the route, the ``exposure_route`` value simply makes it queryable without parsing the term label.
+Scope note — carcinogen classifications. Only the IARC Monographs classification is encoded here. Three national systems classify the same agents on parallel scales — the US NTP *Report on Carcinogens* (&#34;known to be a human carcinogen&#34; / &#34;reasonably anticipated to be a human carcinogen&#34;), the US EPA IRIS cancer descriptors (five weight-of-evidence descriptors), and the ACGIH TLV carcinogenicity notations (A1-A5). They are deliberately **not** encoded: they largely re-rank the same evidence, and carrying four near-parallel scales invites curators to assert an NTP or ACGIH listing they have not checked. IARC is the WHO/international instrument and is the one cited in the occupational literature dismech curates. If a national listing is the specific point being made, state it in the assignment&#39;s ``notes`` with its source.
+Also deliberately not encoded: the GBD (IHME) environmental and occupational risk-factor hierarchy. It is a genuine sanctioned classification and would fit this module, but its exact Level 2 / Level 3 label set could not be verified against a primary source when this module was written, and transcribing an approximate hierarchy would defeat the purpose. Left for a follow-up that works from the GBD capstone appendix.</p>
+            
+            <div class="header-meta">
+                <span class="chip">Schema enum: ExposureDurationEnum</span>
+                
+                <span class="chip">Schema source: https://w3id.org/monarch-initiative/dismech/classifications/exposure_classification</span>
+                
+            </div>
+        </header>
+
+        
+        <section class="summary-card">
+            <div class="section-title">Schema Enum Description</div>
+            <div class="section-copy">Duration of exposure. The day ranges given are those used by the US Agency for Toxic Substances and Disease Registry (ATSDR) in deriving Minimal Risk Levels, which is the most precisely specified of the common conventions: acute 1-14 days, intermediate 15-364 days, chronic 365 days and longer.
+Beware that agencies do not agree on the bin boundaries — EPA risk assessment uses acute / short-term / subchronic / chronic with different cut points, and the occupational literature often uses &#34;chronic&#34; to mean simply &#34;long-term&#34; with no threshold. The values here carry the ATSDR ranges as their definition; when a source uses a different convention, pick the value whose *meaning* matches and say so in ``notes`` rather than forcing the source&#39;s word onto a value with a different range.
+This describes the exposure, not the disease course. A single acute exposure can cause a chronic disease; use ``temporality`` / ``clinical_course`` on the phenotype descriptor for the latter.</div>
+        </section>
+        
+
+        <ul class="tree">
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">ACUTE</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">A single exposure or repeated exposure over 1-14 days (ATSDR acute duration). Includes the single high-dose incident, spill or release.</div>
+                
+
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Noise_Induced_Hearing_Loss.html">Noise Induced Hearing Loss</a></li>
+                    
+                </ul>
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">INTERMEDIATE</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Repeated exposure over 15-364 days (ATSDR intermediate duration). Overlaps what other agencies call subacute or subchronic.</div>
+                
+
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Silicosis.html">Silicosis</a></li>
+                    
+                </ul>
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">CHRONIC</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Repeated exposure over 365 days or longer (ATSDR chronic duration). The usual shape of an occupational exposure across a working life.</div>
+                
+
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Asbestosis.html">Asbestosis</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Noise_Induced_Hearing_Loss.html">Noise Induced Hearing Loss</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Silicosis.html">Silicosis</a></li>
+                    
+                </ul>
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">INTERMITTENT</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Recurrent discrete exposures separated by exposure-free intervals, where the episodic pattern rather than the cumulative dose is the salient feature (task-based peak exposure, seasonal work).</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">LIFETIME</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Continuous exposure across the whole lifespan, the framing used for ubiquitous environmental agents (background air pollution, residential radon) and for lifetime-risk cancer estimates.</div>
+                
+
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Cadmium_Poisoning.html">Cadmium Poisoning</a></li>
+                    
+                </ul>
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+            
+    <li>
+        <div class="node">
+            <div class="node-row">
+                <span class="node-name">UNKNOWN</span>
+                
+                
+            </div>
+
+            <div class="node-body">
+                
+                <div class="node-desc">Duration not established or not reported by the cited source.</div>
+                
+
+                
+
+                
+            </div>
+        </div>
+    </li>
+    
+            
+        </ul>
+    </div>
+</body>
+</html>

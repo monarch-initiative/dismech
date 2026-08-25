@@ -5,7 +5,7 @@
 ## Target Disease
 - **Disease Name:** Pheochromocytoma and Paraganglioma
 - **MONDO ID:**  (if available)
-- **Category:**
+- **Category:** 
 
 ## Research Objectives
 
@@ -335,7 +335,7 @@ For each mechanism, describe:
   - Personalized medicine approaches (genotype-guided treatment)
     > **Search first:** My Cancer Genome, CIViC, PharmGKB, precision medicine databases
 
-For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.
+For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.
 
 ### 13. Prevention
 
@@ -429,7 +429,7 @@ For each treatment, suggest MAXO (Medical Action Ontology) terms where applicabl
 Structure your response as a comprehensive narrative organized by the sections above.
 For each section, provide:
 - Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
-- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
 - Evidence citations with PMIDs
 - Direct quotes from abstracts to support key claims
 - Clear indication when information is not available or not applicable for this disease
@@ -441,61 +441,43 @@ This report will be used to populate a disease knowledge base entry with:
 - Cell type involvement (CL terms)
 - Anatomical locations (UBERON terms)
 - Chemical entities (CHEBI terms)
-- Treatment annotations (MAXO terms)
+- Treatment annotations (NCIT terms)
 - Evidence items with PMIDs and exact abstract quotes
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-04-05T21:44:51.214168
+**Generated:** 2026-08-01T01:28:42.665976
 
-1. richter2024patientsexand pages 1-2
-2. bresser2024themolecularclassification pages 1-2
-3. lin2022headandneck pages 1-2
-4. bima2024preventionandmanagement pages 4-5
-5. araujocastro2023localrecurrenceand pages 1-2
-6. junior2023thepheochromocytomaparagangliomasyndrome pages 1-2
-7. bima2024preventionandmanagement pages 2-4
-8. jeeyavudeen2024tumormetabolismin pages 1-3
-9. calsina2023genomicandimmune pages 1-2
-10. torresan2023longtermoutcomesafter pages 1-2
-11. junior2023thepheochromocytomaparagangliomasyndrome pages 5-7
-12. ohmoto2024currentprospectsof pages 1-2
-13. kornerup2024effectsofpeptide pages 1-2
-14. marretta2023responsetopeptide pages 1-2
-15. rubino2024peptidereceptorradionuclide pages 1-3
-16. bresser2024themolecularclassification pages 6-7
-17. bresser2024themolecularclassification pages 7-9
-18. calsina2023genomicandimmune pages 4-5
-19. lin2022headandneck pages 2-3
-20. 18f
-21. 177lu
-22. 68ga
-23. https://doi.org/10.1007/s12022-024-09830-3;
-24. https://doi.org/10.3390/biomedicines12102385;
-25. https://doi.org/10.3389/fendo.2024.1433582
-26. https://doi.org/10.3390/biomedicines12102385
-27. https://doi.org/10.3389/fendo.2024.1460320
-28. https://doi.org/10.3389/fendo.2024.1433582;
-29. https://doi.org/10.3389/fendo.2024.1460320;
-30. https://doi.org/10.1210/jendso/bvae038
-31. https://doi.org/10.1210/jendso/bvae038;
-32. https://doi.org/10.1007/s12022-024-09830-3
-33. https://doi.org/10.1007/s12022-024-09830-3,
-34. https://doi.org/10.3389/fendo.2024.1433582,
-35. https://doi.org/10.3390/biomedicines12102385,
-36. https://doi.org/10.3389/fendo.2024.1460320,
-37. https://doi.org/10.1210/jendso/bvae038,
-38. https://doi.org/10.1148/rycan.210088,
-39. https://doi.org/10.3389/fendo.2023.1279828,
-40. https://doi.org/10.1590/s1677-5538.ibju.2023.0038,
-41. https://doi.org/10.37349/etat.2024.00222,
-42. https://doi.org/10.1038/s41467-023-36769-6,
-43. https://doi.org/10.3390/cancers15112890,
-44. https://doi.org/10.1007/s12022-022-09746-w,
-45. https://doi.org/10.1186/s13550-023-01056-4,
-46. https://doi.org/10.1186/s13053-024-00276-6,
-47. https://doi.org/10.3390/cancers16071349,
-48. https://doi.org/10.1007/s00259-023-06166-8,
-49. https://doi.org/10.3390/jcm12041494,
-50. https://doi.org/10.1007/s12020-024-03707-5,
+1. casey2020geneticstratificationof pages 4-5
+2. cascon2023geneticbasesof pages 4-5
+3. cascon2023geneticbasesof pages 5-6
+4. casey2024internationalconsensusstatement pages 1-2
+5. casey2024internationalconsensusstatement pages 11-13
+6. cascon2023geneticbasesof pages 1-2
+7. cascon2023geneticbasesof pages 6-8
+8. cascon2023geneticbasesof pages 2-4
+9. taieb2023clinicalconsensusguideline pages 19-21
+10. 68Ga
+11. 18F
+12. 123I
+13. Published April 2023; DOI
+14. Published October 2024; DOI
+15. Published September 2024; DOI
+16. DOI 10.1530/JME-22-0167
+17. DOI 10.1016/S2213-8587(23)00038-4
+18. DOI 10.1038/s41574-024-01024-5
+19. DOI 10.3390/biomedicines12102385
+20. DOI 10.3389/fendo.2024.1433582
+21. https://doi.org/10.1530/jme-22-0167
+22. https://doi.org/10.1007/s12022-024-09830-3
+23. https://doi.org/10.1038/s41574-024-01024-5
+24. https://doi.org/10.1016/S2213-8587(23
+25. https://doi.org/10.3390/biomedicines12102385
+26. https://doi.org/10.3389/fendo.2024.1433582
+27. https://doi.org/10.3389/fendo.2024.1433582,
+28. https://doi.org/10.17863/cam.111911,
+29. https://doi.org/10.1530/jme-22-0167,
+30. https://doi.org/10.1093/hmg/ddaa201,
+31. https://doi.org/10.3390/biomedicines12102385,
+32. https://doi.org/10.1016/s2213-8587(23
