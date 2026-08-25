@@ -2631,6 +2631,33 @@ slots:
     description: The title of the referenced publication
     range: string
     recommended: true
+    comments:
+      - >-
+        NOT machine-checked today, and deliberately so for now.
+        linkml-reference-validator already compares a declared title against the
+        fetched publication and errors on a mismatch, and it WOULD cover this
+        slot with `implements: - dcterms:title` (plus a `dcterms` prefix) — no
+        upstream change is required. `linkml:title` does NOT work: lrv's
+        TitleURIs matches only "dcterms:title" / "dc/terms/title", so the
+        annotation carried by the shared `title` slot is inert, and
+        PublicationReference.title is detected only via lrv's exact-name
+        fallback FallbackSlotNames.TITLE = ("title",). Note that "checked" means
+        checked for the prefixes lrv actually fetches: prefixes in
+        `skip_prefixes` (conf/reference_validator_config.yaml), notably `DOI:`,
+        are never fetched and so are exempt. That is why ~34 disease-level
+        titles can differ from their cache on a green main without contradicting
+        this — all of them are DOI.
+      - >-
+        Turning it on is blocked on data, not on tooling: 6,211 of 141,830
+        existing titles (4.4%) currently differ from their cached publication
+        under lrv's own normalize_text, so enabling the check today would fail
+        reference validation across a large share of the KB. The differences are
+        cosmetic in the cases sampled — leftover Crossref markup
+        (`<scp><i>ECHS1</i></scp>`), the curator suffix `(Orphanet
+        structured-database record)`, and unicode (`Guillain-Barre` vs
+        `Guillain-Barre` with en-dash and accent). Normalize those first, then
+        add the annotation. Until then the reviewer checklist in the
+        dismech-pr-review skill is the control.
   explanation:
     examples:
       - value: There is no curative treatment for nephronophthisis, indicating that supportive care, including symptomatic treatment and monitoring, is currently applied to manage associated complications.
@@ -2670,6 +2697,19 @@ slots:
     range: string
     implements:
       - linkml:title
+    comments:
+      - >-
+        The `linkml:title` annotation is INERT for linkml-reference-validator
+        detection — lrv's TitleURIs matches only "dcterms:title" /
+        "dc/terms/title". Where this slot IS title-checked (on
+        PublicationReference) that happens via lrv's exact-name fallback
+        FallbackSlotNames.TITLE = ("title",), not via this annotation. Kept
+        because it is a reasonable semantic mapping, and noted here for the same
+        reason the EvidenceItem `reference_title` comment exists: an annotation
+        that looks like it enables a check, but does not, misleads readers.
+        Retargeting it to `dcterms:title` is deliberately left to the title
+        normalization work, since that would also newly expose Dataset.title and
+        TrackedIssue.title to detection.
   found_in:
     description: Deep-research output files where this reference was cited
     multivalued: true
@@ -6058,6 +6098,14 @@ classes:
       reference:
         identifier: true
         required: true
+      title:
+        recommended: true
+        description: >-
+          Title of the referenced publication. Recommended so that
+          linkml-data-qc scores its absence, matching the `recommended: true`
+          already carried by the EvidenceItem `reference_title` twin. Set here
+          via slot_usage rather than on the shared `title` slot, which is also
+          used by Dataset and TrackedIssue.
   ExternalAssertion:
     description: >-
       An externally curated assertion or registry record relevant to a disease or
