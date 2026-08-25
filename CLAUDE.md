@@ -437,6 +437,7 @@ schema shape, the trigger→consequence node chain, the treatment
 - `keratin_intermediate_filament_fragility` — Conserved cytoskeletal-fragility pattern of the keratinopathies: a heterozygous missense/small in-frame variant in a filament-assembly domain (the 1A and 2B helix boundary motifs and the H1 head, i.e. the molecular-overlap regions) → dominant-negative incorporation into the obligate type-I/type-II heterodimer with keratin network collapse and tonofilament aggregation → **loss of keratinocyte mechanical resilience** → cytolysis restricted to the affected pair's expression domain → mechanically provoked blistering, hyperkeratosis or appendage dystrophy. The expression domain, not the mechanism, sets the disease: KRT5/KRT14 basal (EBS), KRT1/KRT10 suprabasal (epidermolytic ichthyosis), KRT9 palmoplantar, KRT6A/6B/6C/16/17 nail-bed and pilosebaceous (pachyonychia congenita), KRT81/83/86 hair cortex (monilethrix), KRT3/KRT12 cornea (Meesmann). Epidermolytic ichthyosis conforms to BOTH this and `epidermal_cornification_failure` and to neither alone. A keratin *null* allele acting by haploinsufficiency is a different mechanism and does not conform. Not Xogenesis (cytolysis, not structure formation). Key conformance target: `keratin_intermediate_filament_fragility#Loss of Keratinocyte Mechanical Resilience`
 - `lysosome_related_organelle_biogenesis` — Conserved organelle-trafficking pattern of the pigmentary-plus-systemic genodermatoses: loss of a component of the machinery shared by all lysosome-related organelles (LROs) → interruption of the melanosome life cycle at whichever step that component serves — cargo delivery during biogenesis (BLOC-1/2/3 and AP-3 in Hermansky-Pudlak), size and fission control (LYST in Chediak-Higashi), or peripheral capture (RAB27A-melanophilin-myosin Va in Griscelli) → **failed delivery of functional melanosomes to keratinocytes**, so pigment is made but never dispersed → in parallel, failure of the other LROs built by the same machinery (platelet dense granules → bleeding; cytotoxic granules → HLH; AT2 lamellar bodies → pulmonary fibrosis) → hypopigmentation plus a syndrome-specific extracutaneous disease that carries the mortality. **Critical negative boundary: oculocutaneous albinism does NOT conform** — there melanin is never synthesized and the trafficking machinery is intact, whereas here affected melanocytes are *more* densely pigmented than normal while the skin is less so. Distinct from `lysosomal_substrate_accumulation` (conventional lysosome failing to degrade cargo; no storage material or hydrolase deficiency here). Not Xogenesis (failed delivery, not structure formation; the CHS giant granule is an intermediate, not the endpoint). Attachment points differ by design and should not be flattened: only Griscelli_Syndrome_Type_2 conforms at the central effector (melanosome fully built and simply undelivered), while Hermansky_Pudlak_Syndrome (transferred but under-loaded) and Chediak-Higashi_Syndrome (giant, poorly transferred) attach at the melanosome arm and the other-LRO arm instead. Key conformance target: `lysosome_related_organelle_biogenesis#Failed Delivery of Functional Melanosomes to Keratinocytes`
 - `desmosomal_adhesion_failure` — Conserved cell-adhesion pattern of the desmosomal diseases, spanning skin, hair and myocardium: a desmosomal component becomes unavailable by one of three **non-interchangeable** routes — structural gene loss (DSP, JUP, DSG1, PKP1, PKP2/DSC2/DSG2), autoantibody blockade of a desmosomal cadherin ectodomain (pemphigus vulgaris/foliaceus), or failure of the keratinocyte calcium compartmentalization desmosome assembly depends on (ATP2A2/SERCA2 in Darier, ATP2C1/SPCA1 in Hailey-Hailey — these are **not** desmosomal proteins, so curate the calcium lesion as the trigger and the desmosomal defect as secondary) → failed desmosome assembly and loss of intermediate-filament anchorage to the plaque → **loss of desmosomal intercellular adhesion** → acantholysis and mechanical failure of desmosome-dependent tissues (epidermal blistering/keratoderma, woolly or fragile hair, myocyte detachment with fibrofatty replacement) → cardiocutaneous syndrome in which the cardiac arm carries the mortality. Dose-sensitivity is curatable: DSP haploinsufficiency alone gives striate PPK, whereas the cardiocutaneous syndromes need a more severe or recessive allele. Distinct from `keratin_intermediate_filament_fragility` (there the filament network collapses; here it is intact but unanchored); cardiocutaneous conformers should keep conforming to `cardiomyopathy_maladaptive_remodeling` for the heart-failure arm. Not Xogenesis (dissolution of adhesion). Key conformance target: `desmosomal_adhesion_failure#Loss of Desmosomal Intercellular Adhesion`
+- `jak_stat_pathway_activation` — Conserved pathological ACTIVATION of the cytokine receptor-JAK-STAT axis: activating lesion or sustained ligand drive upstream of JAK (MPL, CRLF2, IL6ST, kinase fusions, cytokine excess) → constitutive JAK kinase activation (JAK1/JAK2/JAK3/TYK2; the JAK-inhibitor drug target) → constitutive STAT activation and nuclear translocation (STAT1/STAT3/STAT5B/STAT6) → sustained STAT-driven target-gene transcription → cytokine-independent proliferation and chronic inflammation, with loss of SOCS-mediated negative feedback as a parallel entry into the effector node. Carries the JAK-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the JAK node). **Activation arm only** — loss-of-signalling disease (IL2RG/JAK3 SCID, GHR growth hormone insensitivity, GM-CSF receptor dysfunction, LIFR/gp130 failure, dominant-negative STAT3 in AD hyper-IgE) is the mechanistically inverse arm and must NOT conform here; it belongs in a separate deficiency module, following the `cellular_senescence` / `senescence_tumor_suppression` two-module precedent. Paralog discipline: module nodes list the family members that can occupy a step and conforming entries narrow `genes` to the paralog their own evidence supports; JAK3 is listed only in the four-paralog census, since human JAK3 disease is loss-of-function. Scope guard: increased cytokine signalling alone is not enough — conformance needs evidenced constitutive or ligand-independent activity. Carries an open `KNOWLEDGE_GAP` recording that the SOCS-feedback arm is almost entirely uncurated (3 entries mention SOCS, only one models the brake, vs ~30 annotating GO:0007259 INCREASED). A disease may straddle both arms at node granularity: SOCS1_Haploinsufficiency conforms on its increased-STAT1 and SOCS-brake-loss nodes while its sibling `Reduced STAT3 Phosphorylation` node deliberately does not. Worked conformers: Polycythemia_Vera (JAK and STAT nodes), Essential_Thrombocythemia, Primary_Myelofibrosis, Autoinflammation_Immune_Dysregulation_and_Eosinophilia (JAK and STAT nodes), STAT6_Gain_of_Function_Disease, Chronic_Mucocutaneous_Candidiasis, SOCS1_Haploinsufficiency (STAT and SOCS nodes), Aggressive_NK-cell_Leukemia, Sezary_Syndrome, Breast_Implant_Associated_Anaplastic_Large_Cell_Lymphoma. Key conformance target: `jak_stat_pathway_activation#Constitutive STAT Activation and Nuclear Translocation`
 - `schwann_cell_myelin_maintenance` — Conserved demyelinating arm of hereditary peripheral neuropathy, the Schwann-cell-intrinsic complement of `peripheral_axonal_degeneration` (which bundles demyelination into one axon-centred node): myelin gene dosage or structural lesion in Schwann cells (PMP22 duplication/deletion, MPZ missense, GJB1/connexin-32 loss, EGR2 transcriptional program, the recessive CMT4 trafficking genes) → Schwann cell proteostatic stress and myelin protein mistrafficking (ER/Golgi retention, UPR) → dysmyelination and segmental demyelination of peripheral nerve → nerve conduction slowing and conduction block → secondary axonal loss, which is what actually tracks disability. A parallel branch carries the biopsy signature (tomacula where dosage is reduced, onion bulbs where de-/remyelination cycles recur, myelin outfoldings in MTMR2/SBF2). Carries the UPR-modulator drug-target pattern (IFB-088/Sephin1/icerguestat `INHIBITS` the proteostatic-stress node) with a `HUMAN_MODEL_MISMATCH` recording that the whole arm is transgenic-mouse-only and must not be curated as an effective human therapy. Acquired demyelinating neuropathy (CIDP/GBS) and central hypomyelination are out of scope. A demyelinating disorder normally conforms to BOTH this and `peripheral_axonal_degeneration`. Worked conformers: Charcot-Marie-Tooth_Disease_Type_1 (PMP22 dosage, MPZ ER stress, connexin-32 arms), Charcot-Marie-Tooth_Disease_Type_4 (MTMR2/SBF2, SH3TC2, NDRG1/PRX), Hereditary_Neuropathy_with_Liability_to_Pressure_Palsies (the reciprocal deletion + tomacula + conduction branch), Congenital_Hypomyelinating_Neuropathy (the developmental extreme). Key conformance target: `schwann_cell_myelin_maintenance#Dysmyelination and Segmental Demyelination of Peripheral Nerve`
 - `nociceptor_sodium_channel_excitability` — Conserved bidirectional nociceptor Nav channelopathy module (SCN9A/Nav1.7, SCN10A/Nav1.8, SCN11A/Nav1.9), the peripheral sensory counterpart of `cardiac_ion_channel_repolarization`: a nociceptor-restricted sodium channel variant → either loss of nociceptor sodium current or enhanced/persistent current → nociceptor action potential threshold and firing → hyperexcitability and ectopic firing (inherited erythromelalgia, PEPD, ~30% of idiopathic small-fibre neuropathy) or failure of nociceptive signal transduction (congenital insensitivity to pain). Curated bidirectionally because the mapping from biophysical to clinical direction is NOT monotonic: a crossing branch models SCN11A gain-of-function holding nociceptors depolarized, blocking action potentials and causing pain insensitivity. The sub-mechanism (hyperpolarized activation vs impaired fast inactivation) — not the gene — predicts both syndrome and drug response, and carries the branch-specific carbamazepine pattern (`INHIBITS` the persistent-current node; effective in PEPD, not in erythromelalgia). The developmental NGF-TRKA/PRDM12 route to pain insensitivity (nociceptors lost rather than silenced) is deliberately out of scope. Carries a `KNOWLEDGE_GAP` on why selective Nav1.7 blockers have not reproduced the congenital-loss phenotype. Worked conformers: Congenital_Insensitivity_to_Pain (all three branches), Primary_Erythermalgia, Paroxysmal_Extreme_Pain_Disorder. Key conformance target: `nociceptor_sodium_channel_excitability#Nociceptor Action Potential Threshold and Firing`
 
@@ -519,8 +520,87 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- An `Experiment` under a discussion states what its result would mean in **two
+  different registers, and they are different slots** (issue #9394).
+  `would_support` / `would_refute` take **entity references** — what the result
+  bears on (`pathophysiology#Motor Neuron Degeneration`). `supporting_outcome` /
+  `refuting_outcome` take **prose** — what would be observed ("Increased
+  progenitor apoptosis in patient organoids would establish that the mouse
+  mechanism operates in human cells"). They are the two arms of
+  `decision_criterion`, which is single-valued and so cannot express the pair.
+  Prose in the reference slots used to render inside a monospace reference chip;
+  the prose slots render as text.
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
+
+### Entity References Are Foreign Keys
+
+`attaches_to` — and the `would_support` / `would_refute` / perturbation-and-readout
+`target` slots that reuse its grammar — point at another object *in the same
+entry*:
+
+```
+[<file>:]<kind>#<name>
+
+pathophysiology#Amyloid Plaque Formation
+phenotype#Memory Loss
+Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
+```
+
+**These resolve, and `test_entity_ref_foreign_keys` enforces it** across
+`kb/disorders/`, `kb/modules/` and `kb/comorbidities/` (issue #9193). A dangling
+one used to pass every gate — schema validation, term validation, snippet
+verification and all the offline ratchets — leaving a `KNOWLEDGE_GAP` attached
+to nothing while the entry *looked* like it had recorded its uncertainty.
+
+**The operation that breaks these is a rename or a node split**, because your
+attention is on the nodes, not on what refers to them. After renaming or
+splitting a pathophysiology node, grep the file for the old name before
+committing.
+
+Resolution lives in `src/dismech/entity_refs.py`, and `SECTION_KEYS` there is
+the single source of truth the test *and* the HTML renderer share. Three rules
+in it are not guessable:
+
+| Prefix | Resolves against |
+|---|---|
+| `disease#` | the entry's own top-level `name` — a virtual anchor, not a section |
+| `mechanistic_hypothesis#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
+| `prevalence#` | `population`; likewise `progression#` → `phase`, `dataset#` → `accession`, `animal_models#` → `species` for an unnamed model |
+
+Singular and plural spellings both resolve (`treatment#` and `treatments#`,
+`phenotype#` and `phenotypes#`) — content uses both and is not churned to
+normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
+is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
+defect in the content. Add the prefix to `SECTION_KEYS` rather than working
+around it.
+
+**An empty anchor names the whole section** (issue #9394):
+
+```yaml
+attaches_to:
+- clinical_burden#      # the ClinicalBurden object itself
+- treatments#           # the treatments section, not one treatment
+```
+
+Use it when there is no item to point at — `clinical_burden` is a singleton
+inlined object with no `name` slot, so `clinical_burden#` is the only way to
+reference it. Writing the bare word `clinical_burden` instead is **not**
+allowed: `attaches_to` values must use the grammar, and a bare name is
+indistinguishable from a node that happens to be called that.
+
+A whole-section reference resolves on the section **name**, not its contents,
+so `treatments#` is satisfied in an entry curating no treatments. That is
+deliberate: the motivating case is a `KNOWLEDGE_GAP` attached to a section
+precisely *because* it is empty (`Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+records that no disease-specific management is established). A misspelled
+section name is still caught.
+
+On the page, a reference that resolves renders as a live in-page link. A few
+referenced sections (`diagnosis`, `prevalence`, `progression`,
+`imaging_findings`, `epidemiology`, `transmission`, `infectious_agent`) have no
+card on the disorder page at all, so their chips stay plain — that is a
+rendering gap, not a broken reference.
 
 ### Disease Groupings
 
@@ -993,9 +1073,10 @@ epistemic grounding so the two are never conflated (issue #6245):
   `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
   predicated on. The hypothesis basis is then inferred from those edges'
   `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
-  standalone hypothesis id on the definition. A test
-  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
-  refs to resolve.
+  standalone hypothesis id on the definition.
+  `test_hypothesis_based_definition_attaches_to_foreign_keys` requires a
+  `MECHANISTIC_HYPOTHESIS` definition to carry at least one ref;
+  `test_entity_ref_foreign_keys` (above) is what makes each ref resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
   `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
