@@ -2115,10 +2115,10 @@ Every task should end with: validate → targeted git add → commit → push. D
 ### Write GitHub comments in plain language
 
 Before posting any PR body, issue comment, or review, use the
-`github-communication` skill: lead with the finding in one sentence, keep the
-opening under 60 words, and post nothing when you have nothing specific to add.
-This governs GitHub prose only — YAML `description`/`explanation`/`notes` and
-`docs/` keep their denser, more technical register.
+`github-communication` skill: lead with the finding in plain language, and
+calibrate the opening to the audience the thread is actually for. This governs
+GitHub prose only — YAML `description`/`explanation`/`notes` and `docs/` keep
+their denser, more technical register.
 
 ### Never write bare `#1`, `#2` for local list items
 In GitHub comments, PR/issue bodies, and reviews, never refer to your own numbered list items as `#1`, `#2`, `#3` — GitHub auto-links these as issue/PR references and expands them into unrelated titles. Write "item 1", "finding 2", or "proposal 3" instead, and reserve `#N` for genuine issue/PR references.

@@ -4,15 +4,15 @@ description: >
   Write the prose of a GitHub PR body, issue comment, review body, or review
   reply in this repo. Use before posting anything to GitHub — opening a PR,
   summarizing or triaging an issue, replying to a reviewer, reporting what a
-  scan found, or explaining why you did not make a change. Covers audience,
-  length budget, and the specific abstraction and
-  hedging patterns this repo has accumulated. Not for YAML `description` /
+  scan found, or explaining why you did not make a change. Covers audience
+  calibration, leading with the finding, and the abstraction and hedging
+  patterns this repo has accumulated. Not for YAML `description` /
   `explanation` / `notes` prose, which is held to a different standard.
 ---
 
 # Writing GitHub Comments
 
-The overall goal here is to make GitHub comments is issues and PRs (particularly
+The overall goal here is to make GitHub comments in issues and PRs (particularly
 the first/leading comment) more readable to broader audiences. Avoid too much internal
 jargon, particularly up-front. Especially avoid elliptical language, use plain terms where possible.
 
@@ -20,8 +20,6 @@ What follows are guidelines, the important thing is the principle. If the issue 
 to a complex technical validation issue, then assume a technical audience, and it will be necessary to use technical language around
 the schema, LinkML etc. If the issue/PR involves nuanced interpretation of cellular data, then assume a cell/molbio audience. And
 so on.
-
-
 
 **Scope.** PR bodies, issue comments, review bodies and replies, and the
 summaries scheduled workflows post. **Not** in scope: prose inside KB YAML
@@ -34,8 +32,8 @@ apply this skill's plainness rules to them.
 **BLUF: Lead with the finding, ideally around 3 sentences.** Use plain language,
 ideally with minimal technical jargon (technical details specific to the intended audience can come later).
 
-**Avoid abstract and elliptical language, Avoid metaphors. Be concrete.** If it
-is necessary to use abstractions, ground these with concrete examples
+**Avoid abstract and elliptical language. Avoid metaphors. Be concrete.** If it
+is necessary to use abstractions, ground these with concrete examples.
 
 **Say the plain thing when something is wrong.** If a decision looks like a
 mistake, write "I think this is wrong, because X". Do not build an elaborate

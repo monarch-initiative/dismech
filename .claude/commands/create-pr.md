@@ -5,10 +5,10 @@ argument-hint: [DISORDER_NAME (optional)]
 
 Create a pull request from work that you have done. Typically this is a new disease, but in some cases it may be QC improvements or enhancements to existing diseases.
 
-Use the `github-communication` skill when writing the PR body. It covers the
-opening sentence, the length budget, and the sections a curation PR actually
-needs (including "What I intentionally did NOT do", which is the most valuable
-and most often omitted).
+Use the `github-communication` skill when writing the PR body: lead with the
+finding in plain language, pitch the opening at the audience the PR is really
+for, and keep the jargon for further down. Remember to say what you
+intentionally did NOT do, and why.
 
 ALWAYS make sure your work has been validated (see justfile for targets). Best efforts should be made to reach high compliance with guidelines, but we can always iterate
 
