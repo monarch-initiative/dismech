@@ -171,7 +171,7 @@ every open stub PR red the moment an unrelated curation PR merged, and curators
 would spend their time servicing a bookkeeping message. Overlap and lag are
 fine. `just tidy-stubs --apply` clears the stale ones on a periodic sweep.
 
-`just check-stubs` gates only on a **malformed file** — unparseable YAML, a bad
+`just check-stubs` gates only on a **malformed file** — unparsable YAML, a bad
 MONDO ID, a duplicate, a bad enum value. Only the author of that stub sees those,
 and they are cheap to fix.
 
@@ -2421,7 +2421,7 @@ a human to read. (`--strict` exists for direct CLI use.)
   UNDETERMINED rather than risking a wrong contradiction.
 - **`defective-text`** — truncation / mid-word / garbled. **Always UNDETERMINED**:
   no exact test exists, so these are reported for a glance, never adjudicated.
-  Bare `truncat` is *not* a trigger — it matches ~1,600 lines of correct
+  Bare `truncate` is *not* a trigger — it matches ~1,600 lines of correct
   genetics prose (`truncating variant`, `truncated protein`), so a defect word
   counts only when it co-occurs with a word naming our stored text.
 
