@@ -295,6 +295,27 @@ jobs:
       - name: Check term cache structural integrity
         run: uv run python -m dismech.term_cache_integrity cache
 
+      # Ungated and whole-KB on purpose, for the same reason as the cache check
+      # above: this fires on kb/-only curation PRs, which no src/tests path
+      # filter would catch. An RGD `Not4Curation` term exists, matches its
+      # label, and is reachable from its enum roots, so `just validate-terms`
+      # passes it -- three reached the #8430 tranches that way (issue #8472).
+      # Checks only prefixes with a local sqlite adapter, whose databases the
+      # oak-cache step above already persists across runs; OLS-served prefixes
+      # are reported as skipped rather than silently dropped. On a cold cache
+      # this is where ecto/hgnc/icd10cm/icd11f (~220 MB) get pulled, ~23s
+      # end-to-end; the accumulating cache absorbs it from the second run on.
+      #
+      # Deliberately WITHOUT --require-adapters: a bbop-sqlite outage makes this
+      # step skip the affected prefix and pass, rather than turning every open
+      # curation PR red for a reason none of them can fix. The audit still says
+      # which prefixes it could not check, and the term validation this backstops
+      # would be failing on the same outage anyway. Run it with
+      # --require-adapters (exit 2 on any unbuildable adapter) when you need a
+      # verified-clean answer rather than a gate.
+      - name: Check for Not4Curation ontology bindings
+        run: uv run python scripts/not4curation_audit.py
+
       # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
       # MERGE, not by authoring: two concurrent curation PRs adding the same
       # block at different points in one file merge without a git conflict, so
@@ -304,6 +325,24 @@ jobs:
       # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
+      # checks a snippet against the cache, so a false claim in *prose* that a
+      # cited source is defective ("the cached abstract is truncated mid-word",
+      # "that record has no abstract") validated cleanly indefinitely -- it
+      # survived two fix rounds across three sites on #9207, and four sites in
+      # Tetralogy_of_Fallot.yaml before that. Whole-KB because the PRs that add
+      # such claims are curation PRs touching only kb/, which no src/tests path
+      # filter would catch.
+      #
+      # This step never fails the build. Claims of this shape are usually TRUE
+      # and load-bearing (three evidence items in Acute_Annular_Outer_Retinopathy
+      # are downgraded because PMID:18195232 really has no abstract), so the
+      # check adjudicates each claim against the cache and stays silent on the
+      # ones the cache confirms. Only a claim the cache demonstrably contradicts
+      # is printed, for a human to read. ~19s over kb/, offline (issue #9226).
+      - name: Report prose claims contradicted by the reference cache
+        run: uv run python scripts/check_source_defect_claims.py
 
       # Ungated and whole-directory on purpose. The check that matters here is
       # "a curated disease must not still have a stub", and the PR that breaks

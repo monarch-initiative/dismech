@@ -64,7 +64,7 @@ def test_warm_cache_sees_content_type_in_committed_record():
 
 def test_snippet_audit_body_excludes_frontmatter():
     """Leaked frontmatter would let a snippet quoting the *title* verify."""
-    body = CachedReferenceIndex._extract_body(MMWR_CACHE)
+    body = CachedReferenceIndex.extract_body(MMWR_CACHE)
 
     assert "reference_id:" not in body
     assert "content_type:" not in body
