@@ -6,6 +6,7 @@ sections that are *not* keyed on `name`, and the two ways a reference is
 skipped rather than failed.
 """
 
+import json
 import pathlib
 import re
 
@@ -17,6 +18,7 @@ from dismech.entity_refs import (
     SECTION_KEYS,
     SINGLETON_SECTIONS,
     EntityRef,
+    canonical_kind,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -337,6 +339,114 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
         "treatments",  # _annotate_card_anchors
         "inheritance",  # _annotate_ref_target_anchors
         "clinical_trials",  # _annotate_ref_target_anchors
-        "mechanistic_hypothesis",  # _annotate_hypothesis_group_links
+        "mechanistic_hypotheses",  # _annotate_hypothesis_group_links
     ):
         assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    [
+        # The eight aliases the KB actually carried before #9394 normalised it.
+        ("phenotype", "phenotypes"),
+        ("mechanistic_hypothesis", "mechanistic_hypotheses"),
+        ("treatment", "treatments"),
+        ("subtype", "has_subtypes"),  # the one that is not a pluralisation
+        ("animal_model", "animal_models"),
+        ("experimental_model", "experimental_models"),
+        ("discussion", "discussions"),
+        ("dataset", "datasets"),
+        # ...and the three that were accepted but unused.
+        ("variant", "variants"),
+        ("stage", "stages"),
+        ("computational_model", "computational_models"),
+        # Already canonical.
+        ("phenotypes", "phenotypes"),
+        ("pathophysiology", "pathophysiology"),
+        # Not ours to rename: the virtual whole-entry anchor, and any prefix
+        # missing from SECTION_KEYS (a gap in the map, not a defect).
+        ("disease", "disease"),
+        ("not_a_section", "not_a_section"),
+    ],
+)
+def test_canonical_kind(kind, expected):
+    assert canonical_kind(kind) == expected
+
+
+def test_canonical_kind_is_idempotent_over_every_mapped_prefix():
+    """Canonicalising twice must not move — otherwise the gate that uses this
+    could demand a spelling it would then reject on the next run."""
+    for kind in SECTION_KEYS:
+        once = canonical_kind(kind)
+        assert canonical_kind(once) == once
+        assert once in SECTION_KEYS, f"{kind} canonicalises to an unresolvable prefix"
+
+
+def test_aliases_still_resolve_after_normalisation():
+    """The KB was normalised, but the aliases are kept resolvable on purpose.
+
+    Nothing outside `kb/` is bound by the canonical spelling, and an entry
+    written before #9394 is not a defect. If this ever fails, the back-compat
+    half of that decision has been dropped.
+    """
+    data = {
+        "name": "D",
+        "phenotypes": [{"name": "Pheno A"}],
+        "treatments": [{"name": "Drug A"}],
+        "has_subtypes": [{"name": "Type 1"}],
+        "mechanistic_hypotheses": [{"hypothesis_group_id": "canonical_model"}],
+    }
+    for ref in (
+        "phenotype#Pheno A",
+        "treatment#Drug A",
+        "subtype#Type 1",
+        "mechanistic_hypothesis#canonical_model",
+    ):
+        assert resolve_entity_ref(data, ref) is True, ref
+
+
+def test_jump_to_card_canonicalises_both_sides_of_the_section_comparison(tmp_path):
+    """The pathograph's jump-to-card must survive the #9394 normalisation.
+
+    A card advertises its section in the singular (`data-dismech-type=
+    "phenotype"`), but a normalised reference carries the schema slot
+    (`phenotypes#Name`). Comparing them raw makes the section-preference step
+    dead code for every normalised ref: `findCardForNode` falls through to its
+    name-only fallback, which returns whichever card matching that name comes
+    first in the DOM. That is wrong precisely when the preference matters —
+    when one name appears in two sections.
+
+    No live reference hits this today (all 17 refs pointing at a name that
+    occurs in two card sections are `pathophysiology#`/`environmental#`, whose
+    card type already equals the schema slot, so none was renamed), which is
+    exactly why it needs a test rather than a bug report: the first
+    `phenotypes#X` written against a name that is also a pathophysiology node
+    would jump to the wrong card, silently.
+    """
+    for src, renderer in (
+        ("kb/disorders/Gorlin_Syndrome.yaml", render.render_disorder),
+        ("kb/modules/fibrotic_response.yaml", render.render_module),
+    ):
+        out = tmp_path / (pathlib.Path(src).stem + ".html")
+        renderer(pathlib.Path(src), out)
+        html = out.read_text()
+
+        match = re.search(r"var KIND_ALIASES = (\{.*?\});", html, re.DOTALL)
+        assert match, f"{src}: alias map not rendered"
+        aliases = json.loads(match.group(1))
+        # Rendered from SECTION_KEYS, so it cannot drift from the resolver.
+        assert aliases == {
+            kind: canonical_kind(kind)
+            for kind in SECTION_KEYS
+            if canonical_kind(kind) != kind
+        }
+        # The section comparison must run both sides through it.
+        assert (
+            'canonicalKind(el.getAttribute("data-dismech-type"))'
+            " === canonicalKind(nodeType)" in html
+        ), f"{src}: section comparison is not canonicalised"
+
+        # A card's advertised type must canonicalise onto a real schema slot,
+        # or the comparison silently never matches for that section.
+        for card_type in set(re.findall(r'data-dismech-type="([^"]+)"', html)):
+            assert canonical_kind(card_type) in SECTION_KEYS, card_type
