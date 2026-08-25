@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05402384"
+reference_id: clinicaltrials:NCT05402384
 title: "Evaluation of Efficacy and Safety of D-galactose Supplementation in SLC35A2-CDG, a Disorder of Hypogalactosylation"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Evaluation of Efficacy and Safety of D-galactose Supplementation in SLC35A2-CDG, a Disorder of Hypogalactosylation

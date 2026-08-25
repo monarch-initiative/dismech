@@ -15,6 +15,12 @@ from linkml.validator import Validator
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+from dismech.entity_refs import (
+    canonical_kind,
+    iter_entity_refs,
+    parse_entity_ref,
+    resolve_entity_ref,
+)
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -48,6 +54,10 @@ CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 # model-link checks span both trees. The two older per-section foreign-key tests
 # above predate this and still cover disorders only.
 MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
+# Entries whose hash-anchor entity references (`attaches_to`, `would_support`,
+# `would_refute`, perturbation/readout `target`) are resolved as foreign keys.
+# Same three trees as `conforms_to`: groupings use a different grammar.
+ENTITY_REF_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 # Model sections whose entries may carry `modeled_mechanisms` links.
 MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
@@ -75,7 +85,9 @@ ALLOWED_REFERENCE_PREFIXES = (
     "CIVIC_ASSERTION:",
     "CIVIC_EID:",
     "ICEES:",  # ICEES KG comorbidity pairs
+    "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
+    "STRCHIVE:",  # STRchive tandem-repeat disease loci (references_cache/STRCHIVE_*.md)
     "metabolights:",  # dataset accession; skip_prefixes in the validator config
 )
 
@@ -104,8 +116,14 @@ def _iter_evidence_lists(node, path=""):
             yield from _iter_evidence_lists(item, f"{path}[{index}]")
 
 
+@lru_cache(maxsize=1)
 def _disease_names():
-    """Set of all Disease `name` values across kb/disorders/."""
+    """Set of all Disease `name` values across kb/disorders/.
+
+    Cached: this parses every file in kb/disorders/ (~2 minutes for the current
+    corpus) and is called once per parametrization of the grouping foreign-key
+    test, i.e. once per grouping. Uncached, that test alone took hours.
+    """
     names = set()
     for fp in DISORDER_FILES:
         with open(fp) as f:
@@ -158,6 +176,7 @@ def _iter_conforms_to(node, path=""):
             yield from _iter_conforms_to(item, f"{path}[{index}]")
 
 
+@lru_cache(maxsize=1)
 def _grouping_names():
     """Set of Grouping `name` values across kb/groupings/."""
     names = set()
@@ -801,29 +820,123 @@ def test_subtype_foreign_keys(filepath):
     )
 
 
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_entity_ref_foreign_keys(filepath):
+    """Every hash-anchor entity reference must resolve (#9193).
+
+    ``attaches_to``, ``Experiment.would_support`` / ``would_refute`` and the
+    perturbation/readout ``target`` slots all point at another object in the
+    same entry using the ``[<file>:]<kind>#<name>`` grammar. They are foreign
+    keys, and a dangling one is invisible to every other gate: schema
+    validation, term validation, and snippet verification all pass while a
+    KNOWLEDGE_GAP hangs off a node that no longer exists.
+
+    That is most likely to happen during a rename or node split — the operation
+    that puts the author's attention on the nodes rather than on what refers to
+    them (the incident in PR #9187).
+
+    Resolution lives in ``dismech.entity_refs`` so the renderer and any exporter
+    follow a reference the same way. A cross-file reference, or a prefix absent
+    from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
+    a gap in that map, not a defect in the content.
+
+    ``attaches_to`` additionally has to *use* the grammar: a bare name there is
+    not a reference, so it silently resolved to nothing before (#9394). The
+    other two ref-bearing slots are exempt -- ``would_support`` /
+    ``would_refute`` deliberately hold references only, with prose outcomes
+    living in ``supporting_outcome`` / ``refuting_outcome``, but a stray prose
+    value there should be moved rather than failed, so it is not gated here.
+    ``target`` is exempt because it carries plain node names in its other homes
+    (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    errors = []
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None:
+            if site.slot == "attaches_to":
+                errors.append(
+                    f"{site.path}={site.ref!r} is a bare name, not a "
+                    f"<kind>#<name> entity reference"
+                )
+            continue
+        if resolve_entity_ref(data, site.ref) is False:
+            errors.append(
+                f"{site.path}={site.ref!r} does not resolve to a {parsed.kind}"
+            )
+
+    assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_entity_ref_prefixes_are_schema_slot_names(filepath):
+    """An entity reference's `<kind>` is the schema slot name (#9394).
+
+    `SECTION_KEYS` accepts a singular alias beside most section slots, so
+    `phenotype#Memory Loss` and `phenotypes#Memory Loss` both resolve and the
+    foreign-key test above is indifferent between them. That indifference is
+    what let content drift: before the normalisation, 90 of 172 phenotype
+    references were written singular, so grepping `phenotypes#` found barely
+    half of them, and no prefix could be derived from the schema without
+    consulting the alias map.
+
+    The aliases stay resolvable on purpose — an entry written before the
+    normalisation is not a defect, and nothing outside `kb/` is bound by this.
+    This gate only keeps the curated corpus in one spelling. The backlog was
+    driven to zero in the same change, so there is no baseline: a finding here
+    is always something this branch introduced.
+
+    Cross-file references are skipped deliberately, mirroring
+    `test_entity_ref_foreign_keys`: this file is not the other entry's schema,
+    and a prefix naming a section of a different file is not ours to rewrite.
+    All 14 cross-file refs in `kb/` are `:pathophysiology#` and already
+    canonical, so the skip closes no live hole.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    errors = []
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None or parsed.file:
+            continue
+        canonical = canonical_kind(parsed.kind)
+        if canonical != parsed.kind:
+            errors.append(
+                f"{site.path}={site.ref!r} uses the alias {parsed.kind + '#'!r}; "
+                f"write {canonical + '#'!r} (the schema slot name)"
+            )
+
+    assert not errors, (
+        f"Non-canonical entity-ref prefixes in {Path(filepath).name}: {errors}"
+    )
+
+
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
     """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
 
     A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
     is predicated on a specific disease mechanism, so it must `attaches_to` at
-    least one node it operationalizes, and any *local* `pathophysiology#<name>`
-    or `phenotype#<name>` reference must resolve to a real node/phenotype in the
-    same entry (the same hash-anchor discipline `discussions.attaches_to` uses).
-    Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
+    least one node it operationalizes.
+
+    *Resolving* those references is `test_entity_ref_foreign_keys`' job now,
+    over every ref-bearing slot rather than just this one. What remains here are
+    the two rules specific to this derivation basis: the list must exist, and
+    each entry must use the hash-anchor grammar rather than a bare name — a
+    reference the shared resolver would otherwise skip as "not a reference".
     """
     with open(filepath) as f:
         data = safe_load(f)
 
-    definitions = data.get("definitions", []) or []
-    if not definitions:
-        return
-
-    patho_names = {n.get("name") for n in data.get("pathophysiology", []) or []}
-    pheno_names = {p.get("name") for p in data.get("phenotypes", []) or []}
-
     errors = []
-    for i, defn in enumerate(definitions):
+    for i, defn in enumerate(data.get("definitions", []) or []):
         if defn.get("derivation_basis") != "MECHANISTIC_HYPOTHESIS":
             continue
         refs = defn.get("attaches_to", []) or []
@@ -832,25 +945,11 @@ def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
                 f"definitions[{i}] ({defn.get('name')!r}) has "
                 f"derivation_basis: MECHANISTIC_HYPOTHESIS but no attaches_to"
             )
-            continue
         for ref in refs:
-            if "#" not in ref:
-                errors.append(f"definitions[{i}].attaches_to={ref!r} lacks '#'")
-                continue
-            left, name = ref.split("#", 1)
-            if ":" in left:
-                # Cross-file reference — not resolved here.
-                continue
-            kind = left
-            if kind == "pathophysiology" and name not in patho_names:
+            if parse_entity_ref(ref) is None:
                 errors.append(
-                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
-                    f"pathophysiology node"
-                )
-            elif kind == "phenotype" and name not in pheno_names:
-                errors.append(
-                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
-                    f"phenotype"
+                    f"definitions[{i}].attaches_to={ref!r} is not a "
+                    f"<kind>#<name> entity reference"
                 )
 
     assert not errors, (
@@ -972,13 +1071,29 @@ def test_computational_model_mechanism_targets(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
 def test_animal_model_mechanism_targets(filepath):
-    """Animal model links should reference declared pathophysiology nodes."""
+    """Animal model links should reference a declared node in the same entry.
+
+    Pathophysiology is the preferred target, but a phenotype target is valid —
+    the same rule `test_environmental_mechanism_targets` already applies, and
+    the one CLAUDE.md documents for `influences_mechanisms`. Restricting this
+    test to `pathophysiology` was an inconsistency, and it made a legitimate
+    negative result unrepresentable: a `FAILS_TO_RECAPITULATE` link says the
+    model does not reproduce something, and what a model most often fails to
+    reproduce is a *phenotype* (dismech#9201 curated exactly that — a mouse
+    that does not reproduce the congenital deafness defining human DDOD).
+
+    Rerouting such a link to a pathophysiology node is not a workaround: in
+    the DDOD case the only hearing-related node is one the same model is
+    already declared to PARTIALLY_RECAPITULATE, so the entry would assert both
+    that the model reproduces that node and that it fails to.
+    """
     with open(filepath) as f:
         data = safe_load(f)
 
     valid_targets = {
         item["name"]
-        for item in data.get("pathophysiology", [])
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
         if isinstance(item, dict) and item.get("name")
     }
     if not valid_targets:

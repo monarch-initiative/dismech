@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT00376987"
+reference_id: clinicaltrials:NCT00376987
 title: "Do Dietary Supplements of Zinc Reduce Serum Cadmium Levels in Smokers?"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Do Dietary Supplements of Zinc Reduce Serum Cadmium Levels in Smokers?

@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biliary Atresia · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Biliary Atresia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Biliary Atresia</h1>
+                
+                <p class="report-subtitle">Biliary Atresia: Comprehensive Disease Research Report</p>
+                
+                
+                <div class="report-date">2026-08-12</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" rel="noopener noreferrer">MONDO:0008867</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">84 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Biliary Atresia: Comprehensive Disease Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Biliary atresia (BA) is a rare, idiopathic, progressive fibro-obliterative cholangiopathy of infancy that destroys the extrahepatic bile ducts (and, in later stages, the intrahepatic ducts), producing complete obstruction of bile flow. It is the most common cause of neonatal cholestasis requiring surgery and the leading indication for pediatric liver transplantation worldwide. Untreated, it progresses to biliary cirrhosis and hepatic failure within the first 1–2 years of life (<a href="https://www.ncbi.nlm.nih.gov/books/NBK537262/">StatPearls</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7273417/">PMC7273417</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> 210500 — "BILIARY ATRESIA, EXTRAHEPATIC; EHBA" (<a href="https://omim.org/clinicalSynopsis/210500">OMIM Clinical Synopsis</a>)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:498345" target="_blank" rel="noopener noreferrer">ORPHA:498345</a> (Biliary atresia and associated disorders, umbrella), <a href="https://bioregistry.io/ORPHA:30391" target="_blank" rel="noopener noreferrer">ORPHA:30391</a> (Isolated biliary atresia), <a href="https://bioregistry.io/ORPHA:498350" target="_blank" rel="noopener noreferrer">ORPHA:498350</a> (Syndromic biliary atresia) (<a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?Expert=30391&amp;lng=EN">Orphanet</a>)
+- <strong>ICD-11:</strong> LB20.21 (biliary atresia)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" rel="noopener noreferrer">MONDO:0008867</a>
+- <strong>MeSH:</strong> D001656 (Biliary Atresia)</p>
+<p><strong>Synonyms:</strong> Extrahepatic biliary atresia (EHBA); congenital biliary atresia; progressive obliterative cholangiopathy of infancy; biliary atresia splenic malformation (BASM) syndrome for the syndromic laterality-defect subtype.</p>
+<p><strong>Evidence base:</strong> Information is derived from a mixture of aggregated disease-level resources — national/regional registries (Taiwan, Korea, France, UK, Saudi Arabia, US Western Pediatric Surgery Research Consortium), multicenter cohort studies (e.g., ChiLDReN network in the US), case-control epidemiologic studies (National Birth Defects Prevention Study), and mechanistic studies in animal/organoid models — rather than single-patient EHR extraction. Genetic findings come from case series, exome-sequencing trio studies, and GWAS meta-analyses.</p>
+<p>Sources: <a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?Expert=30391&amp;lng=EN">Orphanet</a>, <a href="https://omim.org/clinicalSynopsis/210500">OMIM</a>, <a href="https://rarediseases.info.nih.gov/diseases/12010/biliary-atresia/">GARD</a>, <a href="https://www.ncbi.nlm.nih.gov/books/NBK537262/">StatPearls</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<p>BA is now understood as a <strong>final common phenotype reached via multiple distinct pathogenic routes</strong> rather than a single-cause disease (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8658215/">PMC8658215 — "Biliary Atresia: Clinical Phenotypes and Aetiological Heterogeneity"</a>):</p>
+<h3>Disease Causal Factors (mechanistic/etiologic subtypes)</h3>
+<ol>
+<li><strong>Isolated (non-syndromic) BA</strong> (~80–90% of cases) — thought to arise from a perinatal insult (viral infection, toxin) superimposed on a susceptible genetic background, triggering an aberrant innate/adaptive immune attack on cholangiocytes.</li>
+<li><strong>Syndromic BA / Biliary Atresia Splenic Malformation (BASM) syndrome</strong> (~10–20%) — a laterality/ciliopathy disorder with situs anomalies (polysplenia/asplenia, malrotation, interrupted inferior vena cava, cardiac defects, preduodenal portal vein), attributed to disrupted left-right patterning during early embryogenesis (embryonic/fetal-form BA, often diagnosed prenatally or at birth without a jaundice-free interval) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6579603/">PMC6579603</a>).</li>
+<li><strong>Cystic biliary atresia</strong> — a cyst is present within an otherwise atretic biliary remnant, sometimes detectable prenatally.</li>
+<li><strong>Cytomegalovirus (CMV)-associated BA</strong> — a subgroup with elevated anti-CMV IgM, later disease onset, higher GGT, and possibly worse Kasai outcomes.</li>
+<li><strong>Toxin-associated (biliatresone) BA</strong> — the paradigm from naturally occurring livestock disease.</li>
+</ol>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>GWAS-implicated common variants:</strong> <em>ADD3</em> (adducin 3) — top SNP rs17095355, replicated across Chinese, Thai, and Caucasian cohorts as an eQTL; <em>GPC1</em> (glypican 1) — rs6707262/rs6750380; <em>ARF6</em>; and <em>EFEMP1</em> (2p16.1 locus, a GWAS hit in a European cohort) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7202506/">PMC7202506</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6107291/">PMC6107291</a>). Zebrafish knockdown of these genes impairs bile excretion and intrahepatic biliary network formation, functionally validating the GWAS signal.</li>
+<li><strong>BASM/laterality genes:</strong> <em>CFC1</em> (Cryptic Family 1, NODAL co-receptor) — heterozygous mutations reported in familial heterotaxy/BASM (<a href="https://pubmed.ncbi.nlm.nih.gov/18162845/">PMID:18162845</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31633655/">PMID:31633655</a>); <strong>PKD1L1</strong> — biallelic rare variants in 5 BASM subjects, a ciliary calcium-signaling gene involved in left-right axis determination, with zebrafish <em>pkd1l1</em> loss producing biliary defects (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6642859/">PMC6642859</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10581383/">PMC10581383</a>).</li>
+<li><strong>De novo / rare candidate variants from exome sequencing:</strong> <em>STIP1</em> and <em>REV1</em> (HSP90 co-chaperone / DNA-repair pathway, modulate biliatresone toxicity in zebrafish and human cholangiocytes) in one 30-trio cohort, not replicated in a separate 54-trio Asian cohort; additional candidate genes <em>AMER1, INVS, OCRL, PCNT, KIF3B, TTC17</em> from family-based sequencing, reflecting genetic heterogeneity (<a href="https://www.nature.com/articles/s41598-021-01148-y">Nature Sci Rep 2021</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7026070/">PMC7026070</a>).</li>
+<li><strong>Copy number variation:</strong> a candidate susceptibility region at 2q37.3 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2914625/">PMC2914625</a>).</li>
+<li>Overall inheritance is <strong>non-Mendelian/multifactorial</strong>: 97.1% of twin pairs are discordant (55.9% of discordant pairs monozygotic), and familial recurrence is rare (&gt;30 multiplex families reported worldwide), implying gene–environment or epigenetic/stochastic contributions on top of genetic susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/32504124/">PMID:32504124</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/2993572/">PMID:2993572</a>).</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<ul>
+<li><strong>Prenatal maternal infection:</strong> intestinal and genitourinary tract infections during pregnancy significantly associated with offspring BA in a case-control study (447 cases / 2,912 controls) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10765264/">PMC10765264</a>).</li>
+<li><strong>Maternal metabolic/behavioral factors:</strong> maternal type 2 diabetes (OR 2.17, 95% CI 1.04–4.53) and non-dependent drug abuse (OR 3.02, 95% CI 1.34–6.78) associated with increased BA risk; maternal smoking, advanced maternal age, mode of delivery, and singleton vs. multiple pregnancy were <strong>not</strong> significantly associated (<a href="https://www.nature.com/articles/s41390-022-02166-w">Pediatr Res 2022</a>).</li>
+<li><strong>Plant/environmental toxin exposure (biliatresone):</strong> an isoflavonoid electrophile from <em>Dysphania</em> spp. plants ("pigweed") causally linked to BA-like outbreaks in lambs and calves grazing during Australian droughts; low-dose prenatal biliatresone exposure in pregnant mice causes subclinical biliary injury in offspring, supporting an in-utero "hit" model even without overt maternal illness (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10997102/">PMC10997102</a>; <a href="https://penntoday.upenn.edu/news/plant-toxin-causes-biliary-atresia-animal-model-according-penn-study">Penn Today</a>; Biliatresone <a href="https://en.wikipedia.org/wiki/Biliatresone">Wikipedia</a>).</li>
+<li><strong>Viral infection:</strong> rotavirus (particularly group C and rhesus rotavirus, RRV) and reovirus have long been implicated as perinatal triggers of the isolated form, based on the RRV murine model recapitulating human disease (see Mechanism section).</li>
+</ul>
+<h3>Protective Factors</h3>
+<p>No well-established genetic or environmental protective factors have been identified in the literature reviewed; this remains an evidence gap. gnomAD-level population allele-frequency data for candidate risk loci have not been systematically surveyed for protective alleles.</p>
+<h3>Gene-Environment Interactions</h3>
+<p>The leading hypothesis is a <strong>"two-hit" or susceptibility-plus-trigger model</strong>: a genetically susceptible fetus/neonate (e.g., variants affecting glutathione/redox handling, ciliary/laterality genes, or bile duct development) is exposed to an environmental insult (viral infection or toxin) during a critical developmental window, precipitating cholangiocyte injury that is then amplified by an aberrant innate/adaptive immune response (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9277099/">PMC9277099 — "Genetic Factors and Their Role in the Pathogenesis of Biliary Atresia"</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5251204/">PMC5251204 — glutathione pathway determines biliatresone susceptibility</a>).</p>
+<p>Suggested ontology terms: <strong><a href="http://purl.obolibrary.org/obo/GENO_0000840" target="_blank" rel="noopener noreferrer">GENO:0000840</a></strong> (susceptibility), <strong><a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" rel="noopener noreferrer">MONDO:0008867</a></strong>, causal genes <strong>hgnc:238</strong> (ADD3), <strong>hgnc:4451</strong> (GPC1), <strong>hgnc:9820</strong> (PKD1L1), <strong>hgnc:1904</strong> (CFC1), <strong>hgnc:11376</strong> (STIP1), <strong>hgnc:9958</strong> (REV1); exposure term <strong>ECTO</strong> biliatresone/plant-toxin ingestion (no confirmed ECTO ID identified in this search — verify locally with OAK).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core presenting triad (symptoms/signs)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Persistent/progressive jaundice beyond 2 weeks of age</td>
+<td>Neonatal (2–8 weeks)</td>
+<td>Nearly universal</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a></strong> Jaundice</td>
+</tr>
+<tr>
+<td>Acholic (pale/clay-colored) stools</td>
+<td>Presents ~2 weeks, unequivocal by 1 month</td>
+<td>Very frequent</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0011016" target="_blank" rel="noopener noreferrer">HP:0011016</a></strong> (abnormal stool color) / consider a more specific acholic-stool term if available in HPO</td>
+</tr>
+<tr>
+<td>Dark urine</td>
+<td>Concurrent with jaundice</td>
+<td>Very frequent</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0031829" target="_blank" rel="noopener noreferrer">HP:0031829</a></strong> or general "abnormal urine color" term</td>
+</tr>
+<tr>
+<td>Conjugated (direct) hyperbilirubinemia</td>
+<td>Neonatal</td>
+<td>Universal (defining lab finding)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002904" target="_blank" rel="noopener noreferrer">HP:0002904</a></strong> Hyperbilirubinemia (specify conjugated)</td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>Progressive over weeks</td>
+<td>Frequent</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a></strong> Hepatomegaly</td>
+</tr>
+<tr>
+<td>Elevated serum GGT</td>
+<td>Neonatal</td>
+<td>Frequent, diagnostic clue</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0004431" target="_blank" rel="noopener noreferrer">HP:0004431</a></strong> Elevated hepatic transaminase / GGT-specific lab term</td>
+</tr>
+<tr>
+<td>Splenomegaly (as fibrosis/portal hypertension develops)</td>
+<td>Later infancy</td>
+<td>Occasional-to-frequent as disease progresses</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a></strong> Splenomegaly</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Source: <a href="https://www.aasld.org/liver-fellow-network/core-series/pathology-pearls/biliary-atresia">AASLD</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8658215/">PMC8658215</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9297290/">PMC9297290</a></p>
+<h3>BASM/syndromic-form associated anomalies (laterality defects)</h3>
+<ul>
+<li>Polysplenia or asplenia — <strong><a href="http://purl.obolibrary.org/obo/HP_0009806" target="_blank" rel="noopener noreferrer">HP:0009806</a></strong> / <strong><a href="http://purl.obolibrary.org/obo/HP_0001746" target="_blank" rel="noopener noreferrer">HP:0001746</a></strong></li>
+<li>Situs inversus / midline liver — <strong><a href="http://purl.obolibrary.org/obo/HP_0003363" target="_blank" rel="noopener noreferrer">HP:0003363</a></strong></li>
+<li>Interrupted inferior vena cava, preduodenal portal vein</li>
+<li>Cardiac malformations: dextrocardia, Tetralogy of Fallot — <strong><a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" rel="noopener noreferrer">HP:0001671</a></strong></li>
+<li>Intestinal malrotation — <strong><a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" rel="noopener noreferrer">HP:0002566</a></strong></li>
+</ul>
+<h3>Later/progressive phenotypes (laboratory + clinical)</h3>
+<ul>
+<li>Cirrhosis and portal hypertension — <strong><a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a></strong></li>
+<li>Ascites — <strong><a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" rel="noopener noreferrer">HP:0001541</a></strong></li>
+<li>Coagulopathy (fat-soluble vitamin K malabsorption) — <strong><a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a></strong></li>
+<li>Failure to thrive/growth failure — <strong><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></strong></li>
+<li>Pruritus (from cholestasis)</li>
+<li>Variceal bleeding in advanced disease</li>
+<li>Cholangitis (recurrent, post-Kasai) — a major post-surgical complication</li>
+</ul>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> Neonatal, typically apparent by 2–8 weeks of life; the embryonic/fetal (BASM) form may be evident at birth without a preceding period of normal-colored stool, whereas the perinatal/isolated form classically has a jaundice-free interval before onset.</li>
+<li><strong>Severity/progression:</strong> Uniformly progressive if untreated — obliterative fibrosis of the biliary tree advances to biliary cirrhosis; rate varies, but historically &lt;10% survival to age 3 without surgical intervention.</li>
+<li><strong>Frequency among affected individuals:</strong> The core triad (jaundice, acholic stool, dark urine, conjugated hyperbilirubinemia) is present in essentially 100% of cases by definition; BASM-associated anomalies occur in an estimated 10–20% of the total BA population.</li>
+<li><strong>Quality of life impact:</strong> Even with successful Kasai surgery, many children experience chronic pruritus, growth impairment, recurrent cholangitis, and portal hypertension; those progressing to transplant face lifelong immunosuppression-related morbidity. Specific standardized QOL instrument data (EQ-5D/SF-36) for BA were not surfaced in this search and represent a gap.</li>
+</ul>
+<p>Sources: <a href="https://www.aasld.org/liver-fellow-network/core-series/pathology-pearls/biliary-atresia">AASLD Pathology Pearls</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9297290/">PMC9297290</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8658215/">PMC8658215</a></p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Note:</strong> Unlike a classic monogenic Mendelian disease, BA has no single OMIM-cataloged causal gene; genetic contributions are best characterized as <strong>susceptibility loci</strong> (isolated form) and <strong>candidate causal genes for the BASM subtype</strong> (see §2). No pathogenic variant is required for diagnosis; genetic testing is used mainly to detect syndromic/laterality-associated variants or to exclude genetic cholestasis mimics (e.g., Alagille syndrome, PFIC).</p>
+<ul>
+<li><strong>GWAS susceptibility genes (isolated BA):</strong> <em>ADD3</em> (hgnc:238), <em>GPC1</em> (hgnc:4451), <em>ARF6</em>, <em>EFEMP1</em> — common variants, modest effect sizes, functionally validated in zebrafish knockdown models showing impaired bile excretion/intrahepatic biliary network formation (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7202506/">PMC7202506</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6107291/">PMC6107291</a>).</li>
+<li><strong>BASM candidate genes:</strong> <em>PKD1L1</em> (biallelic, likely recessive-acting rare variants; hgnc:9820), <em>CFC1</em> (heterozygous, laterality; hgnc:1904).</li>
+<li><strong>De novo/rare candidate genes (heterogeneous, not fully replicated):</strong> <em>STIP1</em>, <em>REV1</em> (HSP90 co-chaperone pathway), <em>AMER1</em>, <em>INVS</em>, <em>OCRL</em>, <em>PCNT</em>, <em>KIF3B</em>, <em>TTC17</em>.</li>
+<li><strong>Structural variation:</strong> candidate CNV region at 2q37.3.</li>
+<li><strong>Somatic vs. germline:</strong> All reported variants are germline; no somatic mosaicism mechanism has been established, though maternal microchimerism (transfer of maternal cells/DNA to the fetus) has been proposed as a non-Mendelian contributor to phenotypic heterogeneity (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9539747/">PMC9539747</a>).</li>
+<li><strong>Functional consequences:</strong> Susceptibility variants are largely regulatory/eQTL in nature (ADD3, GPC1) rather than classic loss-of-function coding lesions; PKD1L1/CFC1 variants act through disrupted ciliary/laterality signaling.</li>
+<li><strong>Allele frequency in population databases:</strong> Specific gnomAD allele frequencies for the implicated SNPs were not retrieved in this search — recommend direct gnomAD/dbSNP lookup for rs17095355 (ADD3) and rs6707262/rs6750380 (GPC1) before curation.</li>
+<li><strong>Epigenetics:</strong> Twin discordance (97% discordant, over half monozygotic) strongly implicates epigenetic and/or environmental-timing factors rather than pure genetic determinism; no specific DNA methylation signature for BA was identified in this search (gap — worth checking DiseaseMeth/Roadmap Epigenomics directly).</li>
+<li><strong>Chromosomal abnormalities:</strong> No recurrent aneuploidy or translocation syndrome is a major cause of isolated BA; BA has been reported in association with trisomy 18 and other syndromic states in isolated case reports, but this is not a primary etiologic pathway.</li>
+</ul>
+<p>Suggested ontology terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a></strong> (determination of left/right symmetry) for laterality-gene mechanism; <strong>HGNC</strong> gene IDs above; <strong><a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" rel="noopener noreferrer">MONDO:0008867</a></strong> disease term; consider <strong><a href="http://purl.obolibrary.org/obo/GENO_0000845" target="_blank" rel="noopener noreferrer">GENO:0000845</a></strong> (susceptibility to) relationship type for ADD3/GPC1/EFEMP1/ARF6 rather than a strict causal relationship.</p>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9277099/">PMC9277099</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6579603/">PMC6579603</a>, <a href="https://www.nature.com/articles/s41598-021-01148-y">Nature Sci Rep 2021</a></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental toxin:</strong> Biliatresone (isoflavonoid electrophile, <em>Dysphania</em> spp. plants) — causally established in a naturally-occurring livestock (sheep/cattle) BA-like disease during Australian droughts; reactive α-methylene ketone group depletes cellular glutathione (GSH) selectively in extrahepatic cholangiocytes (<a href="https://en.wikipedia.org/wiki/Biliatresone">Biliatresone – Wikipedia</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5251204/">PMC5251204</a>). No confirmed direct human dietary exposure pathway has been established, but the model strongly supports plausibility of an as-yet-unidentified human environmental toxin.</li>
+<li><strong>Infectious agents (perinatal triggers):</strong> Rotavirus (particularly rhesus rotavirus, RRV, and human group C rotavirus), reovirus, cytomegalovirus (CMV) — implicated as initiators of the perinatal/isolated form via cholangiocyte infection and secondary autoimmune-like injury (see Mechanism, §6). CMV-associated BA is recognized as a distinct clinical subgroup with different serology and possibly worse prognosis.</li>
+<li><strong>Maternal infections:</strong> intestinal and genitourinary infections during pregnancy — increased offspring BA risk in case-control data (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10765264/">PMC10765264</a>).</li>
+<li><strong>Maternal lifestyle/health factors:</strong> type 2 diabetes mellitus and non-dependent drug abuse increased risk; smoking, advanced maternal age, delivery mode, and singleton/multiple pregnancy showed no significant association (<a href="https://www.nature.com/articles/s41390-022-02166-w">Pediatr Res 2022</a>).</li>
+<li><strong>Geography/seasonality:</strong> BA incidence shows marked geographic variation (see §9), and some studies have examined birth-season clustering consistent with a seasonal infectious trigger, though this was not directly confirmed in the sources retrieved here.</li>
+</ul>
+<p>Sources: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10997102/">PMC10997102</a>, <a href="https://penntoday.upenn.edu/news/plant-toxin-causes-biliary-atresia-animal-model-according-penn-study">Penn Today</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10765264/">PMC10765264</a></p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>BA pathogenesis is best modeled as a <strong>causal chain</strong>: developmental susceptibility → perinatal insult (viral/toxin) → cholangiocyte injury → innate immune activation → adaptive (Th1/Th17) autoimmune-like amplification → progressive fibro-obliteration → cirrhosis/liver failure.</p>
+<h3>Upstream: Developmental susceptibility (BASM subtype)</h3>
+<ul>
+<li>Disrupted <strong>left-right patterning/ciliary signaling</strong> during early embryogenesis (<em>CFC1</em>/NODAL pathway, <em>PKD1L1</em> ciliary calcium signaling) causes combined biliary and laterality (splenic, cardiac, situs) malformation. Cholangiocyte primary cilia in BA livers are shortened, disoriented, and reduced in number, implicating ciliary dysfunction directly in bile duct pathogenesis (<a href="https://www.researchgate.net/publication/330529071_Identification_of_PKD1L1_Gene_Variants_in_Children_with_the_Biliary_Atresia_Splenic_Malformation_Syndrome">ResearchGate PKD1L1</a>).</li>
+<li>Suggested GO term: <strong><a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a></strong> determination of left/right symmetry.</li>
+</ul>
+<h3>Trigger: Cholangiocyte injury</h3>
+<ul>
+<li><strong>Viral route (murine RRV model, isolated BA paradigm):</strong> Rhesus rotavirus infects and replicates within neonatal mouse cholangiocytes, producing an obstructive cholangiopathy that closely mirrors human BA; the temporal window of susceptibility to RRV parallels human disease timing (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3700947/">PMC3700947</a>). Rotavirus infection of human cholangiocytes in vitro reproduces key features of the murine model.</li>
+<li><strong>Toxin route (biliatresone model):</strong> The electrophilic toxin binds/depletes reduced glutathione (GSH) selectively in extrahepatic cholangiocytes, inducing <strong>redox stress</strong>, disrupted <strong>protein quality control</strong> (heat-shock chaperone HSP90 pathway — <em>STIP1</em>, involving REV1), <strong>microtubule instability</strong>, and altered <strong>Wnt and Hippo signaling</strong> pathways, converging on cholangiocyte cytoskeletal collapse, loss of cell polarity, and lumen obstruction (<a href="https://www.nature.com/articles/s41390-024-03335-9">Pediatric Research 2024</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7200694/">PMC7200694</a>).</li>
+<li>Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a></strong> (glutathione metabolic process), <strong><a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a></strong> (Wnt signaling pathway), <strong><a href="http://purl.obolibrary.org/obo/GO_0035329" target="_blank" rel="noopener noreferrer">GO:0035329</a></strong> (Hippo signaling), <strong><a href="http://purl.obolibrary.org/obo/GO_0007017" target="_blank" rel="noopener noreferrer">GO:0007017</a></strong> (microtubule-based process).</li>
+</ul>
+<h3>Amplification: Innate and adaptive immune injury</h3>
+<ul>
+<li>Injured cholangiocytes secrete <strong>IL-1β, IL-6, IL-23</strong>, and multiple chemokines, driving <strong>Th17 commitment</strong> (IL-1β/IL-6) and <strong>sustained Th17 responses</strong> (IL-23) (<a href="https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2020.00329/full">Frontiers Immunology — Innate Immunity and Pathogenesis of BA</a>).</li>
+<li><strong>Macrophages</strong> are directly targeted by rotavirus and induce neutrophil chemotaxis via <strong>Mip2/Cxcl2</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20234283/">PMID:20234283</a>).</li>
+<li>The liver develops a <strong>T-helper 1 (Th1)-dominant inflammatory profile</strong>, mirrored between human BA liver and RRV-infected mouse liver; <strong>T-bet deficiency attenuates bile duct injury</strong>, and <strong>T-bet⁺/Th1-driven bile duct injury is restrained by regulatory T cells</strong>, indicating a Treg/Th1 balance central to disease severity (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8700492/">PMC8700492</a>).</li>
+<li>A <strong>dendritic cell–Th17–macrophage axis</strong> controls cholangiocyte injury and disease progression in both mouse and human BA.</li>
+<li><strong>B cells</strong> contribute: B-cell-deficient mice are protected from biliary obstruction in the RRV model, implicating a humoral/antibody-mediated component (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3749125/">PMC3749125</a>).</li>
+<li>Recent single-cell/spatial transcriptomic work (2022–2025) has resolved the fibrotic immune niche: <strong>intermediate CD14++CD16+ monocytes, scar-associated macrophages, NK T cells, transitional B cells, FCN3+ neutrophils</strong>, and <strong>CD177+ neutrophil activation</strong> are enriched in BA liver, with N-acetylcysteine (NAC) treatment partially reversing this immune dysfunction (<a href="https://www.jhep-reports.eu/article/S2589-5559(23)00239-2/fulltext">JHEP Reports 2023</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9636046/">PMC9636046</a>).</li>
+<li>Suggested GO/CL terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0042093" target="_blank" rel="noopener noreferrer">GO:0042093</a></strong> (T-helper cell differentiation), <strong><a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a></strong> (Th17 cell), <strong><a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" rel="noopener noreferrer">CL:0000545</a></strong> (Th1 cell), <strong><a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a></strong> (mast cell)/<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong> (macrophage), <strong><a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a></strong>.</li>
+</ul>
+<h3>Downstream: Structural/cellular consequences</h3>
+<ul>
+<li><strong>Hepatocyte-to-cholangiocyte reprogramming</strong>: single-cell RNA-seq identifies reprogrammed liver cells co-expressing hepatocyte and cholangiocyte markers; upregulated <strong>MMP7, VTCN1, LAMC2</strong> as biliary markers and <strong>KLF5, HNF1B</strong> as biliary transcription factors in BA (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12055120/">PMC12055120</a>). MMP7 in particular is an emerging serum biomarker.</li>
+<li>Extrahepatic cholangiocyte damage leads to progressive <strong>peribiliary fibrosis</strong>, ductular reaction, and eventual <strong>biliary cirrhosis</strong>, portal hypertension, and hepatic failure — a convergence with the dismech <code>fibrotic_response</code> module logic (tissue injury → inflammation → mesenchymal/myofibroblast activation → excessive ECM → organ dysfunction).</li>
+<li>Organoid studies show BA-derived extrahepatic cholangiocyte organoids exhibit increased <strong>ER and oxidative stress</strong>, altered drug metabolism, and cell-polarity changes relative to controls (<a href="https://www.biorxiv.org/content/10.1101/2025.05.04.649927v1.full">bioRxiv 2025</a>).</li>
+</ul>
+<h3>Anatomical developmental context</h3>
+<p>The extrahepatic bile ducts (common bile duct, cystic duct, gallbladder) derive from the <strong>pars cystica</strong> of the liver bud, developmentally and transcriptomically distinct from the intrahepatic ducts (pars hepatica); this distinct origin is consistent with BA being fundamentally an extrahepatic-duct disease that can secondarily involve intrahepatic ducts as fibrosis ascends (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8604670/">PMC8604670</a>).</p>
+<p>Suggested overall causal-chain GO/CL/UBERON scaffold for a dismech pathophysiology block:
+1. Node: "Perinatal Cholangiocyte Insult" (biological_scale: CELLULAR) — <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a> glutathione metabolic process, viral infection trigger
+2. Node: "Innate Immune Activation and Cytokine Release" — <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage, <a href="http://purl.obolibrary.org/obo/GO_0032612" target="_blank" rel="noopener noreferrer">GO:0032612</a> IL-1 production
+3. Node: "Th1/Th17-Driven Adaptive Autoimmune Amplification" — <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a> Th17 cell, <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" rel="noopener noreferrer">CL:0000545</a> Th1 cell
+4. Node: "Extrahepatic Bile Duct Fibro-Obliteration" (biological_scale: TISSUE) — conforms_to <code>fibrotic_response</code>
+5. Node: "Biliary Cirrhosis and Hepatic Failure" (biological_scale: ORGANISM)</p>
+<p>Sources: <a href="https://www.nature.com/articles/nrgastro.2015.74">Nature Reviews Gastro &amp; Hepatology 2015</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7273417/">PMC7273417</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9277099/">PMC9277099</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7052372/">PMC7052372</a></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> Extrahepatic bile ducts (common bile duct, common hepatic duct, cystic duct), gallbladder, and liver (progressive secondary intrahepatic ductal and parenchymal involvement).
+- <strong>Secondary/complication-related:</strong> Spleen (in BASM — poly-/asplenia), heart (in BASM — situs/structural defects), portal venous system (varices, preduodenal portal vein in BASM), intestine (malrotation in BASM; post-Kasai Roux limb).
+- <strong>Body systems:</strong> Primarily hepatobiliary/digestive; secondarily cardiovascular (BASM) and, via chronic cholestasis, the skeletal system (rickets from fat-soluble vitamin D malabsorption) and hematologic system (coagulopathy from vitamin K malabsorption).
+- Suggested UBERON: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002394" target="_blank" rel="noopener noreferrer">UBERON:0002394</a></strong> (extrahepatic bile duct region — verify exact term via OAK), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002110" target="_blank" rel="noopener noreferrer">UBERON:0002110</a></strong> (gallbladder), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a></strong> (liver), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a></strong> (spleen).</p>
+<p><strong>Tissue and cell level:</strong>
+- <strong>Cholangiocytes</strong> (biliary epithelial cells) — the primary cellular target; suggested <strong><a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" rel="noopener noreferrer">CL:0000546</a></strong> or more specifically extrahepatic cholangiocyte if a CL term exists.
+- <strong>Peribiliary gland cells</strong> — proposed stem/progenitor niche relevant to biliary regeneration/repair.
+- <strong>Portal fibroblasts / hepatic stellate cells → myofibroblasts</strong> — drive the fibrotic response (conforms to <code>fibrotic_response</code> module: <strong><a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" rel="noopener noreferrer">CL:0000632</a></strong> hepatic stellate cell).
+- <strong>Hepatocytes</strong> — undergo secondary reprogramming toward a biliary phenotype in advanced disease.
+- <strong>Immune infiltrate:</strong> macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), Th1/Th17 CD4+ T cells (<a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" rel="noopener noreferrer">CL:0000545</a>/<a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a>), B cells, NK T cells, neutrophils (including a CD177+ activated subset).</p>
+<p><strong>Subcellular level:</strong>
+- Mitochondrial/ER oxidative stress in cholangiocytes (<strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong> mitochondrion, <strong><a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a></strong> endoplasmic reticulum).
+- Cytoskeletal/microtubule disruption (<strong><a href="http://purl.obolibrary.org/obo/GO_0005874" target="_blank" rel="noopener noreferrer">GO:0005874</a></strong> microtubule).
+- Primary cilium abnormalities in cholangiocytes (short, disoriented, reduced in number) — <strong><a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a></strong> cilium.</p>
+<p><strong>Localization:</strong> Disease is centered on the porta hepatis and extrahepatic biliary tree; not classically lateralized, though BASM introduces organ-level laterality anomalies (situs abnormalities) as a distinct phenotypic axis.</p>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8604670/">PMC8604670</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7273417/">PMC7273417</a></p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Neonatal, typically manifesting clinically between 2 and 8 weeks of age (perinatal/isolated form, often with an initial jaundice-free interval as physiologic neonatal jaundice resolves and pathologic jaundice supervenes) vs. present at or near birth without a jaundice-free interval (embryonic/fetal/BASM form).</li>
+<li><strong>Onset pattern:</strong> Subacute-to-insidious in the isolated form; can be apparent congenitally in the BASM/fetal form.</li>
+<li><strong>Progression / disease stages:</strong> Uniformly progressive fibro-obliterative process — early ductular proliferation and bile plugging → periportal fibrosis → bridging fibrosis → biliary cirrhosis → portal hypertension and hepatic decompensation. Histopathologic staging at the time of Kasai portoenterostomy (degree of fibrosis, Ki67 proliferation index) is prognostically important (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7528526/">PMC7528526</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11870969/">PMC11870969</a>).</li>
+<li><strong>Progression rate:</strong> Rapid and relentless if untreated — median survival ~8 months, near-100% mortality by 2 years, historical &lt;10% survival to age 3 without intervention (<a href="https://www.ncbi.nlm.nih.gov/books/NBK537262/">StatPearls</a>). With Kasai surgery, progression can be substantially slowed or, in a subset, arrested for decades.</li>
+<li><strong>Disease course pattern:</strong> Progressive; a subset of Kasai-treated patients stabilizes with the native liver, while others continue to progress to transplant despite surgery — course is not relapsing-remitting.</li>
+<li><strong>Critical period:</strong> Timing of Kasai portoenterostomy is the single most important modifiable variable — earlier surgery (ideally &lt;45–60 days of life, before irreversible cirrhosis sets in) yields substantially better transplant-free survival (<a href="https://pubmed.ncbi.nlm.nih.gov/34854975/">PMID:34854975</a>).</li>
+<li><strong>Remission:</strong> No spontaneous remission is described; "remission" in the treated sense means durable native-liver survival with normalized bilirubin after Kasai (jaundice clearance, typically assessed at 3 and 6 months post-op).</li>
+</ul>
+<p>Sources: <a href="https://pubmed.ncbi.nlm.nih.gov/34854975/">Western Pediatric Surgery Research Consortium study</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7333324/">PMC7333324</a>, <a href="https://www.ncbi.nlm.nih.gov/books/NBK537262/">StatPearls</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Geographic variation is marked:</strong> Incidence in Taiwan/Japan is roughly <strong>100–500 per 100,000 live births</strong> (i.e., ~0.12–0.19 per 1,000 in a 1997–2010 Taiwan cohort), versus <strong>5–25 per 100,000</strong> in Europe, and <strong>~0.52–0.71 per 10,000</strong> live births in Western literature broadly (<a href="https://www.sciencedirect.com/science/article/abs/pii/S1055858620300706">ScienceDirect — East vs West</a>). South Korea reports an incidence of <strong>1.06 per 10,000 live births</strong> (<a href="https://jkms.org/DOIx.php?id=10.3346%2Fjkms.2017.32.4.656">J Korean Med Sci 2017</a>).</li>
+<li>Orphanet lists overall point prevalence as <strong>1–9 per 100,000</strong>.</li>
+</ul>
+<h3>Inheritance pattern</h3>
+<ul>
+<li><strong>Multifactorial / non-Mendelian</strong>, not simple autosomal dominant/recessive — reflected by high twin discordance (97.1% discordant pairs, 55.9% of these monozygotic) (<a href="https://pubmed.ncbi.nlm.nih.gov/32504124/">PMID:32504124</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/2993572/">PMID:2993572</a>). Suggested HPO inheritance term: <strong><a href="http://purl.obolibrary.org/obo/HP_0001426" target="_blank" rel="noopener noreferrer">HP:0001426</a></strong> (multifactorial inheritance) rather than a single Mendelian mode; syndromic BASM cases with biallelic PKD1L1 variants suggest an autosomal recessive contribution to that specific subtype.</li>
+<li><strong>Penetrance/expressivity:</strong> Because BA is not classically monogenic, formal penetrance estimates for individual variants (e.g., ADD3, GPC1) are not established; these are population susceptibility alleles with small effect sizes, not highly penetrant Mendelian variants.</li>
+<li><strong>Familial recurrence:</strong> Rare; &gt;30 multiplex families reported worldwide, suggesting low but non-zero recurrence risk, likely elevated specifically for the genetically-driven syndromic (BASM) subtype.</li>
+<li><strong>Founder effects/consanguinity:</strong> Not prominently reported in the literature surveyed here (gap).</li>
+<li><strong>Maternal microchimerism:</strong> Proposed as a contributor to sporadic, non-Mendelian phenotypic variability (transfer of maternal cells to the fetus) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9539747/">PMC9539747</a>).</li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Sex ratio:</strong> Female predominance — adjusted prevalence ratio 1.68 (95% CI 1.33–2.12) for females vs. males (<a href="https://www.jpeds.com/article/S0022-3476(22)00288-8/fulltext">JPeds 2022</a>).</li>
+<li><strong>Ethnic/geographic distribution:</strong> Substantially higher incidence in East Asian populations (Taiwan, Japan, Korea, China) than in European or North American populations; French Polynesia and some other populations also show elevated rates. The reasons for this disparity are not fully explained but are hypothesized to involve both genetic background (ADD3/GPC1 allele frequencies differ by ancestry) and environmental exposure differences.</li>
+<li><strong>Age distribution:</strong> By definition, an infantile-onset disease; no adult-onset form exists (survivors reaching adulthood on native liver represent successfully treated childhood-onset cases, not new adult presentations).</li>
+</ul>
+<p>Sources: <a href="https://pubmed.ncbi.nlm.nih.gov/35364097/">PubMed 35364097</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9339784/">PMC9339784 — Saudi national study</a>, <a href="https://jkms.org/DOIx.php?id=10.3346%2Fjkms.2017.32.4.656">J Korean Med Sci</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical/laboratory tests</h3>
+<ul>
+<li><strong>Liver function tests:</strong> conjugated (direct) hyperbilirubinemia with markedly <strong>elevated serum gamma-glutamyl transferase (GGT)</strong> — a key discriminating lab clue from other neonatal cholestatic conditions (<a href="https://geekymedics.com/biliary-atresia/">Geeky Medics</a>).</li>
+<li><strong>Fractionated bilirubin</strong> is under investigation as a US newborn-screening strategy (measuring direct/conjugated bilirubin fraction abnormal in BA newborns).</li>
+<li>Additional biomarkers under study: <strong>urine sulfated bile acids (USBA)</strong>, serum bile acids, serum free carnitine, and serum <strong>MMP7</strong> (matrix metalloproteinase 7, emerging from single-cell transcriptomic work as a biliary-injury marker).</li>
+</ul>
+<h3>Imaging</h3>
+<ul>
+<li><strong>Abdominal ultrasound — "triangular cord" sign:</strong> a triangular/tubular echogenic density cranial to the portal vein bifurcation, representing the fibrotic biliary remnant; <strong>85% sensitivity, 100% specificity</strong> in the original comparative study, alongside gallbladder abnormalities (absent, atretic, or non-contractile gallbladder) as the other key sonographic feature (<a href="https://pubmed.ncbi.nlm.nih.gov/9396524/">PMID:9396524</a>; <a href="https://www.ajronline.org/doi/10.2214/AJR.15.15336">AJR meta-analysis</a>).</li>
+<li><strong>Hepatobiliary scintigraphy (Tc-99m-DISIDA / HIDA scan):</strong> absence of tracer excretion into the gut is <strong>96% sensitive but only 35% specific</strong> (many non-BA cholestatic conditions also fail to excrete); presence of gut excretion effectively excludes BA.</li>
+<li><strong>Liver needle biopsy:</strong> shows bile duct proliferation, bile plugs, and portal fibrosis; <strong>90% sensitivity, 96% specificity</strong> in comparative series — used when ultrasound/scintigraphy are equivocal.</li>
+<li><strong>Diagnostic algorithm:</strong> if the triangular cord sign is present, proceed directly to exploratory laparotomy/intraoperative cholangiogram without further workup; if absent, proceed to scintigraphy, reserving liver biopsy for infants with no tracer excretion (<a href="https://pubmed.ncbi.nlm.nih.gov/9396524/">PMID:9396524</a>).</li>
+<li><strong>Intraoperative cholangiogram</strong> remains the definitive confirmatory test, demonstrating non-patency of the extrahepatic biliary tree.</li>
+</ul>
+<h3>Genetic testing</h3>
+<ul>
+<li>Not part of routine BA diagnosis (BA is a structural/inflammatory diagnosis, not primarily a molecular one), but targeted or exome sequencing is used <strong>to evaluate syndromic (BASM) cases</strong> for laterality-gene variants (<em>PKD1L1</em>, <em>CFC1</em>) and to <strong>exclude genetic mimics</strong> of neonatal cholestasis such as Alagille syndrome (<em>JAG1</em>/<em>NOTCH2</em>), progressive familial intrahepatic cholestasis (PFIC, <em>ATP8B1/ABCB11/ABCB4</em>), alpha-1-antitrypsin deficiency, and citrin deficiency.</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>Neonatal hepatitis, Alagille syndrome, choledochal cyst, PFIC, alpha-1-antitrypsin deficiency, inspissated bile/mucous plug syndrome, total parenteral nutrition-associated cholestasis, and various inborn errors of metabolism presenting with cholestasis.</p>
+<h3>Screening (asymptomatic detection)</h3>
+<ul>
+<li><strong>Infant Stool Color Card (ISCC)</strong> is the most widely used population-based screening method (parent-administered, comparing stool color to a reference card during the first month of life). In Taiwan's national program: <strong>sensitivity 89.7%, specificity 99.9%, PPV 28.6%</strong>; implementation was associated with earlier Kasai surgery (66% vs. 49% performed &lt;60 days of age) and improved 3-year jaundice-free survival (57% vs. 31.5%) versus historical controls (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4998398/">PMC4998398</a>).</li>
+<li>A 14-year nationwide Taiwan cohort further showed stool color card screening <strong>reduced hospitalization rates and mortality</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4998398/">PMC4998398</a>).</li>
+</ul>
+<p>Sources: <a href="https://publications.aap.org/pediatrics/article/136/6/e1663/33927/Newborn-Screening-for-Biliary-Atresia">AAP Pediatrics — Newborn Screening for BA</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11357077/">PMC11357077</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34817690/">PubMed 34817690</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and mortality</h3>
+<ul>
+<li><strong>Untreated:</strong> near-100% mortality by 2 years of age; median survival ~8 months; historical &lt;10% survival to age 3 (<a href="https://www.ncbi.nlm.nih.gov/books/NBK537262/">StatPearls</a>).</li>
+<li><strong>After Kasai portoenterostomy:</strong> anicteric transplant-free survival rates are approximately <strong>60% at 5 years</strong> and <strong>50% at 20 years</strong>; roughly <strong>40.8%</strong> of a cohort of 223 infants survived to a defined endpoint with native liver in one series; <strong>25–35%</strong> of Kasai patients survive &gt;10 years without transplant in broader estimates (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8160257/">PMC8160257</a>; <a href="https://www.nature.com/articles/s41598-021-90860-w">Nature Sci Rep — Kasai follow-up</a>).</li>
+<li><strong>Jaundice clearance:</strong> &gt;66% of patients become jaundice-free by 1 year post-Kasai in some series; only ~40–70% achieve jaundice clearance overall, and those who fail typically progress rapidly to transplant.</li>
+<li><strong>Liver transplantation outcomes:</strong> patient/graft survival rates of <strong>95.8%/91.0%</strong> over 20 years in one high-volume single-center study; more broadly, 5-/10-year graft survival ranges <strong>68–98%</strong> and <strong>71–90%</strong> respectively across centers; a separate 20-year single-center cohort reported a <strong>63.8% cumulative 20-year graft survival</strong> (<a href="https://www.frontiersin.org/journals/pediatrics/articles/10.3389/fped.2023.1242009/full">Frontiers Pediatrics 2023</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10940458/">PMC10940458</a>).</li>
+</ul>
+<h3>Morbidity</h3>
+<ul>
+<li><strong>Complications post-Kasai:</strong> recurrent bacterial cholangitis (common and can precipitate acute decompensation), progressive portal hypertension with variceal bleeding, pruritus, growth failure, and fat-soluble vitamin deficiencies.</li>
+<li><strong>Complications post-transplant:</strong> post-transplant lymphoproliferative disease (most frequent in the first 1–2 years of immunosuppression), and steadily increasing incidence of cholangitis and rejection over time (<a href="https://www.frontiersin.org/journals/pediatrics/articles/10.3389/fped.2023.1242009/full">Frontiers Pediatrics 2023</a>).</li>
+<li>BA remains the <strong>leading indication for pediatric liver transplantation</strong> in the US and worldwide.</li>
+</ul>
+<h3>Prognostic factors</h3>
+<ul>
+<li><strong>Age at Kasai surgery</strong> — earlier surgery (ideally before 45–60 days of life) associated with significantly better transplant-free survival; performance at high-volume/tertiary centers also improves outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/34854975/">PMID:34854975</a>).</li>
+<li><strong>Degree of liver fibrosis/cirrhosis at time of Kasai</strong> (histopathologic staging) predicts subsequent cirrhosis progression and survival (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7333324/">PMC7333324</a>).</li>
+<li><strong>Ki67 proliferation index</strong> at the time of Kasai has been evaluated as a prognostic biomarker (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7528526/">PMC7528526</a>).</li>
+<li><strong>Postoperative intestinal obstruction</strong> after Kasai impedes biliary excretion and predisposes to subsequent transplantation (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7847427/">PMC7847427</a>).</li>
+<li>CMV-associated BA and BASM-syndromic BA are generally associated with worse Kasai response/outcomes than isolated, non-CMV BA (a recurring theme across the phenotype-heterogeneity literature, though effect sizes vary by cohort).</li>
+</ul>
+<p>Sources: <a href="https://escholarship.org/content/qt78z1k348/qt78z1k348.pdf">Escholarship UCSD</a>, <a href="https://www.medrxiv.org/content/10.1101/2022.10.06.22279593.full.pdf">medRxiv Kasai prediction cohort</a>, <a href="https://www.sciencedirect.com/science/article/pii/S1521691821000445">ScienceDirect — long-term native liver outcomes</a></p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Surgical (primary/definitive)</h3>
+<ul>
+<li><strong>Kasai hepatoportoenterostomy</strong> — the standard first-line surgical procedure; excises the fibrotic extrahepatic biliary remnant and anastomoses a Roux-en-Y jejunal limb directly to the porta hepatis to restore bile drainage from residual microscopic ductules. Suggested NCIT term: <strong>NCIT:C154430</strong> or a specific hepatoportoenterostomy procedure term (verify exact NCIT code via OAK); more broadly <strong>NCIT:C15329</strong> (Surgical Procedure).</li>
+<li><strong>Liver transplantation</strong> — reserved for Kasai failure (persistent jaundice), progressive cirrhosis/liver failure, or recurrent decompensating cholangitis; both living-donor and deceased-donor transplantation are used; BA is the leading pediatric indication for liver transplant. Suggested NCIT term: <strong>NCIT:C15289</strong> (Organ Transplantation).</li>
+</ul>
+<h3>Pharmacotherapy / adjuvant medical therapy</h3>
+<ul>
+<li><strong>Ursodeoxycholic acid (UDCA)</strong> — choleretic agent, widely used adjunctively post-Kasai to promote bile flow, though robust RCT evidence specific to BA outcomes was not directly retrieved in this search (commonly used based on extrapolation from other cholestatic diseases; NCIT drug/agent term applicable under Pharmacotherapy <strong>NCIT:C15986</strong> with CHEBI ursodeoxycholic acid as therapeutic_agent).</li>
+<li><strong>Corticosteroids (post-Kasai adjuvant):</strong> The <strong>START trial</strong> (Steroids in Biliary Atresia Randomized Trial) — multicenter, double-blind RCT, 140 infants, IV methylprednisolone (4 mg/kg/day × 2 weeks) then oral prednisolone (2 mg/kg/day × 2 weeks, tapered over 9 weeks) vs. placebo, initiated within 72 hours of Kasai. <strong>Primary result: no statistically significant benefit</strong> in the overall cohort (49% vs. 59% jaundice clearance at 6 months, direction not favoring steroids significantly); a subgroup of younger infants showed a trend toward increased jaundice clearance (71.8%) that did not reach significance (<a href="https://jamanetwork.com/journals/jama/fullarticle/1866094">JAMA 2014</a>; <a href="https://repository.niddk.nih.gov/study/98">NIDDK repository</a>). Corticosteroid use post-Kasai remains controversial/center-dependent.</li>
+<li><strong>N-acetylcysteine (NAC):</strong> Phase 2 trial of short-term IV NAC (150 mg/kg/day × 7 days, starting 0–24h post-Kasai) targeting normalization of total serum bile acids; mechanistically supported by single-cell RNA-seq data showing NAC partially reverses hepatic immune dysfunction (CD177+ neutrophil activation) in BA liver (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12150978/">PMC12150978</a>; <a href="https://www.jhep-reports.eu/article/S2589-5559(23)00239-2/fulltext">JHEP Reports 2023</a>).</li>
+<li><strong>Maralixibat (Livmarli™)</strong> — an oral, minimally-absorbed ileal bile acid transporter (IBAT) inhibitor; FDA-approved for cholestatic pruritus in Alagille syndrome (2021) and PFIC; under late-stage clinical evaluation specifically in BA (compassionate-use case series and formal trials such as NCT04524390, "Evaluation of Maralixibat in Biliary Atresia Response Post-Kasai") with Breakthrough Therapy designation for BA; reduces serum bile acids and pruritus (<a href="https://link.springer.com/article/10.1007/s40265-021-01649-0">Drugs — Maralixibat First Approval</a>; <a href="https://www.frontiersin.org/journals/pediatrics/articles/10.3389/fped.2026.1858862/abstract">Frontiers Pediatrics — Real-World Use of Maralixibat in BA</a>). Suggested therapeutic_modality: SMALL_MOLECULE; treatment_term Pharmacotherapy; therapeutic_agent maralixibat (verify NCIT/CHEBI code).</li>
+<li><strong>Fat-soluble vitamin supplementation</strong> (A, D, E, K) — supportive care for malabsorption due to cholestasis.</li>
+<li><strong>Prophylactic antibiotics</strong> — commonly used post-Kasai to reduce cholangitis risk (center-dependent protocols).</li>
+</ul>
+<h3>Emerging / experimental</h3>
+<ul>
+<li>Antifibrotic agents, additional bile-acid modulators, and regenerative approaches are described as an emerging pipeline as of 2025, per industry pipeline analyses (early-stage; specific compounds/trial identifiers were not detailed in the sources retrieved) (<a href="https://www.openpr.com/news/4137295/biliary-atresia-pipeline-insight-2025-emerging-regenerative">OpenPR — Biliary Atresia Pipeline Insight 2025</a>).</li>
+<li>Gene expression signature-guided identification of repurposable therapeutic agents has been explored computationally but is not yet in clinical use.</li>
+</ul>
+<h3>Treatment outcomes / adverse events</h3>
+<ul>
+<li>Corticosteroids: no consistent significant efficacy signal in the definitive RCT; risk of steroid-related adverse effects (infection, growth suppression) must be weighed.</li>
+<li>NAC: generally well-tolerated antioxidant; efficacy data still maturing (Phase 2).</li>
+<li>Maralixibat: primarily studied for pruritus/bile-acid reduction rather than as disease-modifying for the biliary obstruction itself; diarrhea is a common adverse effect of IBAT inhibitors as a class.</li>
+<li>Post-transplant immunosuppression carries standard risks (infection, PTLD, rejection).</li>
+</ul>
+<h3>Treatment strategy</h3>
+<p>Standard algorithm: <strong>early diagnosis (ideally via stool-color screening) → prompt Kasai hepatoportoenterostomy (&lt;45–60 days of age) → adjuvant medical management (antibiotics, choleretics, nutritional/vitamin support, investigational NAC/steroids per center protocol) → surveillance for jaundice clearance and cholangitis → liver transplantation if Kasai fails or cirrhosis/portal hypertension progresses.</strong></p>
+<p>Sources: <a href="https://tp.amegroups.org/article/view/42311/html">Translational Pediatrics — Adjuvant treatments for BA</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7347763/">PMC7347763</a>, <a href="https://www.frontiersin.org/journals/pediatrics/articles/10.3389/fped.2022.1007813/full">Frontiers Pediatrics — Current and emerging adjuvant therapies</a></p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No established method to prevent the underlying disease process, since the precise causal environmental trigger(s) in humans (analogous to biliatresone in livestock, or a specific human viral strain) remain unconfirmed. No vaccine or prophylactic intervention exists.</li>
+<li><strong>Secondary prevention (early detection, the dominant prevention strategy in practice):</strong> <strong>Universal newborn screening via the infant stool color card</strong> is the principal population-based strategy, validated most extensively in Taiwan, with adoption in Japan, parts of Europe (e.g., Switzerland), Canada (Ontario Newborn Screening), and pilot programs elsewhere. Screening enables earlier Kasai surgery and improved transplant-free survival (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4998398/">PMC4998398</a>; <a href="https://www.newbornscreening.on.ca/en/screening/types-of-screening/biliary-atresia/">Newborn Screening Ontario</a>).</li>
+<li>Alternative/complementary screening strategies under investigation: <strong>fractionated (direct) bilirubin</strong> measurement in the newborn period, urine sulfated bile acids, serum bile acids, and serum free carnitine (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11357077/">PMC11357077</a>).</li>
+<li><strong>Tertiary prevention:</strong> Prompt Kasai surgery itself functions as tertiary prevention against progression to end-stage liver disease; post-Kasai prophylactic antibiotics aim to prevent cholangitis-driven decompensation; nutritional/vitamin support prevents secondary complications of cholestasis (rickets, coagulopathy, growth failure).</li>
+<li><strong>Genetic counseling:</strong> Given the largely sporadic, multifactorial inheritance and high twin discordance, formal genetic counseling protocols for recurrence risk are not well standardized, though counseling may be offered for the syndromic BASM subtype where recessive contributions (e.g., PKD1L1) are more plausible.</li>
+<li><strong>Public health / environmental interventions:</strong> No specific environmental intervention (analogous to removing Dysphania plants from livestock pasture) has been identified or implemented for human BA prevention, reflecting the unresolved human etiologic trigger.</li>
+</ul>
+<p>Sources: <a href="https://publications.aap.org/pediatrics/article/136/6/e1663/33927/Newborn-Screening-for-Biliary-Atresia">AAP Pediatrics</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4998398/">PMC4998398</a></p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Naturally occurring BA-like disease has been documented in <strong>sheep</strong> (<em>Ovis aries</em>, NCBITaxon:9940) and <strong>cattle</strong> (<em>Bos taurus</em>, NCBITaxon:9913) during Australian drought conditions, causally linked to grazing on <em>Dysphania</em> spp. plants (the source of biliatresone) (<a href="https://penntoday.upenn.edu/news/plant-toxin-causes-biliary-atresia-animal-model-according-penn-study">Penn Today</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S1055858612000273">ScienceDirect — Biliary atresia: the animal models</a>). Sporadic case reports also describe BA or BA-like biliary obstruction in <strong>foals, dogs, and calves</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9324346/">PMC9324346 — "Biliary Atresia Animal Models: Is the Needle in a Haystack?"</a>).</li>
+<li><strong>Veterinary relevance:</strong> The lamb outbreaks were the key discovery that led to identification of biliatresone and its mechanism, making veterinary field observation directly foundational to human BA mechanistic research — an unusually direct comparative-medicine translation.</li>
+<li><strong>OMIA:</strong> A dedicated OMIA entry specific to biliary atresia (as distinct from anal/atresia ani, <a href="https://bioregistry.io/OMIA:000083" target="_blank" rel="noopener noreferrer">OMIA:000083</a>) was not identified in this search; this appears to be a database coverage gap rather than an absence of the phenotype in animals.</li>
+<li><strong>Comparative biology:</strong> The zebrafish (<em>Danio rerio</em>, NCBITaxon:7955) biliatresone model demonstrates conserved susceptibility of extrahepatic cholangiocytes across vertebrate species, and the murine RRV model demonstrates conserved rotavirus-cholangiocyte tropism and Th1/Th17 immune injury pathways, supporting deep evolutionary conservation of both the toxin-susceptibility and immune-injury arms of the mechanism.</li>
+<li><strong>Transmission/zoonotic potential:</strong> Not applicable — BA is not an infectious/transmissible disease of humans in the classic zoonotic sense; the shared susceptibility across species is due to convergent developmental/toxicologic vulnerability of extrahepatic cholangiocytes, not cross-species pathogen transmission. Rotavirus itself is zoonotically and cross-species relevant as a pathogen family, but RRV-induced murine BA is a laboratory disease model, not natural cross-species BA transmission.</li>
+</ul>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9324346/">PMC9324346</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22800971/">PMID:22800971</a></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Zebrafish (<em>Danio rerio</em>)</h3>
+<ul>
+<li><strong>Biliatresone toxic-injury model:</strong> Larval zebrafish exposed to biliatresone develop selective destruction of the extrahepatic biliary tree, closely recapitulating human/livestock BA; toxicity is determined by <strong>glutathione antioxidant pathway activity/reserve</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5251204/">PMC5251204</a>), and involves <strong>Wnt, Hippo, and microtubule pathway disruption</strong> (<a href="https://www.nature.com/articles/s41390-024-03335-9">Pediatric Research 2024</a>). Genetic modifiers (e.g., <em>STIP1/REV1</em> pathway disruption) alter biliatresone susceptibility in this model, linking the toxin model directly to human WES candidate genes.</li>
+<li><strong>GWAS-gene knockdown models:</strong> Morpholino/CRISPR knockdown of <em>ADD3</em>, <em>GPC1</em>, and related susceptibility genes impairs bile excretion and intrahepatic biliary network formation, functionally validating human GWAS hits (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7202506/">PMC7202506</a>).</li>
+<li><strong><em>pkd1l1</em> loss-of-function zebrafish:</strong> recapitulates biliary defects relevant to BASM syndrome, directly linking a human BASM candidate gene to a ciliary/biliary phenotype (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10581383/">PMC10581383</a>).</li>
+<li><strong>Strengths:</strong> rapid, scalable, optically transparent for live imaging of biliary tree development; excellent for genetic-modifier and chemical-toxin screening.</li>
+<li><strong>Limitations:</strong> larval zebrafish biliary anatomy and immune system differ substantially from mammalian/human systems; does not model the adaptive Th1/Th17 autoimmune-injury arm well.</li>
+</ul>
+<h3>Mouse (<em>Mus musculus</em>)</h3>
+<ul>
+<li><strong>Rhesus rotavirus (RRV)-induced murine BA model:</strong> the dominant immune-mediated/infectious model; neonatal mice infected with RRV develop an obstructive cholangiopathy mirroring human isolated BA, including rotavirus replication within cholangiocytes with strict temporal dependence on neonatal age at infection (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3700947/">PMC3700947</a>), macrophage targeting and Mip2/Cxcl2-driven neutrophil chemotaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/20234283/">PMID:20234283</a>), B-cell dependence (B-cell-deficient mice protected) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3749125/">PMC3749125</a>), T-bet/Th1-dependent bile duct injury restrained by regulatory T cells (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8700492/">PMC8700492</a>), and a dendritic cell–Th17–macrophage disease-progression axis. A recent study further defined specific rhesus-rotavirus capsid-protein binding sites dictating the endocytosis route that induces this model (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11687966/">PMC11687966</a>).</li>
+<li><strong>Biliatresone-induced murine model:</strong> the synthetic toxin also causes BA in mice, including a low-dose prenatal exposure paradigm in pregnant mice producing <strong>subclinical biliary disease in offspring</strong> — modeling a spectrum of neonatal injury severity relevant to the "environmental hit during pregnancy" human hypothesis (<a href="https://www.nature.com/articles/s41374-020-0467-7">Lab Investigation 2020</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10997102/">PMC10997102</a>).</li>
+<li><strong>Strengths:</strong> recapitulates the full innate + adaptive immune injury cascade and postnatal obstructive fibrosis; the field's primary model for immunopathogenesis and immunomodulatory drug testing.</li>
+<li><strong>Limitations:</strong> RRV is not the confirmed human causal agent (human rotavirus/other viruses are the presumed but unconfirmed human trigger); model requires precise neonatal-age infection timing, limiting some translational aspects.</li>
+</ul>
+<h3>Human iPSC-derived organoids / primary cholangiocyte cultures</h3>
+<ul>
+<li>Human BA extrahepatic cholangiocyte organoids show increased ER/oxidative stress, altered drug metabolism, and cell-polarity changes relative to controls, and are being used to test genetic modifiers of biliatresone toxicity identified in zebrafish (e.g., HSP90/STIP1 pathway) (<a href="https://www.biorxiv.org/content/10.1101/2025.05.04.649927v1.full">bioRxiv 2025</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10974618/">PMC10974618 — biliatresone effects on human liver organoids</a>).</li>
+<li><strong>Applications:</strong> direct human-cell validation bridging zebrafish/mouse mechanistic findings to human biology; useful for drug screening (e.g., NAC, glutathione-repletion strategies).</li>
+</ul>
+<h3>Naturally occurring large-animal models (sheep, cattle)</h3>
+<ul>
+<li>Field-derived, non-induced natural disease model that originally identified biliatresone; valuable for toxin discovery but not amenable to routine laboratory-scale genetic manipulation.</li>
+</ul>
+<h3>Resource databases</h3>
+<p>ZFIN (zebrafish), MGI (mouse), IMSR (mouse strain repository) are the relevant model-organism databases for locating specific BA-model alleles/lines; no dedicated BA entries were directly retrieved from these databases in this search (recommend direct query for specific allele/strain nomenclature during curation).</p>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9324346/">PMC9324346</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3700947/">PMC3700947</a>, <a href="https://www.nature.com/articles/s41374-020-0467-7">Nature Lab Investigation 2020</a></p>
+<hr />
+<h2>Summary Table: Suggested Ontology Terms for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Term ID (verify via OAK before use)</th>
+<th>Label</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" rel="noopener noreferrer">MONDO:0008867</a></td>
+<td>biliary atresia</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a></td>
+<td>Jaundice</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a></td>
+<td>Hepatomegaly</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a></td>
+<td>Cirrhosis</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" rel="noopener noreferrer">HP:0001541</a></td>
+<td>Ascites</td>
+</tr>
+<tr>
+<td>Phenotype</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a></td>
+<td>Splenomegaly</td>
+</tr>
+<tr>
+<td>Phenotype (BASM)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003363" target="_blank" rel="noopener noreferrer">HP:0003363</a></td>
+<td>Abnormal situs</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>hgnc:238</td>
+<td>ADD3</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>hgnc:4451</td>
+<td>GPC1</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>hgnc:9820</td>
+<td>PKD1L1</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>hgnc:1904</td>
+<td>CFC1</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a></td>
+<td>Th17 cell</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" rel="noopener noreferrer">CL:0000545</a></td>
+<td>Th1 cell</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" rel="noopener noreferrer">CL:0000632</a></td>
+<td>hepatic stellate cell</td>
+</tr>
+<tr>
+<td>Cell type</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></td>
+<td>macrophage</td>
+</tr>
+<tr>
+<td>GO Process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a></td>
+<td>glutathione metabolic process</td>
+</tr>
+<tr>
+<td>GO Process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a></td>
+<td>Wnt signaling pathway</td>
+</tr>
+<tr>
+<td>GO Process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" rel="noopener noreferrer">GO:0007368</a></td>
+<td>determination of left/right symmetry</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a></td>
+<td>liver</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002110" target="_blank" rel="noopener noreferrer">UBERON:0002110</a></td>
+<td>gallbladder</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15289</td>
+<td>Organ Transplantation</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15329</td>
+<td>Surgical Procedure (Kasai)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15986</td>
+<td>Pharmacotherapy (steroids, NAC, maralixibat, UDCA)</td>
+</tr>
+<tr>
+<td>Model organism taxon</td>
+<td>NCBITaxon:7955</td>
+<td>Danio rerio</td>
+</tr>
+<tr>
+<td>Model organism taxon</td>
+<td>NCBITaxon:10090</td>
+<td>Mus musculus</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>(All term/label pairs above require verification against the live ontology via OAK before committing to a dismech entry, per repository policy — this report is a research input, not pre-validated curation content.)</em></p>
+<hr />
+<h2>Key Evidence Gaps Identified</h2>
+<ol>
+<li>No confirmed specific human environmental toxin analogous to biliatresone.</li>
+<li>No systematic gnomAD/population allele-frequency data compiled here for ADD3/GPC1 risk SNPs.</li>
+<li>No specific DNA methylation/epigenetic signature study for BA identified despite strong indirect evidence (twin discordance) for an epigenetic contribution.</li>
+<li>No standardized quality-of-life instrument (EQ-5D/SF-36/PedsQL) data specific to BA surfaced in this search.</li>
+<li>Genetic testing panels/GTR-specific BA gene panel composition not directly retrieved — recommend direct GTR query during curation.</li>
+<li>No dedicated OMIA species-specific entry located for the sheep/cattle BA-like disease despite well-documented field reports.</li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Bilateral_Striopallidodentate_Calcinosis-cyberian-codex.html">← Bilateral Striopallidodentate Calcinosis (Cyberian Codex)</a>
+                
+                
+                <a href="Binge_Eating_Disorder-falcon.html">Binge Eating Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Biliary_Atresia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Biliary_Atresia-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
