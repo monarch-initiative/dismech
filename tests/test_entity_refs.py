@@ -6,6 +6,7 @@ sections that are *not* keyed on `name`, and the two ways a reference is
 skipped rather than failed.
 """
 
+import json
 import pathlib
 import re
 
@@ -15,7 +16,9 @@ import yaml
 from dismech import render
 from dismech.entity_refs import (
     SECTION_KEYS,
+    SINGLETON_SECTIONS,
     EntityRef,
+    canonical_kind,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -38,6 +41,7 @@ ENTRY = {
     "datasets": [{"accession": "geo:GSE1", "title": "A dataset"}],
     "animal_models": [{"species": "Mus musculus", "genotype": "Foo-/-"}],
     "discussions": [{"discussion_id": "gap_one"}],
+    "clinical_burden": {"burden_level": "SEVERE"},
 }
 
 
@@ -161,7 +165,7 @@ def test_iter_entity_refs_reports_paths():
         # `target` on a model link carries a plain name, not a reference.
         "animal_models": [{"modeled_mechanisms": [{"target": "Node A"}]}],
     }
-    found = dict(iter_entity_refs(doc))
+    found = {site.path: site.ref for site in iter_entity_refs(doc)}
     assert found["discussions[0].attaches_to[0]"] == "pathophysiology#Node A"
     assert found["discussions[0].attaches_to[1]"] == "phenotype#Pheno A"
     assert (
@@ -179,12 +183,56 @@ def test_iter_entity_refs_reports_paths():
 
 
 def test_section_keys_point_at_real_disease_slots():
-    """Every mapped section must name a slot the Disease class actually has."""
+    """Every mapped section must name a slot the Disease class actually has.
+
+    Covers `SINGLETON_SECTIONS` too: a typo there resolves to `None` and is
+    silently skipped rather than failing, so nothing else would catch it.
+    """
     schema = yaml.safe_load(open("src/dismech/schema/dismech.yaml"))
     disease_slots = set(schema["classes"]["Disease"]["slots"])
     for kind, (slot, key_slots) in SECTION_KEYS.items():
         assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
+    for slot in SINGLETON_SECTIONS:
+        assert slot in disease_slots, f"SINGLETON_SECTIONS: unknown slot {slot}"
+        # A singleton is a single inlined object, not a list -- that is the
+        # whole reason it needs the empty-anchor form.
+        assert not schema["slots"][slot].get("multivalued"), slot
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "prevalence#",  # the section as a whole, not one population
+        "treatments#",
+        "clinical_burden#",  # a singleton object with no name to anchor to
+        "disease#",  # the entry as a whole
+    ],
+)
+def test_whole_section_anchor_resolves(ref):
+    """An empty anchor names the section itself (#9394)."""
+    assert resolve_entity_ref(ENTRY, ref) is True
+
+
+def test_whole_section_anchor_resolves_on_the_name_not_the_contents():
+    """A section with no content still satisfies `<section>#`.
+
+    The motivating case is a KNOWLEDGE_GAP attached to a section precisely
+    because it is empty — `Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+    records that no disease-specific management is established and curates no
+    `treatments:` at all. Requiring content would make that gap unattachable.
+    """
+    empty = {"name": "Bare Disease"}
+    assert resolve_entity_ref(empty, "treatments#") is True
+    assert resolve_entity_ref(empty, "clinical_burden#") is True
+    # A misspelled or invented section is still caught — that is what the
+    # check is for once contents are not required.
+    assert resolve_entity_ref(empty, "treatmnets#") is None
+
+
+def test_singleton_section_rejects_a_named_anchor():
+    """`clinical_burden` has no `name`, so only the whole-section form works."""
+    assert resolve_entity_ref(ENTRY, "clinical_burden#Anything") is False
 
 
 def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
@@ -207,7 +255,7 @@ def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
         ],
         "experiments": [{"target": {"nested": {"target": "treatments#Drug A"}}}],
     }
-    found = dict(iter_entity_refs(doc))
+    found = {site.path: site.ref for site in iter_entity_refs(doc)}
 
     # The strings beside the object survive...
     assert found["discussions[0].attaches_to[0]"] == "pathophysiology#Node A"
@@ -216,6 +264,23 @@ def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
     assert found["discussions[0].attaches_to[1].target"] == "phenotype#Pheno A"
     # An object directly under a ref slot is walked rather than stopped at.
     assert found["experiments[0].target.nested.target"] == "treatments#Drug A"
+
+
+def test_whole_section_link_requires_a_card_to_jump_to():
+    """Resolution and linking answer different questions (#9394 review).
+
+    `treatments#` *resolves* in an entry curating no treatments — that is the
+    point, since the motivating case is a gap attached to an empty section. But
+    the treatments card is only rendered when there is content, so linking there
+    would emit an href to an anchor that does not exist on the page. The index
+    must therefore be stricter than the resolver.
+    """
+    with_content = {"name": "D", "treatments": [{"name": "Drug A"}]}
+    without = {"name": "D"}
+
+    assert resolve_entity_ref(without, "treatments#") is True  # resolves...
+    assert "treatments#" not in render._build_semantic_ref_index(without)  # ...but no link
+    assert render._build_semantic_ref_index(with_content)["treatments#"] == "#treatments"
 
 
 def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
@@ -274,6 +339,114 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
         "treatments",  # _annotate_card_anchors
         "inheritance",  # _annotate_ref_target_anchors
         "clinical_trials",  # _annotate_ref_target_anchors
-        "mechanistic_hypothesis",  # _annotate_hypothesis_group_links
+        "mechanistic_hypotheses",  # _annotate_hypothesis_group_links
     ):
         assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    [
+        # The eight aliases the KB actually carried before #9394 normalised it.
+        ("phenotype", "phenotypes"),
+        ("mechanistic_hypothesis", "mechanistic_hypotheses"),
+        ("treatment", "treatments"),
+        ("subtype", "has_subtypes"),  # the one that is not a pluralisation
+        ("animal_model", "animal_models"),
+        ("experimental_model", "experimental_models"),
+        ("discussion", "discussions"),
+        ("dataset", "datasets"),
+        # ...and the three that were accepted but unused.
+        ("variant", "variants"),
+        ("stage", "stages"),
+        ("computational_model", "computational_models"),
+        # Already canonical.
+        ("phenotypes", "phenotypes"),
+        ("pathophysiology", "pathophysiology"),
+        # Not ours to rename: the virtual whole-entry anchor, and any prefix
+        # missing from SECTION_KEYS (a gap in the map, not a defect).
+        ("disease", "disease"),
+        ("not_a_section", "not_a_section"),
+    ],
+)
+def test_canonical_kind(kind, expected):
+    assert canonical_kind(kind) == expected
+
+
+def test_canonical_kind_is_idempotent_over_every_mapped_prefix():
+    """Canonicalising twice must not move — otherwise the gate that uses this
+    could demand a spelling it would then reject on the next run."""
+    for kind in SECTION_KEYS:
+        once = canonical_kind(kind)
+        assert canonical_kind(once) == once
+        assert once in SECTION_KEYS, f"{kind} canonicalises to an unresolvable prefix"
+
+
+def test_aliases_still_resolve_after_normalisation():
+    """The KB was normalised, but the aliases are kept resolvable on purpose.
+
+    Nothing outside `kb/` is bound by the canonical spelling, and an entry
+    written before #9394 is not a defect. If this ever fails, the back-compat
+    half of that decision has been dropped.
+    """
+    data = {
+        "name": "D",
+        "phenotypes": [{"name": "Pheno A"}],
+        "treatments": [{"name": "Drug A"}],
+        "has_subtypes": [{"name": "Type 1"}],
+        "mechanistic_hypotheses": [{"hypothesis_group_id": "canonical_model"}],
+    }
+    for ref in (
+        "phenotype#Pheno A",
+        "treatment#Drug A",
+        "subtype#Type 1",
+        "mechanistic_hypothesis#canonical_model",
+    ):
+        assert resolve_entity_ref(data, ref) is True, ref
+
+
+def test_jump_to_card_canonicalises_both_sides_of_the_section_comparison(tmp_path):
+    """The pathograph's jump-to-card must survive the #9394 normalisation.
+
+    A card advertises its section in the singular (`data-dismech-type=
+    "phenotype"`), but a normalised reference carries the schema slot
+    (`phenotypes#Name`). Comparing them raw makes the section-preference step
+    dead code for every normalised ref: `findCardForNode` falls through to its
+    name-only fallback, which returns whichever card matching that name comes
+    first in the DOM. That is wrong precisely when the preference matters —
+    when one name appears in two sections.
+
+    No live reference hits this today (all 17 refs pointing at a name that
+    occurs in two card sections are `pathophysiology#`/`environmental#`, whose
+    card type already equals the schema slot, so none was renamed), which is
+    exactly why it needs a test rather than a bug report: the first
+    `phenotypes#X` written against a name that is also a pathophysiology node
+    would jump to the wrong card, silently.
+    """
+    for src, renderer in (
+        ("kb/disorders/Gorlin_Syndrome.yaml", render.render_disorder),
+        ("kb/modules/fibrotic_response.yaml", render.render_module),
+    ):
+        out = tmp_path / (pathlib.Path(src).stem + ".html")
+        renderer(pathlib.Path(src), out)
+        html = out.read_text()
+
+        match = re.search(r"var KIND_ALIASES = (\{.*?\});", html, re.DOTALL)
+        assert match, f"{src}: alias map not rendered"
+        aliases = json.loads(match.group(1))
+        # Rendered from SECTION_KEYS, so it cannot drift from the resolver.
+        assert aliases == {
+            kind: canonical_kind(kind)
+            for kind in SECTION_KEYS
+            if canonical_kind(kind) != kind
+        }
+        # The section comparison must run both sides through it.
+        assert (
+            'canonicalKind(el.getAttribute("data-dismech-type"))'
+            " === canonicalKind(nodeType)" in html
+        ), f"{src}: section comparison is not canonicalised"
+
+        # A card's advertised type must canonicalise onto a real schema slot,
+        # or the comparison silently never matches for that section.
+        for card_type in set(re.findall(r'data-dismech-type="([^"]+)"', html)):
+            assert canonical_kind(card_type) in SECTION_KEYS, card_type
