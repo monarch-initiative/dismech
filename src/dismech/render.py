@@ -511,6 +511,43 @@ def _annotate_variant_anchors(disorder: dict) -> None:
 # `transmission`, `infectious_agent` and `stages` are referenced in content but
 # have no card on the page at all, so there is nothing to link to; those refs
 # stay plain chips until the page renders them.
+#: Section slot -> the `id` its card already carries in the template, for
+#: resolving a whole-section reference (`treatments#`). Only sections the page
+#: actually renders a card for appear here; `prevalence`, `progression`,
+#: `diagnosis`, `clinical_burden` and friends have no card, so a whole-section
+#: reference to them stays a plain chip (issue #9394).
+_SECTION_CARD_ANCHORS: dict[str, str] = {
+    "definitions": "definitions",
+    "inheritance": "inheritance",
+    "has_subtypes": "subtypes",
+    "mechanistic_hypotheses": "mechanistic-hypotheses",
+    "discussions": "discussions",
+    "pathophysiology": "pathophysiology",
+    "histopathology": "histopathology",
+    "phenotypes": "phenotypes",
+    "genetic": "genetic",
+    "variants": "variants",
+    "external_assertions": "external-assertions",
+    "treatments": "treatments",
+    "differential_diagnoses": "differentials",
+    "datasets": "datasets",
+    "clinical_trials": "trials",
+    # These two have *dedicated* anchor divs immediately above their cards --
+    # `<div id="experimental-models"></div>` and `<div id="animal-models"></div>`
+    # -- each inside `{% if <section> %}`, exactly the guard below. Prefer them
+    # over the `models` id the cards also carry: that one is shared, and lands
+    # on whichever model card renders first (`{% if not experimental_models %}`
+    # on the animal card, and likewise for computational), so it is not a
+    # per-section anchor at all.
+    "experimental_models": "experimental-models",
+    "animal_models": "animal-models",
+    # `computational_models` has no dedicated anchor -- only the shared,
+    # conditional `models` id -- so there is nothing a per-section guard can
+    # safely point at, and pointing it at a card showing *other* models would be
+    # a wrong target rather than a missing one. `comorbidities` is absent
+    # because it is not a Disease slot and so never appears in SECTION_KEYS.
+}
+
 #: HTML id on the page header, the target of a `disease#<name>` reference.
 _DISEASE_ANCHOR_ID = "disease-entry"
 
@@ -611,6 +648,23 @@ def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
     disease_name = disorder.get("name")
     if isinstance(disease_name, str) and disease_name:
         ref_index[f"{DISEASE_KIND}#{disease_name}"] = f"#{_DISEASE_ANCHOR_ID}"
+    # `disease#` with an empty anchor is the same target.
+    ref_index[f"{DISEASE_KIND}#"] = f"#{_DISEASE_ANCHOR_ID}"
+
+    # Whole-section references (`treatments#`), for the sections that have a
+    # card to jump to. Both spellings of a section resolve to the same card.
+    #
+    # Note this is deliberately stricter than *resolution*: `treatments#`
+    # resolves in an entry curating no treatments (that is the point -- a
+    # KNOWLEDGE_GAP attached to a section because it is empty), but the card is
+    # only rendered when the section has content, so linking to `#treatments`
+    # there would point at an anchor that does not exist on the page. Resolution
+    # answers "is this a real section"; the link answers "is there somewhere to
+    # jump to", and they are not the same question.
+    for kind, (section_key, _keys) in SECTION_KEYS.items():
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{kind}#", f"#{card}")
 
     for kind, (section_key, key_slots) in SECTION_KEYS.items():
         for item in section_items(disorder, section_key):
