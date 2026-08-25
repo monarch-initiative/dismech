@@ -16,6 +16,7 @@ from linkml.validator import Validator
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.entity_refs import (
+    canonical_kind,
     iter_entity_refs,
     parse_entity_ref,
     resolve_entity_ref,
@@ -869,6 +870,52 @@ def test_entity_ref_foreign_keys(filepath):
             )
 
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_entity_ref_prefixes_are_schema_slot_names(filepath):
+    """An entity reference's `<kind>` is the schema slot name (#9394).
+
+    `SECTION_KEYS` accepts a singular alias beside most section slots, so
+    `phenotype#Memory Loss` and `phenotypes#Memory Loss` both resolve and the
+    foreign-key test above is indifferent between them. That indifference is
+    what let content drift: before the normalisation, 90 of 172 phenotype
+    references were written singular, so grepping `phenotypes#` found barely
+    half of them, and no prefix could be derived from the schema without
+    consulting the alias map.
+
+    The aliases stay resolvable on purpose — an entry written before the
+    normalisation is not a defect, and nothing outside `kb/` is bound by this.
+    This gate only keeps the curated corpus in one spelling. The backlog was
+    driven to zero in the same change, so there is no baseline: a finding here
+    is always something this branch introduced.
+
+    Cross-file references are skipped deliberately, mirroring
+    `test_entity_ref_foreign_keys`: this file is not the other entry's schema,
+    and a prefix naming a section of a different file is not ours to rewrite.
+    All 14 cross-file refs in `kb/` are `:pathophysiology#` and already
+    canonical, so the skip closes no live hole.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    errors = []
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None or parsed.file:
+            continue
+        canonical = canonical_kind(parsed.kind)
+        if canonical != parsed.kind:
+            errors.append(
+                f"{site.path}={site.ref!r} uses the alias {parsed.kind + '#'!r}; "
+                f"write {canonical + '#'!r} (the schema slot name)"
+            )
+
+    assert not errors, (
+        f"Non-canonical entity-ref prefixes in {Path(filepath).name}: {errors}"
+    )
 
 
 @pytest.mark.parametrize("filepath", DISORDER_FILES)

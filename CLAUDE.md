@@ -459,7 +459,7 @@ object in the same entry:
 [<file>:]<kind>#<name>
 
 pathophysiology#Amyloid Plaque Formation
-phenotype#Memory Loss
+phenotypes#Memory Loss
 Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 ```
 
@@ -473,12 +473,17 @@ the source of truth shared by validation and rendering. Important exceptions:
 | Prefix | Resolves against |
 |---|---|
 | `disease#` | the entry's top-level `name` |
-| `mechanistic_hypothesis#` | `hypothesis_group_id` or `hypothesis_label` |
-| `prevalence#` | `population`; similarly `progression#` uses `phase`, `dataset#` uses `accession`, and `animal_models#` uses `species` |
+| `mechanistic_hypotheses#` | `hypothesis_group_id` or `hypothesis_label` |
+| `prevalence#` | `population`; similarly `progression#` uses `phase`, `datasets#` uses `accession`, and `animal_models#` uses `species` |
 
-Singular and plural section spellings both resolve. Cross-file references and
-prefixes absent from `SECTION_KEYS` are skipped rather than failed; add a
-missing prefix to `SECTION_KEYS` instead of working around it.
+`<kind>` is the schema slot name of the section — `phenotypes#`, not
+`phenotype#`; `treatments#`, not `treatment#`; `has_subtypes#`, not `subtype#`.
+The singular aliases still resolve and an entry carrying one is not a defect,
+but `kb/` was normalised to the slot-name form (#9394) so the prefix is
+derivable from the schema and `phenotypes#` greps every phenotype reference;
+`test_entity_ref_prefixes_are_schema_slot_names` keeps it that way. Cross-file
+references and prefixes absent from `SECTION_KEYS` are skipped rather than
+failed; add a missing prefix to `SECTION_KEYS` instead of working around it.
 
 An empty anchor names a whole section:
 
