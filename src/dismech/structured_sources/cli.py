@@ -27,9 +27,11 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_tsv,
 )
 from dismech.structured_sources.icees import ICEESSource
+from dismech.structured_sources.ictrp import ICTRPSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
+from dismech.structured_sources.strchive import StrchiveSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
 
@@ -70,6 +72,15 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ICEESSource.load_manifest(manifest)
         return ICEESSource(_DEFAULT_DATA_DIR / "icees-kg")
+    if name in {"strchive", "str", "strchive-loci"}:
+        manifest = _DEFAULT_DATA_DIR / "strchive" / "MANIFEST.yaml"
+        if manifest.exists():
+            StrchiveSource.load_manifest(manifest)
+        return StrchiveSource(_DEFAULT_DATA_DIR / "strchive")
+    if name in {"ictrp", "who-ictrp", "chictr"}:
+        # No bulk file: ICTRP records are fetched per identifier on demand, so
+        # the cache directory *is* the index of what this source knows about.
+        return ICTRPSource(_DEFAULT_DATA_DIR / "ictrp", cache_dir=_DEFAULT_CACHE_DIR)
     if name in {"ncit", "ncit-edges", "ncit_edges"}:
         manifest = _DEFAULT_DATA_DIR / "ncit-edges" / "MANIFEST.yaml"
         if not manifest.exists():

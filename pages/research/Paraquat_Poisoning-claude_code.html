@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paraquat Poisoning · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Paraquat Poisoning</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Paraquat Poisoning</h1>
+                
+                <p class="report-subtitle">Paraquat Poisoning — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-22</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017862" target="_blank" rel="noopener noreferrer">MONDO:0017862</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Paraquat Poisoning — Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Paraquat poisoning is acute (and occasionally chronic/occupational) toxicity caused by exposure to paraquat (1,1′-dimethyl-4,4′-bipyridinium dichloride), a fast-acting, non-selective bipyridyl contact herbicide. The overwhelming majority of severe, fatal poisonings result from deliberate ingestion (self-harm) of concentrated commercial formulations (typically 20% w/v solutions), though occupational dermal/inhalational exposure and rare accidental ingestions also occur. Ingested paraquat is corrosive to mucosa, is concentrated in the lung by an active pulmonary uptake system, undergoes redox cycling that generates reactive oxygen species (ROS), and causes multi-organ toxicity — acute kidney injury, hepatic injury, and (in survivors of the acute phase) progressive, often fatal pulmonary fibrosis. There is no specific antidote, and case-fatality remains among the highest of any acute poisoning.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MeSH:</strong> Paraquat (D010297)
+- <strong>ICD-10-CM:</strong> T60.3 (Toxic effect of herbicides and fungicides), with 5th/7th character for intent (accidental T60.3X1A, intentional self-harm T60.3X2A, assault T60.3X3A) and Y-code E-codes historically (ICD-9 E863.5)
+- <strong>ICD-11:</strong> NE61 / PJ21 (Toxic effect of pesticides) — herbicide-specific subcode under the poisoning chapter
+- <strong>CAS Registry Number:</strong> 1910-42-5 (paraquat dichloride); 4685-14-7 (paraquat cation)
+- <strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_34905" target="_blank" rel="noopener noreferrer">CHEBI:34905</a> (paraquat dichloride); <a href="http://purl.obolibrary.org/obo/CHEBI_34922" target="_blank" rel="noopener noreferrer">CHEBI:34922</a> (paraquat) — verify canonical labels via OAK before binding
+- <strong>MONDO:</strong> No dedicated, well-populated MONDO term for "paraquat poisoning" specifically was identified in this pass; poisoning-by-substance concepts in MONDO are generally sparse compared to genetic disease — this should be confirmed directly against the MONDO release before curation (candidate parent: a general "poisoning by pesticide/herbicide" grouping term).
+- <strong>Synonyms:</strong> Methyl viologen; PQ; Gramoxone (trade name); N,N′-dimethyl-4,4′-bipyridinium dichloride; 1,1′-dimethyl-4,4′-bipyridylium dichloride.</p>
+<p><strong>Evidence source note:</strong> Information below is drawn from aggregated disease-level literature (toxicology reviews, case series, cohort/registry studies, national mortality statistics) rather than individual patient-level EHR data, with individual case reports cited where they illustrate a specific clinical course (e.g., lung transplantation).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> Direct chemical/toxicological — absorption of a threshold dose of paraquat (principally by ingestion; also possible by inhalation of concentrated spray/mist or extensive dermal contact through broken skin) initiates redox-cycling oxidative injury. This is not a genetic or infectious disease; it is a single-agent environmental/toxicological exposure disorder.</p>
+<p><strong>Risk factors:</strong>
+- <strong>Dose:</strong> The single strongest determinant of outcome. Ingestion of &gt;40–50 mg/kg body weight (of paraquat ion; roughly &gt;20–40 mL of 20% solution) is usually fatal within hours to days; 20–40 mg/kg causes a subacute, often-fatal multi-organ/pulmonary-fibrotic course over days-to-weeks; &lt;20 mg/kg is frequently survivable with supportive care (Dinis-Oliveira et al., <em>Crit Rev Toxicol</em> 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18161502/" target="_blank" rel="noopener noreferrer">PMID:18161502</a>).
+- <strong>Occupational exposure:</strong> Agricultural workers/applicators in countries where paraquat remains registered, particularly with inadequate protective equipment, backpack sprayer leaks, or contaminated storage containers (accidental ingestion from re-used drink bottles is a well-documented accidental-poisoning pattern).
+- <strong>Access to concentrated formulations / means availability:</strong> In agrarian, low- and middle-income settings, ready household access to concentrated paraquat is the dominant modifiable risk factor for suicidal ingestion (Gunnell &amp; Eddleston, <em>PLOS Medicine</em>/related pesticide-suicide literature).
+- <strong>Delayed presentation:</strong> Delayed hospital arrival (rural distance, stigma, lack of recognition of severity) worsens prognosis because early gastrointestinal decontamination and hemoperfusion lose efficacy after paraquat has distributed into tissue (within ~12–24 h).
+- <strong>Psychiatric comorbidity:</strong> Documented as an important covariate of mortality among intentional-ingestion cohorts (e.g., psychiatric comorbidity and mortality analysis, <em>PMC4227688</em>).
+- <strong>Renal impairment at presentation:</strong> Pre-existing or evolving acute kidney injury (AKI) — since renal clearance is the principal excretory route and its failure both raises systemic exposure and independently predicts death (mortality 70.1% with AKI vs 40.0% without; <em>Oncotarget</em>, PMC5584253/PMC5584253).</p>
+<p><strong>Protective factors:</strong>
+- <strong>Regulatory restriction / means restriction:</strong> Withdrawal or reformulation (e.g., addition of an emetic, stenching agent, dye, and reduced concentration) of paraquat products, and outright bans, have measurably reduced pesticide-suicide mortality without simple substitution to other lethal methods in several national studies (South Korea ban analysis, Cha et al., <em>PLOS ONE</em> 2015; Sri Lanka pesticide-restriction natural experiments).
+- <strong>Early, repeated hemoperfusion</strong> (within 12 h of ingestion) is associated with reduced 90-day mortality in some cohort analyses, though evidence quality is limited (retrospective multicenter study, PMC7711471).
+- <strong>Combined immunosuppressive therapy</strong> (methylprednisolone + cyclophosphamide ± dexamethasone) added to hemoperfusion was associated with improved survival (48% vs comparator) in a nationwide Taiwanese registry study (Lin et al., <em>PLOS ONE</em> 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24475310/" target="_blank" rel="noopener noreferrer">PMID:24475310</a>), and case series report favorable outcomes (Afzali &amp; Gholyaf; PMC3348234) — though the overall evidence base remains weak and randomized-trial confirmation is lacking.
+- <strong>Genetic/molecular:</strong> No validated human protective genetic variant has been established; efflux-transporter (e.g., MDR1/P-glycoprotein) activity has been shown in vitro to reduce paraquat cytotoxicity in proximal tubule cells (Toxicol Sci, "MDR1 Transporter Protects Against Paraquat-Induced Toxicity in Human and Mouse Proximal Tubule Cells"), suggesting a plausible but unproven modifier locus.</p>
+<p><strong>Gene-environment interactions:</strong> The best-characterized gene-environment axis for paraquat is not the acute-poisoning phenotype but paraquat as an environmental risk modifier for <strong>idiopathic Parkinson's disease</strong> — where genetic background (e.g., variants affecting dopaminergic handling, mitochondrial quality control, or xenobiotic transport) is hypothesized to modulate individual susceptibility to paraquat-induced dopaminergic neurodegeneration (see Section 6/Section 2 crosslink below); this is an epidemiological association layer distinct from acute toxicity.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Paraquat poisoning presents as a dose- and time-dependent, multi-organ symptom complex. Three broadly recognized clinical syndromes are described by ingested dose:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Syndrome</th>
+<th>Approx. ingested dose</th>
+<th>Course</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mild-moderate</td>
+<td>&lt;20 mg/kg</td>
+<td>GI symptoms only; usually full recovery, occasional mild transient renal/hepatic changes</td>
+</tr>
+<tr>
+<td>Moderate-severe</td>
+<td>20–40 mg/kg</td>
+<td>Multi-organ (renal, hepatic, cardiac) injury over days, followed by progressive pulmonary fibrosis over 1–4 weeks; often fatal</td>
+</tr>
+<tr>
+<td>Fulminant</td>
+<td>&gt;40 mg/kg</td>
+<td>Rapid multi-organ failure, refractory shock, death within 24–72 h ("hyperacute" form)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Symptoms / clinical signs (local, corrosive — onset minutes to hours):</strong>
+- Oropharyngeal, esophageal, and gastric ulceration and burning pain (<a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" rel="noopener noreferrer">HP:0000164</a> mouth ulcer / esophageal ulceration is not separately coded in HPO but is captured under "gastrointestinal ulceration")
+- Vomiting (<a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting), abdominal pain (<a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain), diarrhea (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea) — frequent, near-universal after significant ingestion
+- Dysphagia/odynophagia from caustic esophagitis; rare esophageal perforation and mediastinitis with very concentrated/large ingestions</p>
+<p><strong>Systemic/organ-specific manifestations:</strong>
+- <strong>Renal:</strong> Acute kidney injury (<a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" rel="noopener noreferrer">HP:0001919</a> Acute kidney injury) from proximal tubular necrosis — often the earliest laboratory abnormality (creatinine rise within 24 h), and the single strongest early predictor of mortality
+- <strong>Hepatic:</strong> Elevated transaminases, hepatocellular injury, occasionally jaundice/liver failure (<a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" rel="noopener noreferrer">HP:0001392</a>-type hepatic dysfunction)
+- <strong>Cardiovascular:</strong> Myocarditis, arrhythmia, and refractory hypotension/circulatory shock in severe poisoning (cardiogenic/circulatory collapse is the dominant fatal mechanism in the fulminant form) — <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> Congestive heart failure / cardiogenic shock phenotype
+- <strong>Pulmonary — the defining and most characteristic feature:</strong>
+  - Early: hypoxemia, tachypnea
+  - Delayed (days to weeks): progressive, often irreversible pulmonary fibrosis (<a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> Pulmonary fibrosis) driven by alveolar epithelial injury, epithelial-mesenchymal transition-like fibrogenesis, and impaired reepithelialization ("paraquat lung"). Paradoxically, <strong>supplemental oxygen can worsen pulmonary injury</strong> in the acute phase by fueling further ROS generation via redox cycling, so oxygen is withheld unless the patient is significantly hypoxemic — an important, counter-intuitive clinical management point.
+  - Radiographic pattern: initially patchy alveolar infiltrates progressing to diffuse ground-glass/honeycombing consistent with acute respiratory distress syndrome (ARDS)-like injury evolving into fibrosis
+- <strong>Metabolic:</strong> Metabolic acidosis (<a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" rel="noopener noreferrer">HP:0001942</a> Metabolic acidosis), hypoxemia (<a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a> Hypoxemia)
+- <strong>Neurological (rare, less characterized):</strong> Peripheral neuropathy and case reports of CNS demyelination following paraquat self-poisoning (systematic review, PMC11590890) — an emerging, still limited literature.
+- <strong>Cutaneous/local (occupational exposure):</strong> Contact dermatitis, chemical burns, nail changes with repeated dermal contact; corneal injury with ocular splash.</p>
+<p><strong>Age of onset / progression / frequency:</strong> Onset is acute (minutes–hours for local GI effects; hours–days for renal/hepatic failure; days–weeks for pulmonary fibrosis). Course is progressive in survivors of the acute phase who go on to develop fibrosis, and pulmonary fibrosis is the dominant determinant of subacute/delayed mortality in the moderate-severe group. GI symptoms are near-universal (approaching 100% after a substantial ingestion); AKI incidence is high in moderate-to-severe poisoning (studies report roughly one-third to over half of hospitalized cases, varying by cohort); pulmonary fibrosis develops in a substantial proportion of patients who survive the first several days after moderate-to-large ingestions.</p>
+<p><strong>Quality of life impact:</strong> Survivors with established pulmonary fibrosis face chronic dyspnea, oxygen dependence, and in the most severe cases require lung transplantation — itself associated with a complex, high-morbidity post-transplant course (see Section 12).</p>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> (Vomiting), <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (Abdominal pain), <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> (Diarrhea), <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" rel="noopener noreferrer">HP:0001919</a> (Acute kidney injury), <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> (Pulmonary fibrosis), <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a> (Hypoxemia), <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" rel="noopener noreferrer">HP:0001942</a> (Metabolic acidosis), <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> (Congestive heart failure / circulatory collapse phenotype), <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" rel="noopener noreferrer">HP:0001392</a> (Abnormality of liver physiology).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Paraquat poisoning is <strong>not a Mendelian genetic disease</strong> — it is an acute toxicological exposure. There is no causal gene, pathogenic variant, or chromosomal abnormality that produces the disease; instead, "genetic/molecular information" for this entry is best modeled as <strong>host susceptibility/transporter genes</strong> that modulate uptake, distribution, and excretion, and (separately) the <strong>molecular targets of paraquat's toxic mechanism</strong> (covered fully in Section 6).</p>
+<p><strong>Transporter genes implicated in tissue uptake/handling (host susceptibility, not causal mutations):</strong>
+- <strong>SLC22A2 (OCT2, hgnc:11005):</strong> The principal transporter mediating renal tubular secretion/uptake of paraquat; overexpression of human OCT2 (but not OCT1 or OCT3) in HEK-293 cells markedly enhanced paraquat accumulation and cytotoxicity (Chen et al., "Transport of paraquat by human organic cation transporters and multidrug and toxic compound extrusion family," <a href="https://pubmed.ncbi.nlm.nih.gov/17495125/" target="_blank" rel="noopener noreferrer">PMID:17495125</a>). At toxic plasma concentrations, OCT2-mediated proximal tubular secretion itself becomes a route of self-injury: the transporter concentrates paraquat inside tubular cells, which then poisons the very secretory mechanism, and ultimately destroys the cells (renal AKI mechanism reviews, PMC4376530 / PMC5584253).
+- <strong>SLC22A3 (OCT3, hgnc:11043):</strong> Transports the monovalent paraquat radical cation and contributes to distribution into brain and other extra-renal tissues; implicated together with the dopamine transporter (SLC6A3/DAT) in paraquat neurotoxicity to dopaminergic neurons (Rappold et al., <em>PNAS</em>, "Paraquat neurotoxicity is mediated by the dopamine transporter and organic cation transporter-3," PMC3251116).
+- <strong>ABCB1 (MDR1/P-glycoprotein, hgnc:40):</strong> An efflux transporter shown in vitro to be protective against paraquat-induced cytotoxicity in human and mouse proximal tubule cells (<em>Toxicological Sciences</em> 2014), suggesting reduced MDR1 activity/expression could be a modifier of individual susceptibility to nephrotoxicity — not established in human epidemiology.
+- <strong>Pulmonary "polyamine uptake system":</strong> The lung's active, saturable uptake of paraquat (yielding 6–10× plasma concentration in lung tissue) has classically been attributed to a polyamine-transport-like carrier system; the precise molecular transporter(s) responsible for this pulmonary-selective concentration are still incompletely characterized at the single-gene level in the literature reviewed here and would need targeted confirmation before ontology binding.</p>
+<p><strong>Somatic vs. germline:</strong> Not applicable — no somatic mutational driver is implicated; this is a pharmacokinetic/toxicodynamic host-modifier question, not a mutation-driven disease.</p>
+<p><strong>Epigenetics:</strong> No paraquat-poisoning-specific human epigenetic signature was identified in this pass; epigenetic mechanisms (histone modification, DNA methylation) are, however, an active research area in the <em>separate</em> paraquat–Parkinson's-disease epidemiological literature (e.g., "Linking environmental risk factors with epigenetic mechanisms in Parkinson's disease," <em>npj Parkinson's Disease</em> 2023, PMC10457362), which is a distinct chronic-exposure/neurodegeneration question rather than the acute-poisoning phenotype.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental/chemical factor (the disease-defining exposure):</strong> Paraquat dichloride, a quaternary-nitrogen bipyridyl herbicide formulated commercially (e.g., as Gramoxone) typically at 20% w/v concentration. Suggested exposure-term binding: ECTO term for "exposure to paraquat" (verify exact CURIE via OAK against ECTO; a general herbicide-exposure ECTO branch exists and should be searched for the paraquat-specific leaf term).</p>
+<p><strong>Routes of exposure:</strong>
+- <strong>Ingestion</strong> (dominant route for severe/fatal poisoning; deliberate self-poisoning is responsible for the great majority — cited as ~93% of fatalities in some series — of deaths)
+- <strong>Inhalation</strong> of spray mist during agricultural application (low systemic absorption via this route under normal use conditions, but relevant with heavy/prolonged occupational exposure or misuse)
+- <strong>Dermal absorption</strong> (minimal through intact skin; significant through abraded/broken skin or prolonged saturated-clothing contact)
+- <strong>Ocular</strong> splash exposure (local corneal/conjunctival injury)</p>
+<p><strong>Occupational/lifestyle factors:</strong> Agricultural work involving herbicide application without adequate personal protective equipment; storage/transfer of concentrated paraquat in unlabeled beverage containers (a recurrent, well-documented cause of accidental fatal ingestion, especially of children); rural/agrarian residence in regions where paraquat remains legally available.</p>
+<p><strong>Infectious agents:</strong> Not applicable — paraquat poisoning is a purely chemical/toxicological disease with no infectious component (though secondary infection, e.g., ventilator-associated pneumonia or catheter-related sepsis, is a recognized complication of prolonged critical illness in survivors).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain overview:</strong> ingestion → mucosal/GI corrosive injury → systemic absorption (variable, generally poor oral bioavailability, ~5–10% but sufficient at high doses to be lethal) → selective, active, saturable pulmonary and renal tissue concentration → intracellular redox cycling and reactive-oxygen-species generation → lipid peroxidation, NADPH depletion, mitochondrial dysfunction, and direct cytotoxicity → acute organ injury (kidney, liver, heart) in the near term and progressive fibrogenic remodeling (lung) in the medium term → multi-organ failure and/or respiratory failure as terminal common pathways.</p>
+<p><strong>Molecular mechanism — redox cycling (the central, defining mechanism):</strong>
+Paraquat is a redox-active dication (PQ²⁺). Intracellularly it is reduced by one electron — chiefly via <strong>mitochondrial Complex I</strong> (NADH:ubiquinone oxidoreductase) — to the paraquat radical monocation (PQ•⁺), which then reacts non-enzymatically with molecular oxygen to regenerate PQ²⁺ while producing superoxide anion (O₂•⁻). This cycle repeats catalytically, consuming NADPH/NADH and continuously generating ROS. Complex I was identified as the major site of mitochondrial superoxide production by paraquat (Cochemé &amp; Murphy, <em>J Biol Chem</em>; "Complex I Is the Major Site of Mitochondrial Superoxide Production by Paraquat"). <strong>NADPH oxidase (NOX)</strong> is a second major site of redox cycling, particularly in phagocytic/microglial cells, generating extracellular superoxide (search results on NADPH-oxidase–mediated paraquat/maneb oxidative stress). Superoxide is dismutated to hydrogen peroxide and, via Fenton-type chemistry, to the highly reactive hydroxyl radical, which attacks polyunsaturated fatty acids in membrane phospholipids, initiating lipid peroxidation and membrane destruction. This ROS burden also depletes cellular NADPH reserves needed for glutathione regeneration, compounding oxidative injury (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> response to oxidative stress; <a href="http://purl.obolibrary.org/obo/GO_0055114" target="_blank" rel="noopener noreferrer">GO:0055114</a> oxidation-reduction process; <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a> glutathione metabolic process).</p>
+<p><strong>Structural analogy to MPP+/Parkinsonian toxins:</strong> Paraquat (PQ²⁺) is structurally similar to 1-methyl-4-phenylpyridinium (MPP⁺), the active dopaminergic neurotoxic metabolite of MPTP; both are taken up via cation transporters (dopamine transporter, OCT3) into dopaminergic neurons, generate ROS, and have been used experimentally to model nigrostriatal degeneration in Parkinson's disease research (PMC5082881; PNAS PMC3251116). This mechanistic parallel underlies the long-standing epidemiological hypothesis linking chronic low-dose paraquat exposure to Parkinson's disease risk (Section 2).</p>
+<p><strong>Ferroptosis and Nrf2/Keap1 signaling:</strong> Recent mechanistic work implicates <strong>ferroptosis</strong> — iron-dependent lipid peroxidative cell death — as a specific contributor to paraquat-induced pulmonary fibrosis, mediated through Keap1/Nrf2 signaling dysregulation ("Molecular mechanism of paraquat-induced ferroptosis leading to pulmonary fibrosis mediated by Keap1/Nrf2 signaling pathway," PMC10635988). <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" rel="noopener noreferrer">GO:0097707</a> (ferroptosis) is a candidate process term.</p>
+<p><strong>Fibrogenic cascade in the lung (the disease-defining subacute mechanism):</strong>
+1. Selective, active pulmonary uptake concentrates paraquat 6–10-fold above plasma in alveolar type I and type II epithelial cells and Clara (club) cells (via the classical "polyamine uptake system").
+2. Redox-cycling ROS generation causes diffuse alveolar epithelial injury and death, producing an early alveolitis/ARDS-like picture.
+3. Surviving/regenerating alveolar epithelial cells undergo an <strong>epithelial-mesenchymal transition (EMT)-like fibrogenic response</strong>, with resistance to apoptosis and acquisition of a pro-fibrotic phenotype (PMC4370722, "Paraquat Induces Epithelial-Mesenchymal Transition-Like Cellular Response...").
+4. NF-κB and JNK/p38 MAPK signaling pathways are activated, driving pro-inflammatory and pro-fibrotic gene programs (PMC5396433, liver X receptor agonist attenuation study).
+5. Excess extracellular matrix deposition (<a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> extracellular matrix organization) by activated (myo)fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a>) produces progressive interstitial fibrosis, culminating in restrictive lung physiology and, in the most severe cases, respiratory failure over 1–4 weeks — the classical "delayed progressive pulmonary fibrosis" of subacute paraquat poisoning.</p>
+<p><strong>Renal mechanism:</strong> Active tubular secretion of paraquat by OCT2 concentrates the compound within proximal tubular epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" rel="noopener noreferrer">CL:0002306</a>/CL candidate: proximal tubule epithelial cell), where redox cycling drives tubular necrosis; this is compounded by systemic oxidative stress from other organs. Early creatinine rise reflects both true tubular injury and a component of systemic oxidative-stress-driven renal dysfunction (PLOS ONE, "Mechanisms Underlying Early Rapid Increases in Creatinine in Paraquat Poisoning," PMC4376530). AKI is a strong independent mortality predictor.</p>
+<p><strong>Cardiac and hepatic injury:</strong> Direct oxidative myocardial and hepatocellular injury via the same redox-cycling mechanism, contributing to circulatory collapse (dominant fatal mechanism in fulminant, high-dose poisoning) and hepatic dysfunction/failure in severe cases.</p>
+<p><strong>Cell types involved (candidate CL terms):</strong> <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a> (type I pneumocyte), <a href="http://purl.obolibrary.org/obo/CL_0002062" target="_blank" rel="noopener noreferrer">CL:0002062</a> (type II pneumocyte), <a href="http://purl.obolibrary.org/obo/CL_0000158" target="_blank" rel="noopener noreferrer">CL:0000158</a> (Clara/club cell), <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a> (myofibroblast), proximal tubule epithelial cell (CL candidate), <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" rel="noopener noreferrer">CL:0000700</a> (dopaminergic neuron, relevant to the PD-association literature), <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (microglial cell, implicated in NOX-mediated CNS oxidative injury).</p>
+<p><strong>Candidate GO biological process terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" rel="noopener noreferrer">GO:0034599</a> (cellular response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0055114" target="_blank" rel="noopener noreferrer">GO:0055114</a> (oxidation-reduction process), <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a> (glutathione metabolic process), <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" rel="noopener noreferrer">GO:0097707</a> (ferroptosis), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), <a href="http://purl.obolibrary.org/obo/GO_0097237" target="_blank" rel="noopener noreferrer">GO:0097237</a> (cellular response to toxic substance), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process).</p>
+<p><strong>Molecular profiling:</strong> An iTRAQ quantitative proteomic study has identified candidate serum biomarkers of acute paraquat poisoning in humans (PMC9078879), an early step toward systems-level (proteomic) characterization; comprehensive transcriptomic/metabolomic paraquat-poisoning-specific human datasets were not identified in this pass (much of the -omics literature instead concerns paraquat as an experimental oxidative-stress or Parkinson's-model tool rather than clinical poisoning cohorts).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary target organs:</strong> Lung (the organ most characteristically and often fatally affected — <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>, especially the proximal tubule), and the gastrointestinal tract (oropharynx, esophagus, stomach — direct corrosive contact site; <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" rel="noopener noreferrer">UBERON:0001043</a> esophagus)
+- <strong>Secondary/complication organs:</strong> Liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>, hepatocellular injury), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>, myocarditis/circulatory collapse), and less consistently the central and peripheral nervous system (rare demyelination/neuropathy reports)
+- <strong>Body systems involved:</strong> Respiratory, renal, gastrointestinal, hepatic, cardiovascular, and (uncommonly) nervous systems — i.e., a multi-system toxidrome.</p>
+<p><strong>Tissue and cell level:</strong>
+- Respiratory epithelium — alveolar type I/II pneumocytes and club (Clara) cells (the selective site of pulmonary paraquat concentration)
+- Renal proximal tubular epithelium (the selective site of tubular secretion/reabsorption-mediated concentration)
+- Gastrointestinal squamous/columnar mucosa (direct corrosive contact injury)
+- Hepatocytes
+- Cardiac myocytes
+- In the chronic/PD-association literature: nigrostriatal dopaminergic neurons of the substantia nigra pars compacta (<a href="http://purl.obolibrary.org/obo/UBERON_0002038" target="_blank" rel="noopener noreferrer">UBERON:0002038</a>) and associated microglia</p>
+<p><strong>Subcellular level:</strong> Mitochondria (Complex I as the principal intracellular site of paraquat-driven superoxide generation; GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a> mitochondrial inner membrane), plasma membrane/lipid bilayer (site of lipid peroxidation), and — via NADPH oxidase — the cell membrane-associated NOX complex.</p>
+<p><strong>Localization:</strong> Bilateral, diffuse pulmonary involvement (not focal/unilateral); bilateral renal involvement; systemic (not lateralized) disease overall.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Acute, occurring within minutes to hours of ingestion for local corrosive/GI effects, within 24–72 hours for renal/hepatic/cardiac injury, and over days to 1–4 weeks for the defining delayed pulmonary fibrosis.</p>
+<p><strong>Progression / disease course pattern (dose-stratified, as in Section 3):</strong>
+- <strong>Mild-moderate poisoning:</strong> Self-limited, typically resolving GI symptoms with supportive care; may have transient, reversible organ dysfunction.
+- <strong>Moderate-severe poisoning:</strong> A biphasic/triphasic course — initial GI/corrosive phase, followed by an organ-failure phase (renal/hepatic/cardiac, days 1–4), followed by a progressive pulmonary-fibrotic phase (days–weeks) that is frequently the ultimate cause of death.
+- <strong>Fulminant (massive-dose) poisoning:</strong> Rapid, unremitting multi-organ failure and refractory circulatory shock, typically fatal within 24–72 hours, often before pulmonary fibrosis has time to develop.</p>
+<p><strong>Critical period for intervention:</strong> The first ~12–24 hours after ingestion is the critical window for gastrointestinal decontamination and hemoperfusion, since paraquat distributes irreversibly into tissue compartments after this window, sharply reducing the efficacy of extracorporeal removal.</p>
+<p><strong>Disease duration:</strong> Ranges from self-limited (days, in mild ingestions) to a protracted, weeks-to-months critical illness culminating in death or, in a minority of survivors, chronic pulmonary fibrosis requiring long-term oxygen support or lung transplantation.</p>
+<p><strong>Remission:</strong> Full recovery is possible after low-dose ingestion; there is no described spontaneous remission pattern once significant pulmonary fibrosis is established — the mechanism is progressive rather than fluctuating.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p>Paraquat poisoning is <strong>not a heritable genetic disease</strong>; inheritance-pattern fields (AD/AR/X-linked, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, carrier frequency) are <strong>not applicable</strong>.</p>
+<p><strong>Epidemiology:</strong>
+- Pesticide self-poisoning as a whole is estimated to account for a substantial share of global suicide deaths, disproportionately concentrated in rural areas of low- and middle-income countries in Asia and the Pacific.
+- Paraquat specifically has historically been one of the most lethal agents used, with an estimated <strong>~20 deaths per million persons worldwide</strong> attributable to paraquat as a suicide method in earlier global estimates, and it has been described as the most frequently used self-poisoning agent in some national settings (e.g., historically in South Korea and Trinidad).
+- <strong>~93% of fatalities from paraquat intoxication are reported as suicides</strong>, occurring predominantly in developing/agrarian countries (search-derived synthesis of pesticide-suicide epidemiology literature; see also "Suicide by intentional ingestion of pesticides: A continuing tragedy in developing countries").</p>
+<p><strong>Mortality:</strong> Global case-fatality estimates are consistently high, generally cited in the <strong>35–70%+ range</strong> across cohorts, with some sources citing an overall mortality around 60% and others up to 70–90% depending on dose distribution and access to care; mortality is strongly right-shifted toward the lethal end because ingestion is so often deliberate and at high concentration.</p>
+<p><strong>Geographic distribution:</strong> Historically concentrated in agrarian regions of East/Southeast Asia (China, South Korea historically before its ban, other parts of Asia-Pacific), parts of Latin America and the Caribbean (e.g., Trinidad), and Sub-Saharan Africa where paraquat has remained available; incidence has fallen sharply in jurisdictions that banned or restricted paraquat sale (see Section 13 and regulatory notes below).</p>
+<p><strong>Age/sex distribution:</strong> Case series generally show a predominance of working-age adults with agricultural access; sex distribution varies by setting/study, reflecting local patterns of self-harm method choice rather than a biological sex-specific susceptibility.</p>
+<p><strong>Regulatory/geographic status as of 2024–2026 (relevant population-exposure context):</strong> Paraquat is banned or severely restricted in more than 70 countries, including the European Union, China, Brazil, Canada, and — as of 2024 — Nigeria. It remains registered and in agricultural use in the United States (subject to restricted-use/certified-applicator rules tightened in 2016 after fatal accidental exposures), with U.S. EPA regulatory review ongoing (the EPA removed a 2021 interim risk-mitigation decision in January 2025) and state-level actions underway (e.g., a 2026 voluntary registration cancellation by Syngenta in California, and California legislative proposals to phase out paraquat by end of 2025). It also remains registered in India, Japan, and Australia among other countries.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong>
+- <strong>Urine dithionite (sodium hydrosulfite) colorimetric test:</strong> A rapid, low-cost bedside qualitative screening test — a blue/blue-green color change on adding alkaline sodium dithionite to urine indicates the presence of paraquat and roughly correlates with severity (used widely in resource-limited settings for triage).
+- <strong>Plasma/serum paraquat concentration</strong> (measured by spectrophotometry historically, and by LC-MS/MS in modern laboratories) — the single most validated quantitative prognostic test, plotted against time-since-ingestion on validated nomograms (see below).
+- Routine chemistry: serum creatinine (early rise is a key marker of renal injury and independent mortality predictor), liver enzymes, arterial blood gas/lactate, and inflammatory markers.
+- Novel/investigational biomarkers: urinary NGAL (neutrophil gelatinase-associated lipocalin, elevated in AKI but not independently predictive of death), urinary cystatin C (reflecting altered proximal-tubular reuptake/degradation and confirming tubular injury), and serum proteomic panels under investigation (PMC9078879).</p>
+<p><strong>Prognostic/severity scoring tools:</strong>
+- <strong>Proudfoot nomogram (1979):</strong> Relates outcome to plasma paraquat concentration at a given time post-ingestion (valid for samples drawn 4–24 h post-ingestion).
+- <strong>Scherrmann extension (1987):</strong> Extends the nomogram's applicability beyond 24 hours post-ingestion.
+- <strong>Severity Index for Paraquat Poisoning (SIPP), Sawada et al.:</strong> SIPP = elapsed time from ingestion to arrival (hours) × serum paraquat concentration (µg/mL). SIPP &lt;10 → good prognosis; SIPP 10–50 → high risk of death from progressive pulmonary fibrosis/organ failure; SIPP &gt;50 → typically rapid death from circulatory collapse.
+- APACHE II score and serum lactate have also been evaluated (sometimes in combination with SIPP) as prognostic tools in Chinese cohorts.
+- More recent prognostic nomograms integrating multiple clinical variables for predicting in-hospital mortality have been developed and validated (<em>Scientific Reports</em> 2023, <a href="https://doi.org/10.1038/s41598-023-50722-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-023-50722-z</a>).</p>
+<p><strong>Imaging:</strong> Chest radiography/CT showing progression from patchy alveolar infiltrates (early) to diffuse ground-glass and honeycomb fibrotic change (late) tracks the pulmonary phase.</p>
+<p><strong>Differential diagnosis:</strong> Other causes of acute corrosive ingestion (other herbicides/pesticides, especially diquat — a related bipyridyl compound with a similar corrosive/multi-organ-failure profile but without paraquat's selective pulmonary accumulation and characteristic fibrosis), ARDS from other etiologies, and other causes of rapidly progressive interstitial lung disease in a patient without a clear ingestion history.</p>
+<p><strong>Genetic testing:</strong> Not applicable/not indicated — this is not a heritable disease and there is no clinically validated genetic test for paraquat susceptibility.</p>
+<p><strong>Screening:</strong> No population screening program exists; the principal "screening" intervention at the population level is public-health means restriction (regulatory withdrawal, reformulation with deterrents, or licensing controls) rather than individual biomarker screening.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival/mortality:</strong> Case-fatality is high across the literature, commonly cited in the range of ~35–70%, with some series (particularly those enriched for intentional, high-dose ingestion) reporting up to 70–90% mortality. Death from progressive pulmonary fibrosis typically occurs over 1–4 weeks after ingestion in the moderate-dose group; death from circulatory collapse/multi-organ failure typically occurs within 24 hours to a few days in the high-dose group.</p>
+<p><strong>Key prognostic factors:</strong> Ingested dose/plasma paraquat concentration (the dominant factor, formalized in the Proudfoot/Scherrmann nomograms and SIPP), time from ingestion to treatment (earlier decontamination/hemoperfusion improves outcome), development of AKI (strongly associated with mortality — 70.1% vs 40.0% in AKI vs non-AKI patients), and age (younger patients, e.g., &lt;45 years, have shown better survival in some immunosuppressive-therapy cohorts).</p>
+<p><strong>Morbidity in survivors:</strong> The principal long-term morbidity is chronic restrictive lung disease from established pulmonary fibrosis, which can progress to end-stage respiratory failure requiring long-term oxygen or lung transplantation. Renal recovery is variable; some patients develop chronic kidney disease after severe AKI. Case reports also describe delayed neurological sequelae (demyelination, peripheral neuropathy) though this is not well quantified epidemiologically.</p>
+<p><strong>Complications:</strong> Esophageal stricture/perforation and mediastinitis (from corrosive injury), secondary nosocomial infection during prolonged critical illness, and — in the small subset undergoing lung transplantation — the full range of transplant-related complications (graft dysfunction, rejection, infection, weaning failure from mechanical ventilation) (case-based reviews, PMC12868150; PMC10387547).</p>
+<p><strong>Recovery potential:</strong> Full recovery is achievable after low-dose ingestion with prompt supportive care; recovery after moderate-severe poisoning is possible but guarded and dependent on whether pulmonary fibrosis becomes established; recovery after fulminant, massive-dose poisoning is exceedingly rare.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no specific antidote</strong> for paraquat poisoning; management is supportive, decontamination-focused, and — for the fibrotic/organ-failure phase — largely investigational, with a generally weak evidence base for any single intervention.</p>
+<p><strong>Gastrointestinal decontamination (early, time-critical):</strong>
+- Activated charcoal or Fuller's earth/bentonite clay administered as soon as possible after ingestion to adsorb unabsorbed paraquat and limit systemic exposure — NCIT candidate term: NCIT:C1445 (Activated Charcoal) as a therapeutic agent under a general decontamination/pharmacotherapy treatment_term.
+- Gastric lavage may be considered very early after ingestion in some protocols, though evidence and practice vary.</p>
+<p><strong>Extracorporeal removal:</strong>
+- <strong>Hemoperfusion</strong> (charcoal or resin cartridge) — theoretically attractive because it removes paraquat directly from blood, but overall trial evidence for a survival benefit is weak/mixed; some retrospective analyses suggest benefit only when performed early (within ~12 h) and repeatedly (PMC7711471), reflecting the narrow window before tissue redistribution.
+- <strong>Hemodialysis</strong> — similarly limited by rapid tissue distribution and reduced efficacy after the first ~24 hours, further diminished once tubular necrosis reduces renal clearance.
+- <strong>Continuous renal replacement therapy (CRRT)</strong> for established AKI, primarily as supportive renal-failure management rather than a paraquat-elimination strategy per se.</p>
+<p><strong>Immunosuppressive therapy</strong> (targeting the inflammatory/fibrogenic cascade):
+- Combination pulse <strong>methylprednisolone + cyclophosphamide ± dexamethasone</strong> is the most widely studied regimen; a nationwide Taiwanese registry analysis found immunosuppressive therapy added to hemoperfusion associated with improved survival (48% vs lower in comparator groups, p&lt;0.001), with the greatest benefit in patients under 45 (Lin et al., <em>PLOS ONE</em> 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24475310/" target="_blank" rel="noopener noreferrer">PMID:24475310</a>). A small case series (n=9) using pulse cyclophosphamide/methylprednisolone reported 100% survival, though this is a very small, likely selected sample. Overall the evidence remains "very weak" per multiple reviews, and randomized controlled trial data are lacking. NCIT candidate terms: NCIT:C15632 (Chemotherapy) treatment_term with therapeutic_agent cyclophosphamide (CHEBI candidate) and corticosteroids.</p>
+<p><strong>Antioxidant therapy (adjunctive, mechanistically motivated but weakly evidenced):</strong>
+- N-acetylcysteine (NAC), vitamin C, and vitamin E have been used to scavenge ROS and support glutathione regeneration, consistent with the redox-cycling mechanism, though clinical efficacy data are limited and mostly derived from small studies/case series.</p>
+<p><strong>Oxygen therapy — a critical caveat, not a straightforward supportive measure:</strong>
+- Supplemental oxygen is generally <strong>withheld unless the patient is significantly hypoxemic</strong>, because hyperoxia can potentiate paraquat's redox-cycling ROS generation and worsen pulmonary injury — a distinctive, mechanism-driven deviation from standard critical-care oxygen practice.</p>
+<p><strong>Definitive/last-resort therapy:</strong>
+- <strong>Lung transplantation</strong> has been performed in selected survivors with progressive, irreversible pulmonary fibrosis after systemic paraquat clearance, sometimes bridged with ECMO. Case reports and small reviews (8 reports/11 patients; a more recent review of 15 cases) describe generally encouraging but heterogeneous outcomes, with careful timing (waiting for hepatorenal recovery), infection prevention, and multidisciplinary perioperative management identified as key to success (<a href="https://pubmed.ncbi.nlm.nih.gov/36626514/" target="_blank" rel="noopener noreferrer">PMID:36626514</a>; PMC10387547; PMC12868150; PMC8660696). NCIT candidate term: NCIT:C15289 (Organ Transplantation).</p>
+<p><strong>Experimental/investigational directions:</strong> Preclinical work targeting Nrf2/Keap1 signaling, ferroptosis inhibition, NF-κB/JNK–p38 MAPK pathway modulation (e.g., liver X receptor agonist TO901317 in mouse models, PMC5396433), and pirfenidone (an antifibrotic approved for idiopathic pulmonary fibrosis) has shown protective effects against paraquat-induced lung injury/fibrosis in animal models, representing candidate translational targets not yet established in human treatment guidelines.</p>
+<p><strong>Treatment algorithm summary:</strong> (1) Immediate GI decontamination if within the window; (2) supportive/organ-support care (fluid resuscitation, renal replacement as needed, cautious oxygen use); (3) consider early, repeated hemoperfusion if very early presentation; (4) consider pulse immunosuppressive therapy in moderate-severe poisoning, weighing infection risk; (5) antioxidant adjuncts; (6) evaluate for lung transplantation in survivors with established, progressive, irreversible fibrosis once systemic toxicity has cleared.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention — means restriction (the dominant, best-evidenced strategy):</strong>
+Because the great majority of severe/fatal paraquat poisoning is intentional self-poisoning enabled by ready access to a highly lethal concentrated agent, <strong>regulatory restriction of paraquat availability</strong> is the single most impactful and best-documented prevention strategy at a population level:
+- National <strong>bans or severe restrictions</strong> (now covering 70+ countries, including the EU, China, Brazil, Canada, and — as of 2024 — Nigeria) have been followed by measurable declines in pesticide-suicide mortality in several jurisdictions, without simple full substitution to other lethal methods (South Korea paraquat-prohibition analysis, Cha et al., <em>PLOS ONE</em> 2015).
+- <strong>Reformulation strategies</strong> short of outright bans — reduced concentration, addition of an emetic, a stenching/warning agent, and a blue dye to discourage confusion with beverages — have also been used to reduce lethality of accidental/impulsive ingestions.
+- U.S. regulatory status remains under active review (restricted-use/certified-applicator requirements since 2016; EPA's 2025 removal of a 2021 interim decision; ongoing state-level legislative and voluntary-registrant actions such as California's 2026 cancellation).</p>
+<p><strong>Occupational/behavioral prevention:</strong>
+- Personal protective equipment, restricted/certified-applicator licensing, and safe storage/labeling practices (never storing paraquat in unlabeled drink bottles) to reduce accidental occupational and household exposure.</p>
+<p><strong>Secondary prevention:</strong>
+- Rapid recognition and immediate decontamination (activated charcoal/Fuller's earth) at first medical contact is the most time-critical secondary-prevention measure, given the narrow window before irreversible tissue distribution.
+- Rural health-worker and community education to shorten time-to-presentation after ingestion.</p>
+<p><strong>Public health / suicide-prevention framing:</strong>
+- Paraquat restriction is a widely cited exemplar of the "means restriction" approach to suicide prevention (paralleling the broader evidence base from Sri Lanka's WHO Class I/II pesticide restrictions), on the rationale that highly lethal, impulsively accessible methods disproportionately convert a suicide attempt into a death, and restricting access reduces population suicide mortality even without addressing underlying psychiatric drivers directly.</p>
+<p><strong>Prophylaxis:</strong> No pharmacological prophylaxis exists; prevention is exposure-control based, not medication-based.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Paraquat poisoning is not a naturally occurring disease of non-human species in the sense of a spontaneous veterinary condition, but accidental and occasionally deliberate paraquat poisoning is a recognized veterinary and wildlife toxicology entity:</p>
+<ul>
+<li><strong>Companion and farm animals</strong> (dogs, cats, livestock — NCBITaxon:9615 <em>Canis lupus familiaris</em>, NCBITaxon:9685 <em>Felis catus</em>, NCBITaxon:9913 <em>Bos taurus</em>, etc.) can be accidentally poisoned via contaminated feed, water, or direct ingestion of herbicide, presenting with the same core toxidrome (GI corrosive injury, renal injury, and progressive pulmonary fibrosis), and this is documented in the veterinary toxicology literature (search for veterinary paraquat case reports/OMIA was not exhaustively pursued in this pass; recommend a targeted OMIA/veterinary-toxicology literature search if this section needs deeper sourcing).</li>
+<li><strong>Wildlife</strong> exposure (birds, in particular) via contaminated agricultural runoff or direct ingestion of treated vegetation is documented in environmental-toxicology literature, though this is an ecotoxicology question distinct from clinical veterinary poisoning.</li>
+<li><strong>Comparative pathology:</strong> The core mechanism — selective pulmonary uptake, redox cycling, and progressive fibrosis — appears broadly conserved across mammalian species, which is precisely what underlies the extensive use of rodent models (Section 15).</li>
+<li><strong>Zoonotic potential:</strong> Not applicable — paraquat poisoning is a toxicological, not infectious, condition, so there is no zoonotic transmission dimension; however, cross-species susceptibility to the same chemical mechanism is expected wherever the relevant transporters (OCT-family) and mitochondrial Complex I are conserved.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Paraquat is one of the most widely used experimental toxicants precisely because it reliably reproduces two distinct human disease phenotypes in model systems: <strong>pulmonary fibrosis</strong> and <strong>dopaminergic neurodegeneration (Parkinsonian) phenotypes</strong>.</p>
+<p><strong>Rodent models (pulmonary fibrosis):</strong>
+- <strong>Mouse (<em>Mus musculus</em>, NCBITaxon:10090):</strong> Intraperitoneal injection (a commonly used protocol reports paraquat 40 mg/kg IP producing optimal pulmonary fibrosis by 2 weeks post-injection, with diffuse alveolar thickening and interstitial fibrosis on histology) and intratracheal aerosolized delivery (e.g., 0.02 mg/mouse) are both used, with intratracheal delivery cited as producing more homogeneous lesion distribution across the lung. There is no single standardized dosing protocol across the field — gastric gavage, intraperitoneal injection, and intratracheal instillation are all used, with intraperitoneal injection most common (search synthesis of multiple mouse-model papers, including PMC9011139/"Paraquat Induces Lung Injury via miR-199-Mediated SET in a Mouse Model").
+- <strong>Rat (<em>Rattus norvegicus</em>, NCBITaxon:10116):</strong> Also used for paraquat-induced lung-injury/fibrosis modeling, often compared against the bleomycin model (the other classical chemical-induction model for pulmonary fibrosis).
+- <strong>Fidelity/limitations:</strong> These models recapitulate the redox-cycling, alveolar-epithelial-injury, and fibrogenic-remodeling cascade reasonably well and are used to test antifibrotic/antioxidant candidate therapies (e.g., pirfenidone, LXR agonists), but do not fully reproduce the human multi-organ (renal/hepatic/cardiac) failure syndrome seen after oral ingestion, since dosing routes differ from the human ingestion route and dose selection is optimized for the pulmonary endpoint specifically.</p>
+<p><strong>Rodent and invertebrate models (Parkinsonian/dopaminergic neurodegeneration):</strong>
+- <strong>Mouse:</strong> Systemic paraquat administration (often combined with the fungicide maneb for synergistic effect) is a standard chemical model of nigrostriatal dopaminergic neuron loss and microglial activation in the substantia nigra pars compacta, used to probe Parkinson's-disease-relevant mechanisms (PMC5082881, "Assessment of the Effects of MPTP and Paraquat on Dopaminergic Neurons and Microglia in the Substantia Nigra Pars Compacta of C57BL/6 Mice").
+- <strong>Drosophila melanogaster (NCBITaxon:7227):</strong> Paraquat feeding is a classical oxidative-stress/Parkinsonian-phenotype assay in flies; a 2025 genome-wide screen identified genes mediating resistance to paraquat-induced neurodegeneration in <em>Drosophila</em>, offering candidate modifier loci for translational follow-up (bioRxiv preprint, 2025.04.02.646829).
+- <strong>C. elegans:</strong> Also used as a rapid, genetically tractable oxidative-stress/paraquat-exposure model system, though not detailed in the sources retrieved here.</p>
+<p><strong>Model limitations (general):</strong> No single model captures the full human clinical picture (GI corrosive injury + renal + hepatic + cardiac + delayed pulmonary fibrosis, in a dose- and time-dependent cascade following oral ingestion). Pulmonary-fibrosis rodent models typically bypass the GI/systemic-absorption step (via IP or intratracheal dosing) and so are best understood as models of the <em>downstream</em> fibrogenic mechanism rather than the complete ingestion-poisoning syndrome; Parkinsonian models use chronic low-dose systemic exposure distinct from the acute high-dose ingestion scenario that defines clinical "paraquat poisoning."</p>
+<p><strong>Applications:</strong> Rodent lung models are used to test candidate antifibrotic/antioxidant therapeutics and to dissect the Nrf2/Keap1-ferroptosis and NF-κB/MAPK signaling pathways; Drosophila/mouse Parkinsonian models are used to study gene-environment interaction and neurodegeneration mechanism, informing (but not proving) the human paraquat-Parkinson's-disease epidemiological association.</p>
+<hr />
+<h2>Ontology Term Suggestions Summary (for curator verification via OAK)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Candidate terms (verify before binding)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HPO</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting; <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain; <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea; <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" rel="noopener noreferrer">HP:0001919</a> Acute kidney injury; <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> Pulmonary fibrosis; <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> Dyspnea; <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a> Hypoxemia; <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" rel="noopener noreferrer">HP:0001942</a> Metabolic acidosis</td>
+</tr>
+<tr>
+<td>GO (biological process)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> response to oxidative stress; <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" rel="noopener noreferrer">GO:0034599</a> cellular response to oxidative stress; <a href="http://purl.obolibrary.org/obo/GO_0055114" target="_blank" rel="noopener noreferrer">GO:0055114</a> oxidation-reduction process; <a href="http://purl.obolibrary.org/obo/GO_0006749" target="_blank" rel="noopener noreferrer">GO:0006749</a> glutathione metabolic process; <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" rel="noopener noreferrer">GO:0097707</a> ferroptosis; <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> extracellular matrix organization; <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process</td>
+</tr>
+<tr>
+<td>CL</td>
+<td>type I pneumocyte; type II pneumocyte; club (Clara) cell; myofibroblast; proximal tubule epithelial cell; dopaminergic neuron; microglial cell</td>
+</tr>
+<tr>
+<td>UBERON</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> lung; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> kidney; <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> liver; <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> heart; <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" rel="noopener noreferrer">UBERON:0001043</a> esophagus; <a href="http://purl.obolibrary.org/obo/UBERON_0002038" target="_blank" rel="noopener noreferrer">UBERON:0002038</a> substantia nigra</td>
+</tr>
+<tr>
+<td>CHEBI</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_34905" target="_blank" rel="noopener noreferrer">CHEBI:34905</a> paraquat dichloride (verify canonical form)</td>
+</tr>
+<tr>
+<td>NCIT (treatment)</td>
+<td>NCIT:C1445 Activated Charcoal; NCIT:C15632 Chemotherapy (cyclophosphamide regimen); NCIT:C15289 Organ Transplantation; NCIT:C15986 Pharmacotherapy</td>
+</tr>
+<tr>
+<td>HGNC (transporter genes)</td>
+<td>SLC22A2 (OCT2, hgnc:11005); SLC22A3 (OCT3, hgnc:11043); ABCB1 (MDR1, hgnc:40)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Key Citations</h2>
+<ul>
+<li>Dinis-Oliveira RJ et al. Paraquat poisonings: mechanisms of lung toxicity, clinical features, and treatment. <em>Crit Rev Toxicol.</em> 2008. <a href="https://pubmed.ncbi.nlm.nih.gov/18161502/" target="_blank" rel="noopener noreferrer">PMID:18161502</a></li>
+<li>Paraquat poisoning: an overview of the current status. <a href="https://pubmed.ncbi.nlm.nih.gov/2198050/" target="_blank" rel="noopener noreferrer">PMID:2198050</a></li>
+<li>Chen Y et al. Transport of paraquat by human organic cation transporters and multidrug and toxic compound extrusion family. <a href="https://pubmed.ncbi.nlm.nih.gov/17495125/" target="_blank" rel="noopener noreferrer">PMID:17495125</a></li>
+<li>Lin JL et al. Addition of immunosuppressive treatment to hemoperfusion is associated with improved survival after paraquat poisoning: a nationwide study. <em>PLOS ONE.</em> 2014. <a href="https://pubmed.ncbi.nlm.nih.gov/24475310/" target="_blank" rel="noopener noreferrer">PMID:24475310</a></li>
+<li>Cochemé HM, Murphy MP. Complex I is the major site of mitochondrial superoxide production by paraquat. <em>J Biol Chem.</em></li>
+<li>Rappold PM et al. Paraquat neurotoxicity is mediated by the dopamine transporter and organic cation transporter-3. <em>PNAS.</em> PMC3251116</li>
+<li>Molecular mechanism of paraquat-induced ferroptosis leading to pulmonary fibrosis mediated by Keap1/Nrf2 signaling pathway. PMC10635988</li>
+<li>Paraquat Induces Epithelial-Mesenchymal Transition-Like Cellular Response Resulting in Fibrogenesis... PMC4370722</li>
+<li>Predictors of acute kidney injury after paraquat intoxication. <em>Oncotarget.</em> PMC5584253</li>
+<li>Mechanisms Underlying Early Rapid Increases in Creatinine in Paraquat Poisoning. <em>PLOS ONE.</em> PMC4376530</li>
+<li>Development and validation of a prognostic nomogram for predicting in-hospital mortality of patients with acute paraquat poisoning. <em>Sci Rep.</em> 2023. <a href="https://doi.org/10.1038/s41598-023-50722-z" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-023-50722-z</a></li>
+<li>Cha ES et al. Paraquat Prohibition and Change in the Suicide Rate and Methods in South Korea. <em>PLOS ONE.</em> 2015.</li>
+<li>Lung transplantation in a woman with paraquat poisoning that led to pulmonary fibrosis: A case report. <a href="https://pubmed.ncbi.nlm.nih.gov/36626514/" target="_blank" rel="noopener noreferrer">PMID:36626514</a></li>
+<li>Case Report: Multifactorial weaning failure after lung transplantation in paraquat-induced pulmonary fibrosis. PMC12868150</li>
+<li>The Link Between Paraquat and Demyelination: A Review of Current Evidence. PMC11590890</li>
+<li>Van Maele-Fabry G, meta-analysis of pesticide exposure and Parkinson's disease risk (summary risk ratio ~1.6, referenced via secondary sources)</li>
+<li>Genome-wide analysis reveals genes mediating resistance to paraquat neurodegeneration in <em>Drosophila</em>. bioRxiv 2025.04.02.646829</li>
+</ul>
+<p><strong>Note on evidence completeness:</strong> This report synthesizes disease-level literature (toxicology reviews, cohort/registry studies, case reports, mechanistic and animal-model papers, and regulatory-status sources) retrieved via targeted web/PubMed-indexed searches conducted August 2026. Several sections (precise MONDO ID, exhaustive gene-frequency/variant data — not applicable given the non-genetic etiology, and comprehensive veterinary/wildlife case literature) would benefit from direct database queries (MONDO release browser, OMIA, PubMed full-text search) beyond what a search-engine-mediated pass can confirm, and all PMIDs and ontology term candidates listed above should be independently re-verified (e.g., via OAK <code>runoak info</code> lookups) before being bound into a curated knowledge-base entry, consistent with standard anti-hallucination practice for AI-assisted curation.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Paraneoplastic_Pemphigus-claude_code.html">← Paraneoplastic Pemphigus (Claude Code)</a>
+                
+                
+                <a href="Parathyroid_Hyperplasia-falcon.html">Parathyroid Hyperplasia (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Paraquat_Poisoning.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Paraquat_Poisoning-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

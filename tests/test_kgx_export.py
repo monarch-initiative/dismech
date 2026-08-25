@@ -108,6 +108,50 @@ class TestPhenotypeToEdge:
         }
         assert phenotype_to_edge("MONDO:0005611", phenotype) is None
 
+    def test_upstream_risk_phenotype_emits_associated_with(self):
+        """A phenotype driving a pathophysiology node is an upstream risk state.
+
+        It must export as a direction-neutral biolink:associated_with rather than
+        has_phenotype, so the KG does not assert the risk factor is a feature
+        *of* the disease (e.g. selenium deficiency in Hashimoto's).
+        """
+        phenotype = {
+            "name": "Selenium Deficiency",
+            "phenotype_term": {
+                "preferred_term": "Selenium deficiency",
+                "term": {
+                    "id": "HP:0033192",
+                    "label": "Decreased circulating selenium concentration",
+                },
+            },
+            "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, Association)
+        assert not isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:associated_with"
+        assert edge.subject == "MONDO:0007699"
+        assert edge.object == "HP:0033192"
+        assert edge.subject_category == "biolink:Disease"
+        assert edge.object_category == "biolink:PhenotypicFeature"
+
+    def test_manifestation_phenotype_still_has_phenotype(self):
+        """A normal manifestation (sequelae into other phenotypes, or none) keeps
+        has_phenotype even when pathophysiology_names is supplied."""
+        phenotype = {
+            "name": "Hypothyroidism",
+            "phenotype_term": {
+                "preferred_term": "Hypothyroidism",
+                "term": {"id": "HP:0000821", "label": "Hypothyroidism"},
+            },
+            "sequelae": [{"target": "Fatigue"}],  # a phenotype, not a mechanism node
+        }
+        patho_names = {"Thyroidal Oxidative Stress"}
+        edge = phenotype_to_edge("MONDO:0007699", phenotype, patho_names)
+        assert isinstance(edge, DiseaseToPhenotypicFeatureAssociation)
+        assert edge.predicate == "biolink:has_phenotype"
+
 
 class TestDiseaseComorbidityToEdge:
     """Tests for disease_comorbidity_to_edge function."""
@@ -268,30 +312,30 @@ class TestGeneToEdge:
     """Tests for gene_to_edge function."""
 
     def test_valid_gene(self):
-        """Test with a complete gene entry."""
-        gene = {"name": "IL4", "association": "Associated"}
+        """Test with a complete gene entry (gene_term.term.id is required)."""
+        gene = {
+            "name": "IL4",
+            "gene_term": {"term": {"id": "hgnc:6014", "label": "IL4"}},
+            "association": "Associated",
+        }
         edge = gene_to_edge("MONDO:0004979", gene)
         assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+        assert edge.subject == "hgnc:6014"
         assert edge.predicate == "biolink:contributes_to"
         assert edge.object == "MONDO:0004979"
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
         assert edge.primary_knowledge_source == KNOWLEDGE_SOURCE
 
-    def test_missing_name(self):
-        """Test with missing gene name."""
-        gene = {"association": "Associated"}
+    def test_missing_gene_term(self):
+        """Without gene_term.term.id we now skip (see #2099 — no more
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs)."""
+        gene = {"name": "IL4", "association": "Associated"}
         assert gene_to_edge("MONDO:0004979", gene) is None
 
     def test_none_gene(self):
         """Test with None gene."""
         assert gene_to_edge("MONDO:0004979", None) is None
-
-    def test_empty_name(self):
-        """Test with empty gene name."""
-        gene = {"name": "", "association": "Associated"}
-        assert gene_to_edge("MONDO:0004979", gene) is None
 
 
 class TestExposureToEdge:
@@ -727,12 +771,24 @@ class TestGeneToEdgeWithGeneTerm:
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
 
-    def test_falls_back_to_name(self):
-        """Test fallback to HGNC.SYMBOL:name when gene_term is missing."""
-        gene = {"name": "IL4", "association": "Associated"}
-        edge = gene_to_edge("MONDO:0004979", gene)
-        assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+    def test_skips_every_falsy_gene_term_id_shape(self):
+        """Every shape that leaves gene_term.term.id falsy is skipped — no
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs (#2099),
+        and no empty-CURIE subject either."""
+        for gene in [
+            {"name": "IL4", "association": "Associated"},          # no gene_term at all
+            {"name": "", "association": "Associated"},             # no gene_term, empty name
+            {"name": "IL4", "gene_term": {}},                      # gene_term but no term
+            {"name": "IL4", "gene_term": {"term": {}}},            # term but no id
+            {"name": "IL4", "gene_term": {"term": {"id": ""}}},    # id present but empty
+        ]:
+            assert gene_to_edge("MONDO:0004979", gene) is None, gene
+
+    def test_skips_aneuploidy_or_disease_class(self):
+        """Multi-word names that aren't real gene symbols are skipped (#2099)."""
+        for name in ["Trisomy 21", "Cat Eye Syndrome (chr22 duplication)",
+                     "EDS-Related Connective Tissue Disorder"]:
+            assert gene_to_edge("MONDO:0018484", {"name": name}) is None
 
     def test_no_gene_term_no_name(self):
         """Test that None is returned when neither gene_term nor name is present."""
@@ -810,7 +866,11 @@ class TestTransform:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "inheritance": [
                 {
@@ -986,7 +1046,11 @@ class TestExtractNodes:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "environmental": [
                 {
@@ -1059,7 +1123,7 @@ class TestExtractNodes:
         assert isinstance(node_by_id["NCIT:C25218"], Treatment)
         assert isinstance(node_by_id["NCIT:C00001"], ChemicalEntity)
         assert isinstance(node_by_id["HP:0000003"], PhenotypicFeature)
-        assert isinstance(node_by_id["HGNC.SYMBOL:GENE1"], Gene)
+        assert isinstance(node_by_id["hgnc:00001"], Gene)
         assert isinstance(node_by_id["ECTO:0000001"], ExposureEvent)
         assert isinstance(node_by_id["HP:0000006"], GeneticInheritance)
         assert isinstance(node_by_id["NCBITaxon:813"], OrganismTaxon)
@@ -1081,7 +1145,7 @@ class TestExtractNodes:
         # treatments[].name — see issue #1932.
         assert node_by_id["NCIT:C25218"].name == "treatment a"
         # Gene uses gene name
-        assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
+        assert node_by_id["hgnc:00001"].name == "GENE1"
 
     def test_node_provided_by(self, sample_disorder):
         """Test that all nodes have provided_by set."""
@@ -1097,7 +1161,7 @@ class TestExtractNodes:
         assert "biolink:Disease" in node_by_id["MONDO:0000001"].category
         assert "biolink:PhenotypicFeature" in node_by_id["HP:0000001"].category
         assert "biolink:Cell" in node_by_id["CL:0000001"].category
-        assert "biolink:Gene" in node_by_id["HGNC.SYMBOL:GENE1"].category
+        assert "biolink:Gene" in node_by_id["hgnc:00001"].category
 
     def test_deduplicates_nodes(self):
         """Test that duplicate term IDs only produce one node."""
@@ -1129,7 +1193,13 @@ class TestExtractNodes:
         assert len(nodes) == 0
 
     def test_skips_entries_without_term_ids(self):
-        """Test that entries without term IDs are skipped."""
+        """Test that entries without term IDs are skipped.
+
+        Covers the gene branch too: a genetic[] entry with only a free-text
+        name must yield no node at all, rather than the old synthetic
+        HGNC.SYMBOL:{name} (see #2099). This is the extract_nodes half of the
+        fix — the half responsible for the dropped gene node ids.
+        """
         disorder = {
             "name": "Test Disorder",
             "disease_term": {"term": {"id": "MONDO:0000001"}},
@@ -1137,12 +1207,17 @@ class TestExtractNodes:
                 {"name": "Complete", "phenotype_term": {"term": {"id": "HP:0000001"}}},
                 {"name": "Incomplete"},  # No phenotype_term
             ],
+            "genetic": [
+                {"name": "Trisomy 21"},  # No gene_term — not a gene, must be skipped
+            ],
         }
         nodes = list(extract_nodes(disorder))
         ids = [n.id for n in nodes]
         assert "MONDO:0000001" in ids
         assert "HP:0000001" in ids
-        assert len(nodes) == 2  # disease + 1 valid phenotype
+        assert not any(i.startswith("HGNC.SYMBOL") for i in ids)
+        assert not any(isinstance(n, Gene) for n in nodes)
+        assert len(nodes) == 2  # disease + 1 valid phenotype; the gene entry is dropped
 
     def test_treatment_node_uses_canonical_ncit_label(self):
         """Treatment node `name` must come from treatment_term.term.label,
