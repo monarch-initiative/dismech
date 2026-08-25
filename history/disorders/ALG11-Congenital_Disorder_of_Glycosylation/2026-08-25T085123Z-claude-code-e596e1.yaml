@@ -15,23 +15,53 @@ links:
   issues: []
   prs:
   - https://github.com/monarch-initiative/dismech/pull/9418
+  - https://github.com/monarch-initiative/dismech/pull/9487
+  - https://github.com/monarch-initiative/dismech/pull/9467
   urls: []
 events:
 - type: EDIT
   outcome: changed
   sections:
   - discussions
-  summary: Fix non-canonical entity-ref prefix that broke main after merge
+  summary: Record the non-canonical entity-ref prefix introduced by #9418 and fixed by #9487
   details: |
-    Post-merge correction. PR #9418 was reviewed and approved against a base that predated the entity-ref prefix normalisation (#9394), so it was green on its own branch and turned `main` red the moment it merged as fd52f1e09. `test_entity_ref_prefixes_are_schema_slot_names` fails on this entry:
+    Provenance record for a defect this entry carried between fd52f1e09 and
+    519b39b68. It documents the correction; it did not make it.
+
+    PR #9418 (which created this entry) was reviewed and approved against a base
+    predating the entity-ref prefix normalisation (#9394), so it was green on its
+    own branch and merged carrying a reference the newer gate rejects:
 
       discussions[1].attaches_to[0]='phenotype#Sensorineural Hearing Impairment'
       uses the alias 'phenotype#'; write 'phenotypes#' (the schema slot name)
 
-    Changed that one reference to the canonical plural slot name. Nothing else in the entry is touched; no content, evidence, or ontology binding changes.
+    The fix landed in PR #9487 (Harry Caufield, 519b39b68, 2026-08-25T19:13Z),
+    which made the same one-word change here and the matching
+    `mechanistic_hypothesis#` -> `mechanistic_hypotheses#` change in
+    Major_Depressive_Disorder.yaml. I had prepared an identical fix in #9467;
+    #9487 landed first, so #9467's YAML is byte-identical to main and this record
+    is the only thing it contributes. Credit for the fix belongs to #9487.
 
-    Note this is a spelling defect, not a broken link: SECTION_KEYS resolves both spellings, so `test_entity_ref_foreign_keys` was and remains green, and the discussion was always attached to the phenotype it names. The newer gate exists to keep the curated corpus in one spelling so a `phenotypes#` grep finds every reference.
+    This is a spelling defect, not a broken link. SECTION_KEYS resolves both
+    spellings, so `test_entity_ref_foreign_keys` was green throughout and the
+    discussion was always attached to the phenotype it names. The newer gate
+    keeps the curated corpus in one spelling so a `phenotypes#` grep finds every
+    reference rather than half of them.
 
-    Same class of merge-time breakage that CLAUDE.md documents for duplicate YAML keys: green against its own base, red after merge, invisible to the author's pre-PR checks.
+    Worth recording accurately, because the obvious reading is wrong: this was
+    NOT a case of CI going red and someone fixing it. `.github/workflows/main.yaml`
+    gates the pytest step on the `python` paths filter (src/**, tests/**/*.py,
+    pyproject.toml, uv.lock, the justfiles), and neither entity-ref test carries
+    the `kb_data` marker, so on a curation PR neither
+    `test_entity_ref_foreign_keys` nor
+    `test_entity_ref_prefixes_are_schema_slot_names` runs at all. The defect was
+    latent on `main` for about ten hours; #9423's CI passed on a head containing
+    it, and #9419 merged while it was present. A reviewer running pytest by hand
+    found it. The coverage gap that allowed it is still open and is filed as
+    issue #9468.
 
-    Verification: entity-ref scan reports 0 aliases and 0 dangling refs in this file; `just validate` passes with 55/55 snippets verified against cached references; `just check-duplicate-keys` clean.
+    Verification at the time of writing: entity-ref scan reports 0 aliases and 0
+    dangling refs in this file; `just validate` passes with 55/55 snippets
+    verified against cached references; `just check-duplicate-keys` clean;
+    `pytest -k "prefixes_are_schema_slot_names or entity_ref_foreign_keys"` ->
+    4822 passed, 0 failed.
