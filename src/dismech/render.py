@@ -18,7 +18,12 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech.entity_refs import DISEASE_KIND, SECTION_KEYS, section_items
+from dismech.entity_refs import (
+    DISEASE_KIND,
+    SECTION_KEYS,
+    canonical_kind,
+    section_items,
+)
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
@@ -38,6 +43,14 @@ from dismech.yaml_io import safe_load, safe_load_path
 # libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
 # (introduced in issue #5198, consolidated in #7502).
 _fast_yaml_load = safe_load
+
+
+#: Non-canonical entity-reference prefixes, mapped to the schema slot name.
+#: Handed to the templates so client-side code canonicalises a prefix the same
+#: way :func:`dismech.entity_refs.canonical_kind` does.
+ENTITY_REF_KIND_ALIASES: dict[str, str] = {
+    kind: canonical_kind(kind) for kind in SECTION_KEYS if canonical_kind(kind) != kind
+}
 
 
 @lru_cache(maxsize=8)
@@ -73,6 +86,14 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # peer-reviewed. A global for the same reason: it depends only on the
     # reference identifier, never on which page is being rendered.
     env.globals["is_preprint"] = _reference_is_preprint
+    # Alias -> schema-slot map for the pathograph's jump-to-card fallback
+    # (issue #9394). A card advertises its section in the singular
+    # (`data-dismech-type="phenotype"`), while a normalised reference carries
+    # the schema slot (`phenotypes#Name`), so the JS has to canonicalise both
+    # sides before comparing them or the section-preference step silently
+    # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
+    # drift from the resolver. Page-independent, hence a global.
+    env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
     return env
 
 
