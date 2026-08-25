@@ -49,6 +49,9 @@ just validate-terms kb/disorders/Asthma.yaml
 # Validate ontology term references in the schema's dynamic enums
 just validate-terms-schema
 
+# Check that no bound term is flagged Not4Curation by its own ontology
+just check-not4curation
+
 # Run pytest tests
 just pytest-all
 
@@ -146,6 +149,115 @@ test enforces this). `curation-scanner`'s per-effort-tier models live in the sam
 file as a `matrix:` and drive its strategy matrix via a `setup` job. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
+
+### Curation Stub Queue (`stubs/`)
+
+The outstanding curation queue is `stubs/` — **one YAML file per disease we
+intend to curate but have not**. It is repository content, edited by pull
+request, not a generated ranking. Its size is the remaining work.
+
+**Stubs are informative, not curated content.** A curation PR *should* delete
+the stub it curates:
+
+```
+- stubs/Yao_Syndrome.yaml
++ kb/disorders/Yao_Syndrome.yaml
++ history/disorders/Yao_Syndrome/...
+```
+
+but forgetting is not an error, and **nothing blocks on it**. A stub going stale
+because somebody curated its disease is expected drift: gating on it would turn
+every open stub PR red the moment an unrelated curation PR merged, and curators
+would spend their time servicing a bookkeeping message. Overlap and lag are
+fine. `just tidy-stubs --apply` clears the stale ones on a periodic sweep.
+
+`just check-stubs` gates only on a **malformed file** — unparseable YAML, a bad
+MONDO ID, a duplicate, a bad enum value. Only the author of that stub sees those,
+and they are cheap to fix.
+
+Each stub carries MONDO context so the lump/split call can be made from the file:
+`mondo_parents` (is this a subtype of something already curated?),
+`mondo_descendants` + `mondo_descendant_count` (a long list means grouping —
+`autoimmune disease` has 258), and `genes` (MONDO's causal `RO:0004003` genes, in
+lowercase `hgnc:` form). Added by `just enrich-stubs`, which needs the MONDO
+database, is idempotent, and pins the release it read in
+`data/mondo/MANIFEST.yaml`. These are **reported, never scored** — scoring child
+count is what the old dashboard did, with the sign backwards.
+
+```bash
+just next-stubs 5          # what to curate next (see the caveat below)
+just enrich-stubs          # refresh MONDO parents/descendants/genes
+just next-stubs 5 --json   # machine-readable
+just stub-stats            # queue summary
+just check-stubs           # file well-formedness; runs in `just qc`
+just tidy-stubs            # list stale stubs (curated elsewhere, or obsolete)
+just tidy-stubs --apply    # and delete them
+just validate-stubs        # schema validation (src/dismech/schema/curation_stub.yaml)
+just seed-stubs <file>     # import nominations; never overwrites an existing stub
+```
+
+**There is no score, and the ordering carries almost no information.** The only
+ordering is a hand-set `priority` band (`HIGH` / `NORMAL` / `LOW`) that a person
+put there in a PR; within a band `just next-stubs` spreads by a stable hash, so
+the order is arbitrary by design. It gives a *pool*, not a ruling — pick the
+disease you actually know something about, and skip freely. This is deliberate. The previous ranked dashboard scored ~24,000
+MONDO terms and its top 175 candidates were *all* broad parent terms, because
+every cheap ontology feature (child count, synonym count, aggregator tags)
+correlates with being a grouping rather than with being worth curating
+(issue #8969).
+
+**`entry_type` is the lump/split decision and is never pre-filled.** Seeded
+stubs are all `UNDECIDED`. Deciding is the curator's first job:
+
+| `entry_type` | Outcome |
+|---|---|
+| `DISEASE` | Curate it → `kb/disorders/<Name>.yaml` |
+| `GROUPING` | A union of distinct diseases → `kb/groupings/<Name>.yaml` |
+| `SUBTYPE` | A `has_subtypes` entry on a parent disease; name the parent in `notes` |
+| `OUT_OF_SCOPE` | A phenotype, susceptibility term, or category too abstract to carry a mechanism |
+| `UNDECIDED` | Still in the queue (the default) |
+
+Recording `GROUPING`, `SUBTYPE`, or `OUT_OF_SCOPE` and deleting the stub is a
+**completed curation**, not an avoided one. Put the reasoning in `notes` so the
+concept is not re-nominated.
+
+Anyone can change the queue by PR: add a stub (only `mondo_id` and `label` are
+required), raise or lower `priority` with a reason in `notes`, or argue one out
+via `entry_type`.
+
+**Claiming a disease is NOT done in the stub.** The stub queue says what is left;
+an **open GitHub issue labelled `claim`**, titled `Curate <label>
+(MONDO:NNNNNNN)` and assigned to whoever is driving the work, says who has it
+right now. A claim written into YAML would only become visible when its PR
+merged — days too late to stop two agents picking the same disease — so the
+schema has no `claimed_by` and no `CLAIMED` status.
+
+```bash
+just fetch-claims          # one API call -> tmp/claims.json
+just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just check-claims          # double-claims, unkeyed titles, stale claims
+```
+
+The `claim` label is what makes this correct as well as fast: `gh issue list
+--label claim` uses the immediately-consistent list endpoint, where the older
+`--search` preflight used the search API, whose index lag *was* the race window.
+The MONDO ID in the title is the key everything matches on — an issue titled
+`curate peripartum cardiomyopathy` locks nothing.
+
+A claim with an open PR is **never** stale, however old; long-running curation
+PRs are normal. `check-claims` reports old-with-no-PR claims for a person to
+follow up, and never releases one automatically. The curation PR carries
+`Closes #<issue>`, so merging deletes the stub and releases the claim together.
+
+This supersedes the #1079 EPIC checklist; new claim issues should not carry a
+`Tracker: part of #1079` line.
+
+The initial 1,867 stubs were seeded from the Monarch
+[rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
+prioritised rare disease list, minus concepts the KB already covers. The MONDO
+prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
+finding new nominations, but they are no longer the answer to "what should I
+curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
@@ -323,18 +435,214 @@ its full YAML or another relevant peer for the actual node and edge pattern.
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- An `Experiment` under a discussion states what its result would mean in **two
+  different registers, and they are different slots** (issue #9394).
+  `would_support` / `would_refute` take **entity references** — what the result
+  bears on (`pathophysiology#Motor Neuron Degeneration`). `supporting_outcome` /
+  `refuting_outcome` take **prose** — what would be observed ("Increased
+  progenitor apoptosis in patient organoids would establish that the mouse
+  mechanism operates in human cells"). They are the two arms of
+  `decision_criterion`, which is single-valued and so cannot express the pair.
+  Prose in the reference slots used to render inside a monospace reference chip;
+  the prose slots render as text.
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
 
+### Entity References Are Foreign Keys
+
+`attaches_to` — and the `would_support` / `would_refute` / perturbation-and-readout
+`target` slots that reuse its grammar — point at another object *in the same
+entry*:
+
+```
+[<file>:]<kind>#<name>
+
+pathophysiology#Amyloid Plaque Formation
+phenotype#Memory Loss
+Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
+```
+
+**These resolve, and `test_entity_ref_foreign_keys` enforces it** across
+`kb/disorders/`, `kb/modules/` and `kb/comorbidities/` (issue #9193). A dangling
+one used to pass every gate — schema validation, term validation, snippet
+verification and all the offline ratchets — leaving a `KNOWLEDGE_GAP` attached
+to nothing while the entry *looked* like it had recorded its uncertainty.
+
+**The operation that breaks these is a rename or a node split**, because your
+attention is on the nodes, not on what refers to them. After renaming or
+splitting a pathophysiology node, grep the file for the old name before
+committing.
+
+Resolution lives in `src/dismech/entity_refs.py`, and `SECTION_KEYS` there is
+the single source of truth the test *and* the HTML renderer share. Three rules
+in it are not guessable:
+
+| Prefix | Resolves against |
+|---|---|
+| `disease#` | the entry's own top-level `name` — a virtual anchor, not a section |
+| `mechanistic_hypothesis#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
+| `prevalence#` | `population`; likewise `progression#` → `phase`, `dataset#` → `accession`, `animal_models#` → `species` for an unnamed model |
+
+Singular and plural spellings both resolve (`treatment#` and `treatments#`,
+`phenotype#` and `phenotypes#`) — content uses both and is not churned to
+normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
+is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
+defect in the content. Add the prefix to `SECTION_KEYS` rather than working
+around it.
+
+**An empty anchor names the whole section** (issue #9394):
+
+```yaml
+attaches_to:
+- clinical_burden#      # the ClinicalBurden object itself
+- treatments#           # the treatments section, not one treatment
+```
+
+Use it when there is no item to point at — `clinical_burden` is a singleton
+inlined object with no `name` slot, so `clinical_burden#` is the only way to
+reference it. Writing the bare word `clinical_burden` instead is **not**
+allowed: `attaches_to` values must use the grammar, and a bare name is
+indistinguishable from a node that happens to be called that.
+
+A whole-section reference resolves on the section **name**, not its contents,
+so `treatments#` is satisfied in an entry curating no treatments. That is
+deliberate: the motivating case is a `KNOWLEDGE_GAP` attached to a section
+precisely *because* it is empty (`Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+records that no disease-specific management is established). A misspelled
+section name is still caught.
+
+On the page, a reference that resolves renders as a live in-page link. A few
+referenced sections (`diagnosis`, `prevalence`, `progression`,
+`imaging_findings`, `epidemiology`, `transmission`, `infectious_agent`) have no
+card on the disorder page at all, so their chips stay plain — that is a
+rendering gap, not a broken reference.
+
 ### Disease Groupings
 
-Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
-modules, or groupings. They validate against `Grouping`, not `Disease`, and list
-members explicitly rather than recreating an ontology hierarchy.
+
+Disease groupings (`kb/groupings/`) are explicit, curated **unions** of distinct
+`Disease` entries, assembled *below* the level of the `classifications` taxonomies.
+The canonical example is the mucopolysaccharidoses (MPS), which group the separate
+Hurler / Hunter / Sanfilippo / Morquio entries. Groupings validate against the
+**`Grouping`** class (not `Disease`).
 
 Use the `curate-grouping` skill when creating, editing, reviewing, or auditing a
 grouping. It covers membership logic, criteria semantics, ontology closure,
 foreign keys, validation, and rendering.
+
+**Design principles:**
+- **Point down, not up.** A grouping explicitly *lists its members* (`members:`)
+  rather than being inferred from them. It is a union model.
+- **Not a re-implementation of MONDO.** An optional `mappings:` block may
+  cross-reference a MONDO grouping term, but the grouping stands on its own curated
+  rationale — do not try to recapitulate the ontology hierarchy.
+- **The boundary is auditable.** `grouping_basis` (multivalued enum: `SHARED_MECHANISM`,
+  `SHARED_GENE_FAMILY`, `SHARED_PATHWAY`, `SHARED_PHENOTYPE`, `SHARED_TREATMENT_RESPONSE`,
+  `CLINICAL_CONVENTION`, `OTHER`) records *why* the members belong together, and
+  `grouping_rationale` (free text) explains the lump/keep-split decision. Note: "lump
+  vs split" is a statement about the *entities* and lives in the individual `Disease`
+  entries; a grouping sits *over* already-distinct entries, so it carries a
+  `grouping_rationale`, not a `LUMP` flag.
+
+**Membership criteria — text plus structured boolean (OWL-lite):**
+
+`membership_criteria` is a multivalued list; each block pairs a required
+human-readable `description` with an optional nested boolean `logic` expression
+(`LogicalCriterion`) and a `criteria_semantics` marker. Branch nodes set `operator`
+(`AND`/`OR`/`NOT`) and combine child `operands`; leaf nodes set `criterion_predicate`
+and the payload for that predicate:
+- `HAS_PHENOTYPE` → `phenotype_term` + optional `min_frequency` (FrequencyEnum, "≥")
+- `HAS_GENE` → `gene`
+- `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
+- `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
+- `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
+  **The payload is optional**, unlike every other predicate's: a leaf naming a
+  term is evaluated against every curated `inheritance` block in the member -
+  disease level, `has_subtypes`, and the per-gene blocks under `genetic` - with
+  the same ontology closure as `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  single HP term names, such as "hereditary rather than acquired" in
+  `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
+  **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`
+  forces the whole conjunction to UNKNOWN, so one unevaluable inheritance
+  clause hides every checkable clause beside it.
+- `HAS_CLASSIFICATION` → `classification`; `HAS_MAPPING` / `OTHER` carry the
+  value in `description`
+- `negated: true` negates a leaf (alternative to a `NOT` operator)
+
+**Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
+direction relating a criteria block to membership, which determines what tooling may infer:
+- `NECESSARY` (member ⇒ criteria): every member satisfies the criteria; used to **audit**
+  listed members for violations. (MPS uses this — being an MPS entails GAG storage, but
+  GAG storage alone does not make a disease an MPS.)
+- `SUFFICIENT` (criteria ⇒ member): any disorder satisfying the criteria is a member; used
+  to **classify** non-members as candidate additions.
+- `NECESSARY_AND_SUFFICIENT` (member ⇔ criteria): the criteria *define* the grouping; both.
+
+Multiple blocks are allowed (several `NECESSARY` blocks plus an optional defining block),
+mirroring OWL subclass/equivalence axioms.
+
+**Checking/classifying (`src/dismech/groupings.py`):**
+```bash
+just check-groupings                                 # lint + audit all groupings
+just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just check-groupings --strict                        # gate on errors/violations
+just check-groupings --no-closure                    # exact-ID matching (offline)
+```
+Two tiers: a **structural linter** (`lint_criterion`) classifies every node BRANCH vs LEAF
+and enforces well-formedness (gating, enforced in `tests/test_data.py`); and an **advisory
+membership evaluator** (`evaluate_grouping`) that three-valuedly checks each member's disease
+entry against `NECESSARY`/`N&S` criteria (`SATISFIED`/`NOT_SATISFIED`/`UNKNOWN`) and, for
+`SUFFICIENT`/`N&S` criteria, flags candidate non-members. The evaluator is advisory because
+criteria are often aspirational (a member may not yet declare a required `conforms_to` edge).
+
+**Criteria are evaluated over the ontology closure.** A leaf asserting "has P" is
+satisfied by a member annotated with any `is_a`/`part_of` **descendant** of P — a
+member curating `HP:0007354` (amyotrophic lateral sclerosis) satisfies a criterion
+citing its parent `HP:0007373` (motor neuron atrophy). Closure applies to the
+`HP` and `GO` predicates (`CLOSURE_PREFIXES` in `groupings.py`); `HAS_GENE` stays
+an exact match because HGNC's hierarchy is gene-group membership, not subsumption.
+Closure is computed over the criteria terms (a bounded set) and cached; if the
+ontology is unreachable it degrades to exact matching, which **under**-reports
+satisfaction rather than failing. Do not write a criterion at descendant-level
+granularity to work around a missing annotation — cite the term you mean.
+
+**A NOT_SATISFIED listed member is reported as a contradiction, not diagnosed.**
+Asserting `D ∈ G` while `G` declares a NECESSARY criterion `D` fails is a
+contradiction between two curated assertions — in OWL it would be an
+inconsistency. The tooling surfaces it and stops there; the resolution may be
+that the entry needs annotating, that the criteria are too strict, or that the
+membership is wrong, and choosing between those is a curator's judgement, not
+the renderer's. There is deliberately **no "acknowledged exception" slot**: an
+exception to a necessary condition is not a thing you can declare, only a
+contradiction you can resolve.
+
+**Per-member differentiating mechanisms:**
+
+Each `members[]` entry references a `Disease` by name (`member`, with `member_type`
+defaulting conceptually to `DISEASE`; `MODULE` and `GROUPING` members are also allowed)
+and carries `differentiating_mechanisms` — prose plus optional structured descriptors
+(`gene`, `phenotype_term`, `biological_processes`, `module`, `modifier`) capturing what
+distinguishes that member from its siblings.
+
+**Foreign keys (enforced by `tests/test_data.py`):**
+- `members[].member` must resolve to a real `Disease.name` (DISEASE/SUBTYPE), module
+  stem (MODULE), or grouping name (GROUPING).
+- Every `module` reference (in criteria leaves and differentiating mechanisms) must
+  resolve to a file in `kb/modules/`.
+- Grouping `name` values must be unique.
+- Separately, `test_conforms_to_module_node_references` checks the **other** side of
+  the module link: every `conforms_to` on a pathophysiology node (in `kb/disorders/`,
+  `kb/modules/`, `kb/comorbidities/`) must resolve both to a module file *and*, when a
+  `#Node Name` anchor is given, to a real pathophysiology node in that module. This is
+  what `CONFORMS_TO_MODULE` criteria are evaluated against, so a stale stem or a
+  drifted node name silently drops an entry out of satisfying a criterion it is
+  asserted to satisfy.
+
+**Validation:**
+```bash
+just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml  # single file
+just validate-groupings                                         # all (also part of `just qc`)
+```
 
 ```bash
 rg --files kb/groupings -g "*.yaml" | sort
@@ -616,7 +924,43 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
-(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+(`grouping_basis: OTHER`, a `NECESSARY_AND_SUFFICIENT` `HAS_INHERITANCE`
+criterion over HP:0010984 / HP:0010983).
+
+**Binding the term is what puts an entry in the grouping.** The criteria are
+*sufficient*, so `just check-groupings` reports any entry carrying a bound
+digenic/oligogenic block but missing from `members:` as a candidate — that is
+the mechanism that keeps the union complete, and it only works if the term is
+bound. An entry describing digenic inheritance in prose alone is invisible to
+it.
+
+**The bar is requirement, not severity.** Bind the term when the phenotype does
+not appear without both loci. Decline when either locus suffices on its own and
+the second only shifts penetrance or severity — that is a modifier, and belongs
+in `genetic:` with `relationship_type: MODIFIER`/`COOPERATING`. Most KB entries
+using the word "digenic" are on the declining side, and several say so
+explicitly: `Hypertrophic_Cardiomyopathy_3` (TPM1 alone causes disease; MYH7
+worsens it), `Familial_Defective_Apolipoprotein_B-100`,
+`Primary_Hyperoxaluria_Type_3`, `Cystinuria` (type AB raises aminoaciduria, not
+stone disease), `Chromosome_18p_Deletion_Syndrome` (the digenic claim belongs to
+FSHD2, a different disease), `Brugada_Syndrome` (an unresolved fraction is not a
+demonstrated two-locus architecture),
+`Familial_Nonmedullary_Thyroid_Carcinoma`, `RDH5-Related_Retinopathy` and
+`BBSome-Related_Retinitis_Pigmentosa`. Leaving those unbound is correct, not an
+oversight — read the entry's stated reasoning before overturning it. Watch for
+the title trap in particular: several papers advertise "digenic inheritance" in
+the title while the abstract reports a severity modifier, or (as in
+`Joubert_syndrome`'s citation) a digenic case belonging to a different disease.
+
+**Finding what is still missing.** `scripts/olida_crosswalk.py` cross-walks the
+[OLIDA](https://olida.ibsquare.be/) oligogenic-diseases database against
+`kb/disorders`, splitting it into already-bound, curated-but-unbound (the cheap
+wins) and no-entry-at-all; `research/olida_crosswalk.md` is the committed
+report. Regenerate it rather than hand-editing. Two caveats it states itself: the
+name matching is a screen a curator must confirm, and a high OLIDA confidence
+score rates the *variant combination*, not the claim that the *disease* requires
+two loci — Cystinuria scores at OLIDA's maximum and is still correctly a
+non-member.
 
 ### Hypothesis-Based Phenotype Algorithms
 
@@ -634,9 +978,10 @@ epistemic grounding so the two are never conflated (issue #6245):
   `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
   predicated on. The hypothesis basis is then inferred from those edges'
   `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
-  standalone hypothesis id on the definition. A test
-  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
-  refs to resolve.
+  standalone hypothesis id on the definition.
+  `test_hypothesis_based_definition_attaches_to_foreign_keys` requires a
+  `MECHANISTIC_HYPOTHESIS` definition to carry at least one ref;
+  `test_entity_ref_foreign_keys` (above) is what makes each ref resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
   `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
@@ -1561,6 +1906,368 @@ exact quote from a better source, move the claim to notes where appropriate, or
 remove the evidence.
 
 ## Ontology and Term Caches
+**Six more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these six
+run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
+precisely because the PRs that trip them are curation PRs touching only `kb/`,
+which no `src/tests` filter would catch. A curator who runs only the documented
+loop can therefore finish every check and still push work that fails CI (the
+last is report-only and cannot fail it — it prints for a human to read):
+
+```bash
+just check-folded-hyphens                              # whole KB + src/, ~8s
+just check-snippet-length                              # whole KB, ~1min
+just check-title-snippets                              # whole KB, ~2.5min
+just check-environmental-evidence                      # whole KB, ~1min
+just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+just check-source-defect-claims                        # whole KB, ~19s (report-only)
+```
+
+All six are offline — no reference fetching, no OAK, no network — which is why
+they belong in the per-edit loop rather than the pre-PR sweep. They are not all
+*fast*, though: only `check-duplicate-keys` takes file arguments, so the other
+four re-scan the whole KB every run (and the ratchets scan it twice, once at
+`HEAD` and once at the baseline ref). Run them after a tranche of edits rather
+than after every keystroke.
+
+**What each one actually catches** — the failure modes are non-obvious, and all
+five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
+
+| Gate | The defect |
+|---|---|
+| `check-folded-hyphens` | A line inside a folded (`>`, `>-`) scalar that ends in a hyphen. `SCA3/Machado-` + newline folds to `Machado- Joseph` — a corrupted disease name in the rendered prose, invisible in the raw YAML (#4799). A suspended hyphen whose continuation starts `and`/`or`/`to`/`vs`/`nor` is exempt. |
+| `check-snippet-length` | An evidence snippet under 5 words. A bare term lifted from a table (`'Babinski signs++++'`) carries no propositional content — it can support nothing — and usually signals text-extraction damage (#7450). Pipe-delimited structured-source rows (ORPHA/ClinGen/ICEES/NCIT) are exempt. |
+| `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
+| `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
+| `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+| `check-source-defect-claims` | A **prose** claim that a cited source is defective — "that record has no abstract", "the abstract does not mention X" — which the cache contradicts. Report-only; see "Claims About a Cited Source" below (#9226). |
+
+**Grandfathering, and the trap in it.** Four of the five ratchet against a
+baseline so the pre-existing backlog need not be cleaned up first — but they do
+not source that baseline the same way, and the difference decides whether
+`--update-baseline` can help you:
+
+- `check-snippet-length`, `check-title-snippets`, and `check-environmental-evidence`
+  derive the grandfather set **live from a git ref** (`--against-ref origin/main`
+  locally; the PR's base branch in CI). The committed `tests/*_baseline.txt` is
+  only a fallback for when that ref cannot be read, and **CI never reads it**. So
+  a finding your branch *adds* cannot be baselined away: `just
+  update-snippet-length-baseline` (and its `update-title-snippet-baseline` /
+  `update-environmental-evidence-baseline` siblings) rewrites a file CI ignores,
+  passes locally, and still fails CI. Fix the snippet.
+- `check-folded-hyphens` is the exception: CI runs it with no `--against-ref`, so
+  it reads the committed `tests/folded_hyphen_baseline.txt` and `just
+  update-folded-hyphen-baseline` genuinely does move the gate. That is a reason
+  for more care, not less — a hyphen split is a corrupted term in rendered prose.
+  Regenerate it only when you have deliberately changed the backlog (e.g. fixed
+  entries), never to admit a split you just introduced.
+- `check-duplicate-keys` and `check-source-defect-claims` have no baseline at
+  all. The former treats every finding as new; the latter never fails, so it has
+  nothing to grandfather.
+
+**Triage views.** Each ratchet has a `list-*` sibling printing every finding,
+baselined or not — `just list-short-snippets`, `just list-title-snippets`,
+`just list-environmental-evidence-gaps` (and `just list-empty-snippets` for the
+unbaselined `check-empty-snippets` guard, which `just qc` and the pytest suite
+run but no ungated CI step does). Use these to see the existing backlog in a
+file you are already editing; the gates themselves only report what is new. All
+of them are also part of `just qc`, but `qc` runs `validate-all` too and is far
+too slow for the curation loop.
+
+**Pre-PR sweep — run ONCE over every changed file, before opening or updating a PR:**
+
+```bash
+just validate-disorders kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
+```
+
+`validate-disorders` is variadic and batched — schema, terms, and references in
+one pass over all the files you name — and it is **exactly what CI runs** on the
+changed disorder files (`.github/workflows/main.yaml` → `just validate-disorders
+${changed_files}`). Running it locally over your whole tranche is the closest
+thing to a CI dry run, and it pays the reference-cache cost once instead of once
+per file. Note it passes `--no-full-text`, so a snippet that only appears in a
+paper's full text (not the cached abstract) fails here even if a plain
+`validate-references` run accepted it — better to learn that before pushing.
+
+`just validate-references <file>` is still available for a single file, for
+non-disorder targets, and for the full-text-permitting check; `just
+validate-references-all` sweeps the entire KB.
+
+**Why the split.** `just validate-references` on a single entry (Cholera, 187
+snippets) was measured at **65 minutes** — against 1.4 seconds for
+`count-verified-snippets` over that entry plus Asthma together (376 snippets).
+Two costs stack up. Every recipe that calls the reference validator first
+re-normalizes the whole `references_cache/` (tens of thousands of files); then
+the validator tries to download full text for each citation, and most publisher
+PDFs answer with a 403 or simply hang until a 30-60 second connect timeout
+expires. That second cost dominates: the 65-minute run burned under a minute of
+actual CPU. It is also why `validate-disorders` is so much cheaper — its
+`--no-full-text` flag skips those doomed downloads entirely.
+
+That wall-clock cost is exactly what tempts a curator (or an agent) into
+recording the check as run when it was killed partway — which happened, and cost
+four correction commits to retract (#8119). `count-verified-snippets` walks the
+same evidence pairs with the same matching rules and finishes in seconds, so
+there is no reason to skip the per-edit check; batching the pre-PR sweep means
+you pay the slow cost once.
+
+**What each one actually gives you:**
+
+| | `count-verified-snippets` | `validate-disorders` / `validate-references` |
+|---|---|---|
+| Speed | seconds | minutes to over an hour per file |
+| Network | never — cache only | fetches missing references, and full text unless `--no-full-text` |
+| Checks snippet is in the cited reference | yes | yes |
+| Reports uncached references | yes, counted in the summary | fetches them instead |
+| Also checks schema + ontology terms | no | `validate-disorders` does |
+| Gates (exit code) | only with `--strict` | yes — authoritative |
+
+`count-verified-snippets` is **advisory**: `linkml-reference-validator` stays the
+sole authority on pass/fail. The fast check is the per-edit signal, not a
+replacement for the pre-PR sweep.
+
+**Never claim a check you did not finish.** History records and PR bodies are
+append-only provenance. Name a check only after you have read its output. If you
+ran the fast check instead of the slow one, say which — reporting `Snippets
+checked: N/N verified` is a perfectly good statement of what you did, and an
+honest smaller claim beats a retracted larger one.
+
+**Reading the reference-validation summary:** `Total checks: 0` on a passing file
+does **not** mean nothing was checked — the upstream counter reports *issues
+found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
+signal is the `Snippets checked: N/N verified against cached references` line the
+wrapper appends — the same line `count-verified-snippets` prints directly. Do not
+"fix" the validator on the basis of a zero here.
+
+**Caveat both checks share:** reference prefixes listed under `skip_prefixes` in
+`conf/reference_validator_config.yaml` — dataset accessions (GEO, PRIDE, morphic,
+…) but also `DOI:` — are not snippet-checked by either tool (#7514).
+`count-verified-snippets` at least *reports* them —
+`N skipped by prefix` in the summary — so a DOI-heavy entry does not look more
+verified than it is.
+
+### 4. When Evidence Cannot Be Verified
+
+If a claim is well-established but you cannot find a quotable snippet:
+
+- **Option A**: Move the claim to the `notes` field (no evidence required)
+- **Option B**: Find a different paper with a quotable abstract
+- **Option C**: Remove the evidence block entirely, keep the description
+
+**Do NOT** fabricate quotes or use incorrect PMIDs.
+
+### 5. Common Validation Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| "Text part not found as substring" | Snippet is paraphrased | Use exact quote from abstract |
+| "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
+| Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
+
+**Square brackets in a snippet.** Bracketed spans are removed from the *snippet*
+before matching but never from the cached text, so a bracket in the middle of a
+quote can break an otherwise verbatim match. Which brackets survive is set by
+`literal_bracket_patterns` in `conf/reference_validator_config.yaml`, read by
+both the gating validator and `just count-verified-snippets`:
+
+- **kept** — an all-caps abbreviation defined in line (`[APTT]`, `[GERD]`,
+  `[RR]`) and any bracketed span containing a percent sign (`[28, 62%]`,
+  `[95% CI 1.22-2.31]`). Quote these verbatim; do not truncate the sentence
+  around them (issue #8597).
+- **stripped** — inline numeric citation markers (`[12]`, `[3,4]`) and curator
+  glosses (`[IL-6]`, `[sic, correct designation is R501X]`). This is the
+  intended escape hatch: an editorial insertion is ignored, and a citation
+  marker interrupting the source sentence does not have to be transcribed.
+
+If you hit "not found as substring" on a quote you copied verbatim,
+`just count-verified-snippets` will name the stripped span in its reason rather
+than leaving you hunting for a paraphrase you never wrote. Adding a pattern
+affects every cached reference, so replay the whole KB before changing one.
+
+### 6. A Title Is Not a Finding
+
+Quoting the cited paper's **title** as the snippet passes every check we have —
+the text is genuine, attributed, over the five-word minimum, and
+`count-verified-snippets` verifies it because a title *is* in the cached file.
+It is still usually the wrong quote (issue #8374).
+
+A title records **that a question was examined, not what was found**. It states
+the conclusion in the author's most compressed and least qualified form —
+no effect size, no direction, no population, no hedging — and a topic-shaped
+title states nothing at all:
+
+```yaml
+# Wrong: the title names the topic; the explanation even admits it
+- reference: PMID:22906614
+  snippet: "Risk factors for multiple sclerosis: decreased vitamin D level and
+    remote Epstein-Barr virus infection in the pre-clinical phase..."
+  explanation: The title directly states that decreased vitamin D levels are a
+    risk factor...
+```
+
+**The rule:** quote the sentence from the abstract that states the finding. Use
+a title only when the title itself states a *result* rather than a topic — e.g.
+*"Chronic recurrent stress due to panic disorder does not precipitate Graves'
+disease"*, which reports its own negative finding — and say so in the
+`explanation`.
+
+**When the cached record has no abstract at all** (editorials, comments and
+letters often cache as metadata alone), re-quoting cannot fix it. Fall back to
+§4 above: cite the underlying study instead, or drop the evidence block and keep
+the description. Do not cite a comment's title as though it were evidence.
+
+`just check-title-snippets` gates new occurrences; the existing backlog is
+grandfathered in `tests/title_snippet_baseline.txt`.
+
+**You do not need to regenerate that baseline when you fix a title snippet.**
+CI grandfathers live against the base branch and never reads the committed file,
+and the `Refresh Title-Snippet Baseline` workflow regenerates it on merge to
+main. Fixing an entry without regenerating is the normal, expected shape of a
+curation PR — it used to turn the suite red on someone else's later branch, which
+is issue #8434. Nothing gates on the backlog *shrinking* any more; the
+consistency test skips with an explanation instead.
+
+**If you hit the gate on a genuinely result-stating title**, note that CI
+grandfathers against the base branch and so cannot admit a *new* one —
+`--update-baseline` will pass locally and still fail CI, exactly as with the
+length guard. Do not fight it: quote the abstract's own statement of that
+result instead (a paper reporting a negative finding says so in its abstract
+too), or extend the quote past the title into the sentence that qualifies it.
+Both are better evidence than the title anyway. This is the same failure
+family as #8352 (snippet unrelated to its claim) and #8296 (no evidence at all):
+structurally valid, substantively empty.
+
+### 7. Frequency Qualifiers Need Their Own Evidence
+
+Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
+quantitative claim from the disease–phenotype association itself. Most snippets
+support only the association, not the band. See
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the curator SOP: acceptable evidence patterns (direct quantitative,
+derived counts, qualitative-term mapping, clinical estimate), the literature-term
+→ enum mapping table, and worked examples. **When in doubt, omit `frequency:`
+rather than fabricate justification.**
+
+**A band also has a scope, and scope mismatches pass every check we have.** A
+band quoted from a source broader than the entry — an `ORPHA:` row for the whole
+spectrum landing on a single subtype entry, a `kb/groupings/` union, an umbrella
+`Disease`, a `has_subtypes` parent — is verbatim, real, and wrong. Snippet
+verification, term validation, and schema validation all pass, because nothing
+in the stack knows what population the source measured. Before adopting a band,
+ask what it was measured over; if that is wider than the entry, either scope the
+record with the `subtype:` foreign key (machine-checked, unlike a prose
+restriction in `notes:`), keep a narrower quantitative band and cite the broad
+row `PARTIAL` with the conflict named, or drop the band. Do not keep the band
+and note the mismatch in prose. See **Anti-pattern 5** in
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the decision rule and the worked in-KB precedents (`Marfan_Syndrome`
+`Spontaneous Pneumothorax`, `Dystrophic_Epidermolysis_Bullosa` `Cutaneous
+Squamous Cell Carcinoma`).
+
+### 8. Running Full QC
+
+```bash
+# All validation checks
+just qc
+
+# Compliance analysis (recommended field coverage)
+just compliance-all
+
+# With weighted scoring and threshold checks
+just compliance-weighted
+
+# Generate visual dashboard (dashboard/index.html)
+just gen-dashboard
+```
+
+The dashboard shows priority curation targets - the 10 files with lowest compliance scores.
+
+## Ontology and Enum Cache Ordering
+
+Committed CSVs under `cache/` must remain in canonical CURIE order. Treat these
+files as tool-generated: `just normalize-cache` is the sanctioned way to write
+their final committed form after validation or cache population. Use
+`just check-cache-order` for a read-only ordering report. During Phase 0 this
+report is advisory only and exits successfully even when it finds disorder.
+
+**Never append rows at end-of-file or hand-place rows to avoid reorder churn.**
+That creates a shared terminal Git hunk and causes repeated conflicts across
+concurrent curation PRs. If normalization reveals unrelated existing churn,
+surface it rather than reverting the canonical ordering.
+
+
+
+## CRITICAL: Reference Cache Files — NEVER Create Manually
+
+Reference cache files in `references_cache/` are created EXCLUSIVELY by `linkml-reference-validator`.
+**NEVER write these files by hand.** This is the #1 source of agent errors in dismech.
+
+**Correct workflow:**
+```bash
+# 1. Fetch and cache the reference (creates references_cache/PMID_12345678.md)
+just fetch-reference PMID:12345678
+
+# 2. Check that your snippet matches the cached abstract (fast, offline)
+just count-verified-snippets kb/disorders/MyDisease.yaml
+
+# 3. If a snippet is not found, fix it or find a different PMID
+just validate kb/disorders/MyDisease.yaml
+
+# 4. Once, before opening the PR: the full (slow) batched sweep CI also runs
+just validate-disorders kb/disorders/MyDisease.yaml
+```
+
+**Why this matters:**
+- `just fetch-reference` fetches the REAL abstract from PubMed and creates the cache file with the correct filename format (`PMID_` uppercase prefix), correct YAML frontmatter, and correct content
+- Hand-created cache files have wrong filenames (lowercase `pmid_`), fabricated content, and wrong format
+- CI validates snippets against these cached files — if the cache is fabricated, validation is meaningless
+
+**What agents MUST do:**
+1. Add YAML with `reference: PMID:XXXX` and a snippet
+2. Run `just fetch-reference PMID:XXXX` for each new PMID cited
+3. Run `just count-verified-snippets kb/disorders/YourFile.yaml` — it is offline,
+   so a PMID you forgot to fetch shows up as `not cached locally` rather than
+   passing quietly
+4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
+5. Run the six ungated CI gates — `just check-folded-hyphens`,
+   `just check-snippet-length`, `just check-title-snippets`,
+   `just check-environmental-evidence`, `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`, and `just check-source-defect-claims`. They are
+   offline, they run on every PR whatever it touches, and none of the checks
+   above can see what they catch (see "Validation Workflow" for what each one
+   means and why a new finding cannot be baselined away)
+6. Run `just validate-disorders <every changed file>` once before opening the PR
+   (see "Validation Workflow" for why this is the end-of-run check)
+
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
+## CRITICAL: Term Cache Files — NEVER Write Manually
+
+`cache/<ontology>/terms.csv` may only be written by `linkml-term-validator` —
+i.e. as a side effect of `just validate-terms` / `just validate` — and sorted by
+`just normalize-cache`. **Never hand-write or append rows, and never build rows
+by string concatenation.** This is the term-cache twin of the
+`references_cache/*.md` rule above, and it has the same root cause: the cache is
+a *derived artifact standing in for an authority*, so a cache that lies makes
+validation circular.
+
+**Why concatenation specifically (dismech#7682):** hundreds of committed labels
+contain a comma — MONDO's `, dominant` / `, recessive` / `, type N` conventions
+are the bulk of it. A row built by string concatenation instead of a CSV writer:
+
+```
+MONDO:0012013,Weill-Marchesani syndrome 2, dominant,2026-08-01T04:30:00.000000
+```
 
 Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 
@@ -1584,6 +2291,186 @@ If a row is wrong, do not retype its label or timestamp. Follow the cache
 recovery procedure in the `dismech-terms` skill to remove and re-derive it from
 the ontology. If normalization exposes unrelated existing churn, surface it
 rather than reverting or hand-placing rows.
+
+## Terms Flagged `Not4Curation` (dismech#8472)
+
+RGD-curated ontologies (XCO, and its siblings) keep terms for hierarchy and
+structural completeness that they do **not** want used for annotation, and mark
+them with a related synonym reading `Not4Curation`. That is a synonym, not a
+`deprecated`/`obsolete` axiom, so a flagged term:
+
+- exists in the ontology,
+- has a canonical label that matches `term.label` exactly, and
+- is reachable from the dynamic enum's `source_nodes`
+
+— i.e. it passes every check `just validate-terms` performs, while being a term
+its own maintainers say not to use. Three (`XCO:0000294` estrogen/estrogen
+analog, `XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) reached the
+#8430 binding tranches on exactly that basis; all three had proper ECTO
+equivalents, and only a reviewer noticing one instance led to the others being
+found by hand.
+
+```bash
+just check-not4curation                                  # whole KB + schema; runs in `just qc`
+just check-not4curation kb/disorders/Asthma.yaml         # one file
+just check-not4curation --list-flagged --prefix XCO      # the full deny-list for one ontology
+just check-not4curation --warn-only                      # report without failing
+```
+
+It **fails** on a flagged binding: the whole-KB sweep is clean today, so there is
+no backlog to grandfather and nothing to baseline. Replace a flagged term with
+one intended for annotation (`XCO:0000294` → `ECTO:9000010` exposure to
+estrogens) rather than suppressing the check.
+
+**Scope.** The marker test is a generic synonym-substring check, so it costs
+nothing on ontologies that never use the convention — of everything dismech
+binds, only XCO carries it (24 of 1,816 terms); ECTO, GENO and OPL carry none.
+It covers the prefixes whose `conf/oak_config.yaml` adapter is **local**
+(`sqlite:`), which answer an alias query per term offline. OLS-served prefixes
+are *reported as skipped*, not silently dropped: checking them costs one network
+round trip per term and the KB binds ~18,000 of them (`--include-remote` opts in
+anyway). The coverage line also reports, per prefix, how many terms the adapter
+returned any synonym for — a marker *is* a synonym, so a prefix at `0/N` was
+looked up but not effectively checked, and the check says so rather than
+reporting a clean run.
+
+**Cache interaction — the subtle half.** All three flagged CURIEs are still in
+`cache/xco/terms.csv` and the `exposureterm` enum cache: they were added by
+validation before anyone noticed the flag, and `cache/enums/*.csv` is the
+*offline* positive-hit set for `reachable_from`. A curator reaching for one would
+therefore validate offline, with no network call that could surface the flag.
+**Do not hand-delete those rows** — that is the wrong fix per the cache
+guardrails above, which is precisely why the gate exists. The audit reports
+flagged-but-unused cached CURIEs as a non-gating note so the situation is
+visible.
+
+This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
+next to the existence and label checks it already performs — every LinkML
+knowledge base consuming RGD ontologies has the same gap. It lives here because
+the validator is a pinned external dependency.
+
+## Claims About a Cited Source (dismech#9226)
+
+Every other gate here checks a **snippet against the cache**. Nothing checked
+**prose against the cache** — so a sentence asserting that a source is
+*defective* validated cleanly no matter what the cached file actually held:
+
+```yaml
+explanation: >-
+  Original PYROXD1 gene-discovery report; the cached PubMed record carries no
+  abstract body, so the snippet is the article title.
+```
+
+`references_cache/PMID_27745833.md` has a full abstract. Nothing noticed, because
+nothing was looking. On #9207 one such claim ("the cached abstract is truncated
+mid-word") survived **two fix rounds across three sites** — each fix searched
+for the surface last seen, and the next site contained neither string. The same
+defect had already happened in `Tetralogy_of_Fallot.yaml`, where four such
+claims were false; its correction note records the root cause as *a fixed-width
+extraction window used during curation*.
+
+**That root cause is the rule worth remembering:**
+
+> A claim that a source is defective is a claim about a **file**, not about the
+> excerpt you were shown. Verify it against the whole file.
+
+```bash
+just check-source-defect-claims                        # whole KB, ~19s, offline
+just check-source-defect-claims kb/disorders/Asthma.yaml
+just list-source-defect-claims                          # every claim + verdict
+```
+
+**It adjudicates; it is not a keyword blacklist.** This matters more than the
+check itself. Claims of this shape are usually **true and load-bearing**:
+`Acute_Annular_Outer_Retinopathy` downgrades three evidence items to `PARTIAL`
+because `PMID:18195232` really has no abstract; `Cri-du-Chat_Syndrome` and
+`DTYMK-Related_Neurodegeneration` explain that a snippet legitimately begins
+mid-word because the cached PDF breaks a word across a line (#8048). Flagging
+those would be worse than no check at all — it would train curators to delete
+accurate provenance to get a build green. So each claim is resolved to its
+reference and checked against the cached body, and gets one of four verdicts:
+
+| Verdict | Meaning |
+|---|---|
+| `CONTRADICTED` | The cache demonstrably disagrees. **The finding.** |
+| `CONFIRMED` | The cache agrees. Counted, never printed as a problem. |
+| `NARRATED` | The sentence *reports* such a claim rather than asserting one — a correction note, or an account of an earlier revision. Never adjudicated. |
+| `UNDETERMINED` | Not mechanically decidable. Listed under `--all`, never a failure. |
+
+**Report-only. It never fails the build**, in `just qc` or in CI — it prints for
+a human to read. (`--strict` exists for direct CLI use.)
+
+**Three claim classes, and what each costs when false:**
+
+- **`no-abstract`** — "that record has no abstract". Adjudicated by asking
+  whether the cached record carries abstract prose. Note this deliberately does
+  **not** trust the frontmatter `content_type`: PubMed emits a citation stub for
+  a record that never had an abstract, and the fetcher types it `abstract_only`
+  exactly like a record that has one, so `PMID:18195232` is `abstract_only` with
+  no abstract. The test strips MEDLINE scaffolding (citation line, authors,
+  affiliations, DOI/PMID footer, COI statement) block-wise and counts what is
+  left.
+- **`negative-existence`** — "the abstract does not mention X". The most
+  consequential class, because it is used to **justify omitting or downgrading
+  evidence**: a false one silently suppresses real curation.
+  `DENND5A-Related_Developmental_and_Epileptic_Encephalopathy` discarded
+  `PMID:27431290` on the grounds that its abstract "does not mention DENND5A" —
+  the abstract names DENND5A as one of three novel candidate genes. Adjudicated
+  only when the object is specific enough to search unambiguously; "does not
+  specify the mouse allele" is a claim about *which* allele and stays
+  UNDETERMINED rather than risking a wrong contradiction.
+- **`defective-text`** — truncation / mid-word / garbled. **Always UNDETERMINED**:
+  no exact test exists, so these are reported for a glance, never adjudicated.
+  Bare `truncat` is *not* a trigger — it matches ~1,600 lines of correct
+  genetics prose (`truncating variant`, `truncated protein`), so a defect word
+  counts only when it co-occurs with a word naming our stored text.
+
+**Writing a claim so it can be checked.** Name the reference in the sentence, or
+put the claim in the evidence item it is about. Resolution takes the nearest id
+named *before* the claim (an anaphoric "That reference…" reaches back a
+sentence), then the enclosing evidence item's own `reference:`, then the
+enclosing `evidence:` block. An id named *after* the claim is treated as a
+contrast, not the subject — "…does not name SETD5, which rests on PMID:X" is
+about the item's own reference, not about `PMID:X`.
+
+**Author-year alone is not enough when a paragraph cites more than one paper.**
+Anaphora is only followed ~400 characters back. A long `notes:` paragraph that
+introduces two papers up front and then says *"the Efthymiou et al. 2021 report
+has no PubMed abstract"* several sentences later has put its subject out of
+reach — the tool will not guess between the rivals, and reports `UNDETERMINED`
+rather than adjudicating against the wrong one. That is deliberate: resolving
+such a claim to the enclosing evidence block's reference contradicted a
+perfectly correct note in `Osteogenesis_Imperfecta_Type_XXI`. Repeat the PMID in
+the sentence making the claim if you want it checked.
+
+### The snippet half: quotes cut mid-word
+
+The other half of #9207 was four snippets stopping at `movement d`. A mid-word
+fragment **is** a substring of the cached text, so it verifies — which is
+exactly what made the error invisible, and it is where the false belief about
+the source came from.
+
+```bash
+just check-snippet-boundaries                          # kb/, advisory
+just check-snippet-boundaries kb/disorders/Asthma.yaml
+```
+
+An advisory sibling of `count-verified-snippets` (same cache layer, same
+normalization — deliberately *not* a second cache-resolution implementation, per
+#7684). It applies to strict matches only: `normalize_relaxed` strips all
+spaces, so under relaxed matching every match is flanked by word characters by
+construction and the check would fire on 100% of them — which are precisely the
+#8048 ligature/hyphenation cases the legitimate "begins mid-word" notes are
+about. A **digit** flank is also exempt: `…hearing loss and microcephaly20-26`
+is a superscript citation marker fused in by extraction, not a cut word.
+
+Repo-wide backlog at introduction: **126 of 129,528 snippets** across 60 files
+(0.1%) — small enough to need no baseline. Typical finding:
+`'Bisphosphonate treatment in individuals with significant skeletal dis'`.
+
+It runs in `just qc` (~2m over `kb/`) so that backlog stays visible, but **not**
+in CI: it exits 0 whatever it finds, and a two-minute step that can never fail
+is pure cost on every PR.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -1633,6 +2520,43 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `STRCHIVE:` | STRchive loci JSON (strchive.org) | One record per tandem-repeat disease locus (73 loci): repeat motif, benign/intermediate/pathogenic repeat-count thresholds, genomic coordinates, mechanism, inheritance, disease-ontology xrefs | CC-BY 4.0 |
+
+**Citing a STRchive tandem-repeat disease locus:**
+
+STRchive (https://strchive.org) is a centralized catalog of the tandem-repeat
+(TR / short-tandem-repeat, STR) loci that cause disease when they expand. Each
+`references_cache/STRCHIVE_<locus>.md` file holds one locus (e.g.
+`STRCHIVE_SCA3_ATXN3.md`) with a `## Repeat-count thresholds` table, a
+`## Repeat` motif table, `## Genomic coordinates`, and a `## Cross-references`
+table — each row a stable quotable substring. Repeat motifs and pathogenic
+repeat-count thresholds currently live only as free prose in disorder entries;
+citing STRchive grounds those numbers in a snippet-validated structured source:
+
+```yaml
+evidence:
+- reference: STRCHIVE:SCA3_ATXN3
+  supports: SUPPORT
+  evidence_source: OTHER
+  snippet: "| Pathogenic | 60 | 87 |"
+  explanation: STRchive gives the pathogenic ATXN3 CAG repeat range (60-87) for SCA3.
+```
+
+As with ORPHA/ICEES rows, a quoted table snippet may include or omit the
+leading and trailing pipes — both substring-match against the cached body. The
+high-volume `additional_literature` tracking bibliography is intentionally
+excluded from the cache body; the curated `references` list is kept. The STR
+domain is complementary to the two repeat-expansion mechanism modules
+(`polyglutamine_expansion_proteotoxicity`, `fame_pentanucleotide_repeat_rna_toxicity`)
+and the `Polyglutamine_Disorders` grouping, which carry these thresholds only
+as prose today. Build/refresh with:
+
+```bash
+just strchive-refresh                      # download + verify the pinned loci JSON
+just strchive-rebuild                       # rebuild all references_cache/STRCHIVE_*.md
+just strchive-rebuild --id STRCHIVE:HD_HTT  # one locus
+just strchive-list                          # list locus identifiers
+```
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
@@ -1692,14 +2616,34 @@ evidence:
 
 Snippets must be exact substrings of the cache file's body. The body uses
 markdown section headings (`## Definition`, `## Inheritance`, `## Phenotypes`,
-`## Genes`, `## Epidemiology`, `## Cross-references`, `## Source`) with
-markdown tables for tabular data. Each table row is a stable quotable
-substring across refreshes:
+`## Genes`, `## Epidemiology`, `## Cross-references`, `## Related disorders`,
+`## Source`) with markdown tables for tabular data, plus a `**Status:**` line
+(non-empty `DisorderFlag` labels, e.g. `Deprecated entity`, `Inactive`) when
+the disorder carries one. Each table row is a stable quotable substring
+across refreshes:
 
 ```
 | HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |
 | FBN1 | fibrillin-1 | hgnc:3603 | Disease-causing germline mutation(s) in |
 | MONDO:0007947 | Exact |
+```
+
+**Citing a deprecation/merge relation:** `## Related disorders` renders
+Orphadata's `DisorderDisorderAssociationList` (`Moved to` / `Referred to`
+relations) as a `| Root | Root Disorder | Relation | Target | Target Disorder |`
+table — this is what makes a concept deprecation citable instead of only
+assertable in prose:
+
+```yaml
+evidence:
+  - reference: ORPHA:988
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: >-
+      ORPHA:2950 | Triphalangeal thumb-polysyndactyly syndrome | Moved to |
+      ORPHA:988 | Tibial hemimelia-polysyndactyly-triphalangeal thumb syndrome
+    explanation: Orphanet's own association record for ORPHA:988 confirms
+      the deprecated ORPHA:2950 concept was moved into it.
 ```
 
 A curator-quoted snippet may include or omit the leading and trailing
@@ -1871,6 +2815,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
+| `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |
 | `exports/model_runs/*.json` | YES | Derived `dismech-perturb` results the disorder pages render; regenerate with `just gen-model-results` (needs tellurium), never hand-edit |
 | `exports/sedml/<model_id>/` | YES | Derived SED-ML + COMBINE archive contents (text, reviewable); regenerate with `just sedml-export` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |

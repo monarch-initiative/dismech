@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snyder-Robinson Syndrome · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Snyder-Robinson Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Snyder-Robinson Syndrome</h1>
+                
+                <p class="report-subtitle">Snyder–Robinson Syndrome: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010664" target="_blank" rel="noopener noreferrer">MONDO:0010664</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Snyder–Robinson Syndrome: Disease Characteristics Research Report</h1>
+<h2>Executive summary and evidence scope</h2>
+<p>Snyder–Robinson syndrome (SRS) is an ultra-rare, X-linked recessive, multisystem neurodevelopmental and skeletal disorder caused by loss-of-function variants in <strong>SMS</strong>, which encodes spermine synthase. The defining biochemical lesion is reduced conversion of spermidine to spermine, producing low spermine, excess spermidine, and an elevated spermidine:spermine ratio. The strongest human evidence concerns developmental disability, hypotonia, seizures, thin habitus, osteoporosis, fractures, and kyphoscoliosis. Mechanistic evidence additionally implicates excessive spermidine catabolism, reactive oxygen species and aldehydes, lysosomal/autophagic failure, mitochondrial dysfunction, and defective bone mineralization. Most evidence comes from fewer than 30 historically reported individuals, patient-derived cells, and Drosophila or mouse models; therefore frequencies, natural history, prognosis, and treatment effects remain imprecise. No disease-modifying therapy has established human efficacy (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</p>
+<p>The following compact curation table summarizes the principal evidence and proposed ontology mappings. Ontology terms labeled “suggested” should be checked against the current ontology release before database ingestion.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key evidence</th>
+<th>Suggested ontology terms/IDs</th>
+<th>Evidence type / maturity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identifiers</td>
+<td>Snyder-Robinson syndrome is an ultra-rare X-linked syndromic intellectual disability caused by SMS deficiency; disease mappings in retrieved sources include <a href="http://purl.obolibrary.org/obo/MONDO_0010664" target="_blank" rel="noopener noreferrer">MONDO:0010664</a>, <a href="https://bioregistry.io/OMIM:309583" target="_blank" rel="noopener noreferrer">OMIM:309583</a>, Orphanet:3063. Open Targets links MONDO_0010664 / Orphanet_3063 to SMS (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, OpenTargets Search: Snyder-Robinson syndrome-SMS)</td>
+<td><strong>Exact IDs:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010664" target="_blank" rel="noopener noreferrer">MONDO:0010664</a>; <a href="https://bioregistry.io/OMIM:309583" target="_blank" rel="noopener noreferrer">OMIM:309583</a>; Orphanet:3063. <strong>Term suggestion requiring validation:</strong> “Syndromic X-linked intellectual disability, Snyder type”</td>
+<td>Aggregated disease resource + human clinical reports; high confidence for identifiers</td>
+</tr>
+<tr>
+<td>Causal gene / inheritance</td>
+<td>Causal gene is <strong>SMS</strong> (spermine synthase), X-linked recessive; reported disease-causing variants include missense and nonsense changes, with inherited, de novo, and reported maternal mosaic transmission in the broader literature; examples in retrieved evidence include p.Gln148Arg, p.Gly203Asp, p.Pro112Ala, p.Ser302Leu (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>)</td>
+<td><strong>Exact gene symbol:</strong> SMS. <strong>Term suggestions requiring validation:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001417" target="_blank" rel="noopener noreferrer">HP:0001417</a> X-linked inheritance; SO terms such as missense_variant, nonsense_variant, splice_region_variant</td>
+<td>Human genetic evidence; high confidence for SMS causality, moderate for complete variant spectrum</td>
+</tr>
+<tr>
+<td>Core biochemical mechanism</td>
+<td>SMS catalyzes spermidine → spermine; loss of function lowers spermine and raises spermidine, producing an increased spermidine/spermine ratio, the core biochemical hallmark of SRS (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>)</td>
+<td><strong>Exact/near-exact suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006598" target="_blank" rel="noopener noreferrer">GO:0006598</a> polyamine biosynthetic process; <a href="http://purl.obolibrary.org/obo/CHEBI_15746" target="_blank" rel="noopener noreferrer">CHEBI:15746</a> spermidine; <a href="http://purl.obolibrary.org/obo/CHEBI_15729" target="_blank" rel="noopener noreferrer">CHEBI:15729</a> spermine. <strong>Term suggestion requiring validation:</strong> “increased spermidine to spermine ratio”</td>
+<td>Human cells + animal models; high confidence</td>
+</tr>
+<tr>
+<td>Downstream pathophysiology</td>
+<td>Evidence supports a causal chain from polyamine imbalance to excessive spermidine catabolism, toxic aldehydes/ROS, lysosomal dysfunction, impaired autophagy-lysosome flux, mitochondrial dysfunction, acetyl-CoA depletion, altered protein acetylation, and tissue injury affecting brain and bone (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4">tao2022phenylbutyratemodulatespolyamine pages 2-4</a>)</td>
+<td><strong>Exact/near-exact GO suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> response to oxidative stress; <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" rel="noopener noreferrer">GO:0000422</a> autophagy of mitochondrion/mitophagy (validate fit); <a href="http://purl.obolibrary.org/obo/GO_0005773" target="_blank" rel="noopener noreferrer">GO:0005773</a> vacuole/lysosomal compartment term suggestion; <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a> mitochondrion; <a href="http://purl.obolibrary.org/obo/GO_0007015" target="_blank" rel="noopener noreferrer">GO:0007015</a> actin filament organization term suggestion if needed. <strong>All mechanistic ontology mappings should be validated</strong></td>
+<td>Primary mechanistic evidence from Drosophila, patient fibroblasts, and supportive review; moderate-high confidence</td>
+</tr>
+<tr>
+<td>Neurologic phenotype</td>
+<td>Common neurologic features include developmental delay/intellectual disability, hypotonia, seizures/epilepsy, speech impairment, gait abnormalities, learning impairment, anxiety-like behavior and reduced brain volumes in mouse models (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>)</td>
+<td><strong>Exact HPO suggestions:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> Intellectual disability; <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a> Hypotonia; <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> Seizure; <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> Global developmental delay; <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> Delayed speech and language development; <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a> Gait disturbance. <strong>Model-only anatomy suggestions requiring validation:</strong> reduced total brain volume</td>
+<td>Human clinical + mouse model; high confidence for core human neurologic features</td>
+</tr>
+<tr>
+<td>Skeletal phenotype</td>
+<td>Characteristic skeletal disease includes low bone density/osteoporosis, atraumatic or low-energy fractures, kyphosis/kyphoscoliosis, thin cortex, low bone volume, absent trabecular meshwork, severe mineralization defect, and reduced osteoblast/osteoclast function (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>)</td>
+<td><strong>Exact/near-exact HPO suggestions:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a> Osteoporosis; <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" rel="noopener noreferrer">HP:0002757</a> Pathological fracture; <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> Scoliosis; <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a> Kyphosis. <strong>Process/cell suggestions requiring validation:</strong> osteoblast differentiation defect, osteoclast defect</td>
+<td>Human clinical + bone histopathology; high confidence</td>
+</tr>
+<tr>
+<td>Additional/expanded phenotype</td>
+<td>Reported additional manifestations include asthenic/thin habitus, facial dysmorphism, long fingers/toes, genital/renal anomalies, respiratory infections, retinal changes, and possible digestive involvement such as jejunal stenosis, feeding intolerance, cholestasis, pancreatic exocrine insufficiency, and failure to thrive in severe cases (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>)</td>
+<td><strong>Exact/near-exact HPO suggestions:</strong> <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive; <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> Intrauterine growth restriction/poor growth term suggestions; <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" rel="noopener noreferrer">HP:0001166</a> Arachnodactyly term suggestion; <a href="http://purl.obolibrary.org/obo/HP_0002242" target="_blank" rel="noopener noreferrer">HP:0002242</a> Feeding difficulties; <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a> Cholestasis. <strong>All require phenotype-level validation</strong></td>
+<td>Human case reports/series; moderate confidence for expanded GI phenotype</td>
+</tr>
+<tr>
+<td>Diagnostic biomarkers / tests</td>
+<td>Diagnosis can be made by identifying a pathogenic SMS variant and/or showing decreased or absent spermine synthase activity with elevated spermidine/spermine ratio. One severe report provided markedly abnormal erythrocyte polyamines: spermidine &gt;50 nmoles/8×10^9 erythrocytes (norm 5–11) and spermine 2.58 (norm 3.5–8.5). WES/Sanger are established; DXA/radiography are used for bone disease (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>)</td>
+<td><strong>Exact/near-exact suggestions:</strong> biomarker = elevated spermidine:spermine ratio; assay = SMS enzymatic activity test; genetic test = WES / Sanger confirmation. <strong>LOINC/MAXO/other codes require validation</strong></td>
+<td>Human diagnostic evidence; high confidence</td>
+</tr>
+<tr>
+<td>Supportive care</td>
+<td>Current management is mainly supportive: antiepileptic drugs for seizures, calcium/vitamin D with caution because of ectopic calcification concerns, orthopedic surveillance, nutritional/feeding support, and multidisciplinary genetic care. No disease-modifying standard therapy is established (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>)</td>
+<td><strong>MAXO term suggestions requiring validation:</strong> antiseizure medication therapy; calcium supplementation; vitamin D supplementation; orthopedic monitoring; enteral feeding support; genetic counseling</td>
+<td>Human clinical practice from case literature; moderate confidence</td>
+</tr>
+<tr>
+<td>Experimental therapy: phenylbutyrate (PBA)</td>
+<td>PBA improved SRS-related phenotypes in Drosophila and patient fibroblasts by downregulating SAT1, reducing toxic catabolites, restoring acetyl-CoA/protein acetylation, improving mitochondrial and autolysosomal function, and extending fly lifespan. In flies, 2 mM showed benefit, whereas 10 mM was toxic; glycerol-PBA also showed benefit at 0.6 mM (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4">tao2022phenylbutyratemodulatespolyamine pages 2-4</a>)</td>
+<td><strong>CHEBI / drug suggestion requiring validation:</strong> phenylbutyrate. <strong>MAXO suggestions requiring validation:</strong> experimental small-molecule therapy; metabolite-modulating therapy</td>
+<td>Preclinical only (patient cells + fly); moderate confidence, not yet human efficacy</td>
+</tr>
+<tr>
+<td>Experimental therapy: DFMO</td>
+<td>A 2023 EMBO Molecular Medicine study is cited in later reviews as showing DFMO can rebalance aberrant polyamine ratios in SRS, but primary quantitative details were not retrievable in the current tool outputs; therefore translational promise is noted without overclaiming clinical efficacy (<a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>)</td>
+<td><strong>Drug suggestion requiring validation:</strong> difluoromethylornithine / eflornithine. <strong>MAXO suggestion requiring validation:</strong> polyamine-pathway inhibition therapy</td>
+<td>Secondary/review-level evidence in current retrieval; low-moderate confidence until primary paper details are confirmed</td>
+</tr>
+<tr>
+<td>Other experimental approaches</td>
+<td>Additional exploratory strategies cited in reviews include direct spermine supplementation, polyamine analogs such as (R,R)-1,12-dimethylspermine, antioxidants/ROS scavengers, and redox-sensitive spermine prodrugs; benefits are partial or preclinical only (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-21-24">akinyele2024impairedpolyaminemetabolism pages 21-24</a>)</td>
+<td><strong>CHEBI/MAXO suggestions requiring validation:</strong> spermine supplementation; antioxidant therapy; polyamine analog therapy; prodrug therapy</td>
+<td>Preclinical / review-supported; low-moderate confidence</td>
+</tr>
+<tr>
+<td>Model organisms</td>
+<td><strong>Drosophila dSms loss</strong> recapitulates polyamine imbalance, shortened lifespan, locomotor defects, retinal/synaptic degeneration, oxidative stress, lysosomal and mitochondrial dysfunction. <strong>G56S mouse</strong> shows failure to thrive, short stature, reduced bone density, impaired learning, anxiety-like behavior, reduced mobility, heightened fear responses, reduced brain volumes, and impaired mitochondrial oxidative phosphorylation (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>)</td>
+<td><strong>Exact/near-exact suggestions:</strong> Drosophila melanogaster model; Mus musculus G56S Sms model. <strong>Ontology suggestions requiring validation:</strong> model recapitulates <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>, <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>, <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a>; CL terms for neurons, osteoblasts, osteoclasts, fibroblasts</td>
+<td>Strong preclinical evidence; high value for mechanism and therapeutic testing</td>
+</tr>
+<tr>
+<td>Evidence gaps / curation notes</td>
+<td>Prevalence, penetrance, founder effects, standardized diagnostic criteria, and long-term prognosis remain poorly quantified because very few families have been reported. Several ontology mappings above are term suggestions and should be validated against HPO/GO/CL/MAXO/LOINC before database ingestion (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, <a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>)</td>
+<td><strong>Curation note:</strong> retain exact IDs only for <a href="http://purl.obolibrary.org/obo/MONDO_0010664" target="_blank" rel="noopener noreferrer">MONDO:0010664</a>, <a href="https://bioregistry.io/OMIM:309583" target="_blank" rel="noopener noreferrer">OMIM:309583</a>, Orphanet:3063, SMS, and high-confidence HPO terms; validate all others</td>
+<td>Evidence-synthesis note; high confidence for gap statement</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes high-yield evidence and ontology mappings for Snyder-Robinson syndrome across identifiers, mechanism, phenotype, diagnostics, treatment, and models. It is designed as a compact curation aid and flags which ontology terms are exact versus suggestions needing validation.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>SRS is a Mendelian polyaminopathy and syndromic X-linked intellectual-developmental disorder. It is sometimes described as the first recognized inherited disorder of the polyamine pathway or “spermine synthase deficiency syndrome.” Its phenotype combines neurodevelopmental impairment with skeletal fragility, hypotonia, asthenic habitus, dysmorphism, speech and gait abnormalities, and variably epilepsy and visceral involvement (<a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010664" target="_blank" rel="noopener noreferrer">MONDO:0010664</a>, <em>syndromic X-linked intellectual disability, Snyder type</em>.</li>
+<li><strong>OMIM phenotype:</strong> <strong>309583</strong>, generally indexed as Snyder–Robinson syndrome/X-linked syndromic intellectual disability, Snyder type.</li>
+<li><strong>Orphanet:</strong> <strong><a href="https://bioregistry.io/ORPHA:3063" target="_blank" rel="noopener noreferrer">ORPHA:3063</a></strong>, X-linked intellectual disability, Snyder type.</li>
+<li><strong>Causal gene:</strong> <strong>SMS</strong>, Ensembl ENSG00000102172; the retrieved literature gives SMS gene records as MIM <em>300105 in one source and </em>300015 in another, so the current OMIM gene record should be checked directly before ingestion.</li>
+<li><strong>Synonyms:</strong> Snyder–Robinson syndrome; SRS; spermine synthase deficiency syndrome; X-linked intellectual disability, Snyder type; syndromic X-linked intellectual disability, Snyder type; MRXSSR (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, OpenTargets Search: Snyder-Robinson syndrome-SMS).</li>
+</ul>
+<p>No dedicated ICD-10-CM code, ICD-11 entity, or MeSH descriptor was established in the retrieved evidence. Operational coding will generally require a broader intellectual-disability, congenital-malformation, epilepsy, or osteoporosis code, supplemented by the molecular diagnosis.</p>
+<h3>Evidence provenance</h3>
+<p>The knowledge summarized here is primarily <strong>aggregated disease-level evidence</strong> derived from published pedigrees, individual case reports, small case series, cell studies, and model organisms—not population-scale EHR data. Examples include three affected members of one Pakistani family, two severely affected maternal half-brothers, two brothers studied through detailed bone histology, and isolated de novo cases (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal factor</h3>
+<p>The necessary initiating lesion is a <strong>germline hemizygous pathogenic variant in SMS</strong> in an affected male. SMS catalyzes the terminal polyamine-biosynthetic reaction, spermidine to spermine. Reduced or absent activity produces a high spermidine:spermine ratio and initiates downstream cellular toxicity (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</p>
+<h3>Genetic risk factors</h3>
+<p>Documented variant classes include missense, nonsense, splice-altering, and other loss-of-function alleles. Retrieved examples are <strong>c.334C&gt;G (p.Pro112Ala)</strong>, de novo; <strong>c.443A&gt;G (p.Gln148Arg)</strong>, affecting the 5′-methylthioadenosine-binding region; <strong>c.608G&gt;A (p.Gly203Asp)</strong>; and <strong>c.905C&gt;T (p.Ser302Leu)</strong> in three related Pakistani males (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</p>
+<p>Female heterozygosity confers reproductive risk; expression in females may depend on X-inactivation, but penetrance and frequency of symptomatic carriers are insufficiently defined. Most familial cases involve carrier mothers, while de novo cases occur—two of 20 published cases in one 2021 review. Maternal mosaic transmission has also been reported in the literature, making parental testing and consideration of mosaicism important even when a variant appears de novo (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>).</p>
+<p>No validated modifier gene, susceptibility locus, founder allele, protective allele, or robust genotype–phenotype relationship has been established. Marked intrafamilial variability argues that residual enzyme activity, X-inactivation in females, background genetic variation, and non-genetic factors may modify expression, but these remain hypotheses (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>).</p>
+<h3>Environmental and protective factors</h3>
+<p>No toxin, infection, diet, occupation, smoking, alcohol, or lifestyle exposure is known to cause SRS. Likewise, no environmental factor has been shown to prevent occurrence in a genetically affected male. Avoidance of falls and bone trauma, adequate—but carefully monitored—calcium/vitamin D, good nutrition, and infection prevention may reduce complications rather than disease penetrance (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>).</p>
+<p>A formal gene–environment interaction has not been demonstrated. Oxidative load, nutritional status, immobility, antiseizure medications, and mechanical loading could plausibly alter skeletal or neurologic severity, but this has not been quantified in SRS cohorts.</p>
+<h2>3. Phenotypes</h2>
+<h3>Core neurologic and developmental phenotype</h3>
+<ul>
+<li><strong>Global developmental delay/intellectual disability</strong>—usually evident in infancy or childhood; moderate-to-severe impairment is typical, with major effects on communication, education, independence, and activities of daily living. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></strong>.</li>
+<li><strong>Hypotonia/low muscle mass</strong>—early and common, contributing to delayed motor milestones, poor mobility, falls, and asthenic habitus. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></strong>, with muscular hypoplasia as an additional term.</li>
+<li><strong>Speech impairment</strong>—dysarthric, markedly delayed, or absent speech. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></strong> and dysarthria.</li>
+<li><strong>Gait disturbance/motor impairment</strong>—unsteady gait and difficulty ambulating may evolve through childhood. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a></strong>.</li>
+<li><strong>Epilepsy/seizures</strong>—often begins in early childhood; one synthesis reported seizures in up to <strong>67%</strong> of cases, with variable type, frequency, and severity. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong>. Epileptic encephalopathy has occurred in severe cases (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>).</li>
+</ul>
+<h3>Skeletal, growth, and connective-tissue manifestations</h3>
+<ul>
+<li><strong>Low bone density/osteoporosis</strong> commonly develops during the first decade and particularly affects long bones. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a></strong>.</li>
+<li><strong>Pathologic or low-energy fractures</strong> substantially impair mobility and quality of life. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" rel="noopener noreferrer">HP:0002757</a></strong>.</li>
+<li><strong>Kyphosis, scoliosis, or kyphoscoliosis</strong>, joint contractures, long fingers/toes, and thin habitus are characteristic. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></strong>, arachnodactyly.</li>
+<li>Histomorphometry in two brothers showed profound osteoblast and osteoclast depletion, absent trabecular meshwork, thin cortex, and low bone volume; patient-derived marrow stromal cells had severely deficient calcium-phosphate mineralization (<a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>).</li>
+</ul>
+<p>A 2021 review suggested osteoporosis and fracture burden may remain approximately stable after reaching diagnostic severity rather than invariably worsening, but this conclusion rests on very small numbers and should not be encoded as a universal course (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>).</p>
+<h3>Dysmorphic and multisystem findings</h3>
+<p>Reported craniofacial features include a long, thin, sometimes asymmetric face, prominent lower lip, high or abnormal palate, and other nonspecific dysmorphism. Additional variably reported findings include cryptorchidism or other genital anomalies, renal cysts/nephrocalcinosis, recurrent respiratory infections, tracheomalacia, hearing loss, retinal pigmentary changes, corpus-callosum abnormalities, cerebral atrophy, and fluctuating hyper-/hypoglycemia (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>).</p>
+<p>Severe gastrointestinal/hepatopancreatic disease—jejunal or jejunoduodenal stenosis, feeding intolerance, failure to thrive, cholestasis, hepatic fibrosis, and exocrine pancreatic insufficiency—was reported in two maternal half-brothers. These should presently be curated as <strong>possible expanded/rare phenotypes</strong>, not obligatory features. Suggested HPO includes feeding difficulty, <strong><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></strong> failure to thrive, cholestasis, intestinal stenosis, and exocrine pancreatic insufficiency (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>).</p>
+<h3>Frequency and quality-of-life evidence</h3>
+<p>Reliable percentages are unavailable for most features because the literature historically comprised approximately 20 individuals in about 10 families and fewer than 30 total reported patients by 2021. No SRS-specific EQ-5D, SF-36, PROMIS, or validated caregiver-burden dataset was retrieved. Nevertheless, recurrent fractures, severe developmental disability, epilepsy, feeding dependence, and impaired ambulation clearly impose substantial functional and caregiver burden (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</p>
+<h2>4. Genetic and molecular information</h2>
+<p><strong>SMS</strong> is located at <strong>Xp22.11</strong> and encodes spermine synthase. Pathogenic disease alleles are germline; SRS is not a somatic neoplasm. Functional consequence is loss or marked reduction of enzyme activity rather than gain of function or dominant negativity (<a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</p>
+<p>Variant interpretation should follow ACMG/AMP criteria using segregation, de novo status, population frequency, computational/structural evidence, enzyme activity, and the polyamine ratio. The p.Pro112Ala and p.Ser302Leu reports illustrate WES discovery followed by Sanger confirmation and in-silico structural analysis. Current ClinVar classifications and gnomAD allele counts must be queried variant-by-variant; exact population frequencies were not available in the retrieved full texts and should not be inferred as zero (<a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</p>
+<p>No recurrent chromosomal rearrangement, aneuploidy, repeat expansion, mitochondrial-DNA lesion, validated epigenetic episignature, or established modifier gene is known. Copy-number variants disrupting SMS are biologically plausible and should be detectable by genome sequencing or copy-number analysis, but they were not a major documented class in the retrieved cohort.</p>
+<h2>5. Environmental information</h2>
+<p>SRS is not caused by pollution, radiation, occupational exposure, lifestyle behavior, or an infectious agent. There is no zoonotic or transmissible component. Environmental management is relevant only to complications: fall prevention, weight-bearing activity within orthopedic safety limits, adequate nutrition, aspiration/infection precautions, and avoidance of excessive supplementation or medications that worsen bone health.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream biochemical defect</h3>
+<p>The causal chain begins with <strong>SMS loss of function → reduced spermine synthesis → spermine deficiency plus spermidine accumulation → elevated spermidine:spermine ratio</strong>. In patient lymphoblasts, secondary changes include reduced ornithine decarboxylase activity and putrescine, showing that the lesion perturbs broader polyamine homeostasis rather than a single metabolite (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</p>
+<p>A representative diagnostic measurement in severe disease found erythrocyte spermidine <strong>&gt;50 nmol/8×10⁹ erythrocytes</strong> (reference 5–11) and spermine <strong>2.58</strong> (reference 3.5–8.5), demonstrating the magnitude of imbalance in at least one individual (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>).</p>
+<h3>Downstream organelle and metabolic injury</h3>
+<p>Human cells and Drosophila support the following sequence:</p>
+<ol>
+<li>Excess spermidine enters catabolism.</li>
+<li>Catabolism generates reactive oxygen species and toxic aldehyde metabolites.</li>
+<li>Oxidative injury disrupts lysosomes and autophagy–lysosome flux.</li>
+<li>Mitochondrial function and oxidative phosphorylation decline.</li>
+<li>Cellular survival, synaptic maintenance, and tissue homeostasis fail (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</li>
+</ol>
+<p>The 2022 phenylbutyrate study added <strong>SAT1 activation, acetyl-CoA depletion, and altered global protein acetylation</strong> to this model. Phenylbutyrate or its phenylacetyl-CoA metabolite downregulated SAT1 and restored aspects of acetyl-CoA/protein acetylation, linking polyamine catabolism to central carbon metabolism (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4">tao2022phenylbutyratemodulatespolyamine pages 2-4</a>).</p>
+<p>Suggested GO annotations include polyamine biosynthetic process; spermidine metabolic process; spermine biosynthetic process; response to oxidative stress (<strong><a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a></strong>); autophagy; lysosomal organization/function; mitochondrial respiratory chain/oxidative phosphorylation; and bone mineralization. Suggested cellular components are cytosol, lysosome, autolysosome, mitochondrion (<strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong>), and synapse. Suggested cell types include neuron, retinal neuron/photoreceptor, osteoblast, osteoclast, bone-marrow stromal cell, fibroblast, and lymphoblast; exact CL identifiers should be validated.</p>
+<h3>Neural and skeletal tissue specificity</h3>
+<p>Drosophila loss of dSms causes synaptic and retinal degeneration, locomotor deficits, and reduced survival. The 2024 G56S mouse exhibits reduced whole and regional brain volumes, impaired learning, anxiety-like behavior, reduced mobility, heightened fear responses, and defective cortical mitochondrial oxidative phosphorylation. These model findings plausibly connect cellular bioenergetic injury to human intellectual disability and movement impairment, but mouse behavioral phenotypes are not direct human symptoms (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</p>
+<p>Bone appears unusually sensitive to polyamine imbalance. Patient osteoblast-lineage cells showed much larger spermine/spermidine disturbances than fibroblasts, deficient mineral deposition, and reduced osteoblast and osteoclast populations. This supports cell-type-specific metabolic vulnerability rather than a collagen-structural defect (<a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>).</p>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>Established profiling includes targeted polyamine metabolomics in erythrocytes and cultured cells, metabolic phenotyping, mitochondrial assays, protein-acetylation analysis, and anatomical MRI/volumetry in mice. <strong>N8-acetylspermidine</strong> has been proposed as a plasma biomarker, but clinical sensitivity and specificity are unvalidated (<a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>).</p>
+<p>No replicated SRS-specific single-cell atlas, spatial transcriptomic dataset, human tissue-wide transcriptome/proteome, lipidomic signature, CRISPR therapeutic screen, or integrated multi-omics classifier was identified. These are evidence gaps, not negative biological findings.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary systems are:</p>
+<ul>
+<li><strong>Central nervous system:</strong> cerebral cortex, hippocampal systems, synapses, and possibly cerebellum, corpus callosum, and retina. Suggested UBERON terms: brain, cerebral cortex, hippocampus, cerebellum, corpus callosum, retina.</li>
+<li><strong>Skeleton:</strong> long bones, vertebral column, cortical and trabecular bone; osteoblast and osteoclast compartments.</li>
+<li><strong>Skeletal muscle/connective tissue:</strong> generalized low muscle mass and hypotonia.</li>
+<li><strong>Secondary/variable:</strong> kidney, genital tract, respiratory tract, intestine, liver, and pancreas (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</li>
+</ul>
+<p>At the subcellular level, lysosomes/autolysosomes and mitochondria are the best-supported affected compartments. No consistent lateralization is established; disease is systemic and generally bilateral.</p>
+<h2>8. Temporal development</h2>
+<p>Onset is congenital or early pediatric and usually insidious rather than acute. Hypotonia and developmental delay appear first; epilepsy may emerge in early childhood, while osteoporosis, fractures, spinal curvature, facial gestalt, and thin habitus become more conspicuous with age. The phenotype therefore <strong>evolves from childhood into adulthood</strong> (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</p>
+<p>The disorder is chronic and lifelong. There is no accepted staging system or spontaneous remission pattern. Neurologic and skeletal progression is variable; severe visceral disease can produce early mortality, whereas other affected individuals survive into adulthood. Developmental periods of synaptogenesis and bone accrual are plausible therapeutic windows, but no clinical study has defined an optimal intervention age (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>).</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>X-linked recessive</strong>: hemizygous males are predominantly affected, carrier females transmit the allele to 50% of sons and 50% of daughters at each pregnancy, subject to standard Mendelian probability. De novo variants and maternal mosaicism mean apparently negative family history does not eliminate recurrence risk (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>).</p>
+<p>Penetrance in hemizygous males appears high, but exact penetrance and age dependence are not quantified. Expressivity is variable, including within families; anticipation is not expected because the disease is not a repeat-expansion disorder. Consanguinity is not mechanistically required for an X-linked condition. No validated founder effect, population enrichment, carrier frequency, or ethnic predisposition is known.</p>
+<p>Prevalence and incidence per 100,000 cannot be reliably estimated. Approximately 10 families/20 affected individuals and 11 mutations had been described by 2020, and fewer than 30 cases were cited in 2021. These are literature counts, not epidemiologic prevalence estimates. The observed male predominance follows X-linked inheritance rather than demonstrated sex-specific environmental risk (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<ol>
+<li><strong>Clinical suspicion:</strong> male with developmental delay/intellectual disability, hypotonia, thin habitus, speech/gait impairment, osteoporosis or low-energy fractures, kyphoscoliosis, and possibly epilepsy.</li>
+<li><strong>Molecular confirmation:</strong> sequence <strong>SMS</strong> through a neurodevelopmental/epilepsy/bone-fragility panel, WES, WGS, or single-gene testing; confirm candidate variants and segregation by Sanger sequencing.</li>
+<li><strong>Functional/biochemical confirmation:</strong> measure spermine synthase activity where available and quantify spermine, spermidine, and their ratio in erythrocytes or validated cells.</li>
+<li><strong>Phenotypic assessment:</strong> DXA, skeletal radiographs, fracture history, spine/orthopedic examination, developmental testing, neurologic examination, EEG when seizures are suspected, nutritional assessment, and organ-directed evaluation (<a href="#ref-dontaine2021digestiveinvolvementin-pages-1-7">dontaine2021digestiveinvolvementin pages 1-7</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>, <a href="#ref-qazi2020wholeexomesequencingidentifies-pages-1-3">qazi2020wholeexomesequencingidentifies pages 1-3</a>).</li>
+</ol>
+<p>WGS is useful when coding sequencing is negative because it can detect noncoding, structural, and copy-number lesions. WES has repeatedly diagnosed SRS but may miss deep intronic and some structural variants. CMA can identify larger Xp22.11 deletions but is not sufficient for most single-nucleotide variants. Karyotyping, FISH, mitochondrial sequencing, and repeat-expansion testing are not routine unless another differential diagnosis is suspected.</p>
+<p>RNA sequencing may clarify suspected splice variants. Targeted metabolomics provides functional support. No clinically validated SRS epigenomic, proteomic, liquid-biopsy, or newborn-screening test exists.</p>
+<h3>Differential diagnosis</h3>
+<p>Important alternatives include osteogenesis imperfecta and other monogenic bone-fragility disorders; other X-linked intellectual-developmental syndromes; creatine deficiency syndromes; Menkes disease; congenital muscular disorders; mitochondrial disease; and other polyaminopathies. SRS is distinguished by the combination of SMS variation and the characteristic high spermidine:spermine ratio. A collagen defect is not the primary skeletal mechanism (<a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>).</p>
+<p>No formal consensus clinical criteria were identified; molecular confirmation is therefore central. Cascade testing should be offered to at-risk maternal relatives.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>No 5-year or 10-year survival rate, median life expectancy, mortality rate, or validated prognostic model exists. Premature death has occurred in severe cases, including the two brothers with major digestive, respiratory, and hepatopancreatic involvement, but this cannot be generalized to all SRS (<a href="#ref-dontaine2021digestiveinvolvementin-pages-11-16">dontaine2021digestiveinvolvementin pages 11-16</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>).</p>
+<p>Major long-term morbidity includes intellectual disability, limited communication, impaired mobility, epilepsy, fractures, spinal deformity, feeding difficulty, and dependence in daily living. Recovery of the underlying disorder is not expected with current supportive management. Potential prognostic factors—residual SMS activity, magnitude of the polyamine ratio, seizure burden, nutritional status, bone density, and visceral involvement—are biologically plausible but not prospectively validated.</p>
+<h2>12. Treatment and current applications</h2>
+<h3>Current clinical management</h3>
+<p>There is no approved SRS-specific disease-modifying therapy. Care is individualized and multidisciplinary:</p>
+<ul>
+<li>Antiseizure medication; reported agents include carbamazepine, phenobarbital, clobazam, levetiracetam, and valproate.</li>
+<li>Calcium and vitamin D when indicated, monitored carefully because ectopic calcification/nephrocalcinosis has been reported.</li>
+<li>DXA and orthopedic surveillance; fracture prevention and management; scoliosis monitoring.</li>
+<li>Physical, occupational, and speech therapy; mobility aids and fall prevention.</li>
+<li>Nutrition, swallow/feeding support, and enteral feeding where required.</li>
+<li>Monitoring guided by symptoms for renal, respiratory, ophthalmologic, hearing, gastrointestinal, hepatic, and pancreatic complications.</li>
+<li>Clinical genetics and reproductive counseling (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-dontaine2021digestiveinvolvementin-pages-16-21">dontaine2021digestiveinvolvementin pages 16-21</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>).</li>
+</ul>
+<p>Suggested MAXO annotations include genetic counseling, molecular genetic testing, biochemical assay, EEG, DXA, orthopedic surveillance, antiseizure pharmacotherapy, calcium/vitamin-D supplementation, physical therapy, occupational therapy, speech therapy, enteral feeding, and fracture management; exact MAXO identifiers require validation.</p>
+<h3>Experimental disease-directed strategies</h3>
+<p><strong>Phenylbutyrate (PBA):</strong> In patient fibroblasts and Drosophila—not patients—PBA reduced SAT1, toxic polyamine catabolism, and acetyl-CoA depletion; improved mitochondrial/autolysosomal function; and prolonged fly lifespan. In flies, <strong>2 mM</strong> was beneficial, lower concentrations had milder effects, and <strong>10 mM was toxic</strong>; glycerol-PBA prolonged lifespan at <strong>0.6 mM</strong>. These concentrations cannot be directly translated into a human dose (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4">tao2022phenylbutyratemodulatespolyamine pages 2-4</a>).</p>
+<p>A useful abstract-level quotation is: <strong>“PBA treatment significantly restored the function of mitochondria and autolysosomes and extended life span in vivo in the Drosophila SRS model.”</strong> The same abstract reports that treatment of patient fibroblasts ameliorated autolysosomal dysfunction. Publication: July 2022; DOI URL: <a href="https://doi.org/10.1172/jci.insight.158457" target="_blank" rel="noopener noreferrer">https://doi.org/10.1172/jci.insight.158457</a> (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>).</p>
+<p><strong>Difluoromethylornithine/eflornithine (DFMO):</strong> A 2023 EMBO Molecular Medicine study reported rebalancing of abnormal polyamine ratios by inhibiting upstream ornithine decarboxylase. The retrieved current review confirms the study and DOI <strong>10.15252/emmm.202317833</strong>, but primary quantitative details were not available in the tool evidence. DFMO should therefore be classified as preclinical/experimental for SRS, not as demonstrated human therapy (<a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>).</p>
+<p><strong>Other approaches:</strong> Antioxidants partially rescued mitochondrial but not lysosomal defects; direct spermine supplementation was ineffective in the cited cell work; polyamine analogues such as (R,R)-1,12-dimethylspermine and redox-sensitive spermine prodrugs have preclinical rationale. These approaches lack established human efficacy (<a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>, <a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-21-24">akinyele2024impairedpolyaminemetabolism pages 21-24</a>).</p>
+<p>The ClinicalTrials.gov search retrieved no relevant SRS-specific interventional study. Trials of PBA or DFMO in cancer and other diseases do not constitute evidence of efficacy in SRS.</p>
+<h3>Expert interpretation</h3>
+<p>The most credible therapeutic principle is <strong>pathway rebalancing</strong>, not simply replacing spermine. Upstream substrate reduction with DFMO, limiting SAT1-mediated toxic catabolism with PBA, reducing oxidative injury, or restoring organelle function may need to be combined. However, CNS exposure, developmental timing, long-term effects on an essential polyamine pathway, skeletal endpoints, and pediatric safety require dedicated preclinical and clinical evaluation (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-wu2024structuralinsightsinto-pages-11-12">wu2024structuralinsightsinto pages 11-12</a>).</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention by lifestyle or vaccination is not applicable. Reproductive prevention options include carrier testing, cascade testing, genetic counseling, preimplantation genetic testing, chorionic-villus or amniotic-fluid prenatal diagnosis when the familial variant is known, and discussion of residual recurrence risk from parental mosaicism (<a href="#ref-mouskou2021novelhemizygousmissense-pages-4-5">mouskou2021novelhemizygousmissense pages 4-5</a>, <a href="#ref-mouskou2021novelhemizygousmissense-pages-1-2">mouskou2021novelhemizygousmissense pages 1-2</a>).</p>
+<p>There is no population newborn screen. Secondary prevention consists of early molecular diagnosis and surveillance for seizures, low bone density, scoliosis, feeding difficulty, and organ complications. Tertiary prevention includes fracture/fall prevention, nutrition and rehabilitation, seizure control, orthopedic care, aspiration precautions, and prompt treatment of respiratory infections. No vaccine or chemoprophylaxis specifically prevents SRS.</p>
+<h2>14. Other species and natural disease</h2>
+<p>SMS and polyamine metabolism are deeply conserved across eukaryotes. Orthologues include <strong>Sms</strong> in <em>Mus musculus</em> (NCBI Taxonomy <strong>10090</strong>) and <strong>dSms</strong> in <em>Drosophila melanogaster</em> (Taxonomy <strong>7227</strong>). No well-established naturally occurring companion-animal, livestock, or wildlife disease equivalent was identified, and no breed association or VBO term is currently justified.</p>
+<p>SRS is noninfectious and has no zoonotic potential or cross-species transmission. Comparative relevance lies in conserved biochemical susceptibility rather than transmissibility.</p>
+<h2>15. Model organisms</h2>
+<h3>Drosophila</h3>
+<p>Loss of <strong>dSms</strong> recreates the high spermidine/low spermine imbalance and causes reduced viability/lifespan, locomotor impairment, synaptic and retinal degeneration, oxidative stress, lysosomal/autophagic dysfunction, and mitochondrial defects. Genetic or pharmacologic antioxidant enhancement suppresses oxidative stress, and PBA prolongs lifespan, making this a rapid in-vivo platform for mechanism and drug screening (<a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4">tao2022phenylbutyratemodulatespolyamine pages 2-4</a>).</p>
+<p><strong>Limitations:</strong> fly neuroanatomy, bone biology, pharmacokinetics, and dosing differ substantially from humans; rescue of lifespan or climbing is not equivalent to clinical benefit.</p>
+<h3>Mouse</h3>
+<p>The <strong>G56S Sms mouse</strong> carries a missense allele and lacks detectable SMS protein. It shows elevated spermidine:spermine ratio, failure to thrive, short stature, reduced bone density, learning impairment, anxiety-like behavior, reduced mobility, heightened fear responses, reduced total/regional brain volumes, and impaired mitochondrial oxidative phosphorylation in cortex, fibroblasts, and Sms-null hippocampal cells (<a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</p>
+<p>A useful exact abstract quotation is: <strong>“Collectively, our study establishes the suitability of the G56S mice as a preclinical model for SRS and provides a set of molecular and functional outcome measures that can be used to evaluate therapeutic interventions for SRS.”</strong> Publication: May 2024; DOI URL: <a href="https://doi.org/10.1242/dmm.050639" target="_blank" rel="noopener noreferrer">https://doi.org/10.1242/dmm.050639</a> (<a href="#ref-akinyele2024impairedpolyaminemetabolism-pages-1-3">akinyele2024impairedpolyaminemetabolism pages 1-3</a>).</p>
+<p><strong>Applications:</strong> pharmacokinetics, chronic safety, behavioral endpoints, MRI brain volume, bone density, polyamine ratios, and mitochondrial respiration. <strong>Limitations:</strong> one allele cannot represent the full human variant spectrum; anxiety/fear assays are indirect; lifespan and severe visceral phenotypes require further characterization.</p>
+<h3>Human cellular models</h3>
+<p>Patient lymphoblasts, fibroblasts, osteoblast-lineage marrow stromal cells, and engineered hippocampal cells are useful for enzyme activity, polyamine metabolomics, mineralization, lysosomal/autophagic flux, oxidative stress, acetyl-CoA/protein acetylation, and drug-response assays. Their main limitation is the inability to reproduce whole-organism development, blood–brain-barrier pharmacology, biomechanics, and systemic toxicity (<a href="#ref-albert2015impairedosteoblastand-pages-1-2">albert2015impairedosteoblastand pages 1-2</a>, <a href="#ref-li2017sperminesynthasedeficiency-pages-1-2">li2017sperminesynthasedeficiency pages 1-2</a>, <a href="#ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2">tao2022phenylbutyratemodulatespolyamine pages 1-2</a>).</p>
+<h2>Key evidence gaps and curation cautions</h2>
+<ol>
+<li>Incidence, prevalence, penetrance, life expectancy, and feature frequencies remain unknown.</li>
+<li>The apparent lack of a clear genotype–phenotype relationship is based on very small cohorts.</li>
+<li>Gastrointestinal and hepatopancreatic manifestations remain candidate phenotype expansions.</li>
+<li>N8-acetylspermidine and the spermidine:spermine ratio require assay standardization and prospective diagnostic validation.</li>
+<li>PBA, DFMO, antioxidants, analogues, and prodrugs remain experimental; no human SRS response rate or adverse-event profile exists.</li>
+<li>No established SRS single-cell, spatial, epigenomic, or comprehensive multi-omic reference dataset was identified.</li>
+<li>Exact PMIDs were not present in the retrieved source metadata; DOI URLs and publication dates are therefore supplied rather than inventing PMID assignments.</li>
+</ol>
+<p>Overall, the 2023–2024 literature materially advances SRS from a descriptive syndrome toward a testable metabolic-organelle disease model. The 2024 G56S mouse supplies translational outcome measures, while pathway-rebalancing studies identify SAT1, ornithine decarboxylase, acetyl-CoA homeostasis, oxidative stress, lysosomes, and mitochondrial respiration as candidate intervention points. The central translational challenge is to normalize polyamine flux without disrupting the essential developmental functions of spermine and spermidine.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-dontaine2021digestiveinvolvementin-pages-1-7"></a>(dontaine2021digestiveinvolvementin pages 1-7): Pauline Dontaine, Elisa Kottos, Martine Dassonville, Ovidiu Balasel, Véronique Catros, Julie Soblet, Pascale Perlot, and Catheline Vilain. Digestive involvement in a severe form of snyder-robinson syndrome: possible expansion of the phenotype. Jan 2021. URL: <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ejmg.2020.104097</a>, <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ejmg.2020.104097</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-albert2015impairedosteoblastand-pages-1-2"></a>(albert2015impairedosteoblastand pages 1-2): Jessica S Albert, Nisan Bhattacharyya, Lynne A Wolfe, William P Bone, Valerie Maduro, John Accardi, David R Adams, Charles E Schwartz, Joy Norris, Tim Wood, Rachel I Gafni, Michael T Collins, Laura L Tosi, Thomas C Markello, William A Gahl, and Cornelius F Boerkoel. Impaired osteoblast and osteoclast function characterize the osteoporosis of snyder - robinson syndrome. Orphanet Journal of Rare Diseases, Mar 2015. URL: <a href="https://doi.org/10.1186/s13023-015-0235-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-015-0235-8</a>, <a href="https://doi.org/10.1186/s13023-015-0235-8" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-015-0235-8</a>. This article has 64 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-li2017sperminesynthasedeficiency-pages-1-2"></a>(li2017sperminesynthasedeficiency pages 1-2): Chong Li, Jennifer M. Brazill, Sha Liu, Christofer Bello, Yi Zhu, Marie Morimoto, Lauren Cascio, Rini Pauly, Zoraida Diaz-Perez, May Christine V. Malicdan, Hongbo Wang, Luigi Boccuto, Charles E. Schwartz, William A. Gahl, Cornelius F. Boerkoel, and R. Grace Zhai. Spermine synthase deficiency causes lysosomal dysfunction and oxidative stress in models of snyder-robinson syndrome. Nature Communications, Nov 2017. URL: <a href="https://doi.org/10.1038/s41467-017-01289-7" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-017-01289-7</a>, <a href="https://doi.org/10.1038/s41467-017-01289-7" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-017-01289-7</a>. This article has 107 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-akinyele2024impairedpolyaminemetabolism-pages-1-3"></a>(akinyele2024impairedpolyaminemetabolism pages 1-3): Oluwaseun Akinyele, Anushe Munir, Marie A. Johnson, Megan S. Perez, Yuan Gao, Jackson R. Foley, Ashley Nwafor, Yijen Wu, Tracy Murray-Stewart, Robert A. Casero, Hülya Bayir, and Dwi U. Kemaladewi. Impaired polyamine metabolism causes behavioral and neuroanatomical defects in a mouse model of snyder–robinson syndrome. Disease Models &amp; Mechanisms, May 2024. URL: <a href="https://doi.org/10.1242/dmm.050639" target="_blank" rel="noopener noreferrer">https://doi.org/10.1242/dmm.050639</a>, <a href="https://doi.org/10.1242/dmm.050639" target="_blank" rel="noopener noreferrer">doi:10.1242/dmm.050639</a>. This article has 19 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mouskou2021novelhemizygousmissense-pages-1-2"></a>(mouskou2021novelhemizygousmissense pages 1-2): Stella Mouskou, Adamantios Katerelos, Artemis Doulgeraki, Sofia Leka-Emiri, Emmanouil Manolakos, Ioannis Papoulidis, Athina Ververi, Georgios Vartzelis, Anastasia Korona, Sotiria Mastroyanni, and Konstantinos Voudris. Novel hemizygous missense variant of spermine synthase (sms) gene causes snyder-robinson syndrome in a four-year-old boy. Molecular Syndromology, 12:194-200, Apr 2021. URL: <a href="https://doi.org/10.1159/000514122" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000514122</a>, <a href="https://doi.org/10.1159/000514122" target="_blank" rel="noopener noreferrer">doi:10.1159/000514122</a>. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-snyder-robinson-syndrome-sms"></a>(OpenTargets Search: Snyder-Robinson syndrome-SMS): Open Targets Query (Snyder-Robinson syndrome-SMS, 4 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-dontaine2021digestiveinvolvementin-pages-11-16"></a>(dontaine2021digestiveinvolvementin pages 11-16): Pauline Dontaine, Elisa Kottos, Martine Dassonville, Ovidiu Balasel, Véronique Catros, Julie Soblet, Pascale Perlot, and Catheline Vilain. Digestive involvement in a severe form of snyder-robinson syndrome: possible expansion of the phenotype. Jan 2021. URL: <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ejmg.2020.104097</a>, <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ejmg.2020.104097</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-qazi2020wholeexomesequencingidentifies-pages-1-3"></a>(qazi2020wholeexomesequencingidentifies pages 1-3): Talal J. Qazi, Qiao Wu, Ailikemu Aierken, Daru Lu, Ihtisham Bukhari, Hafiz M. J. Hussain, Jingmin Yang, Asif Mir, and Hong Qing. Whole-exome sequencing identifies a novel mutation in spermine synthase gene (sms) associated with snyder-robinson syndrome. BMC Medical Genetics, Aug 2020. URL: <a href="https://doi.org/10.1186/s12881-020-01095-x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12881-020-01095-x</a>, <a href="https://doi.org/10.1186/s12881-020-01095-x" target="_blank" rel="noopener noreferrer">doi:10.1186/s12881-020-01095-x</a>. This article has 13 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tao2022phenylbutyratemodulatespolyamine-pages-1-2"></a>(tao2022phenylbutyratemodulatespolyamine pages 1-2): Xianzun Tao, Yi Zhu, Zoraida Diaz-Perez, Seok-Ho Yu, Jackson R. Foley, Tracy Murray Stewart, Robert A. Casero, Richard Steet, and R. Grace Zhai. Phenylbutyrate modulates polyamine acetylase and ameliorates snyder-robinson syndrome in a drosophila model and patient cells. JCI Insight, Jul 2022. URL: <a href="https://doi.org/10.1172/jci.insight.158457" target="_blank" rel="noopener noreferrer">https://doi.org/10.1172/jci.insight.158457</a>, <a href="https://doi.org/10.1172/jci.insight.158457" target="_blank" rel="noopener noreferrer">doi:10.1172/jci.insight.158457</a>. This article has 21 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tao2022phenylbutyratemodulatespolyamine-pages-2-4"></a>(tao2022phenylbutyratemodulatespolyamine pages 2-4): Xianzun Tao, Yi Zhu, Zoraida Diaz-Perez, Seok-Ho Yu, Jackson R. Foley, Tracy Murray Stewart, Robert A. Casero, Richard Steet, and R. Grace Zhai. Phenylbutyrate modulates polyamine acetylase and ameliorates snyder-robinson syndrome in a drosophila model and patient cells. JCI Insight, Jul 2022. URL: <a href="https://doi.org/10.1172/jci.insight.158457" target="_blank" rel="noopener noreferrer">https://doi.org/10.1172/jci.insight.158457</a>, <a href="https://doi.org/10.1172/jci.insight.158457" target="_blank" rel="noopener noreferrer">doi:10.1172/jci.insight.158457</a>. This article has 21 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mouskou2021novelhemizygousmissense-pages-4-5"></a>(mouskou2021novelhemizygousmissense pages 4-5): Stella Mouskou, Adamantios Katerelos, Artemis Doulgeraki, Sofia Leka-Emiri, Emmanouil Manolakos, Ioannis Papoulidis, Athina Ververi, Georgios Vartzelis, Anastasia Korona, Sotiria Mastroyanni, and Konstantinos Voudris. Novel hemizygous missense variant of spermine synthase (sms) gene causes snyder-robinson syndrome in a four-year-old boy. Molecular Syndromology, 12:194-200, Apr 2021. URL: <a href="https://doi.org/10.1159/000514122" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000514122</a>, <a href="https://doi.org/10.1159/000514122" target="_blank" rel="noopener noreferrer">doi:10.1159/000514122</a>. This article has 9 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-dontaine2021digestiveinvolvementin-pages-16-21"></a>(dontaine2021digestiveinvolvementin pages 16-21): Pauline Dontaine, Elisa Kottos, Martine Dassonville, Ovidiu Balasel, Véronique Catros, Julie Soblet, Pascale Perlot, and Catheline Vilain. Digestive involvement in a severe form of snyder-robinson syndrome: possible expansion of the phenotype. Jan 2021. URL: <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ejmg.2020.104097</a>, <a href="https://doi.org/10.1016/j.ejmg.2020.104097" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ejmg.2020.104097</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wu2024structuralinsightsinto-pages-11-12"></a>(wu2024structuralinsightsinto pages 11-12): Bing Wu and Sen Liu. Structural insights into the mechanisms underlying polyaminopathies. International Journal of Molecular Sciences, 25:6340, Jun 2024. URL: <a href="https://doi.org/10.3390/ijms25126340" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25126340</a>, <a href="https://doi.org/10.3390/ijms25126340" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25126340</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-akinyele2024impairedpolyaminemetabolism-pages-21-24"></a>(akinyele2024impairedpolyaminemetabolism pages 21-24): Oluwaseun Akinyele, Anushe Munir, Marie A. Johnson, Megan S. Perez, Yuan Gao, Jackson R. Foley, Ashley Nwafor, Yijen Wu, Tracy Murray-Stewart, Robert A. Casero, Hülya Bayir, and Dwi U. Kemaladewi. Impaired polyamine metabolism causes behavioral and neuroanatomical defects in a mouse model of snyder–robinson syndrome. Disease Models &amp; Mechanisms, May 2024. URL: <a href="https://doi.org/10.1242/dmm.050639" target="_blank" rel="noopener noreferrer">https://doi.org/10.1242/dmm.050639</a>, <a href="https://doi.org/10.1242/dmm.050639" target="_blank" rel="noopener noreferrer">doi:10.1242/dmm.050639</a>. This article has 19 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Snyder-Robinson_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="SNIP1-Related_Neurodevelopmental_Disorder-claude_code.html">← SNIP1-Related Neurodevelopmental Disorder (Claude Code)</a>
+                
+                
+                <a href="Social_Anxiety_Disorder-falcon.html">Social Anxiety Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Snyder-Robinson_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Snyder-Robinson_Syndrome-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
