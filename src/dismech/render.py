@@ -18,6 +18,12 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech.entity_refs import (
+    DISEASE_KIND,
+    SECTION_KEYS,
+    canonical_kind,
+    section_items,
+)
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
@@ -37,6 +43,14 @@ from dismech.yaml_io import safe_load, safe_load_path
 # libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
 # (introduced in issue #5198, consolidated in #7502).
 _fast_yaml_load = safe_load
+
+
+#: Non-canonical entity-reference prefixes, mapped to the schema slot name.
+#: Handed to the templates so client-side code canonicalises a prefix the same
+#: way :func:`dismech.entity_refs.canonical_kind` does.
+ENTITY_REF_KIND_ALIASES: dict[str, str] = {
+    kind: canonical_kind(kind) for kind in SECTION_KEYS if canonical_kind(kind) != kind
+}
 
 
 @lru_cache(maxsize=8)
@@ -64,6 +78,22 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # (issue #8402). A global for the same reason: it depends only on the two
     # strings, never on which page is being rendered.
     env.globals["label_restates_title"] = label_restates_title
+    # Whether a curated free-text identifier is CURIE-shaped, so it can be
+    # rendered as a resolver chip instead of dead text (issue #8044). Also
+    # depends only on its argument.
+    env.globals["is_curie"] = is_curie
+    # Whether a reference (PMID/DOI) is a preprint, so the UI can flag it as not
+    # peer-reviewed. A global for the same reason: it depends only on the
+    # reference identifier, never on which page is being rendered.
+    env.globals["is_preprint"] = _reference_is_preprint
+    # Alias -> schema-slot map for the pathograph's jump-to-card fallback
+    # (issue #9394). A card advertises its section in the singular
+    # (`data-dismech-type="phenotype"`), while a normalised reference carries
+    # the schema slot (`phenotypes#Name`), so the JS has to canonicalise both
+    # sides before comparing them or the section-preference step silently
+    # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
+    # drift from the resolver. Page-independent, hence a global.
+    env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
     return env
 
 
@@ -167,6 +197,26 @@ def _load_prefix_map() -> dict:
         for prefix, base in prefixes.items()
         if isinstance(prefix, str) and isinstance(base, str)
     }
+
+
+_CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*:[^\s]+$")
+
+
+def is_curie(value: object) -> bool:
+    """Whether a string is CURIE-shaped, so it is worth handing to a resolver.
+
+    Used for identifiers curated as free text -- an ``ExternalAssertion``'s
+    ``external_id`` is ``ORPHA:558`` on one record and an opaque ClinGen
+    ``assertion_<uuid>-<timestamp>`` on the next, and only the former should
+    become a resolver link.
+
+    Shape is all this can promise. ``curie_to_url`` never fails: a prefix the
+    schema map does not carry (``ORPHA``, ``OMIM`` and ``CGGV`` are all absent)
+    falls through to ``https://bioregistry.io/{curie}``, which resolves for a
+    registered prefix and 404s otherwise. That is the same treatment these
+    identifiers already get as evidence references elsewhere on the page.
+    """
+    return bool(value) and bool(_CURIE_RE.match(str(value)))
 
 
 def curie_to_url(curie: str) -> str:
@@ -469,23 +519,198 @@ def _annotate_variant_anchors(disorder: dict) -> None:
         )
 
 
-def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
-    """Resolve YAML semantic refs to in-page HTML fragment links."""
-    ref_index: dict[str, str] = {}
+# Sections that are the *target* of a hash-anchor entity reference
+# (`attaches_to`, `would_support`, `would_refute`, perturbation/readout
+# `target`) but are not pathograph nodes, so their cards carry no
+# `data-dismech-node` pair -- the anchor exists purely so a reference chip can
+# link to the card (issue #9193). The second element is the anchor-ID prefix;
+# the third names the slots an entity reference matches on, mirroring
+# `entity_refs.SECTION_KEYS` for these sections.
+#
+# Only sections the disorder template actually renders are listed. `diagnosis`,
+# `prevalence`, `progression`, `imaging_findings`, `epidemiology`,
+# `transmission`, `infectious_agent` and `stages` are referenced in content but
+# have no card on the page at all, so there is nothing to link to; those refs
+# stay plain chips until the page renders them.
+#: Section slot -> the `id` its card already carries in the template, for
+#: resolving a whole-section reference (`treatments#`). Only sections the page
+#: actually renders a card for appear here; `prevalence`, `progression`,
+#: `diagnosis`, `clinical_burden` and friends have no card, so a whole-section
+#: reference to them stays a plain chip (issue #9394).
+_SECTION_CARD_ANCHORS: dict[str, str] = {
+    "definitions": "definitions",
+    "inheritance": "inheritance",
+    "has_subtypes": "subtypes",
+    "mechanistic_hypotheses": "mechanistic-hypotheses",
+    "discussions": "discussions",
+    "pathophysiology": "pathophysiology",
+    "histopathology": "histopathology",
+    "phenotypes": "phenotypes",
+    "genetic": "genetic",
+    "variants": "variants",
+    "external_assertions": "external-assertions",
+    "treatments": "treatments",
+    "differential_diagnoses": "differentials",
+    "datasets": "datasets",
+    "clinical_trials": "trials",
+    # These two have *dedicated* anchor divs immediately above their cards --
+    # `<div id="experimental-models"></div>` and `<div id="animal-models"></div>`
+    # -- each inside `{% if <section> %}`, exactly the guard below. Prefer them
+    # over the `models` id the cards also carry: that one is shared, and lands
+    # on whichever model card renders first (`{% if not experimental_models %}`
+    # on the animal card, and likewise for computational), so it is not a
+    # per-section anchor at all.
+    "experimental_models": "experimental-models",
+    "animal_models": "animal-models",
+    # `computational_models` has no dedicated anchor -- only the shared,
+    # conditional `models` id -- so there is nothing a per-section guard can
+    # safely point at, and pointing it at a card showing *other* models would be
+    # a wrong target rather than a missing one. `comorbidities` is absent
+    # because it is not a Disease slot and so never appears in SECTION_KEYS.
+}
 
-    pathophysiology_items = disorder.get("pathophysiology") or []
-    if isinstance(pathophysiology_items, list):
-        for item in pathophysiology_items:
+#: HTML id on the page header, the target of a `disease#<name>` reference.
+_DISEASE_ANCHOR_ID = "disease-entry"
+
+_REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("definitions", "definition"),
+    ("inheritance", "inheritance"),
+    ("has_subtypes", "subtype"),
+    ("histopathology", "histopathology"),
+    ("differential_diagnoses", "differential-diagnosis"),
+    ("datasets", "dataset"),
+    ("clinical_trials", "clinical-trial"),
+)
+
+
+def _section_key_slots(section_key: str) -> tuple[str, ...]:
+    """The slots an entity reference matches on, per ``SECTION_KEYS``.
+
+    Read out of that map rather than restated here: two maps that must agree
+    eventually disagree, and `SECTION_KEYS` being the single source of truth is
+    the whole point of `entity_refs`.
+    """
+    for slot, key_slots in SECTION_KEYS.values():
+        if slot == section_key:
+            return key_slots
+    return ("name",)
+
+
+def _annotate_ref_target_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to cards that entity references point at.
+
+    The ID is derived from the first key slot the item actually carries, so a
+    dataset referenced by accession and one referenced by title both land on
+    their own card. IDs are de-duplicated within a section because two items
+    may slugify to the same value.
+    """
+    for section_key, prefix in _REF_TARGET_ANCHOR_SECTIONS:
+        key_slots = _section_key_slots(section_key)
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
             if not isinstance(item, dict):
                 continue
-            name = item.get("name")
-            if not name:
-                continue
-            anchor_id = item.get("_anchor_id") or _make_anchor_id(
-                "pathophysiology", str(name)
+            value = next(
+                (item.get(k) for k in key_slots if isinstance(item.get(k), str) and item.get(k)),
+                None,
             )
-            item.setdefault("_anchor_id", anchor_id)
-            ref_index[f"pathophysiology#{name}"] = f"#{anchor_id}"
+            if not value:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(prefix, str(value)), used
+            )
+
+
+def _annotate_external_assertion_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to disease-level external assertions (issue #8044).
+
+    These are not pathograph nodes -- ``dismech.graph`` emits none -- so the
+    cards carry no ``data-dismech-node`` pair; the anchor exists so the section
+    can be deep-linked and so future cross-references have a target. IDs are
+    de-duplicated because two registry records may slugify to the same value.
+    """
+    assertions = disorder.get("external_assertions") or []
+    if not isinstance(assertions, list):
+        return
+    used: set[str] = set()
+    for assertion in assertions:
+        if not isinstance(assertion, dict):
+            continue
+        name = assertion.get("name") or assertion.get("external_id")
+        if not name:
+            continue
+        assertion["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("external-assertion", str(name)), used
+        )
+
+
+def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
+    """Resolve YAML semantic refs to in-page HTML fragment links.
+
+    Driven by ``entity_refs.SECTION_KEYS`` -- the same map the foreign-key test
+    resolves against -- so a reference that the test says points at a real
+    object becomes a live in-page link rather than a dead chip (issue #9193).
+    Both the singular and plural spelling of a section resolve, because content
+    uses both.
+
+    A section whose cards carry no ``_anchor_id`` is skipped: the page has no
+    target for it, and emitting a link to an anchor that does not exist is
+    worse than leaving the chip plain. Call this after the ``_annotate_*``
+    anchor passes.
+    """
+    ref_index: dict[str, str] = {}
+
+    # `disease#<name>` is a virtual whole-entry anchor rather than a section, so
+    # it is absent from SECTION_KEYS by design (see entity_refs) and has to be
+    # indexed on its own. It points at the page header.
+    disease_name = disorder.get("name")
+    if isinstance(disease_name, str) and disease_name:
+        ref_index[f"{DISEASE_KIND}#{disease_name}"] = f"#{_DISEASE_ANCHOR_ID}"
+    # `disease#` with an empty anchor is the same target.
+    ref_index[f"{DISEASE_KIND}#"] = f"#{_DISEASE_ANCHOR_ID}"
+
+    # Whole-section references (`treatments#`), for the sections that have a
+    # card to jump to. Both spellings of a section resolve to the same card.
+    #
+    # Note this is deliberately stricter than *resolution*: `treatments#`
+    # resolves in an entry curating no treatments (that is the point -- a
+    # KNOWLEDGE_GAP attached to a section because it is empty), but the card is
+    # only rendered when the section has content, so linking to `#treatments`
+    # there would point at an anchor that does not exist on the page. Resolution
+    # answers "is this a real section"; the link answers "is there somewhere to
+    # jump to", and they are not the same question.
+    for kind, (section_key, _keys) in SECTION_KEYS.items():
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{kind}#", f"#{card}")
+
+    for kind, (section_key, key_slots) in SECTION_KEYS.items():
+        for item in section_items(disorder, section_key):
+            if not isinstance(item, dict):
+                continue
+            if section_key == "pathophysiology":
+                # The only section whose anchor is derivable without an
+                # annotate pass, and the one every other page feature already
+                # assumes is present.
+                name = item.get("name")
+                if not name:
+                    continue
+                item.setdefault(
+                    "_anchor_id", _make_anchor_id("pathophysiology", str(name))
+                )
+            elif section_key == "discussions":
+                # Discussion cards use the raw discussion_id as their HTML id.
+                item.setdefault("_anchor_id", item.get("discussion_id"))
+            anchor_id = item.get("_anchor_id")
+            if not anchor_id:
+                continue
+            for key in key_slots:
+                value = item.get(key)
+                if isinstance(value, str) and value:
+                    ref_index.setdefault(f"{kind}#{value}", f"#{anchor_id}")
 
     return ref_index
 
@@ -1997,6 +2222,8 @@ def render_disorder(
     _annotate_model_links(disorder)
     _annotate_card_anchors(disorder)
     _annotate_variant_anchors(disorder)
+    _annotate_external_assertion_anchors(disorder)
+    _annotate_ref_target_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -2619,6 +2846,62 @@ def _curie_url(curie: str | None) -> str | None:
     if upper in _OBO_CURIE_PREFIXES:
         return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
     return f"https://bioregistry.io/{prefix}:{local}"
+
+
+# Preprint-server DOI patterns. Each is unambiguous: a bioRxiv/medRxiv work
+# carries the dated `YYYY.MM.DD.` local part (Cold Spring Harbor *journal* DOIs
+# under 10.1101 never do), and the other prefixes are single-purpose preprint
+# servers. Used to flag "not peer-reviewed" in the UI even when a reference cache
+# file predates the fetcher writing an `is_preprint` flag.
+_PREPRINT_DOI_RE = re.compile(
+    r"""^10\.(
+        (1101|64898)/\d{4}\.\d{2}\.\d{2}\.   # bioRxiv / medRxiv (dated)
+        | 21203/                              # Research Square
+        | 20944/preprints                     # Preprints.org
+        | 2139/ssrn                           # SSRN
+    )
+    | ^10\.48550/arxiv                        # arXiv
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Anchor to the repo root, not the process CWD: render is imported and called
+# from many working directories, and a CWD-relative path would silently drop
+# every preprint badge (the OSError below would swallow the miss). Mirrors the
+# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
+_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
+
+
+@lru_cache(maxsize=4096)
+def _reference_is_preprint(reference: str | None) -> bool:
+    """Whether a reference CURIE denotes a preprint (not peer-reviewed).
+
+    Two signals, in order of cost. First, a DOI whose shape is a known
+    preprint-server pattern (no I/O). Second, the reference's cache file
+    frontmatter, which the fetcher stamps with ``is_preprint``/
+    ``peer_review_status`` for records it fetched — the authoritative signal for
+    anything the pattern misses (e.g. a preprint indexed only under a PMID).
+    """
+    if not reference or ":" not in reference:
+        return False
+    prefix, local = reference.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
+        return True
+    cache_path = _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    try:
+        with cache_path.open(encoding="utf-8") as handle:
+            if handle.readline().strip() != "---":
+                return False
+            for line in handle:
+                stripped = line.strip()
+                if stripped == "---":
+                    break
+                if stripped in ("is_preprint: true", "peer_review_status: preprint"):
+                    return True
+    except OSError:
+        return False
+    return False
 
 
 def _external_link(href: str, label: str) -> str:
