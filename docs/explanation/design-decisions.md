@@ -106,6 +106,18 @@ disorders. A disorder node declares `conforms_to: "module_name#Node Name"`. This
 content and substitute organ-specific cell types/genes. Modules deliberately do not act
 as a base class that disorders inherit from.
 
+**Parallel drug targets may share one mechanism module (2026-08-08).** The
+`fungal_ergosterol_synthesis_inhibition` module keeps the allylamine target Erg1
+(squalene epoxidase) and the azole target Cyp51/Erg11 (sterol
+14-alpha-demethylase) as parallel therapeutic-vulnerability branches in one module.
+The targets are separated by many biosynthetic intermediates, so neither is modeled
+as directly causing the other. They belong together because both normal dependencies
+converge on ergosterol production and ergosterol-dependent fungal plasma-membrane
+organization. Conformance is branch-specific: a disorder duplicates the applicable
+target-to-ergosterol-to-membrane slice and need not duplicate the other target branch.
+This is analogous to retaining distinct DHPS and DHFR targets within one conserved
+bacterial folate-pathway module.
+
 **Causal graph / pathograph.** Pathophysiology nodes connect via `downstream` causal
 edges with a `causal_link_type`, forming a directed graph from etiology to phenotypes.
 This graph backs the rendered pathographs and the computational-model integration

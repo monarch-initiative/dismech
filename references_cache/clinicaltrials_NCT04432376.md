@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04432376"
+reference_id: clinicaltrials:NCT04432376
 title: "Randomized, Double-blind, Phase III Study of the Efficacy and Safety of Miconazole Oil Versus Vehicle Oil in the Treatment of Otomycosis, Followed by an Open-label Safety Evaluation"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Randomized, Double-blind, Phase III Study of the Efficacy and Safety of Miconazole Oil Versus Vehicle Oil in the Treatment of Otomycosis, Followed by an Open-label Safety Evaluation

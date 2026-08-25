@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07385638"
+reference_id: clinicaltrials:NCT07385638
 title: "Phase 2, Open-label Evaluation of Olorofim in Early Coccidioidal Meningitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 2, Open-label Evaluation of Olorofim in Early Coccidioidal Meningitis
