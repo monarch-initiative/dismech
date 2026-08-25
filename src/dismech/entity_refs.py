@@ -6,7 +6,7 @@ hash-anchor grammar the schema documents on ``Discussion.attaches_to``::
     [<file>:]<kind>#<name>
 
     pathophysiology#Amyloid Plaque Formation
-    phenotype#Memory Loss
+    phenotypes#Memory Loss
     Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 
 The same grammar is reused by ``Experiment.would_support`` /
@@ -22,14 +22,17 @@ which occur in committed content:
 
 * ``disease#`` is not a section at all — it is a virtual anchor for the whole
   entry, matched against the top-level ``name``.
-* ``mechanistic_hypothesis#`` resolves against ``hypothesis_group_id``, not
+* ``mechanistic_hypotheses#`` resolves against ``hypothesis_group_id``, not
   ``name`` (``MechanisticHypothesis`` has no ``name`` slot).
 * ``prevalence#`` resolves against ``population``, likewise.
 
-Curated content also drifts between singular and plural prefixes
-(``treatment#`` 53 vs ``treatments#`` 122; ``phenotype#`` 79 vs
-``phenotypes#`` 82). Both forms are accepted; content is not churned to
-normalise them.
+``<kind>`` is the schema slot name of the section referred to. Curated content
+used to drift between singular and plural spellings of the same section; it was
+normalised to the slot-name form in issue #9394, so that a reference's prefix is
+derivable from the schema rather than from this map, and so that grepping for
+``phenotypes#`` finds every phenotype reference. The singular aliases are kept
+here and still resolve — an entry written before the normalisation, or by hand
+today, is not a defect.
 
 A reference may also name a **whole section** by leaving the anchor empty::
 
@@ -69,6 +72,7 @@ __all__ = [
     "SINGLETON_SECTIONS",
     "EntityRef",
     "EntityRefSite",
+    "canonical_kind",
     "entity_ref_index",
     "iter_entity_refs",
     "parse_entity_ref",
@@ -187,6 +191,23 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
 REF_SLOTS: frozenset[str] = frozenset(
     {"attaches_to", "would_support", "would_refute", "target"}
 )
+
+
+def canonical_kind(kind: str) -> str:
+    """The schema-slot spelling of ``kind``, or ``kind`` unchanged.
+
+    ``SECTION_KEYS`` accepts a singular alias beside most section slots
+    (``phenotype#`` beside ``phenotypes#``), because curated content grew both.
+    The canonical spelling is the schema slot itself: it makes a reference's
+    prefix derivable from the schema rather than from this map, and it makes
+    ``phenotypes#`` a grep that actually finds every phenotype reference. The KB
+    was normalised to it in issue #9394; the aliases still resolve.
+
+    ``disease#`` is a virtual anchor for the whole entry rather than a section,
+    and an unmapped prefix is not ours to rename, so both are returned as-is.
+    """
+    slot = SECTION_KEYS.get(kind, (kind,))[0]
+    return slot if slot in SECTION_KEYS else kind
 
 
 def parse_entity_ref(ref: Any) -> EntityRef | None:
