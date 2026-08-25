@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mitchell-Riley Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Mitchell-Riley Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Mitchell-Riley Syndrome</h1>
+                
+                <p class="report-subtitle">Mitchell-Riley Syndrome: Comprehensive Disease Research Report</p>
+                
+                
+                <div class="report-date">2026-08-16</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017400" target="_blank" rel="noopener noreferrer">MONDO:0017400</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Mitchell-Riley Syndrome: Comprehensive Disease Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Mitchell-Riley syndrome (MRS; also called Mitchell-Riley/Martinez-Frias syndrome) is an ultra-rare, autosomal recessive multisystem disorder of endoderm-derived organ development. It is defined by a core tetrad of <strong>neonatal (permanent) diabetes mellitus, pancreatic hypoplasia (or annular pancreas), gallbladder aplasia/agenesis or hypoplasia, and duodenal and/or jejunal atresia</strong>, typically accompanied by severe protracted/chronic diarrhea and additional hepatobiliary, hematologic, and growth abnormalities (Smith et al. 2010, <em>Nature</em>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">20148032</a>; OMIM #615710). The disorder is caused by biallelic (homozygous or compound heterozygous) loss-of-function mutations in <strong>RFX6</strong> (Regulatory Factor X, 6), a winged-helix transcription factor essential for pancreatic islet and gut endocrine cell development.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #615710 (MITCHELL-RILEY SYNDROME; MTCHRS) — <a href="https://omim.org/entry/615710">omim.org/entry/615710</a>
+- <strong>Gene OMIM:</strong> <em>612659 (REGULATORY FACTOR X, 6; RFX6)
+- </em><em>Orphanet:</em><em> <a href="https://bioregistry.io/ORPHA:293864" target="_blank" rel="noopener noreferrer">ORPHA:293864</a>
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0017400" target="_blank" rel="noopener noreferrer">MONDO:0017400</a>
+- </em><em>MeSH/ICD:</em><em> No dedicated ICD-10/ICD-11 code exists; entries are typically coded with the components — neonatal diabetes (ICD-10 P70.2), duodenal atresia (Q41.0), gallbladder agenesis (Q44.0)
+- </em><em>HGNC:</em><em> <a href="https://bioregistry.io/HGNC:21478" target="_blank" rel="noopener noreferrer">HGNC:21478</a> (RFX6); </em><em>NCBI Gene:</em><em> 222546; chromosomal location </em><em>6q22.1</em><em>
+- </em><em>Related/overlapping designation:</em><em> </em>Martinez-Frias syndrome<em> (OMIM #601346) — an earlier-described, phenotypically overlapping visceral-malformation syndrome (duodenal atresia, extrahepatic biliary atresia, hypoplastic pancreas, IUGR, ± tracheoesophageal fistula/hypospadias) that was subsequently shown to be allelic to Mitchell-Riley syndrome via RFX6 mutation (research on "Martinez-Frias syndrome: Evidence of linkage to RFX6 mutation," </em>Am J Med Genet A*). The two eponyms are now generally regarded as the same disease entity across a phenotypic spectrum, and several recent papers use the combined name "Mitchell-Riley/Martinez-Frias syndrome."</p>
+<p><strong>Synonyms:</strong> Mitchell-Riley syndrome; MRS; MTCHRS; Hypoplastic pancreas-intestinal atresia-hypoplastic gallbladder syndrome (NCBI GTR/UMLS C2748662); Martinez-Frias syndrome (overlapping/allelic disorder); "RFX6-related neonatal diabetes with congenital malformations."</p>
+<p><strong>Nature of evidence base:</strong> Information is derived almost entirely from <strong>aggregated case reports and small case series</strong> (individual patients or small consanguineous families), not large cohort registries — reflecting the disease's extreme rarity. As of the most recent comprehensive case series (Concepcion/2022 outcomes paper, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/35813646/">35813646</a>), roughly 16–20 genetically confirmed cases have been published worldwide since the disease's molecular description in 2010, supplemented by mechanistic data from mouse, zebrafish, human iPSC/stem-cell-derived islet, and intestinal-organoid models.</p>
+<p><strong>Sources:</strong>
+- <a href="https://omim.org/entry/615710">Entry - #615710 - MITCHELL-RILEY SYNDROME; MTCHRS - OMIM</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">Rfx6 directs islet formation and insulin production in mice and humans - PubMed</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes and Searching for Functional Impact of RFX-6 Mutations - PMC</a>
+- <a href="https://link.springer.com/rwe/10.1007/978-3-319-66816-1_820-1">Martinez-Frias Syndrome | Springer Nature Link</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> Mitchell-Riley syndrome is a <strong>monogenic, purely genetic disorder</strong> — biallelic loss-of-function variants in RFX6, inherited in an <strong>autosomal recessive</strong> pattern. There is no known environmental, infectious, or purely mechanistic (non-genetic) causal contribution; this is a pure Mendelian disorder of endoderm organogenesis.</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>Causal variants:</strong> Homozygous or compound-heterozygous RFX6 variants — nonsense, frameshift, splice-site, and missense changes affecting the DNA-binding (winged-helix) domain or downstream dimerization/activation domains. Documented pathogenic alleles include c.1517T&gt;G (p.Val506Gly), c.541C&gt;T (p.Arg181Trp), c.505-2A&gt;G (splice acceptor) + c.2782A&gt;G (compound heterozygote), c.1153C&gt;T (p.Arg385<em>), and c.1129C&gt;T (nonsense, producing a truncated protein lacking the C-terminal dimerization domain) (PMC9257252; PMC5096485; </em>Development<em> 2020 iPSC paper).
+- </em><em>Consanguinity:</em><em> A strong risk factor — most reported families are consanguineous (first- or third-degree relative unions), consistent with a rare autosomal recessive disease; homozygosity for the same allele is the most frequently reported genotype.
+- </em><em>Founder/enriched alleles:</em><em> The RFX6 truncating variant </em><em>p.His293LeufsTer7</em><em> is markedly enriched in the </em><em>Finnish population</em><em> (~1:250 carrier frequency versus 0.027–0.045% in non-Finnish European gnomAD/ExAC populations, a roughly 10-fold enrichment attributable to the Finnish population bottleneck) (RFX6 haploinsufficiency paper, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/38743124/">38743124</a>). This allele in the heterozygous state is more relevant to MODY/T2D risk (see below) than to biallelic Mitchell-Riley syndrome, but establishes that RFX6 carrier frequency is population-stratified.
+- </em><em>Modifier/allelic-series relationship:</em><em> RFX6 is a genuinely </em><em>allelic-series gene</em><em> — biallelic severe (null) variants cause Mitchell-Riley syndrome; biallelic hypomorphic/missense variants can cause a milder syndromic or non-syndromic </em><em>childhood-onset diabetes</em><em> without the full visceral-malformation phenotype (Patel et al., </em>Eur J Hum Genet<em>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/26264437/">26264437</a>: "Biallelic RFX6 mutations can cause childhood as well as neonatal onset diabetes mellitus"); and </em><em>heterozygous RFX6 protein-truncating variants</em><em> cause a distinct, reduced-penetrance </em><em>MODY</em><em> phenotype (~27% penetrance by age 25, versus 70% for HNF1A-MODY and 55% for HNF4A-MODY) (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/29026101/">29026101</a>; PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/38743124/">38743124</a> — haploinsufficiency shown to impair SC-islet beta-cell maturation, calcium signaling, and insulin secretion by ~54–62%). Common/non-coding RFX6 variants are additionally associated with garden-variety </em><em>type 2 diabetes</em>* risk in GWAS.
+- No specific environmental exposures, teratogens, maternal illness, or infections have been implicated as causal or contributory in any reported case.</p>
+<p><strong>Protective factors:</strong> None specifically described; there is no reported protective genetic variant or environmental exposure literature specific to RFX6/Mitchell-Riley syndrome (unlike common T2D, where protective RFX6 alleles have not been separately characterized in the literature retrieved).</p>
+<p><strong>Gene-environment interactions:</strong> None reported — the severe biallelic phenotype is fully genetically determined; disease severity/survival is modulated by <strong>postnatal clinical management</strong> (nutrition, transplantation) rather than by environmental causal interaction with genotype.</p>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017400" target="_blank" rel="noopener noreferrer">MONDO:0017400</a> (disease); <a href="https://bioregistry.io/HGNC:21478" target="_blank" rel="noopener noreferrer">HGNC:21478</a> / NCBI Gene:222546 (RFX6); inheritance — <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> (Autosomal recessive inheritance); GENO term for biallelic/homozygous genotype.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">Rfx6 directs islet formation and insulin production in mice and humans - PubMed</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/26264437/">Biallelic RFX6 mutations can cause childhood as well as neonatal onset diabetes mellitus - PubMed</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29026101/">Heterozygous RFX6 protein truncating variants are associated with MODY with reduced penetrance - PubMed</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11343796/">RFX6 haploinsufficiency predisposes to diabetes through impaired beta cell function - PMC</a></p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The clinical picture is a multisystem endodermal-organ malformation/functional-deficiency syndrome. Phenotypes below are organized by category with onset, severity/frequency, and suggested HPO terms (IDs given where high-confidence; all should be re-verified against the current HPO release before KB entry).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Category</th>
+<th>Onset</th>
+<th>Frequency/Notes</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neonatal (permanent) insulin-dependent diabetes mellitus</td>
+<td>Lab/clinical sign</td>
+<td>Neonatal (often first days of life)</td>
+<td>Essentially universal (defining feature); low/undetectable C-peptide; severe, glucagon-resistant hypoglycemia risk during management</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000857" target="_blank" rel="noopener noreferrer">HP:0000857</a> Neonatal insulin-dependent diabetes mellitus</td>
+</tr>
+<tr>
+<td>Pancreatic hypoplasia / annular pancreas</td>
+<td>Structural/imaging</td>
+<td>Congenital (prenatal-detectable)</td>
+<td>Core defining feature; variable severity, from mild hypoplasia to near-agenesis of exocrine tissue</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008935" target="_blank" rel="noopener noreferrer">HP:0008935</a> Pancreatic hypoplasia (verify ID); <a href="http://purl.obolibrary.org/obo/HP_0001734" target="_blank" rel="noopener noreferrer">HP:0001734</a> Annular pancreas</td>
+</tr>
+<tr>
+<td>Duodenal and/or jejunal atresia/stenosis</td>
+<td>Structural, often prenatally diagnosed</td>
+<td>Congenital</td>
+<td>Defining feature; frequently detected on prenatal ultrasound (polyhydramnios, "double bubble" sign)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002247" target="_blank" rel="noopener noreferrer">HP:0002247</a> Duodenal stenosis; <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" rel="noopener noreferrer">HP:0006579</a> (jejunal atresia — verify)</td>
+</tr>
+<tr>
+<td>Gallbladder aplasia/agenesis or hypoplasia (± extrahepatic biliary atresia)</td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Defining feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a> Abnormality of the gallbladder (parent term; verify specific aplasia term)</td>
+</tr>
+<tr>
+<td>Intestinal malrotation</td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Common associated feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" rel="noopener noreferrer">HP:0002566</a> Intestinal malrotation</td>
+</tr>
+<tr>
+<td>Severe, protracted (often intractable) diarrhea</td>
+<td>Symptom/GI</td>
+<td>Neonatal onset, chronic</td>
+<td>Near-universal; drives high parenteral-nutrition dependency; linked mechanistically to enteroendocrine cell loss (see Mechanism)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea; consider "chronic diarrhea" qualifier</td>
+</tr>
+<tr>
+<td>Exocrine pancreatic insufficiency</td>
+<td>Lab abnormality</td>
+<td>Neonatal/early</td>
+<td>Universal in reported cohort; low/absent fecal elastase; only partially responsive to enzyme replacement</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" rel="noopener noreferrer">HP:0001738</a> Exocrine pancreatic insufficiency</td>
+</tr>
+<tr>
+<td>Intrauterine growth restriction (IUGR) / small for gestational age</td>
+<td>Growth</td>
+<td>Prenatal/birth</td>
+<td>Very common (in the 4-patient outcomes series, all were SGA)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" rel="noopener noreferrer">HP:0001518</a> Small for gestational age</td>
+</tr>
+<tr>
+<td>Cholestasis (± progressive liver failure)</td>
+<td>Hepatobiliary</td>
+<td>Neonatal-infancy</td>
+<td>Reported in 3/4 patients in the largest recent series; one required liver transplant at 7 months for progressive failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" rel="noopener noreferrer">HP:0001396</a> Cholestasis</td>
+</tr>
+<tr>
+<td>Normocytic normochromic anemia</td>
+<td>Hematologic</td>
+<td>From birth</td>
+<td>Reported in all 4 patients of the outcomes series; required transfusions</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001923" target="_blank" rel="noopener noreferrer">HP:0001923</a> Normocytic anemia (verify)</td>
+</tr>
+<tr>
+<td>Vitamin K deficiency / coagulopathy (± low Factor VII, Factor IX deficiency)</td>
+<td>Lab/hematologic</td>
+<td>Infancy</td>
+<td>Reported; associated bleeding risk</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001928" target="_blank" rel="noopener noreferrer">HP:0001928</a> Diathesis (or specific coagulation factor deficiency term)</td>
+</tr>
+<tr>
+<td>Metabolic (often lactic/anion-gap) acidosis</td>
+<td>Lab</td>
+<td>Infancy, recurrent</td>
+<td>3/4 patients in outcomes series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" rel="noopener noreferrer">HP:0001942</a> Metabolic acidosis</td>
+</tr>
+<tr>
+<td>Necrotizing enterocolitis</td>
+<td>GI complication</td>
+<td>Neonatal</td>
+<td>Reported complication in a subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004375" target="_blank" rel="noopener noreferrer">HP:0004375</a> Neonatal necrotizing enterocolitis</td>
+</tr>
+<tr>
+<td>Hypospadias</td>
+<td>Genitourinary</td>
+<td>Congenital</td>
+<td>Reported in a subset (overlaps with the Martinez-Frias spectrum)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" rel="noopener noreferrer">HP:0000047</a> Hypospadias</td>
+</tr>
+<tr>
+<td>Heterotopic/ectopic gastric mucosa (intestinal)</td>
+<td>Structural/histopathology</td>
+<td>Variable</td>
+<td>Documented in at least one case; raises later cancer-predisposition concern in ectopic mucosa</td>
+<td>(no precise HPO term identified; free-text/NCIT candidate)</td>
+</tr>
+<tr>
+<td>Anteriorly placed anus</td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Reported rare/occasional feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001545" target="_blank" rel="noopener noreferrer">HP:0001545</a> Anteriorly placed anus</td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td>Physical exam</td>
+<td>Congenital</td>
+<td>Variable/inconsistent across cases — some reports explicitly note its <em>absence</em></td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a> Abnormal facial shape (nonspecific; use cautiously)</td>
+</tr>
+<tr>
+<td>Failure to thrive / malnutrition / malabsorption</td>
+<td>Growth, GI</td>
+<td>Infancy, chronic</td>
+<td>Universal secondary consequence of pancreatic/intestinal disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive; <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" rel="noopener noreferrer">HP:0002024</a> Malabsorption</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression:</strong> Phenotype severity is highly variable across the allelic spectrum — from lethal multi-organ failure in the neonatal period (historically the majority outcome — "seven of twelve homozygous cases died of sepsis and liver failure before age 6 months," per the largest outcomes series) to long-term survivors (now into the second decade of life) under aggressive multidisciplinary management. Diabetes is permanent and progressive by definition (no remission); GI/hepatobiliary disease is generally most severe in infancy, and some patients (e.g., Patient 1 in the 2022 outcomes series) achieve discontinuation of parenteral nutrition and tolerate a normal diet by age 1.</p>
+<p><strong>Quality of life impact:</strong> Not formally measured with standardized instruments (EQ-5D/SF-36) in any retrieved study — this is a neonatal/pediatric multisystem disease and QoL burden is described narratively: chronic parenteral-nutrition dependency, recurrent hospitalizations, transplant burden, and lifelong intensive diabetes management dominate the clinical course. No disease-specific QoL data were found.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes and Searching for Functional Impact of RFX-6 Mutations - PMC</a>
+- <a href="https://omim.org/clinicalSynopsis/615710">Entry - #615710 - MITCHELL-RILEY SYNDROME; MTCHRS - OMIM Clinical Synopsis</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5096485/">A Newly-Discovered Mutation in the RFX6 Gene of the Rare Mitchell-Riley Syndrome - PMC</a></p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <strong>RFX6</strong> (Regulatory Factor X, 6); <a href="https://bioregistry.io/HGNC:21478" target="_blank" rel="noopener noreferrer">HGNC:21478</a>; NCBI Gene:222546; OMIM *612659; chromosome 6q22.1; 19 exons spanning ~52.6 kb genomic DNA; encodes a 928-amino-acid, ~102.5 kDa protein.</p>
+<p><strong>Protein structure/domains:</strong> RFX6 is a member of the <strong>RFX family of winged-helix DNA-binding transcription factors</strong>, closely related to RFX4. It contains an N-terminal RFX-type winged-helix DNA-binding domain (InterPro IPR003150 / Pfam PF02257) that binds "X-box" <em>cis</em>-regulatory promoter elements, plus C-terminal dimerization/activation domains through which it heterodimerizes with <strong>RFX3</strong> to regulate target-gene transcription (RFX6 GeneCards; <em>Development</em> 2010, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/20040488/">20040488</a>, "Rfx6 is an Ngn3-dependent winged helix transcription factor required for pancreatic islet cell development").</p>
+<p><strong>Pathogenic variant classes reported:</strong>
+- <strong>Nonsense/frameshift (protein-truncating):</strong> e.g., c.1153C&gt;T (p.Arg385<em>); c.1129C&gt;T (truncation removing the C-terminal dimerization domain, "complete loss of functional protein"; </em>Development<em> 2020 iPSC study)
+- </em><em>Missense (in/near the DNA-binding domain):</em><em> e.g., c.541C&gt;T (p.Arg181Trp); c.1517T&gt;G (p.Val506Gly) — both shown functionally to abolish transactivation of the insulin promoter and to fail to induce L-type calcium-channel genes, despite retaining normal nuclear localization (PMC9257252)
+- </em><em>Splice-site variants:</em><em> e.g., c.505-2A&gt;G (splice-acceptor loss), reported in compound heterozygosity with a missense allele (c.2782A&gt;G)
+- Genotype-phenotype correlation is imperfect but biallelic </em><em>complete loss-of-function (null/null)</em><em> genotypes trend toward the most severe, classic Mitchell-Riley phenotype and highest infant mortality, while </em><em>hypomorphic/missense</em>* genotypes can present with a milder, later-onset (childhood) diabetes phenotype without the full visceral malformation tetrad (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/26264437/">26264437</a>).</p>
+<p><strong>ACMG classification:</strong> Loss-of-function RFX6 alleles reported in Mitchell-Riley syndrome are generally classified <strong>pathogenic/likely pathogenic</strong> in ClinVar under an autosomal recessive mechanism (e.g., ClinVar VCV000000816, VCV000217990, VCV000393396, VCV000089376 entries for RFX6). Heterozygous truncating variants are separately catalogued as pathogenic for MODY with reduced penetrance.</p>
+<p><strong>Population allele frequency:</strong> RFX6 protein-truncating variants (PTVs) are present in gnomAD/ExAC at ~0.027–0.045% allele frequency in non-Finnish Europeans; the Finnish-enriched allele p.His293LeufsTer7 reaches ~1:250 carrier frequency in Finland (approximately 10-fold enrichment) (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/38743124/">38743124</a>). No population has been reported with elevated <em>biallelic</em> Mitchell-Riley syndrome incidence outside of consanguineous kindreds, but the Finnish PTV enrichment theoretically elevates regional biallelic risk.</p>
+<p><strong>Somatic vs. germline:</strong> Exclusively germline — no somatic mosaicism or acquired RFX6 mutation mechanism has been reported for this syndrome (distinct from RFX6's separately studied role as a tumor suppressor/oncogenic modifier in sporadic gastric and colorectal cancer — see Mechanism/Cancer note below).</p>
+<p><strong>Functional consequence:</strong> <strong>Loss of function</strong> (complete loss for null alleles; partial loss/hypomorphic for missense and heterozygous PTV alleles — i.e., haploinsufficiency for MODY-associated heterozygotes, shown experimentally to reduce RFX6 protein ~54% and impair SC-islet beta-cell maturation and glucose-stimulated insulin secretion by 54–62%, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/38743124/">38743124</a>).</p>
+<p><strong>Modifier genes:</strong> None specifically established for Mitchell-Riley syndrome severity; RFX6 itself sits within a broader islet-transcription-factor network (NEUROG3 upstream; PDX1, NKX6.1, NEUROD1 as co-regulated/downstream factors), any of which could in principle modify phenotype but this has not been formally studied in patients.</p>
+<p><strong>Epigenetics:</strong> No disease-specific DNA methylation/histone modification data were identified for Mitchell-Riley syndrome. (RFX6 itself functions partly via chromatin-level gene activation/repression — transcriptomic studies in iPSC models show RFX6 both activates pancreatic-endoderm genes and represses competing mesoderm-lineage gene programs, implying a dual activator/repressor chromatin role — <em>Development</em> 2020 iPSC paper.)</p>
+<p><strong>Chromosomal abnormalities:</strong> No aneuploidy, translocation, or copy-number-variant mechanism has been reported; disease-causing lesions are point mutations/small indels within RFX6, not large structural rearrangements.</p>
+<p><strong>Suggested ontology terms:</strong> <a href="https://bioregistry.io/HGNC:21478" target="_blank" rel="noopener noreferrer">HGNC:21478</a> (RFX6); <a href="http://purl.obolibrary.org/obo/GO_0003677" target="_blank" rel="noopener noreferrer">GO:0003677</a> (DNA binding), <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" rel="noopener noreferrer">GO:0000981</a> (DNA-binding transcription factor activity, RNA polymerase II-specific); functional_impact_category = <code>LOSS_OF_FUNCTION</code> (null alleles) or <code>PARTIAL_LOSS_OF_FUNCTION</code> (missense/hypomorphic).</p>
+<p><strong>Sources:</strong>
+- <a href="https://omim.org/entry/612659">Entry - *612659 - REGULATORY FACTOR X, 6; RFX6 - OMIM</a>
+- <a href="https://www.genecards.org/card/RFX6">RFX6 gene Regulatory Factor X6 - GeneCards</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2799156/">Rfx6 is an Ngn3-dependent winged helix transcription factor required for pancreatic islet cell development - PMC</a>
+- <a href="https://journals.biologists.com/dev/article/147/21/dev194878/226401/Mitchell-Riley-syndrome-iPSCs-exhibit-reduced">Mitchell-Riley syndrome iPSCs exhibit reduced pancreatic endoderm differentiation due to a mutation in RFX6 - Development</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11343796/">RFX6 haploinsufficiency predisposes to diabetes through impaired beta cell function - PMC</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29026101/">Heterozygous RFX6 protein truncating variants are associated with MODY with reduced penetrance - PubMed</a></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental toxin, radiation, occupational exposure, lifestyle factor (maternal smoking/alcohol/diet), or infectious agent has been implicated as a cause, trigger, or modifier of Mitchell-Riley syndrome in the retrieved literature. This is consistent with the disease's status as a fully penetrant Mendelian recessive developmental disorder driven by biallelic RFX6 loss of function. No CTD, TOXNET, or infectious-disease-database associations were found. This section is therefore <strong>not applicable</strong> beyond noting the absence of evidence for environmental contribution.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Overview of the causal chain:</strong> RFX6 acts as a master transcriptional regulator of <strong>endoderm-derived neuroendocrine and epithelial-organ development</strong>, operating downstream of NEUROG3 (Ngn3) in the pancreatic/intestinal endocrine progenitor program, and upstream of/parallel to PDX1, NKX6.1, and NEUROD1. Biallelic loss of RFX6 function produces a multi-organ failure of endoderm patterning and cell-type specification:</p>
+<ol>
+<li><strong>Endoderm patterning defect (earliest step).</strong> In human iPSC and organoid models, RFX6 is required at the <strong>primitive gut tube stage</strong> for correct anteroposterior endoderm patterning; RFX6 loss disrupts duodenal identity specification <strong>upstream of PDX1</strong> and causes intestinal patterning/heterotopic gastric mucosa (biorxiv/organoid studies: "Human organoid modeling of congenital malformations caused by RFX6 mutations reveal an essential role for this transcription factor in establishing and maintaining duodenal identity upstream of PDX1"; <em>Development</em> "RFX6 regulates human intestinal patterning and function upstream of PDX1").</li>
+<li><strong>Pancreatic endoderm specification failure.</strong> Patient iPSC-derived cells generate definitive endoderm and primitive gut tube normally, but <strong>fail to efficiently generate PDX1+/SOX9+ pancreatic endoderm</strong> from approximately day 8 of differentiation onward — "loss of RFX6 resulted in significantly reduced expression of PDX1 and SOX9" (<em>Development</em> 2020, PMID pending verification). Transcriptomically, RFX6 simultaneously <strong>activates</strong> pancreatic-program genes and <strong>represses</strong> competing mesoderm-lineage (cardiac/skeletal/muscle) transcriptional programs — a dual gatekeeper function for endoderm lineage commitment.</li>
+<li><strong>Endocrine progenitor/islet-cell differentiation block.</strong> Downstream of NEUROG3, RFX6 is required to direct differentiation of <strong>all major islet endocrine cell types except pancreatic-polypeptide cells</strong>. In <em>Rfx6</em>-null mice, homozygous animals fail to generate alpha, beta, delta, or epsilon cells and die shortly after birth of severe hyperglycemia (Smith et al. 2010, <em>Nature</em>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">20148032</a>; Soyer et al. 2010, <em>Development</em>). At the molecular level, loss of Rfx6 causes upregulation of precursor markers (NEUROG3, SOX9) with increased apoptosis, and marked reduction of Ins1, Ins2, Gcg, Sst, and Ghr transcripts.</li>
+<li><strong>Beta-cell functional/maturation defect (postnatal maintenance role).</strong> RFX6 is not only developmentally required but also maintains the <strong>mature beta-cell functional identity</strong> in adult islets (Piccand et al., <em>PLoS Genetics</em> 2014, PMC4542305) and is required in adult human alpha cells for gene expression maintenance (<em>Diabetes</em> 2024). Mechanistically, RFX6 (via heterodimerization with RFX3, X-box promoter binding) directly activates the <strong>insulin gene</strong> and <strong>L-type calcium channel genes (CACNA1A, CACNA1C, CACNA1D)</strong> together with GPR68; loss of RFX6 abolishes glucose-stimulated Ca²⁺ influx and depolarization-evoked insulin exocytosis (Chandra et al., "RFX6 Regulates Insulin Secretion by Modulating Ca²⁺ Homeostasis in Human β Cells," <em>Cell Reports</em> 2014). Functional testing of patient missense alleles (R181W, V506G) confirmed failure of insulin-promoter transactivation "not significantly different from...an empty expression vector control," and failure to induce calcium-channel gene expression, despite retained nuclear localization (PMC9257252).</li>
+<li><strong>Enteroendocrine cell loss → protracted diarrhea (a distinct, recently elucidated arm).</strong> RFX6 is required for intestinal enteroendocrine cell (EEC) differentiation, promoting peptide-secreting EEC fates while repressing serotonin-producing enterochromaffin programs (biorxiv "Rfx6 promotes the differentiation of peptide-secreting enteroendocrine cells while repressing genetic programs controlling serotonin production"). In patients, this manifests as near-complete loss of <strong>GLP-1– and GIP-producing enteroendocrine cells</strong>: two patients studied by immunohistochemistry showed "nearly undetectable fasting and postprandial GLP-1 plasma levels" and "absence of GLP-1 immunostaining in distal intestine and rectum," with "considerable depletion of chromogranin A" (<em>J Clin Endocrinol Metab</em> 2021, DOI 10.1210/clinem/dgaa916). Because GLP-1 normally mediates the <strong>ileal-brake</strong> mechanism (inhibiting gastric emptying and slowing small-bowel motility), its congenital absence is proposed as a specific, previously unrecognized mechanism of the syndrome's severe protracted diarrhea — supported therapeutically by rapid clinical response to the GLP-1 analogue <strong>liraglutide</strong> in one patient (stool frequency fell from many episodes/day to 1–3/day within 6 days).</li>
+<li><strong>Exocrine pancreatic and hepatobiliary consequences.</strong> Exocrine acinar tissue is hypoplastic/dysfunctional (severe fecal elastase depression, poor/partial response to pancreatic enzyme replacement), and gallbladder/biliary tract agenesis or hypoplasia with cholestasis reflects RFX6's broader role across endoderm-derived digestive organ morphogenesis, not solely the endocrine pancreas.</li>
+<li><strong>Possible oncogenic/cancer-predisposition arm (emerging, single case-level evidence).</strong> A transcriptomic case study of heterotopic gastric mucosa in a Mitchell-Riley syndrome patient found RFX6 dysregulation among the most notable differentially expressed transcription factors also implicated in sporadic gastric cancer, raising a hypothesis (not yet confirmed at cohort level) that ectopic gastric mucosa in these patients carries elevated malignant-transformation risk (<em>Orphanet J Rare Dis</em> 2021, PMC8556982; broader review: "Multifaceted functions of transcription regulatory factor X6 (RFX6): from pancreatic development to cancer progression," <em>Cancer Cell Int</em> 2025).</li>
+</ol>
+<p><strong>Cell types involved:</strong> pancreatic endocrine progenitor cells; pancreatic alpha, beta, delta, epsilon islet cells (all NEUROG3-lineage-derived except PP cells); pancreatic acinar/exocrine cells; intestinal enteroendocrine cells (L-cells/GLP-1, K-cells/GIP); duodenal/gut-tube epithelial progenitors; gallbladder/biliary epithelium.</p>
+<p><strong>Suggested ontology terms:</strong>
+- <strong>GO (biological process):</strong> <a href="http://purl.obolibrary.org/obo/GO_0031018" target="_blank" rel="noopener noreferrer">GO:0031018</a> (endocrine pancreas development), <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" rel="noopener noreferrer">GO:0030154</a> (cell differentiation), <a href="http://purl.obolibrary.org/obo/GO_0030073" target="_blank" rel="noopener noreferrer">GO:0030073</a> (insulin secretion), <a href="http://purl.obolibrary.org/obo/GO_0061668" target="_blank" rel="noopener noreferrer">GO:0061668</a> (mitochondrial ribosome — n/a), <a href="http://purl.obolibrary.org/obo/GO_0007186" target="_blank" rel="noopener noreferrer">GO:0007186</a> (relevant only if signaling detail added); more specifically <a href="http://purl.obolibrary.org/obo/GO_0021789" target="_blank" rel="noopener noreferrer">GO:0021789</a> / islet development terms and <a href="http://purl.obolibrary.org/obo/GO_0035773" target="_blank" rel="noopener noreferrer">GO:0035773</a> (insulin secretion involved in cellular response to glucose stimulus)
+- <strong>GO (molecular function):</strong> <a href="http://purl.obolibrary.org/obo/GO_0000981" target="_blank" rel="noopener noreferrer">GO:0000981</a> (DNA-binding transcription factor activity, RNA Pol II-specific), <a href="http://purl.obolibrary.org/obo/GO_0043565" target="_blank" rel="noopener noreferrer">GO:0043565</a> (sequence-specific DNA binding)
+- <strong>CL (cell type):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a> (type B pancreatic cell / beta cell), <a href="http://purl.obolibrary.org/obo/CL_0000171" target="_blank" rel="noopener noreferrer">CL:0000171</a> (type A pancreatic cell / alpha cell), <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" rel="noopener noreferrer">CL:0002563</a> (intestinal enteroendocrine cell), <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" rel="noopener noreferrer">CL:0000160</a> (secretory cell)
+- <strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a> (pancreas), <a href="http://purl.obolibrary.org/obo/UBERON_0001274" target="_blank" rel="noopener noreferrer">UBERON:0001274</a> (pancreatic acinus), <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" rel="noopener noreferrer">UBERON:0002114</a> (duodenum), <a href="http://purl.obolibrary.org/obo/UBERON_0002110" target="_blank" rel="noopener noreferrer">UBERON:0002110</a> (gallbladder)</p>
+<p><strong>Sources:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">Rfx6 directs islet formation and insulin production in mice and humans - PubMed</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2799156/">Rfx6 is an Ngn3-dependent winged helix transcription factor required for pancreatic islet cell development - PMC</a>
+- <a href="https://www.sciencedirect.com/science/article/pii/S2211124714009644">RFX6 Regulates Insulin Secretion by Modulating Ca2+ Homeostasis in Human β Cells - ScienceDirect</a>
+- <a href="https://academic.oup.com/jcem/article/106/4/e1084/6056479">Congenital Glucagon-like Peptide-1 Deficiency in the Pathogenesis of Protracted Diarrhea in Mitchell–Riley Syndrome - JCEM</a>
+- <a href="https://journals.biologists.com/dev/article/147/21/dev194878/226401/Mitchell-Riley-syndrome-iPSCs-exhibit-reduced">Mitchell-Riley syndrome iPSCs exhibit reduced pancreatic endoderm differentiation due to a mutation in RFX6 - Development</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8556982/">Determining oncogenic patterns and cancer predisposition through the transcriptomic profile in Mitchell–Riley syndrome - PMC</a>
+- <a href="https://link.springer.com/article/10.1186/s12935-025-04073-6">Multifaceted functions of transcription regulatory factor X6 (RFX6): from pancreatic development to cancer progression - Cancer Cell International</a></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> pancreas (endocrine islets and exocrine acini — hypoplasia/annular pancreas), gallbladder and extrahepatic biliary tree (aplasia/hypoplasia, atresia), duodenum/proximal jejunum (atresia/stenosis, malrotation), stomach (heterotopic gastric mucosa in the intestine in some cases)
+- <strong>Secondary/complication-driven:</strong> liver (cholestasis, progressive failure requiring transplant in severe cases), bone marrow/hematologic system (anemia, coagulopathy secondary to malabsorption/vitamin K deficiency), overall growth (IUGR, failure to thrive)
+- <strong>Body systems involved:</strong> endocrine system (pancreatic islets), digestive system (pancreas, biliary tract, small intestine, stomach), hepatobiliary system, hematologic system, genitourinary system (hypospadias in a subset)</p>
+<p><strong>Tissue/cell level:</strong> pancreatic islet endocrine tissue (alpha/beta/delta/epsilon cells depleted; PP cells relatively spared); pancreatic exocrine acinar epithelium; intestinal enteroendocrine cells (L-cells, K-cells) diffusely depleted; duodenal/gut-tube epithelium (patterning defect); gallbladder/biliary epithelium; heterotopic gastric epithelium within the intestine in a subset.</p>
+<p><strong>Subcellular level:</strong> RFX6 itself is a nuclear transcription factor (GO Cellular Component: nucleus, <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>); its downstream targets include plasma-membrane L-type calcium channels (CACNA1A/C/D) central to insulin-exocytosis machinery, and secretory-granule components of enteroendocrine/islet cells.</p>
+<p><strong>Localization:</strong> Bilateral/systemic — this is a developmental patterning disorder affecting midline/foregut-derived organs rather than a laterality or unilateral process; no organ-specific lateralization is reported.</p>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a> (pancreas), <a href="http://purl.obolibrary.org/obo/UBERON_0001982" target="_blank" rel="noopener noreferrer">UBERON:0001982</a> (islet of Langerhans), <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" rel="noopener noreferrer">UBERON:0002114</a> (duodenum), <a href="http://purl.obolibrary.org/obo/UBERON_0002115" target="_blank" rel="noopener noreferrer">UBERON:0002115</a> (jejunum), <a href="http://purl.obolibrary.org/obo/UBERON_0002110" target="_blank" rel="noopener noreferrer">UBERON:0002110</a> (gallbladder), <a href="http://purl.obolibrary.org/obo/UBERON_0001173" target="_blank" rel="noopener noreferrer">UBERON:0001173</a> (extrahepatic bile duct), <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver), <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a> (stomach — heterotopic mucosa).</p>
+<p><strong>Sources:</strong> As above (OMIM #615710; PMC9257252; PMC8556982).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> <strong>Congenital</strong>, with prenatal detectability in many cases — duodenal atresia and polyhydramnios are frequently identified on prenatal ultrasound; diabetes and severe diarrhea manifest in the <strong>immediate neonatal period</strong> (typically within the first days to weeks of life). This is a neonatal-onset disorder by definition (diabetes onset defines "neonatal diabetes mellitus" as onset before 6 months of age, per standard NDM diagnostic convention).</p>
+<p><strong>Onset pattern:</strong> Acute at birth for the structural anomalies (intestinal obstruction from atresia is a surgical neonatal emergency); the diabetes and diarrhea are of abrupt neonatal onset but then become a <strong>chronic, permanent</strong> condition.</p>
+<p><strong>Progression:</strong>
+- Diabetes: <strong>stable but lifelong/permanent</strong> — no remission is described (contrasts with transient neonatal diabetes mellitus subtypes seen with other genetic causes such as 6q24 imprinting defects). Glycemic control has historically been extremely difficult in infancy (high insulin sensitivity, exaggerated and prolonged hypoglycemic responses, glucagon-resistant hypoglycemia) but becomes more manageable with age and advanced insulin-delivery technology.
+- GI/nutritional disease: <strong>most severe in infancy</strong>, often improving (parenteral-nutrition weaning achievable) by early childhood in surviving patients, though intestinal failure can persist and drive transplant decisions.
+- Hepatobiliary disease: variable — ranges from self-limited mild cholestasis to progressive liver failure requiring transplantation within the first year of life.
+- Disease course pattern: <strong>chronic and multi-organ</strong>, not classically relapsing-remitting, though episodic exacerbations of diarrhea (e.g., triggered by enteral feeding attempts or intercurrent gastroenteritis) are described.</p>
+<p><strong>Remission patterns:</strong> No spontaneous remission of diabetes is reported. Partial "remission" of GI symptoms (successful parenteral-nutrition discontinuation, tolerance of oral diet) has been achieved in a subset of long-term survivors under intensive multidisciplinary management — most notably the oldest reported case (13.5 years old at last follow-up), who discontinued parenteral nutrition at age 1 and now tolerates a normal diet.</p>
+<p><strong>Critical periods:</strong> The <strong>first 6 months to 2 years of life</strong> represent the critical high-mortality/high-morbidity window (historical mortality concentrated in this period from sepsis and liver failure); intensive multidisciplinary neonatal/infant management is the key modifiable intervention window.</p>
+<p><strong>Sources:</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes - PMC</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35307919/">First multivisceral transplantation in Mitchell-Riley/Martinez-Frias syndrome - PubMed</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong> Mitchell-Riley syndrome is classified by Orphanet as an <strong>ultra-rare disease</strong> (<a href="https://bioregistry.io/ORPHA:293864" target="_blank" rel="noopener noreferrer">ORPHA:293864</a>); no formal population-based prevalence or incidence estimate exists — the disease is known essentially only from <strong>~16–20 published genetically-confirmed cases</strong> worldwide since its molecular characterization in 2010 (case-series/case-report literature only, no national registry data). This corresponds to Orphanet prevalence class <strong>"Not yet documented"</strong> and dismech <code>prevalence_class: NOT_YET_DOCUMENTED</code> would be the appropriate curated value, with <code>measure_type: CASES_IN_LITERATURE</code>.</p>
+<p><strong>Inheritance pattern:</strong> <strong>Autosomal recessive</strong> — confirmed in all reported families; consanguinity is common among reported probands (multiple kindreds with parental consanguinity, including third-degree relative unions). Recurrence risk for carrier (heterozygous) parents of an affected child is the standard <strong>25%</strong> for autosomal recessive disease, with a 50% chance of each subsequent child being an unaffected carrier and 25% chance of being unaffected/non-carrier.</p>
+<p><strong>Penetrance:</strong> Biallelic null/null genotypes appear to be <strong>fully penetrant</strong> for the neonatal-diabetes component, though the severity and completeness of the extra-pancreatic malformation phenotype is variable (some reported cases atypically lack certain classic features, e.g., a case lacking facial dysmorphism, or presenting additional unreported features such as cerebral calcifications/coagulopathy in PMC5096485). In contrast, the allelic <strong>heterozygous</strong> MODY phenotype shows markedly <strong>reduced penetrance (~27% by age 25)</strong>.</p>
+<p><strong>Expressivity:</strong> Variable — genotype-phenotype correlation is imperfect; missense/hypomorphic biallelic genotypes can present with a milder, later (childhood-onset) diabetes phenotype without the full visceral malformation syndrome, while null/null genotypes tend toward the classic severe multi-organ MRS phenotype.</p>
+<p><strong>Genetic anticipation:</strong> Not applicable/not reported — RFX6 pathogenic variants are not repeat-expansion mutations, and no anticipation phenomenon has been described.</p>
+<p><strong>Germline mosaicism:</strong> Not specifically reported in the literature reviewed.</p>
+<p><strong>Founder effects:</strong> The Finnish-enriched p.His293LeufsTer7 RFX6 allele (~1:250 carriers) represents a population-specific founder-type enrichment relevant primarily to the milder MODY/T2D-risk allelic spectrum rather than to classic biallelic Mitchell-Riley syndrome per se, but raises the theoretical possibility of elevated biallelic disease frequency in Finland.</p>
+<p><strong>Consanguinity role:</strong> Central — the overwhelming majority of reported MRS cases arise in consanguineous families, consistent with the disease's autosomal recessive, ultra-rare-allele genetics.</p>
+<p><strong>Carrier frequency:</strong> ~0.027–0.045% for RFX6 protein-truncating variants in non-Finnish European gnomAD/ExAC populations; ~0.4% (1:250) in the Finnish population for the specific enriched founder allele.</p>
+<p><strong>Population demographics:</strong> Reported cases span multiple ethnicities/geographies (UAE, European, and other consanguineous-practicing populations represented in the case-report literature); no single ethnic group is disproportionately affected by <em>biallelic</em> disease outside of the general elevated risk conferred by consanguinity practices. Sex ratio and age-distribution data are not separately tabulated given the extremely small published case count (case reports do not permit robust demographic inference).</p>
+<p><strong>Sources:</strong>
+- <a href="https://omim.org/entry/615710">Entry - #615710 - MITCHELL-RILEY SYNDROME; MTCHRS - OMIM</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11343796/">RFX6 haploinsufficiency predisposes to diabetes through impaired beta cell function - PMC</a>
+- <a href="https://www.nature.com/articles/s41467-017-00895-9">Heterozygous RFX6 protein truncating variants are associated with MODY with reduced penetrance - Nature Communications</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/prenatal detection:</strong> Prenatal ultrasound frequently detects <strong>duodenal atresia</strong> (classic "double bubble" sign) and <strong>polyhydramnios</strong>, prompting antenatal suspicion. Postnatal presentation includes bilious vomiting/intestinal obstruction (from atresia/malrotation), neonatal hyperglycemia requiring insulin, and profuse watery diarrhea once enteral feeding is attempted.</p>
+<p><strong>Laboratory tests:</strong>
+- Blood glucose, HbA1c, and <strong>C-peptide</strong> (low/undetectable, confirming absolute insulin deficiency consistent with neonatal diabetes)
+- <strong>Fecal elastase-1</strong> (severely depressed, confirming exocrine pancreatic insufficiency; reported values &lt;50 µg/g in a documented case)
+- Coagulation studies (Factor VII, Factor IX; vitamin K levels)
+- Complete blood count (normocytic normochromic anemia)
+- Liver function tests / conjugated bilirubin (cholestasis)
+- Fasting/postprandial <strong>GLP-1</strong> and GIP levels (research-level testing; found "nearly undetectable" in studied patients, supporting the enteroendocrine-deficiency mechanism)</p>
+<p><strong>Imaging:</strong>
+- Abdominal ultrasound/MRI/CT: pancreatic hypoplasia or annular pancreas, gallbladder aplasia/hypoplasia, biliary tract anomalies
+- Upper GI contrast series: duodenal/jejunal atresia, malrotation</p>
+<p><strong>Histopathology/biopsy:</strong> Intestinal/rectal biopsy with <strong>immunohistochemistry for chromogranin A, GLP-1, and GIP</strong> can confirm enteroendocrine cell depletion (used diagnostically/mechanistically in the JCEM 2021 report); pancreatic or ectopic gastric mucosal histology can identify heterotopic gastric tissue.</p>
+<p><strong>Genetic testing (definitive diagnosis):</strong>
+- <strong>Single-gene RFX6 sequencing</strong> is the primary confirmatory test, appropriate given the syndrome's specific, well-characterized monogenic cause
+- <strong>Neonatal diabetes gene panels</strong> (which routinely include RFX6 alongside INS, KCNJ11, ABCC8, GATA6, PTF1A, PDX1, EIF2AK3, and others) are the standard clinical approach when neonatal diabetes with syndromic GI features is suspected
+- <strong>Whole exome/genome sequencing</strong> is appropriate for atypical presentations or when panel testing is non-diagnostic, especially given the atypical/expanded phenotypes reported in some cases (e.g., the PMC5096485 case with unexpected coagulopathy and cerebral calcifications)
+- Homozygosity mapping/autozygosity analysis is useful in consanguineous families (used in the original Smith et al. 2010 gene-discovery study)
+- Chromosomal microarray/karyotype are not primary diagnostic tools here (no CNV/structural mechanism), but may be used to exclude differential diagnoses</p>
+<p><strong>Standardized diagnostic criteria:</strong> No formal consensus diagnostic-criteria document (e.g., no dedicated GeneReviews chapter was identified) exists specifically for Mitchell-Riley syndrome; diagnosis rests on the combination of <strong>neonatal diabetes + duodenal/jejunal atresia + pancreatic hypoplasia + gallbladder aplasia/hypoplasia</strong>, confirmed by biallelic RFX6 pathogenic variants.</p>
+<p><strong>Differential diagnosis:</strong> Other syndromic causes of neonatal diabetes with GI malformation should be considered and excluded, including:
+- <strong>GATA6</strong>-related pancreatic agenesis with congenital heart disease
+- <strong>PTF1A</strong>-related pancreatic and cerebellar agenesis
+- <strong>PDX1</strong>-related pancreatic agenesis
+- <strong>EIF2AK3</strong> (Wolcott-Rallison syndrome) — neonatal diabetes with epiphyseal dysplasia
+- 6q24-related transient neonatal diabetes mellitus (imprinting defect) — distinguished by <em>transient</em> course
+- Isolated (non-syndromic) intestinal/duodenal atresia without diabetes
+- Martinez-Frias syndrome (now understood to be allelic/overlapping, not a true differential)</p>
+<p><strong>Screening:</strong> No population-based newborn screening applies specifically to this ultra-rare disease; carrier screening would only be relevant in known consanguineous families or populations with documented RFX6 founder alleles (e.g., targeted carrier testing could be considered in Finland given the founder-allele enrichment, though this is not a currently established screening program per the literature reviewed).</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5096485/">A Newly-Discovered Mutation in the RFX6 Gene of the Rare Mitchell-Riley Syndrome - PMC</a>
+- <a href="https://academic.oup.com/jcem/article/106/4/e1084/6056479">Congenital Glucagon-like Peptide-1 Deficiency in the Pathogenesis of Protracted Diarrhea in Mitchell–Riley Syndrome - JCEM</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">Rfx6 directs islet formation and insulin production in mice and humans - PubMed</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Historical mortality:</strong> Prognosis has <strong>historically been poor</strong>. In the largest cited series of homozygous cases prior to modern intensive management, <strong>7 of 12 homozygous patients (~58%) died before age 6 months</strong>, predominantly from <strong>sepsis and liver failure</strong>. Early literature (the original 2010 gene-discovery report and subsequent early case reports) characterized the syndrome as generally lethal in infancy.</p>
+<p><strong>Improving outcomes with modern management:</strong> A 2022 case series of 4 patients managed with intensive multidisciplinary care (endocrinology, gastroenterology, hepatology, surgery) reported <strong>zero deaths</strong>, with patients surviving to ages 2.25–13.5 years at last follow-up, contrasting sharply with the historical cohort (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/35813646/">35813646</a>). This represents a substantial and clinically important shift in prognosis attributable to advances in neonatal intensive care, parenteral nutrition management, advanced diabetes technology (sensor-augmented insulin pumps with predictive low-glucose suspension), and transplant surgery — not to any disease-modifying pharmacologic therapy.</p>
+<p><strong>Multivisceral transplantation as a prognosis-altering intervention:</strong> The first reported multivisceral transplant (stomach, duodenum, small intestine, colon, liver, and pancreas) in Mitchell-Riley/Martinez-Frias syndrome, performed at age 2, resulted in <strong>more than 10 years of subsequent normal gastrointestinal, hepatic, and pancreatic graft function</strong> with no surgical complications — representing one of the longest reported survival periods for this syndrome and establishing multivisceral transplantation as a viable option in select severe cases (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/35307919/">35307919</a>).</p>
+<p><strong>Morbidity/complications:</strong> Even among survivors, chronic morbidity is substantial: parenteral-nutrition dependency (ranging widely, e.g., 58–119% PN-dependency index across the 2022 series), recurrent hypoglycemia, cholestatic liver disease (progressing to transplant need in a subset), coagulopathy, chronic anemia, growth impairment, and (in at least one case) concern for later malignant transformation of heterotopic gastric mucosa.</p>
+<p><strong>Quality of life measures:</strong> No standardized QoL instrument data identified.</p>
+<p><strong>Prognostic factors:</strong> Genotype severity (null/null vs. hypomorphic), degree of exocrine pancreatic and hepatobiliary involvement, presence/severity of cholestasis and coagulopathy, and — most importantly per the recent literature — <strong>access to intensive, coordinated multidisciplinary neonatal/pediatric management</strong> are the dominant prognostic determinants identified to date; no molecular prognostic biomarker beyond genotype has been established.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes and Searching for Functional Impact of RFX-6 Mutations - PMC</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35307919/">First multivisceral transplantation in Mitchell-Riley/Martinez-Frias syndrome - PubMed</a></p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy — diabetes management:</strong>
+- <strong>Insulin therapy</strong> is the mainstay: initial intravenous insulin in the acute neonatal period, transitioning to <strong>continuous subcutaneous insulin infusion (CSII)</strong> with <strong>predictive low-glucose suspension</strong> pump systems given the marked propensity for severe, glucagon-resistant hypoglycemia and dramatic basal-rate fluctuations (basal rates have been reported to increase &gt;10-fold during parenteral nutrition administration). Flash/continuous glucose monitoring (CGM) is used for ongoing management; some patients transition to multiple daily injections (MDI) later in childhood. Achieved HbA1c values in well-managed patients range roughly 40–59 mmol/mol (5.8–7.6%).
+- <strong>NCIT suggestion:</strong> treatment_term NCIT:C15986 (Pharmacotherapy) with therapeutic_agent = insulin (<a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" rel="noopener noreferrer">CHEBI:145810</a> insulin, or specific insulin analogue CHEBI terms).</p>
+<p><strong>Emerging/experimental pharmacotherapy — GLP-1 analogue for diarrhea:</strong>
+- <strong>Liraglutide</strong> (off-label GLP-1 receptor agonist) produced a rapid and marked reduction in stool frequency (from multiple daily episodes to 1–3/day within 6 days) in one patient with documented congenital GLP-1 deficiency, representing the first mechanism-targeted pharmacologic intervention reported for MRS-associated diarrhea (<em>J Clin Endocrinol Metab</em> 2021). This remains anecdotal (single/few-patient experience) but is mechanistically well-grounded.
+- <strong>NCIT suggestion:</strong> treatment_term NCIT:C15986 (Pharmacotherapy); therapeutic_agent liraglutide (<a href="http://purl.obolibrary.org/obo/CHEBI_63566" target="_blank" rel="noopener noreferrer">CHEBI:63566</a> or similar); therapeutic_modality SMALL_MOLECULE/PEPTIDE.</p>
+<p><strong>Pancreatic enzyme replacement therapy:</strong> Used for exocrine pancreatic insufficiency but reported as only <strong>"partially effective" or ineffective</strong>, with steatorrhea persisting despite treatment in the reported case series.
+- <strong>NCIT suggestion:</strong> NCIT:C1954 or relevant pancreatic-enzyme therapeutic term.</p>
+<p><strong>Nutritional/supportive management:</strong>
+- <strong>Total/partial parenteral nutrition (PN)</strong> is essentially universal in infancy, with careful, protocolized PN-weaning strategies central to modern improved outcomes; free amino-acid elemental enteral formulas have been trialed but diarrhea often persists, limiting enteral advancement. Cow's-milk-protein allergy has complicated feeding advancement in a subset of patients.
+- <strong>NCIT suggestion:</strong> NCIT:C15447 (Dietary Intervention); NCIT:C15747 (Supportive Care).</p>
+<p><strong>Surgical/procedural interventions:</strong>
+- Neonatal <strong>surgical repair of intestinal atresia/malrotation</strong> (duodenoduodenostomy or similar) is required urgently in essentially all cases.
+- <strong>Liver transplantation</strong> for progressive cholestatic liver failure (performed in at least one reported case, at 7 months of age).
+- <strong>Multivisceral transplantation</strong> (stomach, duodenum, small intestine, colon, liver, pancreas en bloc) has been performed successfully in at least one case with &gt;10-year graft/patient survival, representing the most definitive surgical intervention reported to date for severe intestinal/pancreatic/hepatic failure.
+- Failed <strong>islet-cell transplantation</strong> was attempted post-liver-transplant in one patient without durable benefit.
+- <strong>NCIT suggestions:</strong> NCIT:C15329 (Surgical Procedure), NCIT:C15289 (Organ Transplantation).</p>
+<p><strong>Blood product/factor support:</strong> Vitamin K supplementation, packed red blood cell transfusions for anemia, and (in a subset) clotting-factor replacement for documented Factor VII/Factor IX deficiency.</p>
+<p><strong>Treatment algorithm/strategy:</strong> The literature converges on a <strong>multidisciplinary, intensive supportive-care algorithm</strong> (endocrinology + gastroenterology + hepatology + surgery + nutrition) as the single most impactful "treatment," given that no disease-modifying or curative pharmacologic therapy exists — management is fundamentally organ-replacement/organ-support-based (insulin replacing absent endogenous insulin; PN/enteral support and eventually transplantation replacing failed intestinal/hepatic/pancreatic function) plus an emerging mechanism-targeted adjunct (GLP-1 analogue for the diarrhea).</p>
+<p><strong>Experimental/clinical trials:</strong> No registered ClinicalTrials.gov interventional trials specific to Mitchell-Riley syndrome were identified in this search (consistent with its ultra-rare status); management data derive entirely from case reports/series.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes and Searching for Functional Impact of RFX-6 Mutations - PMC</a>
+- <a href="https://academic.oup.com/jcem/article/106/4/e1084/6056479">Congenital Glucagon-like Peptide-1 Deficiency in the Pathogenesis of Protracted Diarrhea in Mitchell–Riley Syndrome - JCEM</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35307919/">First multivisceral transplantation in Mitchell-Riley/Martinez-Frias syndrome - PubMed</a></p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Because this is a fully genetic, autosomal recessive disorder with no environmental causal contribution, primary population-level prevention is not applicable in the traditional public-health sense. The only effective "primary prevention" avenue is <strong>reproductive/genetic</strong>:
+- <strong>Genetic counseling</strong> for known carrier couples (particularly in consanguineous unions or in families with a previously affected child), explaining the 25% recurrence risk per pregnancy.
+- <strong>Preimplantation genetic testing (PGT-M)</strong> and <strong>prenatal diagnosis</strong> (chorionic villus sampling/amniocentesis with RFX6 sequencing) are appropriate options for at-risk couples once the familial pathogenic variants are known.
+- <strong>Carrier screening</strong> could theoretically be considered in populations with elevated RFX6 PTV carrier frequency (e.g., Finland, ~1:250) or in consanguineous-practicing communities, though no established population carrier-screening program specific to RFX6/Mitchell-Riley syndrome was identified in this search.</p>
+<p><strong>Secondary prevention (early detection):</strong>
+- <strong>Prenatal ultrasound surveillance</strong> enabling early detection of duodenal atresia/polyhydramnios allows for delivery planning at a tertiary center equipped for immediate neonatal surgical and diabetes management — this early detection, rather than altering disease occurrence, materially improves outcomes by enabling prompt postnatal intervention.
+- Once one affected child is identified in a family, <strong>targeted prenatal/preimplantation testing</strong> for the known familial variant(s) in subsequent pregnancies constitutes effective secondary-level risk management.</p>
+<p><strong>Tertiary prevention (preventing complications in affected individuals):</strong> This is where most of the "prevention" literature for MRS actually resides — preventing death and severe morbidity in already-affected infants via the intensive multidisciplinary management protocols described in Section 12 (careful glycemic control to prevent hypoglycemic/hyperglycemic complications, protocolized PN weaning to prevent PN-associated liver disease, vitamin K/coagulation monitoring to prevent bleeding complications, and early transplant referral to prevent end-stage organ failure).</p>
+<p><strong>Vaccination/immunization, behavioral interventions, public-health/environmental interventions, and prophylactic medications:</strong> Not applicable — no disease-specific programs exist given the purely monogenic recessive etiology.</p>
+<p><strong>Sources:</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">Mitchell–Riley Syndrome: Improving Clinical Outcomes - PMC</a>; general ACMG/genetic-counseling principles for autosomal recessive disease (no disease-specific guideline document identified).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy of relevant model species:</strong> Mouse (<em>Mus musculus</em>, NCBITaxon:10090), zebrafish (<em>Danio rerio</em>, NCBITaxon:7955), and (per the winged-helix TF literature) <em>Xenopus</em> have all been used to study Rfx6 function; no naturally-occurring veterinary/companion-animal disease analogous to Mitchell-Riley syndrome has been reported (unlike many single-gene disorders that have recognized canine/feline natural-disease counterparts catalogued in OMIA).</p>
+<p><strong>Orthologous gene:</strong> Mouse <em>Rfx6</em> — <a href="https://bioregistry.io/MGI:2445208" target="_blank" rel="noopener noreferrer">MGI:2445208</a> (NCBI Gene ortholog); zebrafish <em>rfx6</em>.</p>
+<p><strong>Natural disease in other species:</strong> No entry for RFX6-related disease was identified in OMIA (Online Mendelian Inheritance in Animals) in this search, indicating <strong>no recognized naturally-occurring veterinary correlate</strong> — Rfx6 pathology in non-human species has been studied exclusively through <strong>induced (knockout/morphant) models</strong>, not spontaneous natural disease.</p>
+<p><strong>Comparative pathology:</strong> The core RFX6-dependent developmental mechanism (NEUROG3-downstream direction of islet endocrine cell differentiation) is deeply evolutionarily conserved — required for islet cell development in mouse, zebrafish, and <em>Xenopus</em> alike, and zebrafish studies additionally reveal that pancreatic endocrine cells (PECs) and enteroendocrine cells (EECs) share substantial transcriptomic and regulatory-program overlap with mammalian systems, reinforcing translational relevance of non-mammalian models for the GI/enteroendocrine arm of the human disease.</p>
+<p><strong>Zoonotic potential/transmission:</strong> Not applicable — this is a non-infectious, purely genetic developmental disorder.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">Rfx6 directs islet formation and insulin production in mice and humans - PubMed</a>
+- <a href="https://bmcbiol.biomedcentral.com/articles/10.1186/s12915-020-00840-1">Pancreatic and intestinal endocrine cells in zebrafish share common transcriptomic signatures and regulatory programmes - BMC Biology</a>
+- <a href="https://www.informatics.jax.org/marker/MGI:2445208">Rfx6 MGI Mouse Gene Detail - MGI:2445208</a></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models (primary in vivo model):</strong>
+- <strong>Constitutive <em>Rfx6</em> knockout mice:</strong> Homozygous null mice recapitulate the core human phenotype closely — <strong>neonatal diabetes and intestinal obstruction</strong> with variable pancreatic hypoplasia, and homozygotes die shortly after birth. At the molecular level, loss of Rfx6 causes failure to generate all major islet endocrine cell types except pancreatic-polypeptide cells, with upregulation of precursor markers (NEUROG3, SOX9), increased apoptosis, and near-complete loss of Ins1, Ins2, Gcg, Sst, and Ghr transcripts (Smith et al. 2010, <em>Nature</em>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">20148032</a>; Soyer et al. 2010, <em>Development</em>, PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/20040488/">20040488</a>).
+- <strong>Conditional/adult-inducible Rfx6 loss:</strong> Used to separately establish RFX6's <strong>postnatal maintenance role</strong> in mature beta cells (loss in adulthood causes progressive beta-cell dysfunction/dedifferentiation rather than only a developmental defect) — Piccand et al., <em>PLoS Genetics</em> 2014 ("Rfx6 Maintains the Functional Identity of Adult Pancreatic β Cells," PMC4542305).
+- <strong>Phenotype recapitulation:</strong> Strong — the mouse null phenotype (neonatal-lethal diabetes + intestinal obstruction + islet endocrine cell loss) closely mirrors human severe MRS, making mouse the most translationally faithful in vivo model. <strong>Limitation:</strong> mouse models show <em>variable</em> pancreatic hypoplasia severity and do not fully recapitulate the human gallbladder-aplasia component or the enteroendocrine/GLP-1-deficiency diarrhea mechanism as directly as human tissue/organoid studies have.</p>
+<p><strong>Zebrafish models:</strong>
+- Rfx6 is expressed in pancreatic endocrine progenitor and mature islet cells, analogous to mouse, and is required for proper islet cell development.
+- Zebrafish studies have been particularly informative for the <strong>shared regulatory program between pancreatic and intestinal (enteroendocrine) endocrine cells</strong>, relevant to understanding the GI/enteroendocrine arm of the human disease (BMC Biology 2020).</p>
+<p><strong>Human cellular/iPSC and organoid models (increasingly central to mechanistic understanding):</strong>
+- <strong>Patient-derived iPSCs</strong> carrying RFX6 loss-of-function mutations (e.g., c.1129C&gt;T) reproduce a normal definitive-endoderm/gut-tube stage but a <strong>specific, quantifiable block at the PDX1+/SOX9+ pancreatic endoderm stage</strong>, directly modeling the human pancreatic hypoplasia mechanism at the cellular level (<em>Development</em> 2020).
+- <strong>CRISPR-engineered RFX6-null and RFX6-heterozygous stem-cell-derived islets (SC-islets):</strong> RFX6−/− SC-islets fail to generate insulin-secreting beta cells (mirroring MRS), while RFX6+/− SC-islets show haploinsufficiency (54% RFX6 protein reduction) with impaired beta-cell maturation, calcium signaling, and 54–62% reduced insulin secretion — directly modeling the heterozygous MODY phenotype as well (PMID:<a href="https://pubmed.ncbi.nlm.nih.gov/38743124/">38743124</a>).
+- <strong>Human intestinal organoids with RFX6 mutations:</strong> Demonstrate RFX6's essential, PDX1-upstream role in establishing/maintaining duodenal identity, directly modeling the intestinal-atresia/patterning arm of the human disease (bioRxiv/<em>Development</em> organoid studies).</p>
+<p><strong>Applications:</strong> These complementary models allow dissection of the distinct developmental (endoderm patterning, pancreatic specification), functional/maintenance (adult beta-cell identity, calcium-dependent insulin secretion), and enteroendocrine (GLP-1/GIP-producing cell) arms of RFX6 pathology — collectively explaining, mechanism by mechanism, each component of the human multi-organ phenotype (diabetes, pancreatic hypoplasia, intestinal atresia/patterning defect, and protracted diarrhea).</p>
+<p><strong>Resources:</strong> MGI (Rfx6, <a href="https://bioregistry.io/MGI:2445208" target="_blank" rel="noopener noreferrer">MGI:2445208</a>) for mouse allele/phenotype data; ZFIN for zebrafish; no dedicated IMPC/KOMP full phenotyping pipeline entry was specifically surfaced in this search, though <em>Rfx6</em> knockout alleles are catalogued in MGI.</p>
+<p><strong>Sources:</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2896718/">Rfx6 directs islet formation and insulin production in mice and humans - PMC</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2799156/">Rfx6 is an Ngn3-dependent winged helix transcription factor required for pancreatic islet cell development - PMC</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4542305/">Rfx6 Maintains the Functional Identity of Adult Pancreatic β Cells - PMC</a>
+- <a href="https://journals.biologists.com/dev/article/147/21/dev194878/226401/Mitchell-Riley-syndrome-iPSCs-exhibit-reduced">Mitchell-Riley syndrome iPSCs exhibit reduced pancreatic endoderm differentiation due to a mutation in RFX6 - Development</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11343796/">RFX6 haploinsufficiency predisposes to diabetes through impaired beta cell function - PMC</a></p>
+<hr />
+<h2>Curation Notes for dismech (Important Caveats)</h2>
+<ol>
+<li><strong>Verify all PMIDs and ontology-term IDs before KB entry.</strong> Several PMIDs above were resolved with high confidence directly from search-result URLs (e.g., 20148032, 26264437, 29026101, 38743124, 35307919, 20040488), but a few — notably the exact PMIDs for the JCEM GLP-1 paper (DOI 10.1210/clinem/dgaa916), the <em>Development</em> 2020 iPSC paper, the Orphanet J Rare Dis 2021 transcriptomic case report, and the Chandra et al. 2014 Cell Reports paper — were <strong>not independently confirmed</strong> in this pass and should be looked up on PubMed directly (<code>just fetch-reference</code>) before use. HPO term IDs marked "(verify)" above are best-effort suggestions, not OAK-validated.</li>
+<li><strong>This is squarely a <code>create-module</code>/<code>RFX6</code> allelic-series curation candidate</strong> — the RFX6 biallelic-null (Mitchell-Riley) vs. biallelic-hypomorphic (childhood diabetes) vs. heterozygous-truncating (MODY) spectrum is a clean worked example for the schema's genotype/functional-impact-category modeling guidance, and the GLP-1/enteroendocrine-deficiency diarrhea mechanism is a strong, evidence-rich, mechanistically novel pathophysiology node distinct from the "generic malabsorption" framing used in older case reports.</li>
+<li><strong>Martinez-Frias syndrome (OMIM #601346)</strong> should likely be curated as the <strong>same disease entity or an explicitly cross-referenced allelic/overlapping entry</strong>, not independently, given the literature's convergence on "Mitchell-Riley/Martinez-Frias syndrome" as a combined designation — a design decision worth checking against <code>docs/explanation/design-decisions.md</code> before curation.</li>
+</ol>
+<p>Sources: see inline citations throughout; primary aggregation points were <a href="https://omim.org/entry/615710">OMIM #615710</a>, <a href="https://omim.org/entry/612659">OMIM *612659</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9257252/">PMC9257252</a>, and <a href="https://pubmed.ncbi.nlm.nih.gov/20148032/">PubMed 20148032</a>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Mitchell-Riley_Syndrome-asta.html">← Mitchell-Riley Syndrome (Asta)</a>
+                
+                
+                <a href="MITF_Waardenburg_Tietz_Spectrum-falcon.html">MITF Waardenburg-Tietz Spectrum (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Mitchell-Riley_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Mitchell-Riley_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Mitchell-Riley_Syndrome-asta.html"><span class="provider-pill provider-asta">Asta</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

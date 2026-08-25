@@ -8,6 +8,51 @@
 # catching real validation errors (snippet mismatches, wrong PMIDs, etc.).
 unknown_prefix_severity: WARNING
 
+# literal_bracket_patterns: regexes matched against the text *inside* square
+# brackets. Content matching any of them is kept as literal source text; content
+# matching none of them is stripped before the snippet is compared with the
+# cached reference (issue #8597).
+#
+# Why the default (strip everything) is wrong here. Stripping exists so a curator
+# can gloss a quote -- "This pleiotropic cytokine [IL-6] is a key factor" -- and
+# have the gloss ignored, and so an inline numeric citation marker ("...as shown
+# previously [12]") does not have to be transcribed. But structured biomedical
+# abstracts also *define abbreviations* in square brackets on first use, and only
+# the query side is stripped, never the cached text. A verbatim quote spanning
+# such a definition therefore failed as "Text part not found as substring" --
+# which reads as "the curator paraphrased", the one thing this validator exists
+# to catch. It cost four curation PRs before it was diagnosed.
+#
+# The two patterns below are deliberately narrow, and were chosen by replaying
+# every bracketed snippet in kb/ under each candidate: both leave all of them
+# verified, and both leave the four editorial glosses currently in the KB
+# (`[sic, correct designation is R501X]`, `[IL-6]`, `[of dimethyltryptamine]`)
+# stripped, as their curators intended.
+#
+#   ^[A-Z]{2,}$  an all-caps abbreviation defined in line: [APTT], [GERD], [RR],
+#                [CI], [DTI]. Letters only, end to end: anything carrying a digit,
+#                hyphen, space or lower-case letter is NOT matched, so the gloss
+#                `[IL-6]` in Rheumatoid_Arthritis.yaml keeps being stripped (and
+#                so would `[IL6]`).
+#   %            any bracketed span carrying a percent sign: [62%], [28, 62%],
+#                [95% CI 1.22-2.31]. A numeric citation marker never contains
+#                one, so this cannot resurrect the `[12]` problem.
+#
+# Purely numeric content ([12], [3,4], [111 - 113]) matches neither and is still
+# stripped, so inline citation markers keep working as before.
+#
+# The cost is a shape a *gloss* can no longer take: a bare all-caps one ([HIT])
+# or any gloss carrying a percent sign ([roughly 30% of cases]) is now read as
+# source text and will fail its own snippet. No such gloss exists in kb/ today.
+# Write those in the `explanation` instead.
+#
+# Consulted by the real validator behind `just validate-references` /
+# `just validate-disorders` AND mirrored by the advisory
+# `just count-verified-snippets`, so the fast and slow checks stay in agreement.
+literal_bracket_patterns:
+  - "^[A-Z]{2,}$"
+  - "%"
+
 # skip_prefixes: reference prefixes the validator cannot fetch and should
 # silently skip. These are dataset accession identifiers, not literature
 # references, so snippet validation does not apply to them.
