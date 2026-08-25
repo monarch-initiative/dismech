@@ -2353,6 +2353,20 @@ If you hit "not found as substring" on a quote you copied verbatim,
 than leaving you hunting for a paraphrase you never wrote. Adding a pattern
 affects every cached reference, so replay the whole KB before changing one.
 
+**Publisher typography folds — a snippet need not be byte-identical.** Both
+sides of the comparison are normalized (`normalize_text` maps every non-word
+non-space character to a space, then collapses whitespace with `\s+`, which in
+Python matches Unicode whitespace). So write snippets in **plain ASCII**: an
+ordinary space matches the U+2009 thin spaces Nature journals put around `=`,
+and a hyphen matches an en dash or unicode minus in a range. `"AUC = 0.933"`
+typed normally matches the source; no committed `kb/disorders` snippet contains
+a thin space or en dash, and an invisible character in a quote is a trap for the
+next curator. The one exception is `x` for the multiplication sign, which does
+**not** match, since `x` is a word character and U+00D7 is not. This matters
+because believing a figure "cannot be quoted" pushes a curator into
+paraphrasing it into `explanation` prose or dropping the claim, when quoting it
+plainly would have worked. Full detail in `.claude/skills/dismech-references`.
+
 ### 6. A Title Is Not a Finding
 
 Quoting the cited paper's **title** as the snippet passes every check we have —
