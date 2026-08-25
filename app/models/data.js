@@ -2945,7 +2945,7 @@ window.searchData = [
   {
     "model_key": "Duchenne_Muscular_Dystrophy--computational-model-virgilio-fibrosis-perturbation-model-of-mdx-muscle-regeneration--1",
     "name": "Virgilio fibrosis-perturbation model of mdx muscle regeneration",
-    "description": "Follow-up use of the skeletal-muscle agent-based framework to vary extracellular- matrix area fraction and protein density, predict their effects on cell migration, growth-factor diffusion, and 28-day regeneration, and compare the prediction with TGF-beta-treated mdx mouse experiments.",
+    "description": "Follow-up use of the skeletal-muscle agent-based framework to vary extracellular-matrix area fraction and protein density, predict their effects on cell migration, growth-factor diffusion, and 28-day regeneration, and compare the prediction with TGF-beta-treated mdx mouse experiments.",
     "model_type": "Agent Based",
     "model_type_raw": "AGENT_BASED",
     "model_format": "Java agent-based simulation with two-dimensional muscle geometry",
