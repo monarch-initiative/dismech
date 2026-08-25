@@ -67,6 +67,7 @@ from typing import Any, NamedTuple
 
 __all__ = [
     "DISEASE_KIND",
+    "REFERENCE_ONLY_SLOTS",
     "REF_SLOTS",
     "SECTION_KEYS",
     "SINGLETON_SECTIONS",
@@ -191,6 +192,25 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
 REF_SLOTS: frozenset[str] = frozenset(
     {"attaches_to", "would_support", "would_refute", "target"}
 )
+
+#: Ref-bearing slot -> the slot a prose *outcome* belongs in instead (#9224).
+#:
+#: ``Experiment.would_support`` / ``would_refute`` name *what a result bears
+#: on*; ``supporting_outcome`` / ``refuting_outcome`` state *what would be
+#: observed*. Both pairs are multivalued strings, so nothing in the schema
+#: stops a sentence being written into the reference slot, and ~51 were before
+#: the two prose slots existed. The distinction is not stylistic: an anchor
+#: names a referent and resolves to a card on the page, while a sentence like
+#: "No enrichment of these lesions in tissue would indicate that ..." is a
+#: conditional inference with no referent to resolve, and rendered as a
+#: reference chip it becomes a monospace block.
+#:
+#: ``attaches_to`` is absent because it has no prose sibling -- a bare name
+#: there is a mis-written reference, not a misfiled outcome.
+REFERENCE_ONLY_SLOTS: dict[str, str] = {
+    "would_support": "supporting_outcome",
+    "would_refute": "refuting_outcome",
+}
 
 
 def canonical_kind(kind: str) -> str:
