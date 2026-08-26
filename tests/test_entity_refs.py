@@ -15,6 +15,7 @@ import yaml
 
 from dismech import render
 from dismech.entity_refs import (
+    DISEASE_KIND,
     SECTION_KEYS,
     SINGLETON_SECTIONS,
     EntityRef,
@@ -341,8 +342,72 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
         "inheritance",  # _annotate_ref_target_anchors
         "clinical_trials",  # _annotate_ref_target_anchors
         "mechanistic_hypotheses",  # _annotate_hypothesis_group_links
+        # Sections that gained cards in #9505. Both fixtures carry all three,
+        # and `diagnosis` alone accounted for 42 of the 69 dead chips.
+        "diagnosis",
+        "progression",
+        "prevalence",
     ):
         assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "kb/disorders/Heritable_Pulmonary_Arterial_Hypertension.yaml",
+        "kb/disorders/Chagas_Disease.yaml",
+        "kb/disorders/Acute_Flaccid_Myelitis.yaml",
+    ],
+)
+def test_no_reference_renders_as_a_dead_chip(tmp_path, source):
+    """Every resolvable reference must become a link, not a dead chip (#9505).
+
+    `test_semantic_ref_index_covers_every_annotated_section` checks the
+    converse — that each href the index emits exists on the page. It passes
+    happily when a whole section is missing from the index, which is exactly
+    what happened: the disorder template rendered no card for `diagnosis`,
+    `prevalence`, `progression`, `imaging_findings`, `epidemiology`,
+    `infectious_agent`, `transmission`, `clinical_burden` or `stages`, so 69
+    references across `kb/` resolved as foreign keys and still drew as inert
+    grey text.
+
+    These three fixtures between them carry all nine sections.
+
+    The one accepted exception is a *whole-section* reference to a section the
+    entry does not have — a KNOWLEDGE_GAP attached to `treatments#` precisely
+    *because* nothing is curated there. That resolves (the section is real) but
+    has no card to jump to, which `entity_refs` documents as the deliberate
+    difference between "is this a real section" and "is there somewhere to go".
+    """
+    src = pathlib.Path(source)
+    disorder = render.load_disorder(src)
+
+    render._annotate_model_links(disorder)
+    render._annotate_card_anchors(disorder)
+    render._annotate_variant_anchors(disorder)
+    render._annotate_external_assertion_anchors(disorder)
+    render._annotate_ref_target_anchors(disorder)
+    render._annotate_hypothesis_group_links(disorder)
+    index = render._build_semantic_ref_index(disorder)
+
+    dead = []
+    for site in iter_entity_refs(disorder):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None or parsed.file:
+            continue
+        known = (
+            parsed.kind == DISEASE_KIND
+            or parsed.kind in SECTION_KEYS
+            or parsed.kind in SINGLETON_SECTIONS
+        )
+        if not known or index.get(site.ref):
+            continue
+        slot = SECTION_KEYS.get(parsed.kind, (parsed.kind,))[0]
+        if not parsed.name and not disorder.get(slot):
+            continue  # the documented empty-section case
+        dead.append(f"{site.path}={site.ref!r}")
+
+    assert not dead, f"{src.stem}: references with no link target: {dead}"
 
 
 @pytest.mark.parametrize(
