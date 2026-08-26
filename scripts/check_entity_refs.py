@@ -70,7 +70,8 @@ DEFAULT_ROOTS = (
 
 # Directories under `kb/` deliberately left out of the sweep, with the reason.
 # Stated explicitly rather than by omission because "a tree nobody checks"
-# is the exact bug this script exists to fix: `test_default_roots_cover_kb`
+# is the exact bug this script exists to fix:
+# `test_entity_ref_sweep_covers_every_kb_subtree` (tests/test_ci_batch_validation.py)
 # fails when a new `kb/<something>/` appears in neither list, so the decision
 # gets made rather than defaulted.
 EXCLUDED_ROOTS = {
