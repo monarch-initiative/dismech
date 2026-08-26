@@ -18,6 +18,12 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech.entity_refs import (
+    DISEASE_KIND,
+    SECTION_KEYS,
+    canonical_kind,
+    section_items,
+)
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
@@ -37,6 +43,14 @@ from dismech.yaml_io import safe_load, safe_load_path
 # libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
 # (introduced in issue #5198, consolidated in #7502).
 _fast_yaml_load = safe_load
+
+
+#: Non-canonical entity-reference prefixes, mapped to the schema slot name.
+#: Handed to the templates so client-side code canonicalises a prefix the same
+#: way :func:`dismech.entity_refs.canonical_kind` does.
+ENTITY_REF_KIND_ALIASES: dict[str, str] = {
+    kind: canonical_kind(kind) for kind in SECTION_KEYS if canonical_kind(kind) != kind
+}
 
 
 @lru_cache(maxsize=8)
@@ -72,6 +86,14 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # peer-reviewed. A global for the same reason: it depends only on the
     # reference identifier, never on which page is being rendered.
     env.globals["is_preprint"] = _reference_is_preprint
+    # Alias -> schema-slot map for the pathograph's jump-to-card fallback
+    # (issue #9394). A card advertises its section in the singular
+    # (`data-dismech-type="phenotype"`), while a normalised reference carries
+    # the schema slot (`phenotypes#Name`), so the JS has to canonicalise both
+    # sides before comparing them or the section-preference step silently
+    # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
+    # drift from the resolver. Page-independent, hence a global.
+    env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
     return env
 
 
@@ -497,6 +519,111 @@ def _annotate_variant_anchors(disorder: dict) -> None:
         )
 
 
+# Sections that are the *target* of a hash-anchor entity reference
+# (`attaches_to`, `would_support`, `would_refute`, perturbation/readout
+# `target`) but are not pathograph nodes, so their cards carry no
+# `data-dismech-node` pair -- the anchor exists purely so a reference chip can
+# link to the card (issue #9193). The second element is the anchor-ID prefix;
+# the third names the slots an entity reference matches on, mirroring
+# `entity_refs.SECTION_KEYS` for these sections.
+#
+# Only sections the disorder template actually renders are listed. `diagnosis`,
+# `prevalence`, `progression`, `imaging_findings`, `epidemiology`,
+# `transmission`, `infectious_agent` and `stages` are referenced in content but
+# have no card on the page at all, so there is nothing to link to; those refs
+# stay plain chips until the page renders them.
+#: Section slot -> the `id` its card already carries in the template, for
+#: resolving a whole-section reference (`treatments#`). Only sections the page
+#: actually renders a card for appear here; `prevalence`, `progression`,
+#: `diagnosis`, `clinical_burden` and friends have no card, so a whole-section
+#: reference to them stays a plain chip (issue #9394).
+_SECTION_CARD_ANCHORS: dict[str, str] = {
+    "definitions": "definitions",
+    "inheritance": "inheritance",
+    "has_subtypes": "subtypes",
+    "mechanistic_hypotheses": "mechanistic-hypotheses",
+    "discussions": "discussions",
+    "pathophysiology": "pathophysiology",
+    "histopathology": "histopathology",
+    "phenotypes": "phenotypes",
+    "genetic": "genetic",
+    "variants": "variants",
+    "external_assertions": "external-assertions",
+    "treatments": "treatments",
+    "differential_diagnoses": "differentials",
+    "datasets": "datasets",
+    "clinical_trials": "trials",
+    # These two have *dedicated* anchor divs immediately above their cards --
+    # `<div id="experimental-models"></div>` and `<div id="animal-models"></div>`
+    # -- each inside `{% if <section> %}`, exactly the guard below. Prefer them
+    # over the `models` id the cards also carry: that one is shared, and lands
+    # on whichever model card renders first (`{% if not experimental_models %}`
+    # on the animal card, and likewise for computational), so it is not a
+    # per-section anchor at all.
+    "experimental_models": "experimental-models",
+    "animal_models": "animal-models",
+    # `computational_models` has no dedicated anchor -- only the shared,
+    # conditional `models` id -- so there is nothing a per-section guard can
+    # safely point at, and pointing it at a card showing *other* models would be
+    # a wrong target rather than a missing one. `comorbidities` is absent
+    # because it is not a Disease slot and so never appears in SECTION_KEYS.
+}
+
+#: HTML id on the page header, the target of a `disease#<name>` reference.
+_DISEASE_ANCHOR_ID = "disease-entry"
+
+_REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("definitions", "definition"),
+    ("inheritance", "inheritance"),
+    ("has_subtypes", "subtype"),
+    ("histopathology", "histopathology"),
+    ("differential_diagnoses", "differential-diagnosis"),
+    ("datasets", "dataset"),
+    ("clinical_trials", "clinical-trial"),
+)
+
+
+def _section_key_slots(section_key: str) -> tuple[str, ...]:
+    """The slots an entity reference matches on, per ``SECTION_KEYS``.
+
+    Read out of that map rather than restated here: two maps that must agree
+    eventually disagree, and `SECTION_KEYS` being the single source of truth is
+    the whole point of `entity_refs`.
+    """
+    for slot, key_slots in SECTION_KEYS.values():
+        if slot == section_key:
+            return key_slots
+    return ("name",)
+
+
+def _annotate_ref_target_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to cards that entity references point at.
+
+    The ID is derived from the first key slot the item actually carries, so a
+    dataset referenced by accession and one referenced by title both land on
+    their own card. IDs are de-duplicated within a section because two items
+    may slugify to the same value.
+    """
+    for section_key, prefix in _REF_TARGET_ANCHOR_SECTIONS:
+        key_slots = _section_key_slots(section_key)
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            value = next(
+                (item.get(k) for k in key_slots if isinstance(item.get(k), str) and item.get(k)),
+                None,
+            )
+            if not value:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(prefix, str(value)), used
+            )
+
+
 def _annotate_external_assertion_anchors(disorder: dict) -> None:
     """Attach anchor IDs to disease-level external assertions (issue #8044).
 
@@ -521,22 +648,69 @@ def _annotate_external_assertion_anchors(disorder: dict) -> None:
 
 
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
-    """Resolve YAML semantic refs to in-page HTML fragment links."""
+    """Resolve YAML semantic refs to in-page HTML fragment links.
+
+    Driven by ``entity_refs.SECTION_KEYS`` -- the same map the foreign-key test
+    resolves against -- so a reference that the test says points at a real
+    object becomes a live in-page link rather than a dead chip (issue #9193).
+    Both the singular and plural spelling of a section resolve, because content
+    uses both.
+
+    A section whose cards carry no ``_anchor_id`` is skipped: the page has no
+    target for it, and emitting a link to an anchor that does not exist is
+    worse than leaving the chip plain. Call this after the ``_annotate_*``
+    anchor passes.
+    """
     ref_index: dict[str, str] = {}
 
-    pathophysiology_items = disorder.get("pathophysiology") or []
-    if isinstance(pathophysiology_items, list):
-        for item in pathophysiology_items:
+    # `disease#<name>` is a virtual whole-entry anchor rather than a section, so
+    # it is absent from SECTION_KEYS by design (see entity_refs) and has to be
+    # indexed on its own. It points at the page header.
+    disease_name = disorder.get("name")
+    if isinstance(disease_name, str) and disease_name:
+        ref_index[f"{DISEASE_KIND}#{disease_name}"] = f"#{_DISEASE_ANCHOR_ID}"
+    # `disease#` with an empty anchor is the same target.
+    ref_index[f"{DISEASE_KIND}#"] = f"#{_DISEASE_ANCHOR_ID}"
+
+    # Whole-section references (`treatments#`), for the sections that have a
+    # card to jump to. Both spellings of a section resolve to the same card.
+    #
+    # Note this is deliberately stricter than *resolution*: `treatments#`
+    # resolves in an entry curating no treatments (that is the point -- a
+    # KNOWLEDGE_GAP attached to a section because it is empty), but the card is
+    # only rendered when the section has content, so linking to `#treatments`
+    # there would point at an anchor that does not exist on the page. Resolution
+    # answers "is this a real section"; the link answers "is there somewhere to
+    # jump to", and they are not the same question.
+    for kind, (section_key, _keys) in SECTION_KEYS.items():
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{kind}#", f"#{card}")
+
+    for kind, (section_key, key_slots) in SECTION_KEYS.items():
+        for item in section_items(disorder, section_key):
             if not isinstance(item, dict):
                 continue
-            name = item.get("name")
-            if not name:
+            if section_key == "pathophysiology":
+                # The only section whose anchor is derivable without an
+                # annotate pass, and the one every other page feature already
+                # assumes is present.
+                name = item.get("name")
+                if not name:
+                    continue
+                item.setdefault(
+                    "_anchor_id", _make_anchor_id("pathophysiology", str(name))
+                )
+            elif section_key == "discussions":
+                # Discussion cards use the raw discussion_id as their HTML id.
+                item.setdefault("_anchor_id", item.get("discussion_id"))
+            anchor_id = item.get("_anchor_id")
+            if not anchor_id:
                 continue
-            anchor_id = item.get("_anchor_id") or _make_anchor_id(
-                "pathophysiology", str(name)
-            )
-            item.setdefault("_anchor_id", anchor_id)
-            ref_index[f"pathophysiology#{name}"] = f"#{anchor_id}"
+            for key in key_slots:
+                value = item.get(key)
+                if isinstance(value, str) and value:
+                    ref_index.setdefault(f"{kind}#{value}", f"#{anchor_id}")
 
     return ref_index
 
@@ -2049,6 +2223,7 @@ def render_disorder(
     _annotate_card_anchors(disorder)
     _annotate_variant_anchors(disorder)
     _annotate_external_assertion_anchors(disorder)
+    _annotate_ref_target_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 

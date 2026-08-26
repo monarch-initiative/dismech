@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subacute Delirium · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Subacute Delirium</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Subacute Delirium</h1>
+                
+                <p class="report-subtitle">Subacute Delirium: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0004629" target="_blank" rel="noopener noreferrer">MONDO:0004629</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">55 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Subacute Delirium: Comprehensive Research Report</h1>
+<h2>Note on Nosology</h2>
+<p>"Subacute Delirium" is not an independently defined disease entity with its own genetic or pathophysiological literature — it is a <strong>temporal-course descriptor</strong> within the single clinical syndrome of delirium. ICD-10-CM code <strong>F05</strong> ("Delirium due to known physiological condition") is explicitly defined to include "acute <strong>or subacute</strong> confusional state," "acute or subacute brain syndrome," and "acute or subacute psycho-organic syndrome," with <strong>F05.1</strong> covering delirium superimposed on dementia <a href="https://www.icd10data.com/ICD10CM/Codes/F01-F99/F01-F09/F05-">icd10data.com</a>. MONDO (<code>MONDO:0004629</code>) and UMLS/MedGen (<code>C0154333</code>, SNOMED CT <code>191507002</code>) carry "Subacute Delirium" as a synonym set ("Delirium, Subacute"; "Subacute confusional state") mapped onto the same underlying concept as delirium generally <a href="https://www.ncbi.nlm.nih.gov/medgen/56340">MedGen C0154333</a>. Consequently, this report treats "subacute delirium" as <strong>delirium with a subacute onset/course</strong> (onset over days rather than hours, and/or a protracted duration of weeks rather than days) and draws on the delirium literature broadly, flagging the subset of studies that specifically address protracted/persistent/subacute courses (Sections 8 and 11 in particular).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Delirium is an acute neuropsychiatric syndrome of disturbed attention, awareness, and cognition that develops over a short period (hours to days — "acute") or, in the subacute variant, over a somewhat longer interval, and represents a direct physiological consequence of an underlying medical condition, substance intoxication/withdrawal, or medication effect, or multiple combined etiologies [MalaCards / <a href="http://purl.obolibrary.org/obo/MONDO_0004629" target="_blank" rel="noopener noreferrer">MONDO:0004629</a> description via search]. Core features include a disturbance of attention and awareness, an additional cognitive disturbance (memory, disorientation, language, visuospatial ability, or perception), development over a short period with a tendency to fluctuate in severity during the day, and evidence that the disturbance is not better explained by a pre-existing/evolving dementia.</p>
+<p><strong>Key identifiers:</strong>
+| Ontology | Identifier |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0004629" target="_blank" rel="noopener noreferrer">MONDO:0004629</a> ("subacute delirium") |
+| UMLS/MedGen | C0154333 |
+| SNOMED CT | 191507002 |
+| ICD-10-CM | F05 (Delirium due to known physiological condition — "acute or subacute confusional state"); F05.1 (superimposed on dementia) |
+| DSM-5 | Delirium, specified as acute (hours–days) or persistent (weeks–months) |</p>
+<p><strong>Synonyms:</strong> Subacute confusional state; acute confusional state; toxic-metabolic encephalopathy; organic brain syndrome (historical term); ICU psychosis (informal, ICU-specific); sundowning (informal, when evening-predominant) <a href="https://www.ncbi.nlm.nih.gov/medgen/56340">MedGen C0154333</a>.</p>
+<p><strong>Data source note:</strong> Most quantitative data below derive from aggregated, cohort-level clinical research (hospital registries, ICU cohorts, meta-analyses) rather than individual EHR mining per se, though several cited studies (e.g., UK Biobank-linked COVID-19 cohort, US World Delirium Awareness Day prevalence study) are EHR/registry-based.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal framework.</strong> Delirium arises from an interaction between predisposing (vulnerability) factors and precipitating (insult) factors — a patient with high vulnerability (e.g., advanced age, dementia) can develop delirium from a minor insult, while a resilient patient requires a major insult (multiple simultaneous new medications, major surgery, severe critical illness).</p>
+<p><strong>Direct causal factors:</strong>
+- Systemic infection/sepsis and acute critical illness
+- Major surgery/anesthesia (postoperative delirium)
+- Metabolic derangement (electrolyte disturbance, hypo-/hyperglycemia, hepatic/renal failure)
+- Medication effects, polypharmacy, and substance intoxication/withdrawal (including alcohol and benzodiazepine withdrawal)
+- Hypoxia/hypoperfusion
+- Primary CNS insults (stroke, seizure, traumatic brain injury, CNS infection)</p>
+<p><strong>Genetic risk factors.</strong> The largest multi-ancestry GWAS of delirium to date analyzed <strong>1,059,130 individuals (11,931 cases)</strong> and identified <strong>APOE</strong> as a strong risk locus, with the effect persisting after adjustment for dementia/Alzheimer's disease and within dementia-free cohorts — indicating APOE independently confers delirium vulnerability rather than acting solely through dementia risk <a href="https://journals.plos.org/plosmedicine/article?id=10.1371%2Fjournal.pmed.1004963">PLOS Medicine GWAS</a>. A large UK cohort further found that <strong>APOE ε4 genotypes increased risk of delirium during COVID-19-related hospitalizations</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8344705/">PMC8344705</a>. Additional postoperative-delirium-associated loci include <strong>APOC1, TOMM40, and PVRL2</strong>, genes previously linked to dementia, cognitive decline, and cerebral imaging phenotypes [Neuroscience News summary]. Notably, earlier candidate-gene associations between the muscarinic cholinergic receptor genes <strong>CHRM2</strong> and <strong>CHRM4</strong> and postoperative delirium were <strong>not replicated</strong> in more recent, better-powered analyses, with all three previously identified variants showing null effects <a href="https://www.nature.com/articles/s43587-025-01018-6">medRxiv / Nature Aging, Dissecting the genetic and proteomic risk factors for delirium</a>.</p>
+<p><strong>Environmental/clinical risk factors</strong> (odds ratios from recent meta-analyses of hospitalized older patients):
+- Frailty: OR ≈ 2.05
+- Physical restraints: OR ≈ 5.01
+- Prior falls: OR ≈ 1.99
+- Severe illness: OR ≈ 1.32
+- Cognitive impairment/dementia: OR ≈ 2.61
+<a href="https://www.sciencedirect.com/science/article/abs/pii/S0020748924002724">ScienceDirect, Global incidence and prevalence of delirium, 2024</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39602991/">PubMed 39602991</a></p>
+<p>Other established risk factors include advanced age, polypharmacy (especially anticholinergics, benzodiazepines, opioids), sensory impairment (vision/hearing), immobility, dehydration, sleep deprivation, indwelling catheters/lines, and mechanical ventilation.</p>
+<p><strong>Protective factors.</strong> Multicomponent nonpharmacological prevention programs are the best-evidenced protective intervention (see Section 13); no robust genetic protective variant has been established, though the absence of the APOE ε4 allele is associated with lower risk by extension of the GWAS findings above.</p>
+<p><strong>Gene-environment interaction.</strong> The APOE-delirium association is modulated by acute physiological stressors (e.g., COVID-19 infection, surgery), consistent with a "two-hit" model in which genetic vulnerability (APOE-mediated neuronal/glial resilience) interacts with an environmental/physiological precipitant (infection, surgery, critical illness) to produce clinical delirium <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8344705/">PMC8344705</a>.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Delirium's phenotype spans cognitive, behavioral, and psychomotor domains, with laboratory/imaging correlates increasingly recognized as biomarker-level abnormalities.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inattention</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032341" target="_blank" rel="noopener noreferrer">HP:0032341</a> (Impaired social cognition) / general "attention deficit" — closest specific term is <strong><a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" rel="noopener noreferrer">HP:0007018</a></strong> (Attention deficit)</td>
+<td>Cardinal feature; assessed via digit span, months-backward</td>
+</tr>
+<tr>
+<td>Disorientation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031466" target="_blank" rel="noopener noreferrer">HP:0031466</a> (disorientation) if available, else <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" rel="noopener noreferrer">HP:0000726</a> (Dementia) subset</td>
+<td>Fluctuating; worse with evening ("sundowning")</td>
+</tr>
+<tr>
+<td>Fluctuating consciousness/awareness</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007360" target="_blank" rel="noopener noreferrer">HP:0007360</a> (Aggressive behavior) not applicable; consider <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" rel="noopener noreferrer">HP:0000726</a> or <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a> (Sleep disturbance) for circadian component</td>
+<td>Hallmark diagnostic feature (DSM-5 Criterion A/B)</td>
+</tr>
+<tr>
+<td>Memory impairment</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" rel="noopener noreferrer">HP:0002354</a> (Memory impairment)</td>
+<td>Both encoding and recall affected</td>
+</tr>
+<tr>
+<td>Perceptual disturbances (hallucinations, illusions)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" rel="noopener noreferrer">HP:0000738</a> (Hallucinations)</td>
+<td>More common in hyperactive subtype</td>
+</tr>
+<tr>
+<td>Psychomotor agitation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000723" target="_blank" rel="noopener noreferrer">HP:0000723</a> (Restlessness) / <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" rel="noopener noreferrer">HP:0100716</a> (Self-injurious behavior) in severe cases</td>
+<td>Hyperactive subtype</td>
+</tr>
+<tr>
+<td>Psychomotor retardation / lethargy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025336" target="_blank" rel="noopener noreferrer">HP:0025336</a> (Psychomotor retardation)</td>
+<td>Hypoactive subtype — most common but most underdiagnosed</td>
+</tr>
+<tr>
+<td>Sleep-wake cycle disturbance</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a> (Sleep disturbance)</td>
+<td>Circadian reversal common</td>
+</tr>
+<tr>
+<td>Disorganized thinking/speech</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" rel="noopener noreferrer">HP:0031936</a> (Delusions) or <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> (Delayed speech and language development, N/A for adults) — best mapped as thought-disorder qualifier</td>
+<td></td>
+</tr>
+<tr>
+<td>Emotional lability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" rel="noopener noreferrer">HP:0000712</a> (Emotional lability)</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Motor subtypes and frequency.</strong> A subacute-care cohort study of patients ≥65 admitted with delirium found: <strong>hyperactive delirium 40.6%</strong>, <strong>mixed 31%</strong>, <strong>hypoactive 25.9%</strong>, <strong>nonmotor 2.6%</strong> [PubMed search — persistent delirium subtype study]. Hypoactive delirium, though less prevalent in some settings, is disproportionately missed clinically because of its quiet presentation.</p>
+<p><strong>Onset/severity/progression per DSM-5:</strong> Delirium severity is formally specified as <strong>acute</strong> (a few hours to days) or <strong>persistent</strong> (weeks to months) — the "subacute" category sits at the acute-to-persistent transition, typically representing onset over roughly 1–2 weeks with a course of several weeks [DSM-5 criteria search summary].</p>
+<p><strong>Frequency/persistence data:</strong> Combined proportions of patients with <em>persistent delirium</em> were <strong>44.7% at discharge, 32.8% at 1 month, 25.6% at 3 months, and 21% at 6 months</strong> in an updated systematic review and meta-analysis <a href="https://www.medrxiv.org/content/10.1101/2022.01.20.22269044.full.pdf">medRxiv persistent delirium meta-analysis</a>; <a href="https://deliriumjournal.com/article/36822-persistent-delirium-in-older-hospital-patients-an-updated-systematic-review-and-meta-analysis">Delirium Journal version</a>. In patients with and without dementia, delirium symptoms persisted up to 12 months post-diagnosis, with <strong>inattention, disorientation, and impaired memory</strong> the most persistent individual symptoms in both groups.</p>
+<p><strong>Quality of life impact:</strong> Persistent/subacute delirium is associated with functional decline, increased nursing-home placement, and worse cognitive trajectory relative to patients whose delirium resolves acutely <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5506578/">PMC5506578, subsyndromal delirium meta-analysis</a>.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Delirium is not a monogenic disorder; there is no single causal gene analogous to a Mendelian disease. Rather, common-variant susceptibility loci modulate risk in the context of an acute precipitant.</p>
+<ul>
+<li><strong>APOE</strong> (chr19; <a href="https://bioregistry.io/HGNC:613" target="_blank" rel="noopener noreferrer">HGNC:613</a>) — strongest and most replicated genetic risk factor identified in the largest delirium GWAS to date (N=1,059,130, 11,931 cases), independent of dementia status <a href="https://journals.plos.org/plosmedicine/article?id=10.1371%2Fjournal.pmed.1004963">PLOS Medicine</a>.</li>
+<li><strong>APOC1, TOMM40, PVRL2 (NECTIN2)</strong> — chromosome 19 loci in linkage disequilibrium with APOE, associated with postoperative delirium and broader neurocognitive phenotypes.</li>
+<li><strong>CHRM2, CHRM4</strong> (muscarinic acetylcholine receptors) — earlier candidate-gene hits, <strong>not replicated</strong> in recent, adequately powered analyses (null effect in the 2024/2025 genetic-proteomic dissection study) <a href="https://www.nature.com/articles/s43587-025-01018-6">Nature Aging 2025</a>.</li>
+</ul>
+<p><strong>Proteomic/functional correlates:</strong> The same 2024–2025 genetic-and-proteomic dissection identified multiple <strong>blood-based proteins predictive of delirium risk years in advance</strong>, including markers of brain injury and inflammation not previously linked to delirium — supporting a model in which chronic subclinical neuronal vulnerability (proteomically detectable) interacts with an acute precipitant <a href="https://www.nature.com/articles/s43587-025-01018-6">Nature Aging</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12823428/">PMC12823428</a>.</p>
+<p><strong>Functional consequence framing:</strong> These findings support a <strong>susceptibility/modifier</strong> model (GENO: <code>GENO:0000217</code> susceptibility) rather than a loss/gain-of-function causal mutation model — APOE ε4 carriage confers relative risk via impaired neuronal lipid transport, reduced synaptic resilience, and amplified neuroinflammatory response to systemic insults, rather than through a specific structural variant.</p>
+<p><strong>Epigenetics/chromosomal abnormalities:</strong> No delirium-specific epigenetic signature or chromosomal abnormality has been established in the literature surveyed; delirium is fundamentally a syndromic, precipitant-driven state superimposed on variable genetic vulnerability rather than a primary genetic or chromosomal disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental/iatrogenic factors:</strong>
+- Polypharmacy — anticholinergics, benzodiazepines, opioids, corticosteroids
+- Physical restraints (independently associated risk, OR ≈ 5.01) [ScienceDirect 2024 meta-analysis]
+- Indwelling catheters, intravenous lines, mechanical ventilation
+- ICU environment: sleep deprivation, sensory overload/deprivation, lack of day-night cues
+- Surgery/anesthesia exposure (postoperative delirium)</p>
+<p><strong>Lifestyle/patient-level factors:</strong> Pre-existing frailty, immobility, dehydration, malnutrition, sensory impairment (uncorrected vision/hearing loss), and sleep disruption are all established contributors, consolidated in the "predisposing × precipitating factor" model of delirium.</p>
+<p><strong>Infectious triggers:</strong> Systemic infection/sepsis is one of the most common precipitants; COVID-19 specifically has been shown to precipitate delirium at elevated rates in APOE ε4 carriers <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8344705/">PMC8344705</a>. LPS (bacterial endotoxin)-driven systemic inflammation is the standard experimental proxy for infection-triggered delirium in animal models (see Section 15).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Delirium's mechanism is multifactorial and converges on <strong>acute, reversible cortical-subcortical network dysfunction</strong> driven by systemic and neuro-inflammation, neurotransmitter imbalance, and blood-brain barrier compromise.</p>
+<p><strong>Causal chain (systemic trigger → clinical syndrome):</strong>
+1. <strong>Systemic insult</strong> (infection, surgery, metabolic derangement) → release of peripheral pro-inflammatory cytokines (IL-6, TNF-α, IL-1β) and cortisol.
+2. <strong>Blood-brain barrier (BBB) dysfunction</strong> — increasingly recognized as a key permissive mechanism allowing peripheral inflammatory signals to reach the CNS <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11622424/">PMC11622424, Pathophysiology and Biomarkers of Delirium</a>.
+3. <strong>Neuroinflammation</strong> — microglial activation, NF-κB pathway activation, and local cytokine release (TNF-α, IL-1β, PGE2, nitric oxide) in the hippocampus and cortex, demonstrated mechanistically in LPS mouse models <a href="https://www.nature.com/articles/s41598-019-42286-8">Scientific Reports LPS study</a>.
+4. <strong>Neurotransmitter dysregulation</strong> — dysregulated cholinergic (relative deficiency) and dopaminergic (relative excess) signaling is a long-standing mechanistic hypothesis, though the specific cholinergic receptor gene candidates have not held up genetically (see Section 4).
+5. <strong>Synaptic and network dysfunction</strong> — disrupted thalamocortical and frontal-parietal connectivity.
+6. <strong>Clinical manifestation</strong> — inattention, disorientation, and fluctuating consciousness.</p>
+<p><strong>Molecular pathways:</strong> NF-κB signaling (pro-inflammatory transcription); cortisol/HPA-axis signaling exacerbating neuroinflammation and impairing synaptic function <a href="https://www.frontiersin.org/journals/aging-neuroscience/articles/10.3389/fnagi.2025.1632947/full">Frontiers postoperative delirium biomarkers review</a>.</p>
+<p><strong>Cellular processes:</strong> Microglial activation and synaptic remodeling/pruning; astrocytic activation (reflected by S100B elevation); neuronal injury (reflected by NfL, tau, pTau elevation) <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11622424/">PMC11622424</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10985356/">PMC10985356, Serum NFL and tau</a>.</p>
+<p><strong>Network/circuit-level findings (neuroimaging):</strong>
+- Reduced functional connectivity of the <strong>intralaminar thalamic and caudate nuclei</strong> with other subcortical regions during a delirium episode, which recovers after resolution <a href="https://psychiatryonline.org/doi/10.1176/appi.ajp.2012.11060976">AJP, Neural Network Functional Connectivity During and After an Episode of Delirium</a>.
+- Disrupted reciprocal (inverse) coupling between the <strong>dorsolateral prefrontal cortex</strong> and <strong>posterior cingulate cortex</strong> — normally anti-correlated, these regions become abnormally positively correlated during delirium.
+- EEG shows <strong>increased delta/theta power, reduced alpha power, and reduced functional connectivity</strong>, and loss of feedback cortical connectivity has been specifically implicated <a href="https://alz-journals.onlinelibrary.wiley.com/doi/full/10.1002/alz.13471">Alzheimer's &amp; Dementia 2024, Gjini et al.</a>; <a href="https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2023.1274837/full">Frontiers EEG systematic review</a>.</p>
+<p><strong>Biochemical/biomarker abnormalities:</strong> Elevated <strong>IL-6, CRP, TNF-α</strong> (systemic inflammation, variable specificity); <strong>S100B and NfL</strong> show the most consistent CNS-injury-marker associations with delirium presence and severity, implicating astrocytic and axonal injury respectively <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12401822/">PMC12401822, Serum biomarkers of delirium in critical illness systematic review</a>. A 2024/2025 CSF study found <strong>CSF sIL-6R correlated with plasma IL-6/IL-8 and with blood-brain barrier permeability</strong> (CSF:plasma albumin ratio, plasma S100B), directly linking peripheral inflammation to BBB compromise in postoperative delirium <a href="https://www.bjaopen.org/article/S2772-6096(26)00020-1/fulltext">BJA Open</a>.</p>
+<p><strong>GO/CL/UBERON term suggestions:</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0034612" target="_blank" rel="noopener noreferrer">GO:0034612</a> (response to tumor necrosis factor), <a href="http://purl.obolibrary.org/obo/GO_0032496" target="_blank" rel="noopener noreferrer">GO:0032496</a> (response to lipopolysaccharide), <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a> (I-kappaB kinase/NF-kappaB signaling), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response)
+- <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (microglial cell), <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte)
+- <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" rel="noopener noreferrer">UBERON:0001954</a> (Ammon's horn/hippocampus), <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" rel="noopener noreferrer">UBERON:0002435</a> (striatum, incl. caudate), <a href="http://purl.obolibrary.org/obo/UBERON_0002444" target="_blank" rel="noopener noreferrer">UBERON:0002444</a> (thalamus), <a href="http://purl.obolibrary.org/obo/UBERON_0009834" target="_blank" rel="noopener noreferrer">UBERON:0009834</a> (dorsolateral prefrontal cortex)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong> Primary organ affected is the <strong>brain</strong> (central nervous system); delirium is by definition a whole-brain functional (not typically focal-structural) disturbance, though it frequently co-occurs with the organ system driving the underlying precipitant (e.g., respiratory failure, sepsis-affected multiple organs, post-surgical state).</p>
+<p><strong>Tissue/regional level:</strong>
+- <strong>Thalamus</strong> (intralaminar nuclei) — reduced functional connectivity during delirium
+- <strong>Basal ganglia / caudate nucleus</strong> — reduced subcortical connectivity
+- <strong>Prefrontal cortex</strong> (dorsolateral) — disrupted reciprocal connectivity with posterior cingulate
+- <strong>Posterior cingulate cortex</strong> — abnormal positive coupling with DLPFC during delirium
+- <strong>Hippocampus</strong> — site of microglial activation and neuronal injury in animal models (LPS)</p>
+<p><strong>Subcellular level (GO Cellular Component):</strong> Synapse (<a href="http://purl.obolibrary.org/obo/GO_0045202" target="_blank" rel="noopener noreferrer">GO:0045202</a>), microglial process, astrocytic end-foot at the blood-brain barrier (relevant to BBB dysfunction mechanism).</p>
+<p><strong>Localization:</strong> Diffuse/bilateral cortical-subcortical network disturbance rather than a single lateralized lesion; this distinguishes delirium from focal stroke-related confusional states.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong>
+- <strong>Acute delirium</strong>: onset over hours to a few days (DSM-5).
+- <strong>Subacute delirium</strong>: onset over an intermediate timeframe, typically several days to roughly 1–2 weeks, representing an insidious rather than abrupt presentation — often seen with slowly evolving metabolic derangements, indolent infections, or medication accumulation effects, and clinically important because it is more easily mistaken for evolving dementia <a href="https://www.ncbi.nlm.nih.gov/medgen/56340">MedGen C0154333 clinical research summary</a>.
+- Delirium can occur at any adult age but disproportionately affects older adults; onset in critical illness or postoperative settings is typically within the first several days of the inciting event.</p>
+<p><strong>Progression / course pattern:</strong>
+- <strong>Fluctuating course</strong> is a defining diagnostic feature — symptom severity waxes and wanes over the course of a day, classically worsening in the evening ("sundowning").
+- <strong>DSM-5 persistence specifier</strong>: acute (hours–days) vs. <strong>persistent</strong> (weeks–months) — subacute delirium occupies the transition zone and often evolves into persistent delirium if the underlying precipitant is not resolved.
+- <strong>Persistent delirium prevalence</strong>: 44.7% at hospital discharge, declining to 32.8% (1 month), 25.6% (3 months), and 21% (6 months) in a pooled meta-analysis of older hospitalized patients <a href="https://www.medrxiv.org/content/10.1101/2022.01.20.22269044.full.pdf">medRxiv</a>.
+- Symptoms can persist up to <strong>12 months</strong>, with inattention, disorientation, and memory impairment the most persistent individual features [search summary, persistent delirium 12-month follow-up].</p>
+<p><strong>Remission patterns:</strong> Delirium is classically defined as reversible with treatment of the underlying cause, though full cognitive recovery is not universal — a substantial minority never return to baseline cognition, particularly in patients with pre-existing cognitive impairment.</p>
+<p><strong>Critical periods / intervention windows:</strong> The subacute-to-persistent transition represents a key intervention window — early identification and treatment of the underlying precipitant during the subacute phase is associated with better functional and cognitive outcomes than intervention after the delirium becomes persistent <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12404460/">PMC12404460, Persistent inpatient delirium and increased LOS/mortality</a>.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- Pooled <strong>prevalence 23.6%</strong> and pooled <strong>incidence 13.5%</strong> among medically hospitalized older patients (recent systematic review/meta-analysis) <a href="https://www.sciencedirect.com/science/article/abs/pii/S0020748924002724">ScienceDirect 2024</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39602991/">PubMed 39602991</a>.
+- US hospitalized-patient prevalence ranges <strong>~16–18%</strong>, rising to <strong>~23.6%</strong> in older adults specifically.
+- 2023 US cross-sectional World Delirium Awareness Day study: clinically documented delirium prevalence <strong>16.4% (morning)</strong> and <strong>17.9% (evening)</strong> assessments <a href="https://www.sciencedirect.com/science/article/pii/S2667296024000673">ScienceDirect</a>.
+- Prevalence reaches <strong>up to 50%</strong> in hospitalized elderly populations broadly, and <strong>~32.5% incidence</strong> among critically ill (ICU) patients, rising further with mechanical ventilation and organ dysfunction; <strong>~47.7% prevalence</strong> among post-surgical ICU patients [search summary].
+- Community-dwelling older adults: systematic review of prevalence/incidence/risk factors in home settings (BJGP 2025) <a href="https://bjgp.org/content/75/760/e786">BJGP.org</a>.</p>
+<p><strong>Inheritance pattern:</strong> Not a Mendelian disorder — <strong>complex/multifactorial</strong>, with common-variant (APOE) susceptibility contributing modest, non-deterministic risk in the context of an acute precipitant. No formal penetrance, expressivity, anticipation, mosaicism, or founder-effect data are applicable in the Mendelian sense; APOE ε4 allele frequency itself varies by ancestry (well-characterized in gnomAD/population genetics resources independent of delirium).</p>
+<p><strong>Population demographics:</strong>
+- <strong>Age</strong>: strongest independent risk factor — prevalence rises sharply with advancing age, particularly ≥65 years.
+- <strong>Sex</strong>: no strong, consistent sex-ratio skew reported across the reviewed epidemiological studies; risk is driven primarily by frailty, comorbidity burden, and acute illness severity rather than sex per se.
+- <strong>Setting-specific demographics</strong>: nephrology ward cohorts, pneumonia cohorts (5-decade prevalence/mortality meta-analysis), and emergency-department ambulance-arrival cohorts each show elevated delirium prevalence in older, frailer sub-populations <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12565244/">PMC12565244</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12148281/">PMC12148281</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11950662/">PMC11950662</a>.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/bedside diagnostic tools:</strong>
+- <strong>Confusion Assessment Method (CAM)</strong> — the most widely used bedside screening/diagnostic algorithm, requiring acute onset/fluctuating course + inattention, plus either disorganized thinking or altered consciousness [search summary, DSM-5/CAM comparison].
+- <strong>CAM-ICU</strong> — ICU-adapted version for non-verbal/ventilated patients.
+- <strong>DSM-5 criteria</strong> — considered relatively more restrictive than DRS-R98 or CAM in head-to-head comparisons, identifying a somewhat different (often narrower) case set <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4207319/">PMC4207319, DSM-IV vs DSM-5 concordance</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25601222/">PubMed 25601222</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28903799/">PubMed 28903799</a>.
+- <strong>DRS-R98 (Delirium Rating Scale-Revised-98)</strong> — severity-graded instrument, used as a comparator/gold standard in validation studies.
+- Level-of-arousal-inclusive DSM-5 interpretation is argued to be "safer" (more sensitive) for capturing genuine delirium cases <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4177077/">PMC4177077</a>.</p>
+<p><strong>Laboratory tests:</strong> No delirium-specific diagnostic lab test exists; work-up targets the underlying precipitant — CBC, metabolic panel, liver/renal function, TSH, blood/urine cultures, ammonia, toxicology screen as clinically indicated.</p>
+<p><strong>Emerging biomarkers (research/investigational, not yet routine clinical diagnostics):</strong>
+- <strong>S100B</strong> and <strong>neurofilament light chain (NfL)</strong> — most consistent CNS-injury-marker associations with delirium presence/severity across a systematic review of serum biomarkers in critical illness <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12401822/">PMC12401822</a>.
+- <strong>Serum tau and NfL</strong> correlated with delirium in a 3-year retrospective analysis, while serum UCHL-1, GFAP, and CSF SNAP-25/NPTX2/sTREM2 did not <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10985356/">PMC10985356</a>.
+- <strong>CSF IL-6, soluble IL-6 receptor, and IL-6 trans-signalling complex</strong> associated with postoperative delirium in an observational cohort <a href="https://www.bjaopen.org/article/S2772-6096(26)00020-1/fulltext">BJA Open</a>.
+- <strong>EEG-based quantitative/functional-connectivity measures</strong> — increased delta/theta power, reduced alpha power, reduced connectivity, and loss of feedback cortical connectivity are being explored as objective, non-invasive diagnostic adjuncts <a href="https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2023.1274837/full">Frontiers systematic review</a>; <a href="https://alz-journals.onlinelibrary.wiley.com/doi/full/10.1002/alz.13471">Alzheimer's &amp; Dementia 2024</a>.
+- Bispectral EEG has also been used as a discovery platform to identify novel protective agents for infection-related delirium in preclinical models <a href="https://www.nature.com/articles/s41398-024-03130-4">Translational Psychiatry 2024</a>.</p>
+<p><strong>Genetic testing:</strong> Not clinically indicated for delirium diagnosis (it is an acute syndromic diagnosis, not a genetic disease); APOE genotyping is a research risk-stratification tool, not a diagnostic test.</p>
+<p><strong>Differential diagnosis:</strong> Dementia (chronic, typically non-fluctuating, preserved consciousness), depression (particularly in hypoactive delirium), primary psychiatric psychosis, non-convulsive status epilepticus, stroke/focal neurological deficit, and delirium superimposed on dementia (ICD-10 F05.1) — which is common and requires careful distinction of an acute change from the patient's cognitive baseline.</p>
+<p><strong>Screening:</strong> No population-level genetic or newborn screening applies (delirium is an acquired, precipitant-driven acute-care condition); "screening" in practice means routine CAM/CAM-ICU or 4AT bedside screening of at-risk hospitalized patients (elderly, ICU, postoperative) rather than genetic carrier screening.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Mortality:</strong>
+- Persistent delirium is associated with <strong>increased 30-day mortality</strong> and <strong>higher 60-, 90-, 180-, and 360-day mortality</strong>, with an <strong>incremental increase in mortality risk for each additional day of delirium</strong> [search summary, persistent delirium outcomes meta-analysis]; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12404460/">PMC12404460, increased LOS and mortality</a>.
+- Outcomes (mortality, nursing-home placement, function, cognition) for patients with <strong>persistent delirium are consistently worse</strong> than for patients who recover from delirium <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5506578/">PMC5506578</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19017678/">PubMed 19017678, systematic review of frequency and prognosis</a>.</p>
+<p><strong>Long-term cognitive outcomes / dementia risk:</strong>
+- A meta-analysis of <strong>23 studies</strong> found delirium significantly associated with long-term cognitive decline (Hedges g = <strong>0.45</strong>, 95% CI 0.34–0.57, P&lt;.001) <a href="https://jamanetwork.com/journals/jamaneurology/fullarticle/2768000">JAMA Neurology meta-analysis</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32658246/">PubMed 32658246</a>.
+- Patients experiencing in-hospital delirium showed markedly increased <strong>dementia risk post-discharge (OR ≈ 5.37, P&lt;.001)</strong> compared with those without delirium [search summary].
+- A separate estimation study modeled how many dementia cases might be prevented by preventing delirium, underscoring delirium as a modifiable dementia risk factor rather than a purely bystander phenomenon <a href="https://pubmed.ncbi.nlm.nih.gov/37031027/">PubMed 37031027</a>.
+- A recent (2025) systematic review/meta-analysis of long-term clinical outcomes after hospital discharge for delirium further consolidates the adverse-outcome signal <a href="https://academic.oup.com/ageing/article/54/7/afaf188/8193852">Age and Ageing 2025</a>.</p>
+<p><strong>Morbidity/function:</strong> Increased length of stay, functional decline, and nursing-home placement are consistently reported; hyperactive, mixed, hypoactive, and nonmotor delirium subtypes differ in discharge destination and functional trajectory in subacute-care cohorts.</p>
+<p><strong>Prognostic factors:</strong> Duration of delirium (each additional day worsens mortality risk), pre-existing dementia, frailty, and severity of the underlying precipitating illness are the most consistently reported prognostic modifiers.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy:</strong>
+- <strong>Antipsychotics (haloperidol, ziprasidone)</strong>: The NEJM MIND-USA trial found <strong>no significant difference</strong> between haloperidol, ziprasidone, and placebo for delirium duration or severity in critically ill patients <a href="https://www.nejm.org/doi/full/10.1056/NEJMoa1808217">NEJM 2018, Haloperidol and Ziprasidone for Treatment of Delirium in Critical Illness</a>(landmark trial; foundational to current guideline skepticism about routine antipsychotic use). A 2024 follow-up analysis of long-term outcomes similarly found <strong>no difference in long-term quality of life</strong> with haloperidol vs. placebo across the identified trials <a href="https://www.sciencedirect.com/science/article/abs/pii/S2213260024000778">ScienceDirect 2024, MIND-USA long-term outcomes</a>.
+- <strong>Dexmedetomidine (alpha-2 agonist)</strong>: The <strong>4D trial</strong> (2024/2025) compared haloperidol-first-then-dexmedetomidine strategies for hyperactive delirium in non-intubated ICU patients, finding <strong>improved agitation control, reduced need for additional medications, and reduced ICU length of stay/costs</strong> with the dexmedetomidine-inclusive strategy <a href="https://link.springer.com/article/10.1007/s00134-025-08135-1">Intensive Care Medicine 2025</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12678554/">PMC12678554</a>.
+- <strong>Olanzapine vs. low-dose dexmedetomidine</strong>: A 2024 randomized trial in critically ill patients directly compared these agents <a href="https://academic.oup.com/ajrccm/article/212/8/1845/8676450">AJRCCM 2024</a>.
+- <strong>Dexmedetomidine + melatonin</strong> for post-CABG delirium: a 2023 RCT (n=80) found delirium occurrence <strong>lower with combined dexmedetomidine+melatonin (15%) vs. dexmedetomidine alone (30%)</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10664157/">PMC10664157</a>.</p>
+<p><strong>Suggested NCIT terms:</strong> NCIT:C15986 (Pharmacotherapy) for the generic action, with <code>therapeutic_agent</code> bindings to CHEBI for haloperidol, ziprasidone, olanzapine, dexmedetomidine, and melatonin individually.</p>
+<p><strong>Non-pharmacological / supportive care:</strong> Reorientation, early mobilization, sleep-hygiene protocols, hearing/vision aid provision, hydration/nutrition support, and minimizing deliriogenic medications and physical restraints — the core components of the <strong>Hospital Elder Life Program (HELP)</strong> (see Section 13), applied both preventively and as first-line management of established delirium.</p>
+<p><strong>Rehabilitation:</strong> Physical and occupational therapy to address functional decline associated with persistent delirium; NCIT:C15302 (Physical Therapy).</p>
+<p><strong>Experimental/investigational:</strong> Bispectral-EEG-guided discovery platforms are being used to screen for novel protective agents against infection-related delirium in preclinical models <a href="https://www.nature.com/articles/s41398-024-03130-4">Translational Psychiatry 2024</a>.</p>
+<p><strong>Treatment strategy summary:</strong> Current evidence favors <strong>treating the underlying precipitant first</strong>, applying non-pharmacological multicomponent strategies as first line, and reserving antipsychotics/dexmedetomidine for severe agitation or patient/staff safety concerns rather than as disease-modifying therapy — reflecting the accumulated null results for antipsychotics on delirium duration/long-term outcomes.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention — multicomponent nonpharmacological interventions:</strong>
+- The <strong>Hospital Elder Life Program (HELP)</strong>, developed by Sharon K. Inouye's group at Yale (1999), bundles reorientation, early mobilization, therapeutic activities, hydration/nutrition support, sleep-protocol strategies, and hearing/vision adaptation <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3724594/">PMC3724594</a>.
+- The original NEJM 1999 trial established multicomponent targeted intervention efficacy for preventing delirium onset and reducing total delirium-days in hospitalized older medical patients <a href="https://www.nejm.org/doi/full/10.1056/NEJM199903043400901">NEJM 1999</a>.
+- A 2024 systematic review/meta-analysis of HELP found subgroup effect estimates of <strong>RR ≈ 0.65 (HELP programs)</strong> and <strong>RR ≈ 0.70 (non-HELP multicomponent programs)</strong> for delirium incidence reduction <a href="https://www.sciencedirect.com/science/article/abs/pii/S0197457224000314">ScienceDirect 2024</a>.
+- A 2024/2025 umbrella review of RCTs for delirium prevention/treatment interventions further consolidates this evidence base <a href="https://www.sciencedirect.com/science/article/pii/S1568163724001314">ScienceDirect umbrella review</a>.
+- Nurse-led multicomponent interventions have separately been shown effective in a 2025 systematic review/meta-analysis <a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jan.70706">Journal of Advanced Nursing 2025</a>.</p>
+<p><strong>Secondary prevention:</strong> Routine bedside screening (CAM/CAM-ICU/4AT) of at-risk hospitalized, postoperative, and ICU patients for early detection, permitting prompt treatment of an emerging precipitant before delirium becomes persistent/subacute-to-chronic.</p>
+<p><strong>Tertiary prevention:</strong> Once delirium is established, minimizing deliriogenic medications, restraints, and immobility, and aggressively treating the underlying condition, reduces progression to persistent delirium and its associated mortality/cognitive-decline risk.</p>
+<p><strong>Pharmacological prophylaxis:</strong> Evidence for pharmacological delirium prophylaxis (e.g., prophylactic antipsychotics or dexmedetomidine) remains mixed and is not a first-line recommendation given the null long-term outcome data for antipsychotics; nonpharmacological multicomponent prevention remains the standard of care.</p>
+<p><strong>Counseling:</strong> Not applicable in the genetic-counseling sense (delirium is not a heritable single-gene disorder); patient/family education regarding delirium risk, expected fluctuating course, and reorientation strategies is a core component of both prevention and management.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Delirium as classically defined is a human clinical/DSM construct; there is no widely characterized spontaneous veterinary "delirium" literature comparable to human clinical case series. However:
+- Veterinary anesthesia/critical-care literature describes <strong>post-anesthetic emergence delirium/dysphoria</strong> and <strong>ICU-associated confusional states</strong> in companion animals (dogs, cats) that are mechanistically analogous (systemic inflammation, anesthesia, critical illness precipitating acute confusional states), though this is not formally captured in OMIA as a discrete inherited disease.
+- The <strong>orthologous APOE gene</strong> is broadly conserved across mammals (NCBI Gene), consistent with cross-species use of Apoe-knockout or humanized-APOE mouse lines in delirium-adjacent neuroinflammation research (see below).</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Primary model: LPS (lipopolysaccharide)-induced systemic inflammation in mice.</strong> This is the dominant experimental proxy for infection-triggered delirium:
+- LPS administration produces <strong>acute-onset, fluctuating cognitive impairment</strong> meeting DSM-IV-analogous criteria in mice, with microglial activation and neuronal cell loss in the hippocampus, assessed via Morris water maze and passive avoidance tests <a href="https://www.nature.com/articles/s41598-019-42286-8">Scientific Reports 2019</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6453933/">PMC6453933</a>.
+- LPS increases <strong>TNF-α, IL-1β, PGE2, and nitric oxide</strong>, with <strong>NF-κB pathway activation</strong>, directly modeling the neuroinflammatory mechanism described in Section 6.
+- Interventional studies in this model include deferoxamine (iron chelation) attenuating LPS-induced neuroinflammation/memory impairment <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4323121/">PMC4323121</a>, a Banhasasim-Tang (traditional herbal formulation) attenuation study <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7400939/">PMC7400939</a>, and hippocampal GPR17 knockdown/inhibition attenuating LPS-induced cognitive impairment <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10662506/">PMC10662506</a>.</p>
+<p><strong>Perioperative/subclinical infection combination model:</strong> A novel adult mouse model combining <strong>subclinical infection with surgery</strong> to induce cognitive dysfunction has been developed specifically as a model for perioperative neurocognitive disorder, closer to the clinical postoperative-delirium scenario than LPS alone <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12832885/">PMC12832885</a>.</p>
+<p><strong>Baseline vulnerability models:</strong> Mouse models with pre-existing cognitive impairment/neurodegenerative pathology (e.g., amyloid-pathology models) show <strong>progressively increased "delirium-like" susceptibility</strong> to a superimposed acute inflammatory insult, mechanistically supporting the predisposing-factor × precipitating-factor clinical model <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4278840/">PMC4278840, Worsening Cognitive Impairment and Neurodegenerative Pathology Progressively Increase Risk for Delirium</a>.</p>
+<p><strong>Model limitations:</strong> Mouse "sickness behavior" (reduced activity, reduced food intake) following LPS overlaps with but is not identical to human delirium's core attention/awareness disturbance, which is difficult to operationalize behaviorally in rodents; most LPS studies rely on validated cognitive-impairment proxies (water maze, passive avoidance) rather than a direct delirium-equivalent readout, so translational fidelity for the <em>attentional</em> component of delirium specifically remains an open limitation.</p>
+<p><strong>Applications:</strong> These models are used to dissect the neuroinflammation → BBB dysfunction → microglial activation → cognitive impairment causal chain, to screen candidate protective/therapeutic agents (e.g., the bispectral-EEG-guided discovery platform noted in Section 12) <a href="https://www.nature.com/articles/s41398-024-03130-4">Translational Psychiatry 2024</a>, and to test genetic-risk-modifying manipulations (e.g., Apoe-genotype mouse lines, though a delirium-specific Apoe-mouse study was not identified in this search and would be a natural translational follow-on to the human GWAS findings in Section 4).</p>
+<hr />
+<h2>Summary for Knowledge-Base Curation</h2>
+<p>"Subacute Delirium" should be curated as a <strong>temporal/course variant within the single delirium pathophysiology module</strong> rather than as a structurally distinct disease mechanism — the causal chain (systemic insult → BBB dysfunction → neuroinflammation → thalamocortical/frontal network dysfunction → clinical syndrome) is shared across acute, subacute, and persistent presentations, with course duration and reversibility as the key differentiating <code>Descriptor</code> (<code>temporality: SUBACUTE</code> / <code>CHRONIC</code>, <code>clinical_course: PROGRESSIVE</code> for cases evolving toward persistent delirium or dementia). APOE (<code>hgnc:613</code>) is the best-supported genetic modifier and should be entered as a <code>SUSCEPTIBILITY</code> relationship type rather than a causal gene. S100B and NfL are the most defensible biomarker phenotypes for a <code>Biochemical</code>/laboratory-abnormality entry given consistency across recent systematic reviews.</p>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/medgen/56340">Subacute delirium (MedGen C0154333) — NCBI</a></li>
+<li><a href="https://monarchinitiative.org/MONDO:0004629">subacute delirium — Monarch Initiative MONDO:0004629</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11622424/">The Pathophysiology and Biomarkers of Delirium — PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12401822/">Serum biomarkers of delirium in critical illness: systematic review — PMC</a></li>
+<li><a href="https://www.frontiersin.org/journals/aging-neuroscience/articles/10.3389/fnagi.2025.1632947/full">Emerging biomarkers of postoperative delirium — Frontiers</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10985356/">Serum NFL and tau correlate with delirium — PMC10985356</a></li>
+<li><a href="https://www.bjaopen.org/article/S2772-6096(26)00020-1/fulltext">CSF IL-6/sIL-6R and postoperative delirium — BJA Open</a></li>
+<li><a href="https://www.medrxiv.org/content/10.1101/2022.01.20.22269044.full.pdf">Persistent delirium in older hospital patients: updated systematic review — medRxiv</a></li>
+<li><a href="https://deliriumjournal.com/article/36822-persistent-delirium-in-older-hospital-patients-an-updated-systematic-review-and-meta-analysis">Persistent delirium in older hospital patients — Delirium Journal</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19017678/">Persistent delirium: frequency and prognosis — PubMed 19017678</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12404460/">Persistent inpatient delirium, length of stay, mortality — PMC12404460</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5506578/">Outcomes of subsyndromal delirium in ICU — PMC5506578</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0020748924002724">Global incidence and prevalence of delirium — ScienceDirect 2024</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39602991/">Global incidence/prevalence of delirium — PubMed 39602991</a></li>
+<li><a href="https://bjgp.org/content/75/760/e786">Delirium among older adults living at home — BJGP 2025</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2667296024000673">Delirium in the US: 2023 World Delirium Awareness Day study — ScienceDirect</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12565244/">Prevalence/risk factors of delirium in nephrology ward — PMC12565244</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12148281/">Five-decade prevalence of delirium in pneumonia — PMC12148281</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11950662/">Delirium at ED arrival by ambulance — PMC11950662</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4207319/">DSM-IV vs DSM-5 delirium concordance — PMC4207319</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25601222/">Comparison of delirium diagnosis: CAM, DRS-R98, DSM-IV, DSM-5 — PubMed 25601222</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28903799/">Outcomes by diagnostic system for delirium — PubMed 28903799</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4177077/">DSM-5 criteria, arousal, and delirium diagnosis — PMC4177077</a></li>
+<li><a href="https://journals.plos.org/plosmedicine/article?id=10.1371%2Fjournal.pmed.1004963">Genetic architecture of postoperative delirium — PLOS Medicine</a></li>
+<li><a href="https://www.nature.com/articles/s43587-025-01018-6">Dissecting the genetic and proteomic risk factors for delirium — Nature Aging</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12823428/">Dissecting the genetic and proteomic risk factors for delirium — PMC12823428</a></li>
+<li><a href="https://neurosciencenews.com/genetics-delerium-29975/">Gene Discovery Reveals Hidden Risk Pathway for Delirium — Neuroscience News</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8344705/">APOE ε4 genotypes and delirium risk during COVID-19 — PMC8344705</a></li>
+<li><a href="https://jamanetwork.com/journals/jamaneurology/fullarticle/2768000">Association of Delirium With Long-term Cognitive Decline: Meta-analysis — JAMA Neurology</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32658246/">Association of Delirium With Long-term Cognitive Decline — PubMed 32658246</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37031027/">Preventing dementia by preventing delirium — PubMed 37031027</a></li>
+<li><a href="https://academic.oup.com/ageing/article/54/7/afaf188/8193852">Long-term clinical outcomes of delirium after discharge — Age and Ageing 2025</a></li>
+<li><a href="https://psychiatryonline.org/doi/10.1176/appi.ajp.2012.11060976">Neural network functional connectivity during/after delirium — AJP</a></li>
+<li><a href="https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2023.1274837/full">EEG functional connectivity for delirium detection — Frontiers 2023</a></li>
+<li><a href="https://alz-journals.onlinelibrary.wiley.com/doi/full/10.1002/alz.13471">Delirium and loss of feedback cortical connectivity — Alzheimer's &amp; Dementia 2024</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/F01-F99/F01-F09/F05-">ICD-10-CM F05 codes — icd10data.com</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJMoa1808217">Haloperidol and Ziprasidone for Delirium in Critical Illness — NEJM</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S2213260024000778">Long-term outcomes after antipsychotic treatment of delirium (MIND-USA) — ScienceDirect 2024</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00134-025-08135-1">4D Trial: Dexmedetomidine for hyperactive delirium — Intensive Care Medicine 2025</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12678554/">4D Trial — PMC12678554</a></li>
+<li><a href="https://academic.oup.com/ajrccm/article/212/8/1845/8676450">Olanzapine vs low-dose dexmedetomidine — AJRCCM 2024</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10664157/">Dexmedetomidine + melatonin for post-CABG delirium — PMC10664157</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3724594/">Hospital Elder Life Program design/methods — PMC3724594</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJM199903043400901">Original HELP trial — NEJM 1999</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0197457224000314">HELP systematic review/meta-analysis — ScienceDirect 2024</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S1568163724001314">Umbrella review of delirium prevention/treatment RCTs — ScienceDirect</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/jan.70706">Nurse-led multicomponent interventions — Journal of Advanced Nursing 2025</a></li>
+<li><a href="https://www.nature.com/articles/s41598-019-42286-8">Neuroinflammation induced by LPS causes cognitive impairment in mice — Scientific Reports</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6453933/">LPS-induced cognitive impairment — PMC6453933</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4323121/">Deferoxamine attenuates LPS-induced neuroinflammation — PMC4323121</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7400939/">Banhasasim-Tang attenuates LPS-induced cognitive impairment — PMC7400939</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10662506/">Hippocampal GPR17 knockdown attenuates LPS-induced cognitive impairment — PMC10662506</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12832885/">Subclinical infection + surgery mouse model — PMC12832885</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4278840/">Cognitive impairment/neurodegeneration and delirium risk — PMC4278840</a></li>
+<li><a href="https://www.nature.com/articles/s41398-024-03130-4">Bispectral EEG discovery of protective agents for infection-related delirium — Translational Psychiatry 2024</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>35</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.1056/NEJMoa1808217)(landmark</code> (1 mention) - Identifier did not resolve to a record</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Stuve_Wiedemann_Syndrome_1-falcon.html">← Stuve-Wiedemann Syndrome 1 (Falcon)</a>
+                
+                
+                <a href="Subacute_Inflammatory_Demyelinating_Polyneuropathy-falcon.html">Subacute Inflammatory Demyelinating Polyneuropathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Subacute_Delirium.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Subacute_Delirium-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

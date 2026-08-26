@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Normal Pressure Hydrocephalus · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Normal Pressure Hydrocephalus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Normal Pressure Hydrocephalus</h1>
+                
+                <p class="report-subtitle">Normal Pressure Hydrocephalus: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-22</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009366" target="_blank" rel="noopener noreferrer">MONDO:0009366</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Normal Pressure Hydrocephalus: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Normal pressure hydrocephalus (NPH) is a chronic communicating hydrocephalus syndrome characterized by ventriculomegaly with cerebrospinal fluid (CSF) opening pressure that is normal or only mildly elevated (typically 80–200 mmH₂O) on lumbar puncture, occurring in the absence of papilledema. Clinically it presents with the classic <strong>Hakim–Adams triad</strong>: gait/balance disturbance (usually the earliest and most prominent feature — a broad-based, short-stepped, "magnetic" or shuffling gait), cognitive impairment (subcortical/frontal-executive pattern: psychomotor slowing, impaired attention and executive function, later memory involvement), and urinary dysfunction (urgency progressing to incontinence). Not all three features need be present, especially early in the disease course. NPH is classified as:
+- <strong>Idiopathic NPH (iNPH)</strong> — no identifiable antecedent cause, typically affecting adults &gt;60 years; the dominant form discussed in most modern literature.
+- <strong>Secondary NPH (sNPH)</strong> — arising after a defined CNS insult (subarachnoid hemorrhage, meningitis, traumatic brain injury, intracranial hemorrhage, tumor, prior neurosurgery) that impairs CSF absorption at the arachnoid granulations, typically presenting at a younger age with a more clearly defined temporal relationship to the inciting event.</p>
+<p>iNPH is potentially reversible with CSF diversion (shunt surgery), which distinguishes it clinically from most neurodegenerative dementias and motivates aggressive diagnostic pursuit in elderly patients presenting with gait decline and cognitive slowing (Rovira et al., <em>Neuroradiology</em> 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42239999/" target="_blank" rel="noopener noreferrer">PMID:42239999</a>; Johnson &amp; Williams, <em>NEJM</em> 2025, <a href="https://doi.org/10.1056/NEJMra2306506" target="_blank" rel="noopener noreferrer">DOI:10.1056/NEJMra2306506</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0004909" target="_blank" rel="noopener noreferrer">MONDO:0004909</a> (normal pressure hydrocephalus) — idiopathic and secondary forms have related but distinct MONDO terms in some releases; verify current mapping via OAK before curation.
+- <strong>OMIM:</strong> No single-gene Mendelian OMIM phenotype entry exists for typical iNPH (multifactorial/complex trait); familial/genetic risk loci are catalogued separately (see §4).
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:98644" target="_blank" rel="noopener noreferrer">ORPHA:98644</a> (Idiopathic normal pressure hydrocephalus).
+- <strong>ICD-10-CM:</strong> G91.2 (Idiopathic normal pressure hydrocephalus); G91.0 (Communicating hydrocephalus, used for some secondary/congenital forms); G91.1 (Obstructive hydrocephalus, distinct entity).
+- <strong>ICD-11:</strong> 8A05.2 or the hydrocephalus stem code in the "Diseases of the nervous system" chapter (verify exact code at curation time).
+- <strong>MeSH:</strong> D065886 (Hydrocephalus, Normal Pressure).
+- <strong>HPO (as a phenotype, for use when NPH itself is an HPO-coded feature of another disease):</strong> <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" rel="noopener noreferrer">HP:0007099</a> (Normal pressure hydrocephalus, if present in the current HPO release) or component terms (see §3).</p>
+<p><strong>Synonyms:</strong> Hakim–Adams syndrome; Hakim syndrome; occult hydrocephalus; normotensive hydrocephalus; chronic communicating hydrocephalus of adults; symptomatic hydrocephalus with normal CSF pressure.</p>
+<p><strong>Evidence basis.</strong> The literature on NPH derives from a mix of individual case series/cohorts (single- and multi-center surgical outcome studies), national registry/claims analyses (e.g., the German Federal Statistical Office database), large population-based epidemiological cohorts (e.g., the Western Sweden population study), and a national biobank-linked GWAS (FinnGen). This is a disease where aggregated registry/claims data substantially undercount true prevalence because of underdiagnosis (see §9), so population-based neuroimaging screening cohorts are considered more authoritative for prevalence than administrative coding data (PMC10661316).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>iNPH's root cause remains <strong>incompletely defined and is considered multifactorial</strong>, converging on a final common pathway of disturbed CSF dynamics, reduced intracranial compliance, and impaired glymphatic clearance (see §6). Proposed contributing mechanisms include:
+- <strong>Altered CSF hydrodynamics</strong> — a shift in balance between CSF pulsatile bulk flow, reduced ventricular compliance and cerebral arterial pulsatility transmission to periventricular tissue.
+- <strong>Impaired CSF absorption/outflow resistance</strong> — increased resistance to CSF outflow (Rout) at the arachnoid granulations and along perivascular/glymphatic-lymphatic exit routes.
+- <strong>Glymphatic-lymphatic clearance failure</strong> — reduced perivascular AQP4-dependent CSF-interstitial fluid exchange, causing solute/metabolite accumulation (see §6 and the glymphatic scoping review, <em>J Neurosurg</em> 2025, <a href="https://doi.org/10.3171/2024.12.JNS2420" target="_blank" rel="noopener noreferrer">DOI:10.3171/2024.12.JNS2420</a>).
+- <strong>Cerebrovascular/small-vessel pathology</strong> — chronic vascular risk factor burden producing periventricular ischemia and reduced vascular/venous compliance.</p>
+<p>sNPH has an unambiguous causal chain: an antecedent insult (SAH, meningitis, trauma, tumor, intraventricular hemorrhage) triggers subarachnoid space fibrosis/inflammation, obliterating arachnoid granulation CSF absorption pathways.</p>
+<h3>Risk Factors</h3>
+<p><strong>Genetic risk factors</strong> (see §4 for detail): copy-number loss in <em>SFMBT1</em>; missense/loss-of-function variants in cilia-related genes (<em>CFAP43</em>, <em>DNAH14</em>); <em>CWH43</em> variants; and, per the 2024 FinnGen GWAS, 6 genome-wide significant loci near genes implicated in blood–brain-barrier/blood–CSF-barrier function (Kaprio et al./Jyrkkänen et al., <em>Neurology</em> 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39141892/" target="_blank" rel="noopener noreferrer">PMID:39141892</a>). A positive family history and possible autosomal-dominant-like clustering has been described in some kindreds, though iNPH is predominantly sporadic/complex.</p>
+<p><strong>Environmental/demographic risk factors:</strong>
+- <strong>Age</strong> — the single strongest risk factor; incidence and prevalence rise steeply after age 65–70 and again after 80 (PMC11666604).
+- <strong>Vascular risk factor burden</strong> — hypertension (described as "perhaps the most important" modifiable VRF), diabetes mellitus (OR ≈2.17), hyperlipidemia (OR ≈2.38), obesity (OR ≈5.43), and psychosocial stress factors (OR ≈5.34) were each independently associated with iNPH in the INPH-CRasH case-control study; the authors estimate that up to ~25% of iNPH cases may be attributable to modifiable vascular risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/28062721/" target="_blank" rel="noopener noreferrer">PMID:28062721</a>; PMC5304464). A subsequent Mendelian randomization study (<em>J Neurol</em> 2023, <a href="https://doi.org/10.1007/s00415-023-11604-6" target="_blank" rel="noopener noreferrer">DOI:10.1007/s00415-023-11604-6</a>) examined the causal relationship between vascular risk factors and iNPH.
+- <strong>Cerebral small vessel disease / white matter hyperintensity burden</strong> — frequently comorbid, sharing risk factors with iNPH (hypertension, diabetes, hyperlipidemia, smoking).
+- <strong>Prior neurosurgical/CNS insult</strong> — for sNPH specifically: subarachnoid hemorrhage (most common precipitant), bacterial/tuberculous/rheumatoid meningitis, traumatic brain injury, intracerebral/intraventricular hemorrhage, posterior fossa or intraventricular tumors, and prior cranial surgery.
+- <strong>Diabetes/obesity/metabolic syndrome</strong> as above.
+- <strong>Male sex</strong> — some but not all cohorts report a modest male predominance among iNPH cases.</p>
+<p><strong>Protective factors:</strong> No robust genetic protective variants or alleles have been established for NPH. Management of modifiable vascular risk factors (blood pressure control, glycemic control, weight management) is proposed as a plausible protective/preventive strategy given the vascular risk factor association data, though this remains largely inferential rather than proven by interventional trials.</p>
+<p><strong>Gene–environment interactions:</strong> Not well characterized for iNPH specifically; the cilia/choroid-plexus/ependymal gene signal (SFMBT1, CFAP43, DNAH14) plausibly interacts with vascular and CSF-outflow environmental stressors to determine whether ventriculomegaly and clinical symptoms manifest, but formal GxE studies are lacking.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core Triad (symptoms/clinical signs)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term (suggested)</th>
+<th>Onset/course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gait disturbance (broad-based, magnetic, shuffling, short-stepped)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" rel="noopener noreferrer">HP:0002317</a> (Unsteady gait) / <a href="http://purl.obolibrary.org/obo/HP_0002378" target="_blank" rel="noopener noreferrer">HP:0002378</a> (Difficulty walking) / <a href="http://purl.obolibrary.org/obo/HP_0002355" target="_blank" rel="noopener noreferrer">HP:0002355</a> (Difficulty walking, more specific gait terms as available: <a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" rel="noopener noreferrer">HP:0031936</a> Delayed gait or <a href="http://purl.obolibrary.org/obo/HP_0100269" target="_blank" rel="noopener noreferrer">HP:0100269</a> Cerebellar-type gait not appropriate — best fit <a href="http://purl.obolibrary.org/obo/HP_0002317" target="_blank" rel="noopener noreferrer">HP:0002317</a> or a magnetic-gait-specific descendant if present)</td>
+<td>Typically the first and most consistent symptom; insidious onset, chronic progressive</td>
+<td>Most frequent triad component (~90%+ of diagnosed cases have gait involvement)</td>
+</tr>
+<tr>
+<td>Cognitive impairment (subcortical-frontal pattern: bradyphrenia, impaired executive function, attention, psychomotor slowing; memory relatively preserved early)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a> (Cognitive impairment) / <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" rel="noopener noreferrer">HP:0002354</a> (Memory impairment) / <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" rel="noopener noreferrer">HP:0000733</a> (Psychomotor slowing, if coded)</td>
+<td>Insidious, progressive; may precede or follow gait symptoms</td>
+<td>Common (~60–80% of diagnosed cases)</td>
+</tr>
+<tr>
+<td>Urinary dysfunction (urgency, frequency, progressing to urge incontinence)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" rel="noopener noreferrer">HP:0000012</a> (Urinary incontinence) / <a href="http://purl.obolibrary.org/obo/HP_0100519" target="_blank" rel="noopener noreferrer">HP:0100519</a> (Urinary urgency) / <a href="http://purl.obolibrary.org/obo/HP_0100515" target="_blank" rel="noopener noreferrer">HP:0100515</a> (Urinary urgency, alt)</td>
+<td>Typically the last of the triad to appear; progressive</td>
+<td>Less consistently present (~50–75%)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Additional recognized phenotypes:
+- <strong>Neuropsychiatric features</strong> — apathy, depression, and less commonly psychosis, are increasingly recognized (systematic review/meta-analysis, PMC12879024). Suggested HPO: <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a> (Anxiety), <a href="http://purl.obolibrary.org/obo/HP_0000723" target="_blank" rel="noopener noreferrer">HP:0000723</a> (Restlessness), <a href="http://purl.obolibrary.org/obo/HP_0000741" target="_blank" rel="noopener noreferrer">HP:0000741</a> (Apathy, if present in current HPO), <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" rel="noopener noreferrer">HP:0000716</a> (Depression).
+- <strong>Falls</strong> — a frequent and clinically significant consequence of the gait disorder. HPO: <a href="http://purl.obolibrary.org/obo/HP_0002527" target="_blank" rel="noopener noreferrer">HP:0002527</a> (Falls).
+- <strong>Postural instability</strong> — <a href="http://purl.obolibrary.org/obo/HP_0002172" target="_blank" rel="noopener noreferrer">HP:0002172</a>.</p>
+<h3>Phenotype Characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> Adult-onset, overwhelmingly ≥60 years for iNPH (diagnostic criteria commonly require age &gt;60); sNPH can occur at any age depending on the inciting event.</li>
+<li><strong>Severity:</strong> Variable; graded clinically with instruments such as the iNPH Grading Scale (iNPHGS) and modified Rankin Scale (mRS).</li>
+<li><strong>Progression:</strong> Classically insidious and slowly progressive over months to years if untreated; can plateau or, less commonly, progress more rapidly. Some component symptoms (especially gait) are reported to show partial/complete reversibility after shunting if intervention occurs before irreversible axonal/white-matter injury sets in.</li>
+<li><strong>Frequency among affected individuals:</strong> Gait disturbance is near-universal at diagnosis; the full triad is present in a minority at initial presentation, with many patients evolving to the complete triad over time.</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>Gait impairment and falls are major drivers of loss of independence, institutionalization risk, and caregiver burden. Cognitive impairment compounds functional decline and can be misattributed to "normal aging" or another dementia, delaying diagnosis. Urinary incontinence carries substantial psychosocial and QoL impact and is an independent predictor of nursing-home placement. Long-term shunting studies report sustained QoL improvement in shunt responders (<a href="https://pubmed.ncbi.nlm.nih.gov/37004132/" target="_blank" rel="noopener noreferrer">PMID:37004132</a>, "The impact of cerebrospinal fluid shunting on quality of life in idiopathic normal pressure hydrocephalus: a long-term analysis").</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>iNPH is best understood as a <strong>complex, multifactorial trait</strong> rather than a single-gene Mendelian disorder, though several candidate genes and one genome-wide significant locus set have emerged.</p>
+<p><strong>Causal/candidate genes:</strong>
+- <strong><em>SFMBT1</em></strong> (chromosome 3p21) — a segmental copy-number loss within intron 2 was found in <strong>26.0% of shunt-responsive definite iNPH patients</strong> vs 4.2% of healthy elderly controls and 6.3% of Parkinson's disease patients in a Japanese case-control study, and replicated in Finnish and Norwegian cohorts (Kato et al., <em>PLOS ONE</em> 2016, PMID via PMC5115754). SFMBT1 protein localizes to arterial walls, ependymal cells, and choroid plexus epithelium — tissues directly involved in CSF secretion, flow, and absorption.
+- <strong><em>CFAP43</em></strong> — a nonsense mutation was identified in one family with NPH and ciliary abnormalities, implicating ependymal ciliary dysfunction in impaired CSF flow/mixing.
+- <strong><em>DNAH14</em></strong> — another cilia-associated gene reported among candidate NPH-associated loci.
+- <strong><em>CWH43</em></strong> — variants associated with both disease risk and clinical phenotypic severity measures in NPH patients (<em>Neurology Genetics</em>, <a href="https://doi.org/10.1212/NXG.0000000000200086" target="_blank" rel="noopener noreferrer">DOI:10.1212/NXG.0000000000200086</a>).
+- <strong>2024 FinnGen GWAS</strong> (Jyrkkänen et al., <em>Neurology</em> 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39141892/" target="_blank" rel="noopener noreferrer">PMID:39141892</a>) — the largest GWAS in chronic hydrocephalus to date (473,691 Finns with genotype and nationwide health-record linkage), identifying <strong>6 genome-wide significant loci</strong> associated with NPH, with genes near the top loci previously implicated in blood–brain-barrier and blood–CSF-barrier function — supporting a barrier-integrity mechanism distinct from purely mechanical CSF-flow obstruction.</p>
+<p><strong>Gene-level pattern:</strong> Multiple implicated genes (SFMBT1, DNAH14, CFAP43, CWH43) are highly expressed in choroid plexus and ependymal cells, and several are linked to <strong>ciliary function</strong> — a convergent theme suggesting impaired ependymal ciliary beating/CSF flow-mixing as a contributing mechanism, analogous to mechanisms in congenital hydrocephalus and primary ciliary dyskinesia (Piccinin et al., "Genetic Risk Factors in Normal Pressure Hydrocephalus," <em>Movement Disorders</em> 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40266017/" target="_blank" rel="noopener noreferrer">PMID:40266017</a>; review in <em>J Neurosurg</em> 2024, <a href="https://doi.org/10.3171/" target="_blank" rel="noopener noreferrer">DOI:10.3171/</a>... "Genetics and molecular pathophysiology of normal pressure hydrocephalus").</p>
+<p><strong>Variant classification / population frequency:</strong> No ClinVar-curated pathogenic/likely-pathogenic variant set exists comparable to monogenic disease; SFMBT1 copy-number loss frequency in general elderly populations (~4–6%) versus iNPH cases (~26%) suggests it functions as a <strong>susceptibility/risk allele</strong> rather than a fully penetrant causal variant — appropriate <code>relationship_type: SUSCEPTIBILITY</code> in dismech terms, with <code>HP:0010982</code>-style polygenic/complex inheritance framing rather than classic Mendelian inheritance.</p>
+<p><strong>Somatic vs. germline:</strong> All reported variants are germline; no somatic mosaicism data reported for iNPH.</p>
+<p><strong>Epigenetics / chromosomal abnormalities:</strong> No systematic epigenome-wide association study or chromosomal-abnormality series specific to iNPH was identified in current literature; this remains an evidence gap.</p>
+<p><strong>Functional consequence:</strong> The SFMBT1/CFAP43/DNAH14/CWH43 gene set suggests a mechanism of <strong>partial loss of function</strong> in genes governing choroid plexus/ependymal barrier integrity and ciliary CSF propulsion, predisposing to the CSF-dynamics disturbance that culminates in ventriculomegaly — a <strong>susceptibility/modifier</strong> rather than sole-causal genetic architecture, consistent with the multifactorial (vascular + genetic + glymphatic) model.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Vascular/metabolic environmental exposures:</strong> hypertension, diabetes, hyperlipidemia, obesity — see §2 for effect sizes (INPH-CRasH study).</li>
+<li><strong>Psychosocial stress factors:</strong> independently associated with iNPH risk in case-control analysis (OR ≈5.3), though the mechanism is unclear and may reflect confounding or reverse causation.</li>
+<li><strong>Infectious agents:</strong> Bacterial meningitis, tuberculous meningitis, and rheumatoid/aseptic meningitis are established precipitants of <strong>secondary</strong> NPH via arachnoiditis/fibrosis of the CSF absorptive pathways (case report of rheumatoid meningitis-associated secondary NPH, PMC8299371). Meningoencephalitis accounted for ~5% of cases in a large secondary-NPH case review (n=1,208 cases).</li>
+<li><strong>Trauma/hemorrhage exposures:</strong> subarachnoid hemorrhage (the best-studied precipitant of sNPH, with shunt-dependent hydrocephalus complicating a substantial minority of aneurysmal SAH survivors — see PMC11319414 systematic review/meta-analysis of risk factors for shunt-dependent hydrocephalus after SAH), traumatic brain injury, and intraventricular/intracerebral hemorrhage.</li>
+<li><strong>Iatrogenic exposures:</strong> prior cranial neurosurgery (tumor resection, posterior fossa surgery) is a recognized precipitant of secondary NPH.</li>
+<li>No specific occupational toxin, pollutant, or dietary exposure has been robustly linked to iNPH risk; nutritional/lifestyle risk factor data remain limited and largely inferential (see the <em>Nutritional and Lifestyle Risk Factors</em> chapter, ScienceDirect B9780124078246000100).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>The pathophysiology of iNPH is best framed as a <strong>convergence of three interacting mechanistic axes</strong>: (1) disturbed CSF hydrodynamics/compliance, (2) glymphatic-lymphatic clearance failure, and (3) periventricular vascular/ischemic injury — culminating in white matter and cortical dysfunction.</p>
+<h3>Causal chain (upstream → downstream)</h3>
+<ol>
+<li><strong>Trigger/predisposition:</strong> genetic susceptibility (choroid plexus/ependymal ciliary and barrier genes) + vascular risk factor burden + (for sNPH) an antecedent CNS insult causing arachnoid granulation fibrosis.</li>
+<li><strong>CSF outflow resistance increases</strong> and/or ventricular/vascular compliance is reduced — normal pulsatile arterial-driven CSF/interstitial fluid exchange is impaired.</li>
+<li><strong>Glymphatic-lymphatic clearance dysfunction:</strong> AQP4 water channels on perivascular astrocytic endfeet, which normally drive convective glymphatic CSF-ISF exchange, show <strong>reduced expression and perivascular mislocalization</strong>, together with <strong>reactive perivascular astrogliosis</strong>, in iNPH brain tissue and CSF studies (glymphatic scoping review, <em>J Neurosurg</em> 2025, <a href="https://doi.org/10.3171/2024.12.JNS2420" target="_blank" rel="noopener noreferrer">DOI:10.3171/2024.12.JNS2420</a>; AQP4 CSF evaluation study, PMC8486078).</li>
+<li><strong>Impaired clearance of interstitial waste/metabolites</strong> (including amyloid-beta and other neurotoxic solutes) accumulates in periventricular white matter and CSF.</li>
+<li><strong>Ventricular enlargement</strong> develops as CSF preferentially expands the low-resistance ventricular compartment, producing periventricular white-matter stretch injury, transependymal CSF flow, and periventricular ischemia from compression of penetrating medullary arterioles.</li>
+<li><strong>Downstream clinical manifestation:</strong> disruption of periventricular white matter tracts serving frontal-subcortical circuits (corticospinal tracts controlling gait, frontal-executive circuits, and pontine/periventricular pathways involved in bladder control) produces the gait–cognition–urinary triad.</li>
+</ol>
+<h3>Molecular/cellular detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Disturbed AQP4-dependent glymphatic convective flow (analogous mechanistically to the <code>glymphatic_dysfunction</code> module framework used for Alzheimer's disease — perivascular AQP4 depolarization/mislocalization reducing periarterial CSF influx and paravenous efflux).</li>
+<li><strong>Cellular processes:</strong> reactive astrogliosis (elevated CSF YKL-40/chitinase-3-like protein 1, a marker of activated astrocytes, is significantly higher in CSF tap-test <strong>non-responders</strong> than responders — PMC11399724), ependymal ciliary dysfunction, and choroid plexus epithelial dysfunction (impacting CSF secretion).</li>
+<li><strong>Protein dysfunction:</strong> AQP4 mislocalization from perivascular endfeet to a more diffuse astrocytic membrane distribution — a functional redistribution rather than a loss-of-expression phenomenon in most studies, though net reduction has also been reported.</li>
+<li><strong>Tissue damage mechanisms:</strong> periventricular ischemia from compression/stretch of penetrating arterioles; chronic mechanical stretch injury to periventricular white matter (corpus callosum, corona radiata); transependymal CSF absorption causing periventricular white matter edema/gliosis (visible as periventricular hyperintensity on MRI).</li>
+<li><strong>Biochemical/CSF proteomic abnormalities:</strong> Unbiased CSF proteomics (Neurology, <a href="https://doi.org/10.1212/WNL.0000000000213375" target="_blank" rel="noopener noreferrer">DOI:10.1212/WNL.0000000000213375</a>) identified <strong>decreases in numerous CSF proteins</strong> in iNPH consistent with impaired efflux from interstitial fluid into CSF — a proteomic signature directly supporting the glymphatic-failure model. Elevated leucine-rich alpha-2-glycoprotein (LRG) and decreased classic Alzheimer's-type biomarkers have also been reported (PMC7961420).</li>
+<li><strong>Immune involvement:</strong> chronic low-grade neuroinflammation and reactive astrogliosis (YKL-40) rather than primary autoimmunity, except in secondary NPH caused by inflammatory/autoimmune meningitis (e.g., rheumatoid meningitis).</li>
+</ul>
+<h3>Molecular profiling</h3>
+<ul>
+<li><strong>CSF proteomics:</strong> decreased protein efflux signature (2024 Neurology study above).</li>
+<li><strong>Neuroimaging-correlate "omics":</strong> DESH (disproportionately enlarged subarachnoid space hydrocephalus) pattern reflects regional CSF compliance mismatch — tight high-convexity/medial subarachnoid spaces with enlarged Sylvian fissures and ventricles — used increasingly as a structural/morphometric biomarker (see §10).</li>
+<li>Single-cell/spatial transcriptomic and multi-omic data specific to human iNPH brain tissue remain sparse; most molecular-mechanism data derive from CSF biomarker studies and animal models rather than human single-cell atlases.</li>
+</ul>
+<h3>Suggested ontology terms</h3>
+<ul>
+<li><strong>GO (biological process):</strong> <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" rel="noopener noreferrer">GO:0007420</a> (brain development, upstream context), <a href="http://purl.obolibrary.org/obo/GO_0003094" target="_blank" rel="noopener noreferrer">GO:0003094</a> (glomerular filtration analogy not applicable); more precisely: <a href="http://purl.obolibrary.org/obo/GO_0055082" target="_blank" rel="noopener noreferrer">GO:0055082</a> (cellular chemical homeostasis), <a href="http://purl.obolibrary.org/obo/GO_0072488" target="_blank" rel="noopener noreferrer">GO:0072488</a> (ammonium transmembrane transport, N/A); best fits: <strong><a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" rel="noopener noreferrer">GO:0007605</a></strong> (N/A), and specifically <strong><a href="http://purl.obolibrary.org/obo/GO_0035378" target="_blank" rel="noopener noreferrer">GO:0035378</a></strong> (carbon dioxide transmembrane transport via aquaporin channel), <strong><a href="http://purl.obolibrary.org/obo/GO_0003094" target="_blank" rel="noopener noreferrer">GO:0003094</a></strong> not relevant — most precise GO terms are <strong><a href="http://purl.obolibrary.org/obo/GO_0035378" target="_blank" rel="noopener noreferrer">GO:0035378</a></strong> and <strong><a href="http://purl.obolibrary.org/obo/GO_0006833" target="_blank" rel="noopener noreferrer">GO:0006833</a></strong> (water transport), plus <strong><a href="http://purl.obolibrary.org/obo/GO_0050893" target="_blank" rel="noopener noreferrer">GO:0050893</a></strong> (sensory processing, N/A). Recommend: <a href="http://purl.obolibrary.org/obo/GO_0006833" target="_blank" rel="noopener noreferrer">GO:0006833</a> (water transport, AQP4 function), <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" rel="noopener noreferrer">GO:0007420</a> (brain development — ependymal/ciliary genes), <a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" rel="noopener noreferrer">GO:0003341</a> (cilium movement, for ependymal ciliary dysfunction), <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a> (response to endoplasmic reticulum stress, N/A).</li>
+<li><strong>GO (cellular component):</strong> <a href="http://purl.obolibrary.org/obo/GO_0016327" target="_blank" rel="noopener noreferrer">GO:0016327</a> (apicolateral plasma membrane, astrocyte endfeet context), <a href="http://purl.obolibrary.org/obo/GO_0043209" target="_blank" rel="noopener noreferrer">GO:0043209</a> (myelin sheath, periventricular white matter injury), <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a> (cilium, ependymal).</li>
+<li><strong>CL (cell types):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> (astrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000067" target="_blank" rel="noopener noreferrer">CL:0000067</a> (ciliated cell), <a href="http://purl.obolibrary.org/obo/CL_1001602" target="_blank" rel="noopener noreferrer">CL:1001602</a> (choroid plexus epithelial cell) or <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" rel="noopener noreferrer">CL:0000710</a> (choroid plexus cell), <a href="http://purl.obolibrary.org/obo/CL_0011005" target="_blank" rel="noopener noreferrer">CL:0011005</a> (ependymal cell / GO alt <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" rel="noopener noreferrer">CL:0000065</a> ependymal cell).</li>
+<li><strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_15377" target="_blank" rel="noopener noreferrer">CHEBI:15377</a> (water, AQP4 substrate); <a href="http://purl.obolibrary.org/obo/CHEBI_81571" target="_blank" rel="noopener noreferrer">CHEBI:81571</a> (amyloid beta, comorbid pathology context).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- Primary: brain (ventricular system, periventricular white matter, subarachnoid space).
+- Secondary/complications: bladder (neurogenic urinary dysfunction), musculoskeletal system (falls-related injury), and — after shunt placement — abdominal peritoneal cavity (site of distal shunt catheter and occasional complications).
+- Body systems: nervous system (primary), genitourinary system (secondary), musculoskeletal system (secondary, gait/falls).</p>
+<p><strong>Tissue/cell level:</strong>
+- Ventricular ependyma (<a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" rel="noopener noreferrer">CL:0000065</a> ependymal cell) — ciliary dysfunction.
+- Choroid plexus epithelium (<a href="http://purl.obolibrary.org/obo/CL_1001602" target="_blank" rel="noopener noreferrer">CL:1001602</a> / choroid plexus epithelial cell) — CSF secretion.
+- Perivascular astrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a> astrocyte) — AQP4-mediated glymphatic function.
+- Periventricular white matter oligodendrocytes/axons (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a> oligodendrocyte) — stretch/ischemic injury.
+- Arachnoid granulation cells — CSF absorption (particularly relevant to secondary NPH fibrosis).</p>
+<p><strong>Subcellular level:</strong>
+- Astrocytic endfeet plasma membrane — AQP4 water channel localization (<a href="http://purl.obolibrary.org/obo/GO_0043195" target="_blank" rel="noopener noreferrer">GO:0043195</a> terminal bouton not applicable; better: <a href="http://purl.obolibrary.org/obo/GO_0097449" target="_blank" rel="noopener noreferrer">GO:0097449</a> astrocyte projection).
+- Ependymal cell cilia (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a> cilium).
+- Perivascular (Virchow-Robin) space — the anatomical conduit for glymphatic CSF-ISF exchange.</p>
+<p><strong>Localization (UBERON terms):</strong>
+- <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum, N/A unless cerebellar involvement noted); primary relevant terms: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002450" target="_blank" rel="noopener noreferrer">UBERON:0002450</a></strong> (lateral ventricle), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a></strong> (white matter of cerebrum / periventricular white matter), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002078" target="_blank" rel="noopener noreferrer">UBERON:0002078</a></strong> (right cerebral hemisphere, bilateral involvement typical), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" rel="noopener noreferrer">UBERON:0002298</a></strong> (brainstem, less directly involved), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001893" target="_blank" rel="noopener noreferrer">UBERON:0001893</a></strong> (cerebral cortex — frontal-subcortical circuit disruption), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a></strong> (brain, general), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></strong> for cerebellum not primary. Also <strong><a href="http://purl.obolibrary.org/obo/UBERON_0035328" target="_blank" rel="noopener noreferrer">UBERON:0035328</a></strong> (subarachnoid space) and <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002440" target="_blank" rel="noopener noreferrer">UBERON:0002440</a></strong> (choroid plexus).
+- Lateralization: bilateral and symmetric ventriculomegaly is typical of iNPH; asymmetric ventriculomegaly should prompt consideration of secondary/obstructive causes.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult-onset, insidious, typically ≥60 years for iNPH (diagnostic criteria commonly specify age &gt;60); sNPH onset is anchored to the timing of the antecedent insult (days to years post-SAH/meningitis/trauma), with shunt-dependent hydrocephalus after SAH often manifesting within the first weeks to months.</li>
+<li><strong>Onset pattern:</strong> Chronic/insidious for iNPH; can be subacute for some secondary forms (post-hemorrhagic).</li>
+<li><strong>Progression:</strong> Slowly progressive without treatment; gait disturbance often progresses first and most reliably, with cognitive and urinary symptoms accruing over months to a few years. Disease duration prior to diagnosis is frequently prolonged (often years), contributing to underdiagnosis (§9).</li>
+<li><strong>Disease course pattern:</strong> Generally progressive rather than relapsing-remitting; no well-described spontaneous remission pattern, though very slow plateaus are reported.</li>
+<li><strong>Reversibility:</strong> A defining and clinically critical feature — early, appropriately selected patients can show substantial or complete reversal of gait, and partial reversal of cognitive/urinary symptoms, after CSF shunting; delayed diagnosis is associated with reduced reversibility due to accumulating irreversible periventricular white-matter injury.</li>
+<li><strong>Critical periods:</strong> Earlier intervention (shorter duration of preoperative symptoms) is repeatedly identified as a positive prognostic factor for shunt responsiveness, underscoring a "window of opportunity" before fixed structural injury occurs.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Incidence (Germany, national claims data, 2005–2022):</strong> rose 48%, from 5.4 to 8.0 cases per 100,000 population, peaking in 2018, with the largest increases in the 80–89 age group (PMC11666604).</li>
+<li><strong>Incidence (population-based cohort):</strong> ~4.8 cases per 1,000 person-years among older adults in longitudinal follow-up.</li>
+<li><strong>Prevalence:</strong> In the largest population-based study (Western Sweden), <strong>0.2% of individuals aged 70–79</strong> and <strong>5.9% of those ≥80 years</strong> met guideline criteria for probable iNPH — figures substantially higher than earlier clinic-based estimates, reflecting how underdiagnosed the condition is. A separate cohort found prevalence of "possible iNPH" doubling from 1.5% to 2.9% over the follow-up period.</li>
+<li><strong>Proportion of dementia burden:</strong> iNPH is estimated to account for roughly <strong>6% of all dementia cases</strong>, notable because it is one of the few potentially reversible dementia causes.</li>
+<li><strong>Underdiagnosis:</strong> widely emphasized as a major public-health and economic issue — "possibly enormous underdiagnosis" (PMC10661316) — with substantial social and economic burden from unrecognized, treatable disability.</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<p>iNPH does not follow classic Mendelian inheritance; it is best modeled as a <strong>complex/multifactorial trait</strong> with contributing common-variant risk loci (FinnGen GWAS, 6 genome-wide significant loci) and rarer higher-effect susceptibility variants/copy-number changes (SFMBT1 intron-2 CNV, CFAP43, DNAH14, CWH43). No formal penetrance/expressivity estimates analogous to monogenic disease exist; genetic anticipation, germline mosaicism, and founder-effect data specific to iNPH have not been robustly reported, though SFMBT1 CNV enrichment in Finnish and Norwegian cohorts hints at possible population-specific enrichment worth further study (a Nordic founder-effect hypothesis has been raised but not definitively established).</p>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Age distribution:</strong> overwhelmingly elderly (≥65, with steep increase ≥80).</li>
+<li><strong>Sex ratio:</strong> some cohorts report a modest male predominance, though this varies by study population; not as strongly skewed as many other neurodegenerative conditions.</li>
+<li><strong>Geographic/ancestry patterns:</strong> Most large genetic and epidemiologic studies derive from Nordic/European populations (FinnGen, Swedish, Norwegian, German cohorts, Japanese cohorts for SFMBT1); population-specific prevalence and genetic architecture in other ancestries is comparatively understudied — a notable evidence gap.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Diagnostic Criteria</h3>
+<p>The most widely used framework derives from the <strong>Japanese iNPH Treatment Guidelines</strong> (currently in a third edition) and analogous international consensus criteria, requiring:
+1. Age typically &gt;60 years.
+2. Presence of ≥1 of the triad: gait disturbance, cognitive impairment, urinary dysfunction (gait is usually required/most heavily weighted).
+3. Radiological ventriculomegaly, classically <strong>Evans Index &gt;0.3</strong> (ratio of maximal frontal horn width to maximal internal skull diameter on axial CT/MRI).
+4. Normal/near-normal CSF opening pressure (80–200 mmH₂O) on lumbar puncture, without papilledema.
+5. Symptoms not fully explained by another condition.</p>
+<h3>Imaging Biomarkers</h3>
+<ul>
+<li><strong>Evans Index (EI):</strong> meta-analytic sensitivity 96%, specificity 83% for iNPH; cutoff &gt;0.3 (some frameworks use &gt;0.32).</li>
+<li><strong>DESH (Disproportionately Enlarged Subarachnoid-space Hydrocephalus)</strong> — tight high-convexity sulci with enlarged Sylvian fissures and ventriculomegaly; considered highly specific, and interobserver reliability of the DESH score has been a recent subject of study (ScienceDirect, 2025).</li>
+<li><strong>Callosal angle (CA):</strong> meta-analytic sensitivity 91%, specificity 93%.</li>
+<li>Emerging AI-based automated 3D T1 MRI volumetric analysis for iNPH diagnosis (<em>AJNR</em> 2025, DOI in article 46/1/33).</li>
+<li>Cortical thickness combined with ventricular morphometry improves diagnostic accuracy (<em>Front Aging Neurosci</em> 2024).</li>
+</ul>
+<h3>CSF Dynamic/Provocative Testing</h3>
+<ul>
+<li><strong>CSF tap test (Miller Fisher / large-volume lumbar puncture or tap test):</strong> positivity defined as ≥20% improvement in timed 10-meter walk test time/steps, and/or ≥10% improvement in MMSE, and/or ≥1-point improvement in a urinary incontinence score; meeting any one criterion is considered positive.</li>
+<li><strong>External lumbar drainage (ELD)</strong> and <strong>CSF infusion testing (measuring outflow resistance, Rout)</strong> are more invasive but higher-sensitivity predictors of shunt responsiveness, discussed in "Invasive Preoperative Investigations in iNPH: A Comprehensive Review" (ScienceDirect S1878875023015474).</li>
+</ul>
+<h3>CSF Biomarkers</h3>
+<ul>
+<li><strong>AD-type biomarkers (Aβ42, Aβ40, total-tau, phospho-tau):</strong> iNPH classically shows <strong>low Aβ42</strong> (similar to Alzheimer's disease) but <strong>normal t-tau and p-tau</strong>, producing a distinctive but sometimes confounding profile; a positive Aβ42/Aβ40 ratio together with elevated p-tau raises suspicion of coexistent Alzheimer's pathology, which may influence shunt outcome.</li>
+<li><strong>YKL-40 (chitinase-3-like protein 1):</strong> elevated in CSF tap-test non-responders, proposed as a marker of reactive astrogliosis/AQP4 dysregulation predicting poor shunt response.</li>
+<li><strong>AQP4:</strong> reduced/mislocalized in iNPH CSF and tissue studies (§6).</li>
+<li><strong>Emerging unbiased CSF proteomics:</strong> broad decreases in CSF protein efflux signatures, a molecular fingerprint of glymphatic failure (Neurology 2024/2025, <a href="https://doi.org/10.1212/WNL.0000000000213375" target="_blank" rel="noopener noreferrer">DOI:10.1212/WNL.0000000000213375</a>).</li>
+<li>In vivo amyloid-PET studies show a substantial prevalence of concomitant beta-amyloid pathology in iNPH cohorts, associated with distinct neuropsychological profiles (PMC11351685).</li>
+</ul>
+<h3>Genetic Testing</h3>
+<p>No clinically validated genetic test panel currently guides routine iNPH diagnosis or management; genetic findings (SFMBT1 CNV, GWAS loci) remain research-stage rather than diagnostic-stage. Whole-genome/exome sequencing, gene panels, and chromosomal microarray have no established clinical indication for typical iNPH but may be considered in atypical, familial, or early-onset presentations, or when a syndromic ciliopathy is suspected.</p>
+<h3>Differential Diagnosis</h3>
+<p>Alzheimer's disease and other dementias (frontotemporal dementia — notably, a 10-year retrospective study found increased prevalence of NPH in both FTD variants, PMC10508318), Parkinson's disease and other parkinsonian/gait disorders, cerebral small vessel disease/vascular dementia, and other causes of ventriculomegaly (ex vacuo dilation from atrophy, obstructive hydrocephalus).</p>
+<h3>Screening</h3>
+<p>No population-wide screening program exists; opportunistic case-finding relies on clinical suspicion in elderly patients presenting with the triad, supported by incidental radiological ventriculomegaly noted on imaging obtained for other indications.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality/life expectancy:</strong> iNPH itself is not typically directly fatal, but untreated disease contributes substantially to morbidity (falls, immobility, institutionalization) that can shorten life expectancy indirectly; formal disease-specific mortality statistics are not well standardized across studies.</li>
+<li><strong>Shunt-responder outcomes:</strong> Ventriculoperitoneal (VP) shunting produces significant improvement in modified Rankin Scale and iNPH Grading Scale (iNPHGS) scores at 1, 2, and 3 years post-surgery, with MMSE improvement significant at 1 and 3 years in some cohorts (PMC11992790, long-term VP shunt outcomes study). Long-term (multi-year) quality-of-life benefit is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/37004132/" target="_blank" rel="noopener noreferrer">PMID:37004132</a>).</li>
+<li><strong>Endoscopic third ventriculostomy (ETV) vs VPS:</strong> a retrospective cohort comparison found differences in surgical management outcomes between the two approaches for iNPH (PMC11875132) — VPS remains the more established/first-line approach for communicating (non-obstructive) iNPH, while ETV is generally reserved for obstructive hydrocephalus variants.</li>
+<li><strong>Complications:</strong> Subdural hematoma/hygroma occurs in ~9–10.4% of shunted patients, related to over- or under-drainage; shunt malfunction, infection, and the need for revision surgery are recognized risks.</li>
+<li><strong>Prognostic factors for shunt response:</strong> shorter duration of preoperative symptoms, absence of significant comorbid vascular/neurodegenerative pathology, higher education level, non-smoking status, and fewer postoperative complications are associated with better outcomes; multiple concurrent comorbidities predict worse outcomes and should be weighed before shunt insertion.</li>
+<li><strong>Prognostic biomarkers:</strong> CSF Aβ42/Aβ40 and p-tau positivity (suggesting comorbid AD pathology) may predict attenuated or less durable shunt response; elevated CSF YKL-40 is associated with tap-test non-response. Preoperative imaging biomarkers (DESH, callosal angle, ventricular morphometry) combined with tap test improve prediction of shunt surgery outcome (PMC11903477).</li>
+<li><strong>A recent placebo-controlled randomized trial</strong> ("A Randomized Trial of Shunting for Idiopathic Normal-Pressure Hydrocephalus," NEJM, <a href="https://doi.org/10.1056/NEJMoa2503109" target="_blank" rel="noopener noreferrer">DOI:10.1056/NEJMoa2503109</a> — the PENS trial, NCT03350750) provides higher-tier randomized evidence for shunting effectiveness versus the historically observational/uncontrolled evidence base — a major methodological advance for the field.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Surgical (mainstay of definitive therapy)</h3>
+<ul>
+<li><strong>Ventriculoperitoneal (VP) shunting</strong> — the established first-line definitive treatment for both iNPH and most sNPH; a programmable/adjustable-valve shunt diverts CSF from the lateral ventricle to the peritoneal cavity. <strong>NCIT:</strong> treatment_term NCIT:C15329 (Surgical Procedure) or a more specific shunt-placement term if available in NCIT; therapeutic_modality: <code>SURGERY</code>/<code>DEVICE</code>.</li>
+<li><strong>Ventriculoatrial or ventriculopleural shunting</strong> — alternative distal sites used when peritoneal shunting is contraindicated.</li>
+<li><strong>Endoscopic third ventriculostomy (ETV)</strong> — an alternative in select patients, more established for obstructive hydrocephalus but studied comparatively against VPS in iNPH (PMC11875132).</li>
+<li><strong>Lumboperitoneal shunting</strong> — an alternative extracranial approach avoiding ventricular catheterization, used in some centers for communicating NPH.</li>
+</ul>
+<h3>Pharmacotherapy</h3>
+<p>No disease-modifying pharmacologic therapy exists for iNPH; pharmacologic management is largely supportive (e.g., anticholinergic or beta-3 agonist agents for residual urinary urgency post-shunt — NCIT:C15986 Pharmacotherapy) and management of comorbid vascular risk factors (antihypertensives, statins, glycemic control agents) as an adjunctive/preventive strategy given the vascular risk factor association data.</p>
+<h3>Supportive/Rehabilitative</h3>
+<ul>
+<li><strong>Physical therapy/gait rehabilitation</strong> (NCIT:C15302 Physical Therapy) — used both pre- and post-shunt to maximize functional gait recovery.</li>
+<li><strong>Fall-prevention programs</strong> and assistive devices.</li>
+<li><strong>Genetic counseling</strong> (NCIT:C15240) — of limited current applicability given the absence of validated single-gene testing, but relevant in rare suspected familial/syndromic cases.</li>
+<li><strong>Supportive care</strong> (NCIT:C15747) for advanced/non-responsive disease.</li>
+</ul>
+<h3>Experimental / Investigational</h3>
+<ul>
+<li>Ongoing trials characterizing the <strong>prodromal phase</strong> of iNPH (European Study of Prodromal iNPH, NCT05910944), aiming to define earlier intervention windows.</li>
+<li>The PENS trial (NCT03350750) provides the first placebo-controlled randomized evidence base for shunting effectiveness.</li>
+<li>No gene therapy, cell therapy, or RNA-based therapeutics are in development specific to iNPH given its complex/multifactorial and largely mechanical pathophysiology; the primary "molecular" therapeutic frontier is biomarker-guided <strong>patient selection</strong> (CSF/glymphatic biomarkers to predict shunt responsiveness) rather than a distinct disease-modifying drug target.</li>
+</ul>
+<h3>Treatment Outcomes / Adverse Events</h3>
+<p>See §11 for response rates and complications (subdural hematoma/hygroma 9–10.4%, shunt malfunction/infection, over/under-drainage).</p>
+<h3>Treatment Algorithm</h3>
+<p>Standard pathway: clinical suspicion → imaging (Evans Index, DESH, callosal angle) → CSF tap test (± infusion study/ELD in equivocal cases) → shunt surgery in tap-test/ELD responders → postoperative gait/cognitive/urinary reassessment and shunt-valve adjustment as needed. A proposed algorithm for managing secondary post-shunt deterioration in iNPH patients is described in PMC7055114.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No established primary prevention strategy for iNPH exists given its multifactorial, poorly understood etiology; modifiable vascular risk factor control (blood pressure, glycemic control, weight management, lipid management) is a plausible but not rigorously trial-proven preventive approach, extrapolated from the INPH-CRasH association data.</li>
+<li><strong>Secondary prevention (for sNPH):</strong> Prompt and adequate treatment of subarachnoid hemorrhage, bacterial/tuberculous/other meningitis, and traumatic brain injury, along with vigilant post-insult monitoring for evolving hydrocephalus (serial imaging, ICP monitoring where indicated), aims to detect and treat secondary hydrocephalus before irreversible neurological injury occurs. Early recognition and shunting/ETV in at-risk post-SAH patients reduces morbidity from shunt-dependent hydrocephalus (see the SAH shunt-dependence risk-factor meta-analysis, PMC11319414).</li>
+<li><strong>Screening/early detection:</strong> No population-based screening program exists; earlier clinical recognition of the prodromal triad (motivating current prodromal-iNPH research, NCT05910944) and opportunistic radiological flagging of ventriculomegaly on incidental imaging are the most actionable current strategies to shorten the diagnosis-to-treatment interval, which is itself a major modifiable prognostic factor (§8, §11).</li>
+<li><strong>Genetic counseling:</strong> Not currently a mainstream component of iNPH prevention given the absence of validated predictive genetic testing, though this could become more relevant as GWAS/candidate-gene findings mature.</li>
+<li><strong>Public health/behavioral interventions:</strong> General cardiovascular risk factor modification (as for cerebral small vessel disease prevention broadly) is the most plausible population-level lever, though iNPH-specific outcome trials of such interventions are lacking.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> NCBITaxon:9606 (Homo sapiens) is the primary species of clinical interest; naturally occurring NPH-like syndromes in companion animals are not well established as a distinct clinical entity comparable to human iNPH (unlike, e.g., congenital hydrocephalus, which is well described in toy-breed dogs).</li>
+<li><strong>Comparative note:</strong> Congenital/obstructive hydrocephalus is naturally occurring and well documented in several companion-animal breeds (e.g., Chihuahuas, English Bulldogs — OMIA entries exist for canine hydrocephalus), but these are developmental/obstructive rather than adult-onset communicating NPH phenocopies, so cross-species natural-disease relevance to iNPH specifically is limited.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable — NPH is not an infectious/transmissible disease itself (though secondary NPH can follow an infectious meningitis, the hydrocephalus sequela itself is not zoonotic).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Rodent (primary model system)</h3>
+<ul>
+<li><strong>Kaolin-induced hydrocephalus (rat, and some mouse studies)</strong> — the dominant experimental model, first introduced by Dixon (1932). Kaolin injected into the <strong>cisterna magna or basal cisterns</strong> produces an <strong>obstructive hydrocephalus (OHC)</strong> model with elevated intracranial pressure that subsides toward normal range within about a week, useful for studying acute/subacute CSF dynamics.</li>
+<li><strong>Cortical subarachnoid space kaolin injection</strong> — produces a slower-onset, initially asymptomatic <strong>communicating hydrocephalus</strong> considered more representative of <strong>late-adult-onset NPH</strong> specifically, via an inflammatory/fibrotic subarachnoid response impairing CSF absorption (a mechanistic parallel to human secondary NPH pathogenesis).</li>
+<li><strong>AQP4-deficient mice with kaolin-induced hydrocephalus</strong> — show <strong>accelerated progression</strong> of hydrocephalus compared to wild-type, directly supporting AQP4's protective/compensatory role in glymphatic CSF clearance and providing causal (not just correlative) evidence for the glymphatic-failure mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/16552421/" target="_blank" rel="noopener noreferrer">PMID:16552421</a>).</li>
+<li><strong>Kaolin-induced chronic hydrocephalus in transgenic rats expressing human APP</strong> — accelerates amyloid deposition and vascular disease, modeling the mechanistic link between impaired CSF/glymphatic clearance and amyloid pathology relevant to the iNPH–Alzheimer's comorbidity axis (PMC4328504).</li>
+<li><strong>Optic disc/ICP changes in rat obstructive hydrocephalus models</strong> — used to study secondary consequences of elevated ICP (PMC9128145).</li>
+<li><strong>CSF outflow resistance / lymphatic CSF absorption studies</strong> in kaolin-induced communicating hydrocephalus rats demonstrate elevated CSF outflow resistance linked to impaired lymphatic (not just arachnoid granulation) CSF absorption — broadening the mechanistic model beyond the classical arachnoid-villi-only absorption paradigm (PMC2831828).</li>
+</ul>
+<h3>Model Characteristics</h3>
+<ul>
+<li><strong>Phenotype recapitulation:</strong> Kaolin models recapitulate ventriculomegaly, elevated/altered ICP dynamics, and periventricular white matter injury reasonably well, and the cortical-subarachnoid variant specifically models the communicating, slow-onset phenotype relevant to adult NPH.</li>
+<li><strong>Limitations:</strong> Kaolin models are <strong>inflammatory/chemically induced</strong> rather than spontaneous/age-related, so they do not capture the genetic susceptibility architecture (SFMBT1, ciliary genes) or the decades-long human aging process; they also do not naturally reproduce the full human clinical triad (gait/cognition/urinary function) with behavioral readouts of comparable specificity, limiting translational fidelity for cognitive/psychiatric endpoints. Rodent CSF dynamics and cranial compliance also differ substantially in scale from human CSF physiology, and AQP4-knockout findings, while mechanistically informative, represent an extreme genetic perturbation rather than the partial/complex genetic risk architecture seen in human iNPH — an appropriate <code>HUMAN_MODEL_MISMATCH</code> framing if curated in dismech.</li>
+</ul>
+<h3>Applications</h3>
+<p>Rodent kaolin models are primarily used to study: CSF outflow resistance and absorption pathways (including the lymphatic contribution), the role of AQP4/glymphatic function in disease progression, periventricular white matter/ischemic injury mechanisms, and the mechanistic interaction between impaired CSF clearance and amyloid pathology (APP-transgenic + kaolin combination models).</p>
+<h3>Resources</h3>
+<p>No single organism-specific hydrocephalus database was identified analogous to MGI/ZFIN disease-model repositories; kaolin-model protocols and strains are documented primarily through the primary literature (Dixon 1932 origin; subsequent refinements reviewed in Zhang et al., <em>FASEB BioAdvances</em> 2024, <a href="https://doi.org/10.1096/fba.2024-00070" target="_blank" rel="noopener noreferrer">DOI:10.1096/fba.2024-00070</a>) rather than a centralized public repository.</p>
+<hr />
+<h2>Summary of Key Evidence Gaps for Curation</h2>
+<ol>
+<li><strong>Genetic architecture</strong> is still emerging (2024 FinnGen GWAS is the largest to date but explains only a fraction of heritability); no clinically actionable genetic test exists.</li>
+<li><strong>Population-based prevalence data are ancestry-limited</strong> (mostly Nordic/European/Japanese cohorts); global and diverse-ancestry data are sparse.</li>
+<li><strong>Randomized-controlled evidence for shunting is very recent</strong> (PENS trial) — most historical outcome data are observational/uncontrolled.</li>
+<li><strong>Animal models lack a spontaneous, genetically-driven, aging-associated NPH phenocopy</strong> — kaolin models are inflammatory/mechanical surrogates, a <code>HUMAN_MODEL_MISMATCH</code>-worthy caveat.</li>
+<li><strong>The iNPH–Alzheimer's comorbidity boundary remains biomarker-ambiguous</strong> (discordant Aβ/tau CSF profiles), complicating both diagnosis and prognostic biomarker curation.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42239999/">Idiopathic Normal Pressure Hydrocephalus: A Comprehensive Review (PMID:42239999)</a></li>
+<li><a href="https://thejns.org/view/journals/j-neurosurg/143/1/article-p135.xml">Implications of the glymphatic system in the pathogenesis of normal pressure hydrocephalus (J Neurosurg 2025)</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJMra2306506">Idiopathic Normal-Pressure Hydrocephalus | New England Journal of Medicine (Johnson &amp; Williams, 2025)</a></li>
+<li><a href="https://www.nejm.org/doi/abs/10.1056/NEJMoa2503109">A Randomized Trial of Shunting for Idiopathic Normal-Pressure Hydrocephalus | NEJM (PENS trial)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK542247/">Idiopathic Normal Pressure Hydrocephalus - StatPearls</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11666604/">Increasing incidence of normal pressure hydrocephalus in Germany (PMC11666604)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10661316/">Idiopathic Normal Pressure Hydrocephalus: The Real Social and Economic Burden of a Possibly Enormous Underdiagnosis Problem (PMC10661316)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10508318/">Increased prevalence of NPH in both variants of frontotemporal dementia (PMC10508318)</a></li>
+<li><a href="https://www.neurology.org/doi/10.1212/NXG.0000000000200086">CWH43 Variants Are Associated With Disease Risk and Clinical Phenotypic Measures in NPH</a></li>
+<li><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0166615">A Segmental Copy Number Loss of the SFMBT1 Gene Is a Genetic Risk for Shunt-Responsive iNPH (PLOS ONE)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39141892/">Risk Variants Associated With Normal Pressure Hydrocephalus: GWAS in FinnGen (PMID:39141892)</a></li>
+<li><a href="https://movementdisorders.onlinelibrary.wiley.com/doi/full/10.1002/mds.30206">Genetic Risk Factors in Normal Pressure Hydrocephalus: What We Know and What Is Next (PMID:40266017)</a></li>
+<li><a href="https://www.neurology.org/doi/10.1212/WNL.0000000000213375">Unbiased CSF Proteomics in Patients With iNPH (Neurology)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8486078/">Evaluation of aquaporins in the CSF in patients with iNPH (PMC8486078)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11399724/">The promise of cerebrospinal fluid biomarkers in idiopathic normal pressure hydrocephalus (PMC11399724)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8634250/">Outcomes of Ventriculoperitoneal Shunt in Patients With iNPH 2 Years After Surgery (PMC8634250)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11992790/">Long-term outcomes of ventriculoperitoneal shunt therapy in iNPH (PMC11992790)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11903477/">Preoperative imaging biomarkers combined with tap test for predicting shunt surgery outcome in iNPH (PMC11903477)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37004132/">The impact of cerebrospinal fluid shunting on quality of life in iNPH (PMID:37004132)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11875132/">VPS Versus ETV for the Surgical Management of iNPH (PMC11875132)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0028377025001079">Interobserver reliability of the DESH score in idiopathic chronic hydrocephalus</a></li>
+<li><a href="https://faseb.onlinelibrary.wiley.com/doi/10.1096/fba.2024-00070">Insights on pathophysiology of hydrocephalus rats induced by kaolin injection (FASEB BioAdvances 2024)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16552421/">Accelerated progression of kaolin-induced hydrocephalus in aquaporin-4-deficient mice (PMID:16552421)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4328504/">Kaolin-induced chronic hydrocephalus accelerates amyloid deposition in transgenic rats expressing human APP (PMC4328504)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2831828/">Elevated CSF outflow resistance associated with impaired lymphatic CSF absorption in a rat model (PMC2831828)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11351685/">In Vivo Prevalence of Beta-Amyloid Pathology and AD Co-Pathology in iNPH (PMC11351685)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7961420/">Elevated CSF LRG and Decreased Alzheimer's Disease Biomarkers in iNPH (PMC7961420)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28062721/">Vascular risk factors in iNPH: A prospective case-control study (INPH-CRasH) (PMID:28062721)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00415-023-11604-6">Association between vascular risk factors and iNPH: a Mendelian randomization study (J Neurol 2023)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11319414/">Risk factors of shunt-dependent hydrocephalus after subarachnoid hemorrhage: systematic review and meta-analysis (PMC11319414)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8299371/">Secondary Normal-Pressure Hydrocephalus in Rheumatoid Meningitis (PMC8299371)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12879024/">Neuropsychiatric Features in Patients With iNPH: A Systematic Review and Meta-Analysis (PMC12879024)</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Noonan_Syndrome_with_Multiple_Lentigines-claude_code.html">← Noonan Syndrome with Multiple Lentigines (Claude Code)</a>
+                
+                
+                <a href="North_Carolina_Macular_Dystrophy-falcon.html">North Carolina Macular Dystrophy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Normal_Pressure_Hydrocephalus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Normal_Pressure_Hydrocephalus-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,106 @@
+---
+# Nightly whole-KB conformance sweep against `main`.
+#
+# The PR gate selects pytest by changed path: `just test-kb` (the `kb_data`
+# sweep) runs only when the `schema` filter matches, and `just test-python-code`
+# only when the `python` filter does. A curation PR touches `kb/` and nothing
+# else, so it matches neither -- which is how KB conformance failures have
+# reached `main` under a green badge, repeatedly (#7652 SETD5, #8909 bare URLs,
+# #9473 alias prefixes).
+#
+# This is the backstop @cmungall specified when the `kb_data` marker and its
+# schema gate were designed in #5155 -- "a scheduled/nightly full run as a
+# backstop, so nothing silently stops being validated" -- and never built. It
+# does not replace scoping the PR gate, which is #7652's design work and is
+# assigned; it bounds how long any such drift can sit undetected to one day,
+# whatever the gate's scope turns out to be.
+#
+# Both lanes run because the split is not where you would guess: five whole-KB
+# checks in `tests/test_data.py` -- the three entity-ref/foreign-key tests and
+# the two unique-name tests -- carry no `kb_data` marker, so `just test-kb`
+# alone would miss them.
+#
+# Failure surfaces as a red run in the Actions tab and GitHub's scheduled-run
+# failure notification. Filing an issue automatically is deliberately not done
+# here: it is a separate decision about noise, not part of restoring the signal.
+name: Nightly KB sweep
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    # 06:17 UTC daily. Off the hour so it does not queue behind the pile of
+    # crons that fire at :00. Not managed by .github/cron-profiles.yaml -- that
+    # governs the agent workflows, and this is a test run.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_COLOR: "1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-kb-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: Install project
+        run: uv sync --dev --group export
+
+      # The composite action, not a copy of it: four OAK-touching tests carry no
+      # `kb_data` marker, so they run in the `test-python-code` lane below and
+      # would re-download whole ontology databases from bbop-sqlite nightly
+      # without the restore/save half. See docs/explanation/oak-database-caching.md.
+      - name: Cache OAK ontology databases
+        uses: ./.github/actions/oak-cache
+
+      # The `kb_data`-marked sweep: 23 file-parametrized conformance tests.
+      - name: Whole-KB schema-conformance sweep
+        run: just test-kb
+
+      # The unmarked lane, which carries the five whole-KB checks the marker
+      # does not cover (entity-ref foreign keys, ref prefixes, hypothesis-based
+      # definition refs, and the two unique-name tests).
+      #
+      # Deliberately without the SNIPPET_BASELINE_REF /
+      # ENVIRONMENTAL_EVIDENCE_BASELINE_REF vars the PR gate sets. There they
+      # grandfather each ratchet against the base branch's live content, so a
+      # curation PR is judged on what it adds; here there is no base branch to
+      # compare against, and a backstop that notices the committed baselines
+      # have drifted from `main` is doing its job rather than misfiring. Passes
+      # against `main` today.
+      - name: Code and unmarked whole-KB tests
+        if: always()
+        run: just test-python-code
