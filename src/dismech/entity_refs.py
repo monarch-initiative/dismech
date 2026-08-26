@@ -185,13 +185,6 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
     # Discussion is keyed on its stable cross-reference id.
     "discussion": ("discussions", ("discussion_id",)),
     "discussions": ("discussions", ("discussion_id",)),
-    # --- Grouping sections -------------------------------------------------
-    # Groupings carry `discussions` like Disease entries do, so a discussion in
-    # a grouping needs somewhere to attach. `members` is the only section a
-    # membership argument can point at, and GroupingMember names its target in
-    # `member` rather than `name`.
-    "member": ("members", ("member",)),
-    "members": ("members", ("member",)),
 }
 
 #: Slots whose values carry the hash-anchor grammar. ``target`` is multivalued
