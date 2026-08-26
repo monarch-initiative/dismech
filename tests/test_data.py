@@ -922,9 +922,10 @@ def test_entity_ref_foreign_keys(filepath):
     Resolution lives in ``dismech.entity_refs`` so the renderer and any exporter
     follow a reference the same way. A cross-file reference, or a prefix absent
     from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
-    a gap in that map, not a defect in the content -- outside the
-    reference-only slots below, where an unmapped prefix is how a typo would
-    escape every check.
+    a gap in that map, not a defect in the content -- outside the gated slots
+    (``_KNOWN_KIND_SLOTS``, which is ``attaches_to`` as well as the
+    reference-only pair), where an unmapped prefix is how a typo would escape
+    every check.
 
     ``attaches_to`` additionally has to *use* the grammar: a bare name there is
     not a reference, so it silently resolved to nothing before (#9394). In the
