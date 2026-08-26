@@ -850,9 +850,7 @@ def _is_known_kind(kind: str) -> bool:
     canonical *spelling*, which is a different question from whether the
     section is one we know at all.
     """
-    return (
-        kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
-    )
+    return kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
 
 
 def entity_ref_errors(data: dict) -> list[str]:
@@ -929,10 +927,11 @@ def test_entity_ref_foreign_keys(filepath):
     escape every check.
 
     ``attaches_to`` additionally has to *use* the grammar: a bare name there is
-    not a reference, so it silently resolved to nothing before (#9394). A value
-    naming a real item in the entry is treated as a bare name in *any*
-    ref-bearing slot: it is a reference missing its prefix, and calling it
-    prose would send a curator to move a working pointer into a prose slot.
+    not a reference, so it silently resolved to nothing before (#9394). In the
+    gated slots (``_KNOWN_KIND_SLOTS``, so not ``target``), a value naming a
+    real item in the entry is reported as a bare name rather than as prose: it
+    is a reference missing its prefix, and calling it prose would send a
+    curator to move a working pointer into a prose slot.
 
     So do ``would_support`` / ``would_refute``, which hold references only --
     a prose statement of the outcome belongs in ``supporting_outcome`` /
