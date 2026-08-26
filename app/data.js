@@ -13496,6 +13496,78 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Alopecia-Intellectual Disability Syndrome 1",
+    "disease_id": "MONDO:0021035",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-08-26T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Alopecia-intellectual disability syndrome 1 (APMR1; OMIM #203650) is a very rare autosomal recessive neuroectodermal syndrome combining total or partial absence of hair from the scalp and other body sites with variable intellectual disability. The APMR1 locus was mapped by genome-wide linkage to chromosome 3q26.33-q27.3 in a large consanguineous Pakistani kindred, and a homozygous AHSG missense variant (NM_001622:c.950G>A, p.Arg317His) segregating in a large consanguineous family with seven affected members subsequently identified AHSG \u2014 alpha-2-HS-glycoprotein, the gene encoding the plasma glycoprotein fetuin-A \u2014 as the causal gene. AHSG maps to 3q27.3, inside the original linkage interval.\nThe mechanism connecting fetuin-A to hair and brain development is not established. Fetuin-A's best-characterised roles \u2014 systemic inhibition of ectopic calcification and antagonism of TGF-beta/BMP family signalling \u2014 do not obviously predict this phenotype, and the Ahsg-null mouse is reported as phenotypically normal apart from ectopic calcification on a mineralising diet. This entry therefore models the proximal molecular lesion as established and the route from it to alopecia and intellectual disability as an explicitly hypothetical TGF-beta-antagonism model, flagged with a HUMAN_MODEL_MISMATCH discussion.\nAPMR1 is one of four numbered forms in the alopecia-intellectual disability syndrome (APMR) series (MONDO:0008756). Only two are molecularly characterised \u2014 APMR1 (AHSG, 3q27.3) and APMR4 (LSS, 21q22.3, curated at kb/disorders/Alopecia-Intellectual_Disability_Syndrome_4.yaml) \u2014 while the APMR2 (3q26.2-q26.31) and APMR3 (18q11.2-q12.2) loci remain uncharacterised. Because the numbered forms are separate diseases with different genes on different chromosomes rather than a single-gene severity spectrum, the series is modelled as a Grouping (kb/groupings/Alopecia-Intellectual_Disability_Syndromes.yaml) over the member Disease entries, NOT as one umbrella Disease with has_subtypes.\n",
+    "pathophysiology": [
+      "Biallelic AHSG Missense Variant",
+      "Aberrant Fetuin-A Protein Processing",
+      "Reduced Fetuin-A TGF-beta Antagonism",
+      "Premature Hair Follicle Catagen Entry",
+      "Impaired Neocortical Development"
+    ],
+    "cell_types": [
+      "hair follicle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002559"
+    ],
+    "biological_processes": [
+      "negative regulation of transforming growth factor beta receptor signaling pathway",
+      "hair follicle development",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Alopecia of Scalp",
+      "Absent Eyebrow",
+      "Absent Eyelashes",
+      "Absent Axillary Hair",
+      "Absent Pubic Hair",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002293",
+      "HP:0002223",
+      "HP:0000561",
+      "HP:0002221",
+      "HP:0002555",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "AHSG"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Alopecia-Intellectual_Disability_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/Alopecia-Intellectual_Disability_Syndrome_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Alopecia-Intellectual Disability Syndrome 4",
     "disease_id": "MONDO:0030009",
     "category": "Mendelian",
@@ -55592,6 +55664,68 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Chronic Insomnia Disorder",
+    "disease_id": "MONDO:0013600",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chronic insomnia disorder is persistent difficulty initiating or maintaining sleep, or non-restorative sleep, together with significant daytime impairment, despite adequate opportunity to sleep. It is among the most prevalent disorders in medicine and among the least mechanistically understood. The best supported framework is hyperarousal: insomnia is not a deficiency of sleep drive but an excess of arousal that opposes it, and the excess is measurable across autonomic, neuroendocrine, neuroimmune, electrophysiological, and neuroimaging domains, at night AND during the day. That 24-hour character is the framework's strongest claim - a purely nocturnal sleep-generation failure would not predict daytime hyperarousal, and it is why patients so often describe fatigue without sleepiness, and why they perform poorly on objective sleepiness testing in the opposite direction to the hypersomnolence disorders. Recent work locates the vulnerability more specifically in circuits regulating emotion and arousal, rather than in the circadian or homeostatic sleep-regulating circuits, and a large genome-wide analysis is consistent with that: insomnia's genetic architecture correlates substantially with psychiatric traits and implicates striatal, hypothalamic, and claustrum neurons rather than the classical sleep-switch nuclei.",
+    "pathophysiology": [
+      "Predisposing Vulnerability in Emotion and Arousal Circuits",
+      "Persistent 24-Hour Physiological Hyperarousal",
+      "Perpetuating Behavioural and Cognitive Responses",
+      "Failure of Sleep Initiation and Maintenance",
+      "Daytime Impairment and Downstream Health Risk"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "regulation of the sleep/wake cycle",
+      "sleep"
+    ],
+    "phenotypes": [
+      "Sleep-Onset Insomnia",
+      "Sleep-Maintenance Insomnia",
+      "Daytime Functional Impairment"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031354",
+      "HP:0031355",
+      "HP:0100785"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "Polygenic architecture (202 loci, no established single gene)"
+    ],
+    "treatments": [
+      "Cognitive Behavioural Therapy for Insomnia",
+      "Dual Orexin Receptor Antagonist (Suvorexant)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chronic_Insomnia_Disorder.yaml",
+    "page_url": "../pages/disorders/Chronic_Insomnia_Disorder.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Chronic Intestinal Pseudoobstruction",
     "disease_id": "MONDO:0017574",
     "category": "",
@@ -60223,6 +60357,97 @@ window.searchData = [
     "num_genes": 5,
     "num_treatments": 4,
     "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Congenital Central Hypoventilation Syndrome",
+    "disease_id": "MONDO:0800031",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease",
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Neonatal-onset CCHS",
+      "Later-onset CCHS"
+    ],
+    "description": "Congenital central hypoventilation syndrome (historically Ondine's curse) is a rare disorder of autonomic control in which the automatic drive to breathe fails during sleep. The lesion is not in the lung, the chest wall, the airway, or the respiratory muscles: it is the loss of central chemoreception, so rising carbon dioxide and falling oxygen no longer generate a corrective ventilatory response, and breathing during sleep - which depends entirely on that automatic loop - becomes inadequate or ceases. Wakeful, cortically driven breathing is comparatively preserved, which is why affected infants can appear normal when awake and hypoventilate every time they fall asleep. Almost all cases are caused by de novo heterozygous mutation of PHOX2B, usually an expansion of a 20-residue polyalanine tract, and in mouse models the specific neuronal casualty is the retrotrapezoid nucleus - the principal central chemoreceptor site - with no other identified neuronal loss. Because PHOX2B is a master regulator of visceral reflex circuits generally, the disorder extends beyond breathing to a wider autonomic dysregulation, and to neural-crest derived complications: Hirschsprung disease and neuroblastic tumours. There is no treatment for the chemoreceptive lesion; management is lifelong assisted ventilation during sleep.",
+    "pathophysiology": [
+      "PHOX2B Polyalanine Expansion or Frameshift Mutation",
+      "Failed Development of Retrotrapezoid Nucleus Chemoreceptor Neurons",
+      "Loss of Central Chemoreflex Response to Hypercapnia and Hypoxaemia",
+      "Sleep-Dependent Alveolar Hypoventilation",
+      "Generalised Autonomic Dysregulation and Neural Crest Complications",
+      "Ventilator Dependence and Neurocognitive Risk"
+    ],
+    "cell_types": [
+      "retrotrapezoid nucleus chemoreceptor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1000001"
+    ],
+    "biological_processes": [
+      "nervous system control of respiratory gas exchange",
+      "chemoreflex response to carbon dioxide",
+      "respiratory system process",
+      "sleep"
+    ],
+    "phenotypes": [
+      "Central Hypoventilation",
+      "Nocturnal Hypoventilation",
+      "Hirschsprung Disease",
+      "Neuroblastic Tumour",
+      "Autonomic Cardiac Dysregulation"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Gastrointestinal",
+      "Oncological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0007110",
+      "HP:0002877",
+      "HP:0002251",
+      "HP:0004376",
+      "HP:0031861"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PHOX2B"
+    ],
+    "treatments": [
+      "Lifelong Assisted Ventilation During Sleep",
+      "Diaphragm Pacing by Phrenic Nerve Stimulation",
+      "Cardiac Pacemaker for Prolonged Asystole",
+      "Protective Eyewear"
+    ],
+    "environmental": [
+      "Sedative, anaesthetic and other respiratory-depressant medications",
+      "Ethanol Exposure",
+      "Asphyxial circumstances (swimming, breath-holding contests)"
+    ],
+    "biochemical": [],
+    "source_file": "Congenital_Central_Hypoventilation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Congenital_Central_Hypoventilation_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -69908,7 +70133,8 @@ window.searchData = [
     "pathophysiology": [
       "Circadian Clock Gene Polymorphisms",
       "Altered Melatonin Secretion Timing",
-      "Impaired Photic Entrainment"
+      "Impaired Photic Entrainment",
+      "Misalignment Between Circadian Phase and Social Schedule"
     ],
     "cell_types": [
       "Neuron",
@@ -69923,7 +70149,9 @@ window.searchData = [
     "biological_processes": [
       "Circadian Rhythm",
       "Melatonin Biosynthetic Process",
-      "Entrainment of Circadian Clock"
+      "Entrainment of Circadian Clock",
+      "entrainment of circadian clock",
+      "regulation of the circadian sleep/wake cycle"
     ],
     "phenotypes": [
       "Sleep Onset Insomnia",
@@ -69973,11 +70201,11 @@ window.searchData = [
     "source_file": "Delayed_Sleep_Phase_Syndrome.yaml",
     "page_url": "../pages/disorders/Delayed_Sleep_Phase_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Delpire-McNeill Syndrome",
@@ -70163,11 +70391,28 @@ window.searchData = [
     "subtypes": [],
     "description": "Dengue is a mosquito-borne viral disease caused by dengue virus and transmitted by Aedes mosquitoes, with severe cases characterized by plasma leakage and shock.",
     "pathophysiology": [
-      "Plasma leakage leading to shock in severe dengue"
+      "Plasma leakage leading to shock in severe dengue",
+      "Complement Cascade Dysregulation",
+      "Macrophage-Mediated Innate Immune Activation",
+      "Immune Checkpoint-Mediated T Cell Exhaustion in Secondary Dengue"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "cell_types": [
+      "macrophage",
+      "T cell",
+      "natural killer cell",
+      "mucosal-associated invariant T (MAIT) cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000084",
+      "CL:0000623",
+      "CL:0000940"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "macrophage activation",
+      "checkpoint-mediated restraint of T cell activation"
+    ],
     "phenotypes": [
       "Fever",
       "Skin rash"
@@ -70196,11 +70441,11 @@ window.searchData = [
     "source_file": "Dengue.yaml",
     "page_url": "../pages/disorders/Dengue.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 1,
+    "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Dental Caries",
@@ -115228,6 +115473,72 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Idiopathic Hypersomnia",
+    "disease_id": "MONDO:0018044",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "IH with long sleep time",
+      "IH without long sleep time"
+    ],
+    "description": "Idiopathic hypersomnia is a central disorder of hypersomnolence defined by irrepressible daytime sleepiness that persists despite normal or long nocturnal sleep, in the absence of any identifiable cause. It is a diagnosis of exclusion, and unusually among the entries in this knowledge base its mechanism is genuinely unknown - the disorder is named for that ignorance. What distinguishes it clinically is not the sleepiness, which it shares with every other hypersomnolence disorder, but its quality: sleep is prolonged and unrefreshing rather than fragmented, naps are long and non-restorative rather than brief and restorative as in narcolepsy, and waking is dominated by severe and prolonged sleep inertia (sleep drunkenness) - a difficulty in achieving full alertness after waking that patients frequently rate as more disabling than the sleepiness itself. Cerebrospinal fluid hypocretin-1 is normal by definition, which excludes the orexin-deficiency mechanism of narcolepsy type 1 and makes idiopathic hypersomnia the principal negative case against that module. The leading positive hypothesis runs in the opposite direction - a substance in cerebrospinal fluid that potentiates GABA-A receptor signalling, i.e. excessive somnogenic inhibition rather than deficient arousal drive - but that finding has not been robustly replicated and the entry curates it as an unconfirmed hypothesis rather than as the mechanism.",
+    "pathophysiology": [
+      "Unidentified Somnogenic Process",
+      "Increased Homeostatic Sleep Drive with Preserved Sleep Continuity",
+      "Impaired Arousal from Sleep (Sleep Inertia)",
+      "Non-Restorative Long Sleep and Unrefreshing Naps",
+      "Chronic Functional Impairment"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "sleep",
+      "regulation of the sleep/wake cycle",
+      "sleep/wake cycle state transition to wakefulness"
+    ],
+    "phenotypes": [
+      "Excessive Daytime Sleepiness",
+      "Severe Sleep Inertia (Sleep Drunkenness)",
+      "Prolonged Nocturnal Sleep",
+      "Unrefreshing Long Naps"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001262",
+      "HP:6000456",
+      "HP:0002360"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Modafinil",
+      "Low-Sodium Oxybate"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Idiopathic_Hypersomnia.yaml",
+    "page_url": "../pages/disorders/Idiopathic_Hypersomnia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Idiopathic Interstitial Pneumonia",
     "disease_id": "MONDO:0002429",
     "category": "Respiratory Disease",
@@ -126596,6 +126907,77 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Kleine-Levin Syndrome",
+    "disease_id": "MONDO:0007863",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Kleine-Levin syndrome is a rare relapsing-remitting disorder of episodic hypersomnia with cognitive and behavioural disturbance. Its defining feature is not any single symptom but its temporal structure: episodes lasting about ten days recur every few months, typically beginning in adolescence and often precipitated by infection, and between them patients are entirely normal in sleep, mood, cognition, and behaviour. During an episode patients sleep excessively and, when awake, are cognitively slowed and profoundly derealised - describing the world as unreal, dreamlike, or seen through a veil - with apathy, and in a substantial minority hyperphagia and hypersexuality. The derealisation, not the sleepiness, is what patients most often describe as the worst part, and it has an anatomical correlate: functional imaging shows hypoperfusion of the parieto-temporal junction that correlates strongly with measured depersonalisation-derealisation severity. The pathophysiology is unknown, but two findings constrain it. Imaging shows diencephalic and associative-cortical hypoperfusion that persists between episodes, so the disorder is not a normal brain intermittently perturbed but a persistently abnormal one that intermittently decompensates. And a genome-wide association study implicates TRANK1, in interaction with reported birth difficulties, with pathway enrichment for circadian regulation genes.",
+    "pathophysiology": [
+      "Genetic Susceptibility and Early-Life Risk",
+      "Persistent Diencephalic and Associative Cortical Hypofunction",
+      "Episodic Decompensation",
+      "Episodic Hypersomnia with Cognitive and Behavioural Disturbance"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "sleep"
+    ],
+    "phenotypes": [
+      "Episodic Hypersomnia",
+      "Cognitive Impairment During Episodes",
+      "Derealization",
+      "Hyperphagia During Episodes",
+      "Hypersexuality During Episodes",
+      "Apathy During Episodes"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007200",
+      "HP:0100543",
+      "HP:5200218",
+      "HP:0002591",
+      "HP:5200321",
+      "HP:0000741"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TRANK1"
+    ],
+    "treatments": [
+      "Lithium",
+      "Stimulants"
+    ],
+    "environmental": [
+      "Difficult birth (perinatal adversity)",
+      "Intercurrent infection"
+    ],
+    "biochemical": [],
+    "source_file": "Kleine-Levin_Syndrome.yaml",
+    "page_url": "../pages/disorders/Kleine-Levin_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Klinefelter Syndrome",
@@ -155217,7 +155599,9 @@ window.searchData = [
     "description": "Narcolepsy is a chronic neurological sleep disorder characterized by excessive daytime sleepiness and dysregulation of rapid eye movement (REM) sleep. Type 1 narcolepsy results from selective loss of hypothalamic orexin/hypocretin-producing neurons, presumed autoimmune in origin, and presents with cataplexy; type 2 lacks cataplexy and preserves orexin levels. Associated features include sleep paralysis, hypnagogic hallucinations, and fragmented nocturnal sleep.",
     "pathophysiology": [
       "Orexin/Hypocretin Deficiency",
-      "Autoimmune Destruction"
+      "Autoimmune Destruction",
+      "Sleep-Wake State Instability",
+      "Dissociated Intrusion of REM Sleep Components"
     ],
     "cell_types": [
       "Orexin Neuron"
@@ -155227,7 +155611,10 @@ window.searchData = [
     ],
     "biological_processes": [
       "Sleep-Wake Regulation",
-      "Autoimmune Response"
+      "Autoimmune Response",
+      "sleep-wake cycle state transition",
+      "regulation of the sleep-wake cycle",
+      "REM sleep"
     ],
     "phenotypes": [
       "Excessive Daytime Sleepiness",
@@ -155282,11 +155669,11 @@ window.searchData = [
     "source_file": "Narcolepsy.yaml",
     "page_url": "../pages/disorders/Narcolepsy.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Nasopharyngeal Carcinoma",
@@ -161242,6 +161629,72 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Non-24-Hour Sleep-Wake Rhythm Disorder",
+    "disease_id": "MONDO:0019137",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-24-hour sleep-wake rhythm disorder (free-running disorder, hypernycthemeral syndrome) is the circadian disorder in which the pacemaker is not locked to the 24-hour day at all. The human circadian clock has an intrinsic period slightly longer than 24 hours and is reset each morning by retinal light exposure. Where that light signal cannot reach the suprachiasmatic nucleus - as in total blindness without light perception - the clock runs at its own period, so sleep onset and wake time drift progressively later day after day. The clinical consequence follows directly from the arithmetic: symptoms are cyclical rather than constant, because the drifting endogenous phase passes in and out of alignment with the imposed schedule over weeks. Patients therefore have alternating periods of entirely normal sleep and severe insomnia with daytime sleepiness, which is what makes the diagnosis so often missed - a patient assessed during an aligned stretch looks well. Diagnosis requires demonstrating a circadian period outside the normal range, which needs repeated measurement of a phase marker over time rather than a single assessment. It is rare in the general population and common in the totally blind, where it may affect up to half of those without light perception.",
+    "pathophysiology": [
+      "Absence of Photic Input to the Suprachiasmatic Nucleus",
+      "Free-Running Circadian Period",
+      "Cyclical Misalignment with the 24-Hour Schedule",
+      "Cyclical Insomnia and Daytime Dysfunction"
+    ],
+    "cell_types": [
+      "melanopsin-expressing intrinsically photosensitive retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0020014"
+    ],
+    "biological_processes": [
+      "entrainment of the circadian clock by photoperiod",
+      "circadian rhythm",
+      "entrainment of circadian clock",
+      "regulation of the circadian sleep/wake cycle",
+      "circadian sleep/wake cycle, sleep"
+    ],
+    "phenotypes": [
+      "Cyclical Sleep-Onset Insomnia",
+      "Cyclical Excessive Daytime Sleepiness",
+      "Sleep-Wake Cycle Disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031354",
+      "HP:0001262",
+      "HP:0006979"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Tasimelteon",
+      "Timed Melatonin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Non-24-Hour_Sleep-Wake_Rhythm_Disorder.yaml",
+    "page_url": "../pages/disorders/Non-24-Hour_Sleep-Wake_Rhythm_Disorder.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005233",
     "category": "",
@@ -163127,6 +163580,7 @@ window.searchData = [
       "Upper Airway Collapse",
       "Intermittent Hypoxia",
       "Sleep Fragmentation",
+      "Non-Anatomic Endotypic Traits",
       "Sympathetic Overactivation",
       "Systemic Inflammation",
       "Ocular Surface Inflammation and Dry Eye Disease"
@@ -163146,9 +163600,10 @@ window.searchData = [
       "CL:2000021"
     ],
     "biological_processes": [
-      "Muscle Relaxation",
+      "Sleep-related loss of pharyngeal dilator muscle tone",
       "Response to Hypoxia",
       "Sleep Regulation",
+      "nervous system control of respiratory gas exchange",
       "Inflammatory Response",
       "Ocular Surface Inflammation",
       "Response to Oxidative Stress",
@@ -163221,11 +163676,11 @@ window.searchData = [
     "source_file": "Obstructive_Sleep_Apnea.yaml",
     "page_url": "../pages/disorders/Obstructive_Sleep_Apnea.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Ochoa syndrome",
@@ -182855,6 +183310,7 @@ window.searchData = [
     "pathophysiology": [
       "Immune Maladaptation at Maternal-Fetal Interface",
       "Maternal Vascular Susceptibility Threshold",
+      "PSG2-Mediated TGF-beta/Smad3 Activation",
       "Defective Trophoblast Invasion and Spiral Artery Remodeling",
       "Placental Anti-Angiogenic Factor Release",
       "NLRP3 Inflammasome Activation and Inflammatory Cascade",
@@ -182891,8 +183347,11 @@ window.searchData = [
       "endothelial cell activation",
       "blood circulation",
       "vasoconstriction",
+      "transforming growth factor beta receptor signaling pathway",
+      "SMAD protein signal transduction",
       "placenta development",
       "vasculogenesis",
+      "epithelial to mesenchymal transition",
       "VEGF receptor signaling pathway",
       "angiogenesis",
       "response to hypoxia",
@@ -182966,10 +183425,10 @@ window.searchData = [
     "source_file": "Preeclampsia.yaml",
     "page_url": "../pages/disorders/Preeclampsia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
   },
   {
@@ -189434,6 +189893,74 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "REM Sleep Behavior Disorder",
+    "disease_id": "MONDO:0005937",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "REM sleep behavior disorder is a parasomnia in which the skeletal muscle atonia that normally accompanies REM sleep fails, so that the motor programmes generated during dreaming are executed rather than suppressed. Patients punch, kick, shout, and leap from bed, frequently injuring themselves or a bed partner, and wake alert with matching dream recall. Diagnosis requires both the behavioural history and polysomnographic demonstration of REM sleep without atonia. What makes the disorder important beyond its immediate injury risk is what it signifies: in older adults the isolated (idiopathic) form is not idiopathic at all but the earliest clinically detectable stage of an alpha-synuclein neurodegenerative disease. Post-mortem series find Lewy body disease in the overwhelming majority, with alpha-synuclein deposited in precisely the brainstem structures that regulate REM atonia, and prospective follow-up shows conversion to Parkinson disease, dementia with Lewy bodies, or multiple system atrophy at about 6% per year, reaching roughly three-quarters by twelve years. That combination - a specific, polysomnographically verifiable marker with a decade-long lead time over an overt neurodegenerative syndrome - makes it the most powerful prodromal state available in neurodegeneration, and the population in which disease-modifying trials are most feasible.",
+    "pathophysiology": [
+      "Alpha-Synuclein Pathology in the Brainstem REM-Atonia Circuit",
+      "Loss of Descending Drive to Inhibitory Premotor Neurons",
+      "REM Sleep Without Atonia",
+      "Dream Enactment Behaviour",
+      "Sleep-Related Injury",
+      "Progression to Overt Synucleinopathy"
+    ],
+    "cell_types": [
+      "neuron of the subcoeruleus and pontomedullary REM-atonia circuit"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "glutamatergic synaptic transmission",
+      "REM sleep",
+      "skeletal muscle contraction during REM sleep",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Dream Enactment Behaviour",
+      "REM Sleep Without Atonia",
+      "Sleep-Related Injury"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:5200291",
+      "HP:0002494",
+      "HP:5200300"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Sleep Environment Safety Measures",
+      "Clonazepam",
+      "Immediate-Release Melatonin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "REM_Sleep_Behavior_Disorder.yaml",
+    "page_url": "../pages/disorders/REM_Sleep_Behavior_Disorder.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "RET Fusion-Positive Thyroid Cancer",
     "disease_id": "MONDO:0005075",
     "category": "",
@@ -192077,6 +192604,76 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Restless Legs Syndrome",
+    "disease_id": "MONDO:0005391",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Sleep Disorder",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Restless legs syndrome (Willis-Ekbom disease) is a common sensorimotor disorder defined by an urge to move the legs that appears or worsens at rest, is relieved by movement, and follows a circadian pattern with onset in the evening or night. It is a sleep disorder by consequence rather than by definition - the diagnostic criteria describe a waking sensorimotor experience, but the circadian timing places it at sleep onset, and sleep disruption is what brings most patients to attention. Most patients also show periodic limb movements during sleep, a distinct and separately heritable motor trait. The pathophysiology is not settled. What is best established is regional brain iron deficiency in the presence of normal or near-normal systemic iron stores, most consistently in the substantia nigra, which neuropathology attributes to impaired iron acquisition by neuromelanin-containing cells rather than to degeneration. Around that core sit a dopaminergic abnormality that is a state of relative dopamine excess rather than deficiency, strong non-coding genetic associations at MEIS1 and BTBD9 that connect to iron homeostasis, and candidate adenosinergic and glutamatergic contributions. The therapeutic paradox that shapes management - dopamine agonists work immediately and then cause augmentation, a drug-induced worsening of the disease they treat - follows directly from that unsettled mechanism.",
+    "pathophysiology": [
+      "Regional Brain Iron Deficiency",
+      "Genetic Susceptibility at Iron-Linked Regulatory Loci",
+      "Altered Dopaminergic Signalling with Relative Dopamine Excess",
+      "Sensorimotor Network Hyperexcitability",
+      "Rest-Dependent Urge to Move with Circadian Timing",
+      "Periodic Limb Movements of Sleep",
+      "Sleep Disruption and Its Consequences"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "iron ion transport",
+      "dopaminergic synaptic transmission",
+      "glutamatergic synaptic transmission",
+      "circadian rhythm",
+      "sleep"
+    ],
+    "phenotypes": [
+      "Urge to Move the Legs at Rest",
+      "Periodic Limb Movements of Sleep",
+      "Sleep Disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012452",
+      "HP:5200295",
+      "HP:0002360"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MEIS1",
+      "BTBD9"
+    ],
+    "treatments": [
+      "Intravenous Ferric Carboxymaltose",
+      "Alpha-2-Delta Ligand (Gabapentin Enacarbil, Pregabalin)",
+      "Dopamine Agonist (Pramipexole)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Restless_Legs_Syndrome.yaml",
+    "page_url": "../pages/disorders/Restless_Legs_Syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Retinal Arterial Tortuosity",
@@ -234812,19 +235409,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2267,
-  "total_subtypes": 3324,
-  "total_disorders_and_subtypes": 5591,
-  "total_unique_evidence_sources": 33370,
-  "total_unique_publications": 31337,
+  "total_disorder_pages": 2275,
+  "total_subtypes": 3328,
+  "total_disorders_and_subtypes": 5603,
+  "total_unique_evidence_sources": 33436,
+  "total_unique_publications": 31403,
   "total_unique_disease_categories": 50,
   "total_unique_phenotype_categories": 265,
-  "total_pathographs": 2262,
-  "total_unique_pathological_events": 12982,
-  "total_modules": 157,
-  "total_research_reports": 2439,
+  "total_pathographs": 2270,
+  "total_unique_pathological_events": 13032,
+  "total_modules": 162,
+  "total_research_reports": 2440,
   "total_classifications": 19,
   "total_comorbidities": 22,
-  "total_groupings": 86
+  "total_groupings": 87
 };
 window.dispatchEvent(new Event('searchDataReady'));
