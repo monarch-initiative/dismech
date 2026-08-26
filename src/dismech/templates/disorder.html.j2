@@ -6400,8 +6400,11 @@
                 <div class="item-desc">{{ dx.description }}</div>
                 {% endif %}
                 {{ render_descriptor_tag(dx.diagnosis_term, "tag-treatment") }}
+                {# `markers` is `range: string` and not multivalued -- passing it to
+                   render_descriptor_tags iterates it per character and renders
+                   nothing. Text, like the sibling `results` slot. #}
                 {% if dx.markers %}
-                {{ render_descriptor_tags(dx.markers, "tag-bio") }}
+                <div class="item-desc"><strong>Markers:</strong> {{ dx.markers }}</div>
                 {% endif %}
                 {% if dx.results %}
                 <div class="item-desc"><strong>Results:</strong> {{ dx.results }}</div>
@@ -6446,6 +6449,12 @@
                     {% endif %}
                     {% if finding.spatial_extent %}
                     <span class="tag">{{ finding.spatial_extent | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if finding.subtype %}
+                    <span class="tag tag-subtype">{{ finding.subtype }}</span>
+                    {% endif %}
+                    {% if finding.context %}
+                    <span class="tag">{{ finding.context }}</span>
                     {% endif %}
                 </div>
                 {{ render_descriptor_tag(finding.imaging_finding_term, "tag-bio") }}
@@ -6512,10 +6521,29 @@
                 {% if stage.description %}
                 <div class="item-desc">{{ stage.description }}</div>
                 {% endif %}
+                {% if stage.role %}
+                <div class="item-meta"><span class="tag tag-classification">{{ stage.role }}</span></div>
+                {% endif %}
                 {% if stage.substages %}
                 <div class="item-meta">
                     {% for substage in stage.substages %}
-                    <span class="tag">{{ substage.name or substage }}</span>
+                    {# Guarded rather than `substage.name or substage`, which prints
+                       a raw dict for a nameless entry -- the shape of the
+                       food_source bug found in review of this PR. #}
+                    {% if substage is string %}
+                    <span class="tag">{{ substage }}</span>
+                    {% elif substage.name %}
+                    <span class="tag">{{ substage.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if stage.pathophysiology %}
+                <div class="item-meta">
+                    {% for node in stage.pathophysiology %}
+                    {% if node.name %}
+                    <span class="tag tag-bio">{{ node.name }}</span>
+                    {% endif %}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -6553,6 +6581,18 @@
                         {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none %}
                         ({{ rec.rate_low }}&ndash;{{ rec.rate_high }})
                         {%- endif %}
+                    </span>
+                    {# 273 records carry a range and no point rate, so this has to
+                       be a sibling branch rather than nested in the one above. #}
+                    {% elif rec.get('rate_low') is not none or rec.get('rate_high') is not none %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        {%- if rec.get('rate_low') is not none and rec.get('rate_high') is not none -%}
+                        {{ rec.rate_low }}&ndash;{{ rec.rate_high }}
+                        {%- elif rec.get('rate_low') is not none -%}
+                        &ge;{{ rec.rate_low }}
+                        {%- else -%}
+                        &le;{{ rec.rate_high }}
+                        {%- endif %} per 100,000
                     </span>
                     {% elif rec.percentage %}
                     <span class="tag">{{ rec.percentage }}</span>
@@ -6625,12 +6665,17 @@
                 {% if agent.has_subtypes %}
                 <div class="item-meta">
                     {% for sub in agent.has_subtypes %}
-                    <span class="tag tag-subtype">{{ sub.name or sub }}</span>
+                    {% if sub is string %}
+                    <span class="tag tag-subtype">{{ sub }}</span>
+                    {% elif sub.name %}
+                    <span class="tag tag-subtype">{{ sub.name }}</span>
+                    {% endif %}
                     {% endfor %}
                 </div>
                 {% endif %}
                 {% if agent.food_source %}
-                <div class="item-desc"><strong>Food source:</strong> {{ agent.food_source }}</div>
+                <div class="item-desc"><strong>Food source:</strong></div>
+                {{ render_descriptor_tag(agent.food_source, "tag-bio") }}
                 {% endif %}
                 {{ render_evidence(agent.evidence) }}
             </div>
@@ -6671,7 +6716,7 @@
                 <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
                 <h2 class="card-title">Clinical Burden</h2>
             </div>
-            <div class="item-box anchor-target" id="clinical-burden-item">
+            <div class="item-box anchor-target">
                 {% if disorder.clinical_burden.burden_level %}
                 <div class="item-name">{{ disorder.clinical_burden.burden_level | replace('_', ' ') | title }}</div>
                 {% endif %}
