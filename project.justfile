@@ -976,7 +976,7 @@ check-duplicate-keys *files:
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
 # skips it entirely. This lane is ungated in CI for the same reason
 # check-duplicate-keys is: the PRs that break the invariant are exactly the ones
-# no src/ or tests/ filter fires on. ~24s over 2,532 files, offline.
+# no src/ or tests/ filter fires on. ~13-17s over 2,532 files, offline.
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"

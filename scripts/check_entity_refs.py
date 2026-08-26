@@ -33,7 +33,8 @@ Whole-KB rather than changed-files, for the reason ``check_duplicate_yaml_keys``
 is: these are *cross-file* invariants in the sense that matters here. Renaming a
 node in file A breaks a reference in file A that the PR may not otherwise touch,
 and a PR that only *deletes* a node selects no changed file carrying the dangling
-ref at all. The whole sweep costs about the same as reading the KB once.
+ref at all. The whole sweep costs about the same as reading the KB once --
+~13s on a CI runner, ~17s in a slower sandbox.
 
 Usage
 -----
@@ -66,6 +67,21 @@ DEFAULT_ROOTS = (
     "kb/comorbidities",
     "kb/groupings",
 )
+
+# Directories under `kb/` deliberately left out of the sweep, with the reason.
+# Stated explicitly rather than by omission because "a tree nobody checks"
+# is the exact bug this script exists to fix: `test_default_roots_cover_kb`
+# fails when a new `kb/<something>/` appears in neither list, so the decision
+# gets made rather than defaulted.
+EXCLUDED_ROOTS = {
+    # Provider hypothesis reports and their assessment sidecars. A different
+    # schema, no reference-bearing slots today -- the only hash-anchor string
+    # anywhere in the tree is inside a Markdown report, not a YAML slot.
+    "kb/hypotheses": "hypothesis reports/assessments; no entity-ref slots",
+    # Surrogate-endpoint records, likewise a separate schema with no
+    # reference-bearing slots.
+    "kb/surrogate_endpoints": "separate schema; no entity-ref slots",
+}
 
 
 def iter_yaml_files(paths: list[str]) -> list[Path]:

@@ -79,14 +79,12 @@ jobs:
       - name: Install project
         run: uv sync --dev --group export
 
-      - name: Cache OAK ontology SQLite databases
-        run: |
-          pystow_home="${RUNNER_TEMP}/pystow"
-          mkdir -p "${pystow_home}/oaklib"
-          {
-            echo "PYSTOW_HOME=${pystow_home}"
-            echo "OAK_SQLITE_CACHE_DIR=${pystow_home}/oaklib"
-          } >> "$GITHUB_ENV"
+      # The composite action, not a copy of it: four OAK-touching tests carry no
+      # `kb_data` marker, so they run in the `test-python-code` lane below and
+      # would re-download whole ontology databases from bbop-sqlite nightly
+      # without the restore/save half. See docs/explanation/oak-database-caching.md.
+      - name: Cache OAK ontology databases
+        uses: ./.github/actions/oak-cache
 
       # The `kb_data`-marked sweep: 23 file-parametrized conformance tests.
       - name: Whole-KB schema-conformance sweep
@@ -95,6 +93,14 @@ jobs:
       # The unmarked lane, which carries the five whole-KB checks the marker
       # does not cover (entity-ref foreign keys, ref prefixes, hypothesis-based
       # definition refs, and the two unique-name tests).
+      #
+      # Deliberately without the SNIPPET_BASELINE_REF /
+      # ENVIRONMENTAL_EVIDENCE_BASELINE_REF vars the PR gate sets. There they
+      # grandfather each ratchet against the base branch's live content, so a
+      # curation PR is judged on what it adds; here there is no base branch to
+      # compare against, and a backstop that notices the committed baselines
+      # have drifted from `main` is doing its job rather than misfiring. Passes
+      # against `main` today.
       - name: Code and unmarked whole-KB tests
         if: always()
         run: just test-python-code
