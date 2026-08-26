@@ -761,6 +761,13 @@ qc-deep-research-strict:
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
+# A landing node carrying several genes is a debundle target, not an annotation
+# gap, so every verdict is advisory. --format tsv writes the per-node worklist.
+# Find gene -> mechanism edges that skip the GO ACTIVITY tier (no molecular_functions)
+[group('QC')]
+gene-activity-gaps *args="":
+    uv run python scripts/gene_activity_gap_scan.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
