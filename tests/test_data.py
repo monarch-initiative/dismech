@@ -21,6 +21,7 @@ from dismech.entity_refs import (
     SECTION_KEYS,
     SINGLETON_SECTIONS,
     canonical_kind,
+    entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
     resolve_entity_ref,
@@ -830,13 +831,27 @@ def _abbrev(value: str, limit: int = 60) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "\u2026"
 
 
+#: Slots where an unrecognised `<kind>` is an error rather than a gap in
+#: `SECTION_KEYS`. The resolver skips an unmapped prefix by design -- right for
+#: a section this repo genuinely has not mapped, but it also let a typo like
+#: `pathophys#Node A` through every check. `target` stays out: it carries plain
+#: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
+#: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
+#: missing `SECTION_KEYS` entries rather than typos.
+_KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to"}
+
+
 def _is_known_kind(kind: str) -> bool:
-    """Whether `<kind>` names something this repo can resolve a reference against."""
+    """Whether `<kind>` names something this repo can resolve a reference against.
+
+    `SECTION_KEYS` holds the singular aliases as keys in their own right, so
+    there is nothing to normalise here -- `canonical_kind` is what
+    `test_entity_ref_prefixes_are_schema_slot_names` uses to insist on the
+    canonical *spelling*, which is a different question from whether the
+    section is one we know at all.
+    """
     return (
-        kind == DISEASE_KIND
-        or kind in SECTION_KEYS
-        or canonical_kind(kind) in SECTION_KEYS
-        or kind in SINGLETON_SECTIONS
+        kind == DISEASE_KIND or kind in SECTION_KEYS or kind in SINGLETON_SECTIONS
     )
 
 
@@ -849,15 +864,23 @@ def entity_ref_errors(data: dict) -> list[str]:
     when it has stopped firing.
     """
     errors: list[str] = []
+    item_names = {ref.split("#", 1)[1] for ref in entity_ref_index(data)}
     for site in iter_entity_refs(data):
         parsed = parse_entity_ref(site.ref)
         if parsed is None:
-            if site.slot == "attaches_to":
+            if site.slot not in _KNOWN_KIND_SLOTS:
+                # `target` carries plain node names in its other homes, so a
+                # value without a `#` there is simply not a reference.
+                continue
+            if site.slot == "attaches_to" or site.ref in item_names:
+                # A value naming a real item is a reference missing its
+                # prefix, not a misfiled outcome -- telling a curator to move
+                # it into the prose slot would undo a working pointer.
                 errors.append(
-                    f"{site.path}={site.ref!r} is a bare name, not a "
+                    f"{site.path}={_abbrev(site.ref)!r} is a bare name, not a "
                     f"<kind>#<name> entity reference"
                 )
-            elif site.slot in REFERENCE_ONLY_SLOTS:
+            else:
                 errors.append(
                     f"{site.path}={_abbrev(site.ref)!r} is prose, not a "
                     f"<kind>#<name> entity reference; a statement of what "
@@ -865,11 +888,15 @@ def entity_ref_errors(data: dict) -> list[str]:
                     f"`{REFERENCE_ONLY_SLOTS[site.slot]}`"
                 )
             continue
-        if site.slot in REFERENCE_ONLY_SLOTS and not _is_known_kind(parsed.kind):
+        if site.slot in _KNOWN_KIND_SLOTS and not _is_known_kind(parsed.kind):
+            fix = (
+                f", or put a prose outcome in `{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                if site.slot in REFERENCE_ONLY_SLOTS
+                else ""
+            )
             errors.append(
                 f"{site.path}={_abbrev(site.ref)!r} uses the unknown section "
-                f"{parsed.kind + '#'!r}; use a section in `SECTION_KEYS`, or "
-                f"put a prose outcome in `{REFERENCE_ONLY_SLOTS[site.slot]}`"
+                f"{parsed.kind + '#'!r}; use a section in `SECTION_KEYS`{fix}"
             )
             continue
         if resolve_entity_ref(data, site.ref) is False:
@@ -902,7 +929,10 @@ def test_entity_ref_foreign_keys(filepath):
     escape every check.
 
     ``attaches_to`` additionally has to *use* the grammar: a bare name there is
-    not a reference, so it silently resolved to nothing before (#9394).
+    not a reference, so it silently resolved to nothing before (#9394). A value
+    naming a real item in the entry is treated as a bare name in *any*
+    ref-bearing slot: it is a reference missing its prefix, and calling it
+    prose would send a curator to move a working pointer into a prose slot.
 
     So do ``would_support`` / ``would_refute``, which hold references only --
     a prose statement of the outcome belongs in ``supporting_outcome`` /
@@ -910,11 +940,11 @@ def test_entity_ref_foreign_keys(filepath):
     while the KB still held ~51 prose values; the migration that added the two
     prose slots drove the backlog to zero, so this is a hard gate with no
     baseline and a finding here is always something the current branch
-    introduced. Their ``<kind>`` must also be one this repo knows, because an
-    unmapped prefix is skipped by the resolver and so would otherwise let a
-    typo -- or a sentence that happens to contain a ``#`` -- through both
-    checks. The fix for a genuinely new section is to add it to
-    ``SECTION_KEYS``, not to work around it.
+    introduced. Their ``<kind>``, and ``attaches_to``'s, must also be one this
+    repo knows (``_KNOWN_KIND_SLOTS``), because an unmapped prefix is skipped
+    by the resolver and so would otherwise let a typo -- or a sentence that
+    happens to contain a ``#`` -- through both checks. The fix for a genuinely
+    new section is to add it to ``SECTION_KEYS``, not to work around it.
 
     ``target`` is exempt because it carries plain node names in its other homes
     (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
@@ -963,9 +993,11 @@ def test_would_support_rejects_prose():
     """
     data = _experiment_entry(
         would_refute=[
-            "No enrichment of these lesions in tissue would indicate that the "
-            "dominant clinical resistance mechanism lies outside the bypass "
-            "lesions currently modeled at this node."
+            (
+                "No enrichment of these lesions in tissue would indicate that the "
+                "dominant clinical resistance mechanism lies outside the bypass "
+                "lesions currently modeled at this node."
+            )
         ]
     )
     errors = entity_ref_errors(data)
@@ -974,6 +1006,54 @@ def test_would_support_rejects_prose():
     assert "`refuting_outcome`" in errors[0]
     # The quoted value is abbreviated, so one finding stays one line.
     assert "bypass" not in errors[0]
+
+
+def test_would_support_rejects_a_bare_name_as_a_bare_name():
+    """A real node name without its prefix is a mis-written pointer, not prose.
+
+    Reported in review of #9500: sending this to the prose message would have
+    a curator move a working pointer into `supporting_outcome`, which is the
+    migration this gate exists to prevent, run backwards.
+    """
+    errors = entity_ref_errors(_experiment_entry(would_support=["Node A"]))
+    assert len(errors) == 1
+    assert "is a bare name" in errors[0]
+    assert "supporting_outcome" not in errors[0]
+
+
+def test_attaches_to_rejects_an_unknown_section():
+    """The same unknown-section hole was open in `attaches_to` (#9500 review)."""
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["discussions"][0]["attaches_to"] = ["pathophys#Node A"]
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "unknown section" in errors[0]
+    # `attaches_to` has no prose sibling, so none is suggested.
+    assert "prose outcome" not in errors[0]
+
+
+def test_plain_node_name_in_target_is_not_a_bare_name():
+    """`target` carries plain node names by design, in every one of its homes.
+
+    Regression guard: the bare-name rule above matches values that name a real
+    item, and every `ModelMechanismLink` / readout `target` in `kb/` does
+    exactly that. Applying it there flagged 2,329 files.
+    """
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["animal_models"] = [
+        {
+            "name": "Test mouse",
+            "species": "Mus musculus",
+            "modeled_mechanisms": [
+                {
+                    "target": "Node A",
+                    "relationship": "RECAPITULATES",
+                    "readouts": [{"name": "A readout", "target": "Node A"}],
+                }
+            ],
+        }
+    ]
+    assert entity_ref_errors(data) == []
 
 
 def test_would_support_rejects_an_unknown_section():
