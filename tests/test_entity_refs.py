@@ -19,6 +19,7 @@ from dismech.entity_refs import (
     SINGLETON_SECTIONS,
     EntityRef,
     canonical_kind,
+    entity_ref_errors,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -450,3 +451,126 @@ def test_jump_to_card_canonicalises_both_sides_of_the_section_comparison(tmp_pat
         # or the comparison silently never matches for that section.
         for card_type in set(re.findall(r'data-dismech-type="([^"]+)"', html)):
             assert canonical_kind(card_type) in SECTION_KEYS, card_type
+
+
+# --- entity_ref_errors: the rules the CI gate and the pytest sweep share ------
+#
+# These moved here from `tests/test_data.py` with `entity_ref_errors` itself
+# (#9473): the function is no longer test-local, since
+# `scripts/check_entity_refs.py` is a second caller. They exercise the rules
+# against a hand-built entry rather than against whatever `kb/` happens to
+# contain -- a gate whose backlog is zero passes just as happily once it has
+# stopped firing.
+
+def _experiment_entry(**experiment) -> dict:
+    """A minimal entry carrying one proposed experiment, for the checks below."""
+    return {
+        "name": "Test Disease",
+        "pathophysiology": [{"name": "Node A"}],
+        "discussions": [
+            {
+                "discussion_id": "gap_1",
+                "kind": "KNOWLEDGE_GAP",
+                "attaches_to": ["pathophysiology#Node A"],
+                "proposed_experiments": [{"experiment_id": "exp_1", **experiment}],
+            }
+        ],
+    }
+
+
+def test_would_support_accepts_an_anchor():
+    """The intended form: a reference naming the node the result bears on."""
+    data = _experiment_entry(
+        would_support=["pathophysiology#Node A"],
+        would_refute=["disease#Test Disease"],
+        supporting_outcome=["Increased apoptosis in patient organoids."],
+    )
+    assert entity_ref_errors(data) == []
+
+
+def test_would_support_rejects_prose():
+    """A sentence in the reference slot names its prose sibling (#9224).
+
+    This is the ~51-value pattern the two prose slots were added for: a
+    conditional inference with no referent, which resolves to nothing and
+    renders as a monospace block.
+    """
+    data = _experiment_entry(
+        would_refute=[
+            (
+                "No enrichment of these lesions in tissue would indicate that the "
+                "dominant clinical resistance mechanism lies outside the bypass "
+                "lesions currently modeled at this node."
+            )
+        ]
+    )
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "is prose" in errors[0]
+    assert "`refuting_outcome`" in errors[0]
+    # The quoted value is abbreviated, so one finding stays one line.
+    assert "bypass" not in errors[0]
+
+
+def test_would_support_rejects_a_bare_name_as_a_bare_name():
+    """A real node name without its prefix is a mis-written pointer, not prose.
+
+    Reported in review of #9500: sending this to the prose message would have
+    a curator move a working pointer into `supporting_outcome`, which is the
+    migration this gate exists to prevent, run backwards.
+    """
+    errors = entity_ref_errors(_experiment_entry(would_support=["Node A"]))
+    assert len(errors) == 1
+    assert "is a bare name" in errors[0]
+    assert "supporting_outcome" not in errors[0]
+
+
+def test_attaches_to_rejects_an_unknown_section():
+    """The same unknown-section hole was open in `attaches_to` (#9500 review)."""
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["discussions"][0]["attaches_to"] = ["pathophys#Node A"]
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "unknown section" in errors[0]
+    # `attaches_to` has no prose sibling, so none is suggested.
+    assert "prose outcome" not in errors[0]
+
+
+def test_plain_node_name_in_target_is_not_a_bare_name():
+    """`target` carries plain node names by design, in every one of its homes.
+
+    Regression guard: the bare-name rule above matches values that name a real
+    item, and every `ModelMechanismLink` / readout `target` in `kb/` does
+    exactly that. Applying it there flagged 2,329 files.
+    """
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["animal_models"] = [
+        {
+            "name": "Test mouse",
+            "species": "Mus musculus",
+            "modeled_mechanisms": [
+                {
+                    "target": "Node A",
+                    "relationship": "RECAPITULATES",
+                    "readouts": [{"name": "A readout", "target": "Node A"}],
+                }
+            ],
+        }
+    ]
+    assert entity_ref_errors(data) == []
+
+
+def test_would_support_rejects_an_unknown_section():
+    """A typo'd or invented prefix is skipped by the resolver, so gate it here."""
+    errors = entity_ref_errors(_experiment_entry(would_support=["pathophys#Node A"]))
+    assert len(errors) == 1
+    assert "unknown section" in errors[0]
+
+
+def test_would_support_still_gates_a_dangling_anchor():
+    """A well-formed reference to a node that does not exist is still a defect."""
+    errors = entity_ref_errors(
+        _experiment_entry(would_support=["pathophysiology#Node Z"])
+    )
+    assert len(errors) == 1
+    assert "does not resolve" in errors[0]

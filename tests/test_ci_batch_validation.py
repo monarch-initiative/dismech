@@ -48,3 +48,38 @@ def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
     assert "just validate-comorbidity-batch" in changed_step
     assert "for f in" not in changed_step
     assert 'just validate-comorbidity "$f"' not in changed_step
+
+
+def test_entity_ref_check_runs_ungated_over_the_whole_kb() -> None:
+    """The entity-ref lane must not acquire a path filter (#9473).
+
+    Its entire reason for existing is that the pytest sweep covering the same
+    rules is selected by the `python`/`schema` filters, so it never runs on a
+    curation PR -- the only kind of PR that can break a reference. A well-meant
+    `if: steps.changes.outputs.kb_disorders == 'true'` here would restore the
+    hole in a subtler form: `kb/modules/**` and `kb/groupings/**` have no filter
+    at all, and a PR deleting a referenced node need not touch the file that
+    references it.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "main.yaml").read_text()
+    assert "- name: Check entity references resolve" in workflow
+    step = workflow.split("- name: Check entity references resolve", 1)[1]
+    step = step.split("- name:", 1)[0]
+    assert "scripts/check_entity_refs.py" in step
+    assert "if:" not in step, "the entity-ref check must stay ungated"
+    # No file arguments: the sweep is whole-KB, not changed-files.
+    assert "steps.changes.outputs" not in step
+
+
+def test_nightly_sweep_runs_both_pytest_lanes() -> None:
+    """The nightly backstop must run the unmarked lane too (#5155, #9473).
+
+    `just test-kb` is `pytest -m kb_data`, and five whole-KB checks in
+    `tests/test_data.py` carry no such marker -- the three entity-ref/FK tests
+    and the two unique-name tests. A backstop that ran only `test-kb` would
+    leave exactly the checks that have gone stale before uncovered.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "nightly-kb-sweep.yaml").read_text()
+    assert "just test-kb" in workflow
+    assert "just test-python-code" in workflow
+    assert "schedule:" in workflow

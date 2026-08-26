@@ -73,6 +73,13 @@ jobs:
             schema:
               - 'src/dismech/schema/**'
               - 'src/dismech/groupings.py'
+              # SECTION_KEYS is the vocabulary every entity reference in kb/ is
+              # resolved against, so removing an alias from it can invalidate KB
+              # files exactly as a schema edit can (#9473). It matches `src/**`
+              # and so already fires the `python` filter today -- listing it here
+              # keeps the whole-KB sweep running if the entity-ref tests are ever
+              # moved under the `kb_data` marker.
+              - 'src/dismech/entity_refs.py'
               - 'tests/test_data.py'
             schema_generation:
               - 'src/dismech/schema/**'
@@ -325,6 +332,22 @@ jobs:
       # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-KB on purpose, and for a sharper reason than the
+      # checks around it: the entity-ref rules ARE covered by pytest
+      # (`test_entity_ref_foreign_keys`), but that test is selected by the
+      # `python`/`schema` path filters and so never runs on a curation PR --
+      # which touches only `kb/`, and is the only kind of PR that can break a
+      # reference. Two entries reached `main` that way (#9473), and the
+      # reference-only gate added in #9224 would have been unenforceable on
+      # exactly the PRs it was written for.
+      #
+      # Whole-KB rather than changed-files because a PR that renames or deletes
+      # a node need not touch the file holding the reference to it. ~24s over
+      # 2,532 files, offline. The pytest sweep stays as-is; this is a second
+      # lane, not a replacement.
+      - name: Check entity references resolve
+        run: uv run python scripts/check_entity_refs.py
 
       # Ungated and whole-KB on purpose, and REPORT-ONLY: every other gate here
       # checks a snippet against the cache, so a false claim in *prose* that a
