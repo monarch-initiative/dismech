@@ -1721,7 +1721,8 @@ just validate-terms kb/disorders/MyDisease.yaml
 ```
 
 CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key check accepts a file path:
+a tranche of curation edits; only the duplicate-key and entity-ref checks accept
+a file path:
 
 ```bash
 just check-folded-hyphens
@@ -1729,14 +1730,25 @@ just check-snippet-length
 just check-title-snippets
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-entity-refs kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
 They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, environmental claims without entry-level
-evidence, duplicate YAML keys, and prose claims about defective sources that
-the cache contradicts. The first four use baselines; do not update a baseline
-to admit a defect introduced by the current change.
+evidence, duplicate YAML keys, broken `<kind>#<name>` entity references, and
+prose claims about defective sources that the cache contradicts. The first four
+use baselines; do not update a baseline to admit a defect introduced by the
+current change.
+
+**Why the entity-ref check is a CI step and not just a test.** The same rules
+run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
+and a curation PR touches only `kb/` — matching neither the `python` nor the
+`schema` filter. So the checks written to protect KB content were the ones a
+content-only PR skipped, which is how two alias prefixes reached `main`
+(#9473). `just check-entity-refs` is ungated and whole-KB for the same reason
+`check-duplicate-keys` is. A nightly sweep (`.github/workflows/nightly-kb-sweep.yaml`)
+runs both pytest lanes against `main` as a backstop.
 
 Before a PR, run the authoritative batched check once over every changed file:
 
