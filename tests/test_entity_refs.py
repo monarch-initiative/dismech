@@ -183,18 +183,27 @@ def test_iter_entity_refs_reports_paths():
     )
 
 
-def test_section_keys_point_at_real_disease_slots():
-    """Every mapped section must name a slot the Disease class actually has.
+def test_section_keys_point_at_real_entry_slots():
+    """Every mapped section must name a slot some entry class actually has.
+
+    Disease is the usual home, but `entity_refs` also serves the other entry
+    kinds `check_entity_refs.py` sweeps -- Grouping carries `discussions` just
+    as Disease does, so a discussion in a grouping needs a section of its own
+    to attach to. Accepting slots from either class keeps the check's real
+    purpose, which is to catch a typo, without pinning it to Disease.
 
     Covers `SINGLETON_SECTIONS` too: a typo there resolves to `None` and is
     silently skipped rather than failing, so nothing else would catch it.
     """
     schema = yaml.safe_load(open("src/dismech/schema/dismech.yaml"))
     disease_slots = set(schema["classes"]["Disease"]["slots"])
+    entry_slots = disease_slots | set(schema["classes"]["Grouping"]["slots"])
     for kind, (slot, key_slots) in SECTION_KEYS.items():
-        assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
+        assert slot in entry_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
     for slot in SINGLETON_SECTIONS:
+        # Singletons are Disease-only: they are the inlined single objects of a
+        # disease entry, and Grouping has none.
         assert slot in disease_slots, f"SINGLETON_SECTIONS: unknown slot {slot}"
         # A singleton is a single inlined object, not a list -- that is the
         # whole reason it needs the empty-anchor form.
