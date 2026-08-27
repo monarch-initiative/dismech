@@ -1783,7 +1783,8 @@ just validate-terms kb/disorders/MyDisease.yaml
 ```
 
 CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key check accepts a file path:
+a tranche of curation edits; only the duplicate-key and entity-ref checks accept
+a file path:
 
 ```bash
 just check-folded-hyphens
@@ -1791,14 +1792,25 @@ just check-snippet-length
 just check-title-snippets
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-entity-refs kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
 They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, environmental claims without entry-level
-evidence, duplicate YAML keys, and prose claims about defective sources that
-the cache contradicts. The first four use baselines; do not update a baseline
-to admit a defect introduced by the current change.
+evidence, duplicate YAML keys, broken `<kind>#<name>` entity references, and
+prose claims about defective sources that the cache contradicts. The first four
+use baselines; do not update a baseline to admit a defect introduced by the
+current change.
+
+**Why the entity-ref check is a CI step and not just a test.** The same rules
+run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
+and a curation PR touches only `kb/` — matching neither the `python` nor the
+`schema` filter. So the checks written to protect KB content were the ones a
+content-only PR skipped, which is how two alias prefixes reached `main`
+(#9473). `just check-entity-refs` is ungated and whole-KB for the same reason
+`check-duplicate-keys` is. A nightly sweep (`.github/workflows/nightly-kb-sweep.yaml`)
+runs both pytest lanes against `main` as a backstop.
 
 Before a PR, run the authoritative batched check once over every changed file:
 
@@ -2173,6 +2185,14 @@ This prevents committing generated files (HTML, schema docs, cache CSVs) that ca
 
 ### Commit and push as final step
 Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Write GitHub comments in plain language
+
+Before posting any PR body, issue comment, or review, use the
+`github-communication` skill: lead with the finding in plain language, and
+calibrate the opening to the audience the thread is actually for. This governs
+GitHub prose only — YAML `description`/`explanation`/`notes` and `docs/` keep
+their denser, more technical register.
 
 ### Never write bare `#1`, `#2` for local list items
 In GitHub comments, PR/issue bodies, and reviews, never refer to your own numbered list items as `#1`, `#2`, `#3` — GitHub auto-links these as issue/PR references and expands them into unrelated titles. Write "item 1", "finding 2", or "proposal 3" instead, and reserve `#N` for genuine issue/PR references.

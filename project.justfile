@@ -776,7 +776,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-phenotype-distributions qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-phenotype-distributions qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1010,6 +1010,16 @@ node-classes *args:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
+# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
+# skips it entirely. This lane is ungated in CI for the same reason
+# check-duplicate-keys is: the PRs that break the invariant are exactly the ones
+# no src/ or tests/ filter fires on. ~13-17s over 2,532 files, offline.
+[group('QC')]
+check-entity-refs *files:
+    uv run python scripts/check_entity_refs.py "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the

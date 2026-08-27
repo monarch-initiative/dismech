@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
+    SINGLETON_SECTIONS,
     canonical_kind,
     section_items,
 )
@@ -562,6 +563,16 @@ _SECTION_CARD_ANCHORS: dict[str, str] = {
     # per-section anchor at all.
     "experimental_models": "experimental-models",
     "animal_models": "animal-models",
+    # Cards added in #9505.
+    "clinical_burden": "clinical-burden",
+    "diagnosis": "diagnosis",
+    "imaging_findings": "imaging-findings",
+    "progression": "progression",
+    "stages": "stages",
+    "prevalence": "prevalence",
+    "epidemiology": "epidemiology",
+    "infectious_agent": "infectious-agent",
+    "transmission": "transmission",
     # `computational_models` has no dedicated anchor -- only the shared,
     # conditional `models` id -- so there is nothing a per-section guard can
     # safely point at, and pointing it at a card showing *other* models would be
@@ -580,6 +591,18 @@ _REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
     ("differential_diagnoses", "differential-diagnosis"),
     ("datasets", "dataset"),
     ("clinical_trials", "clinical-trial"),
+    # Sections the page gained cards for in #9505. Their key slot is not always
+    # `name` -- `progression` is keyed on `phase` and `prevalence` on
+    # `population` -- but `_section_key_slots` reads that from `SECTION_KEYS`
+    # rather than restating it.
+    ("diagnosis", "diagnosis"),
+    ("imaging_findings", "imaging-finding"),
+    ("progression", "progression"),
+    ("stages", "stage"),
+    ("prevalence", "prevalence"),
+    ("epidemiology", "epidemiology"),
+    ("infectious_agent", "infectious-agent"),
+    ("transmission", "transmission"),
 )
 
 
@@ -686,6 +709,15 @@ def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
         card = _SECTION_CARD_ANCHORS.get(section_key)
         if card and disorder.get(section_key):
             ref_index.setdefault(f"{kind}#", f"#{card}")
+
+    # Singleton sections are absent from SECTION_KEYS by design -- they carry no
+    # `name` to key on, so `clinical_burden#` is the only form they take (see
+    # entity_refs). They still get a card, so index the whole-section form here
+    # rather than leaving the one reference shape they have unlinked.
+    for section_key in SINGLETON_SECTIONS:
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{section_key}#", f"#{card}")
 
     for kind, (section_key, key_slots) in SECTION_KEYS.items():
         for item in section_items(disorder, section_key):
