@@ -115,7 +115,7 @@ BASELINE_REF_ENV = "ENVIRONMENTAL_EVIDENCE_BASELINE_REF"
 # failed search, not an unexamined one. See the module docstring: the sentinel
 # is matched on `review_notes` only, and only as a prefix, so it cannot be
 # triggered by ordinary prose that happens to contain the words.
-WAIVER_SENTINEL = "left deliberately uncited"
+WAIVER_SENTINEL = "left deliberately uncited."
 
 
 def _has_quoted_evidence(entry: dict) -> bool:
@@ -411,7 +411,10 @@ def main(argv=None) -> int:
         )
         return 0
 
-    waivers = scan_waivers()
+    # Only the reporting paths need the waiver scan; the default guard path
+    # does not, and it is a second full rglob + YAML parse of kb/ on every
+    # CI run.
+    waivers = scan_waivers() if (args.waivers or args.all or args.count) else []
 
     if args.waivers:
         for rel, location, name in waivers:
@@ -419,7 +422,7 @@ def main(argv=None) -> int:
         files = {rel for rel, _, _ in waivers}
         print(
             f"\n{len(waivers)} exposure(s) dispositioned by a "
-            f"'{WAIVER_SENTINEL.capitalize()}.' review_notes waiver "
+            f"'{WAIVER_SENTINEL.capitalize()}' review_notes waiver "
             f"across {len(files)} file(s)."
         )
         return 0

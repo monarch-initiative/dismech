@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 from scripts import check_environmental_evidence as cee
+from dismech.yaml_io import safe_load
 from scripts.check_environmental_evidence import (
     BASELINE_REF_ENV,
     WAIVER_SENTINEL,
@@ -189,12 +190,62 @@ def test_waiver_sentinel_constant_is_lowercase_for_prefix_matching():
     assert WAIVER.lower().startswith(WAIVER_SENTINEL)
 
 
-def test_committed_kb_waivers_all_start_with_the_sentinel_sentence():
-    # Guards the convention itself: every waiver in kb/ should read as the
-    # recorded-failed-search sentence, not as an arbitrary review note that
-    # happens to start with the right words.
-    for rel, location, name in cee.scan_waivers():
-        assert rel.startswith("kb/"), (rel, location, name)
+# Minimum substance after the sentinel, in words. The five committed waivers
+# run 44-112 words, so this is well clear of all of them while still blocking
+# a bare sentinel. It is a floor on *effort recorded*, not a style rule.
+MIN_WAIVER_WORDS = 20
+
+
+def _waiver_detail(review_notes: str) -> str:
+    """The text after the sentinel sentence."""
+    return review_notes.strip()[len(WAIVER_SENTINEL) :].strip()
+
+
+def test_a_bare_sentinel_records_no_search():
+    # The unit case for the repo-wide test below: the sentinel alone is a
+    # *claim* that a search happened, with nothing behind it.
+    assert _waiver_detail("Left deliberately uncited.") == ""
+
+
+def test_committed_kb_waivers_say_what_was_searched():
+    """Every waiver in kb/ must record the search, not just claim one.
+
+    This is the check that makes the mechanism honest. `is_waived()` only
+    asks whether the sentinel is present, so `review_notes: "Left
+    deliberately uncited."` with nothing after it would satisfy the checker
+    while recording no work at all -- which is precisely the failure mode the
+    docstring and CLAUDE.md promise the waiver is not.
+
+    Deliberately reads the YAML rather than using `scan_waivers()`, which
+    returns only (path, location, name) and by construction yields entries
+    whose review_notes already starts with the sentinel; asserting anything
+    about *that* set's paths or prefixes is a tautology.
+    """
+    thin = []
+    for path in sorted((ROOT / "kb").rglob("*.yaml")):
+        try:
+            with path.open(encoding="utf-8") as handle:
+                data = safe_load(handle)
+        except Exception:  # malformed YAML is another check's job
+            continue
+        if not isinstance(data, dict):
+            continue
+        for idx, entry in enumerate(data.get("environmental") or []):
+            if not isinstance(entry, dict) or not is_waived(entry):
+                continue
+            detail = _waiver_detail(entry["review_notes"])
+            if len(detail.split()) < MIN_WAIVER_WORDS:
+                rel = path.relative_to(ROOT).as_posix()
+                thin.append(
+                    f"{rel}:environmental[{idx}]: {entry.get('name')!r} "
+                    f"({len(detail.split())} words after the sentinel)"
+                )
+    assert not thin, (
+        "A `Left deliberately uncited.` waiver must say which searches were "
+        "run and why they failed -- it records a negative result, it is not a "
+        "way to skip the search. These carry the sentinel but little or "
+        "nothing after it:\n  " + "\n  ".join(thin)
+    )
 
 
 def test_missing_environmental_key_yields_no_findings():
