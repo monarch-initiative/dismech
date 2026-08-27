@@ -165,9 +165,37 @@ def add_tag_to_existing_entry(
     tag: str,
 ) -> list[str]:
     """
-    Insert `  tags:\n  - {tag}\n` into an existing top-level reference entry.
-    Inserts after `title:` if present, else after `reference:`.
+    Add `{tag}` to a top-level reference entry's `tags:` list.
+
+    When the entry already has a `tags:` key, the tag is appended to that list.
+    Writing a second `tags:` key into the same mapping would be a duplicate
+    mapping key (the #8623 defect) -- YAML keeps only the last one, so the
+    existing tags would be silently dropped. This became reachable once
+    `ReferenceTagEnum` grew curator-applied values (PatientOrganization,
+    PatientCommunity): before that, this script was the only writer of the slot
+    and every `tags:` key it met was one it had written itself.
+
+    Otherwise a fresh `tags:` block is inserted after `title:` if present, else
+    after the `- reference:` line.
     """
+    tags_line = entry_field_line(lines, entry_start, sec_end, "tags")
+    if tags_line != -1:
+        # Append after the last `- ` item of the existing list, matching its
+        # indentation so the entry's own style is preserved.
+        entry_end = min(next_entry_line(lines, entry_start, sec_end), sec_end)
+        insert_after = tags_line
+        indent = "  "
+        for i in range(tags_line + 1, entry_end):
+            item = re.match(r"^(\s*)- ", lines[i])
+            if item:
+                insert_after = i
+                indent = item.group(1)
+                continue
+            # Any other key at entry level ends the tags list.
+            if re.match(r"^\s+\w", lines[i]):
+                break
+        return lines[: insert_after + 1] + [f"{indent}- {tag}"] + lines[insert_after + 1 :]
+
     insert_after = entry_field_line(lines, entry_start, sec_end, "title")
     if insert_after == -1:
         insert_after = entry_start  # fallback: after the `- reference:` line itself

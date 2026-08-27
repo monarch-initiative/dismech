@@ -248,13 +248,17 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 **Decision.** Every evidence item must cite a real, resolvable reference and quote it
 exactly.
 
-- **Accepted reference types**: PMID, DOI, NCT (ClinicalTrials.gov), structured-source
-  IDs `ORPHA:` (Orphanet), `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:`
-  (CIViC), `ICEES:`, `NCIT:`, `STRCHIVE:`, and `url:` for sources with no citable
-  identifier. `url:` is the widest of these and the least self-describing — it covers
-  agency and regulator pages (CDC, FDA, EMA), database endpoints (Orphadata,
-  Monarch), preprints, and, under §6b, community sources. The authoritative
-  machine-readable list is `ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`.
+- **Accepted reference types**: literature and registry IDs `PMID:`, `DOI:`, `PPR:`
+  (Europe PMC preprints), `clinicaltrials:` (ClinicalTrials.gov NCT records) and
+  `ICTRP:` (WHO trial registries); structured-source IDs `ORPHA:` (Orphanet),
+  `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:` (CIViC), `ICEES:`,
+  `NCIT:` and `STRCHIVE:`; dataset accessions such as `GEO:` and `metabolights:`;
+  plus `file:` and `url:` for sources with no citable identifier. `url:` is the
+  widest of these and the least self-describing — it covers agency and regulator
+  pages (CDC, FDA, EMA), database endpoints (Orphadata, Monarch), preprints, and,
+  under §6b, community sources. The authoritative machine-readable list is
+  `ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`; this prose lags it, so
+  check there first.
 - **Exact-snippet rule**: `snippet` values must be exact substring quotes from the cited
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by
@@ -330,8 +334,17 @@ sole support for a curated claim.
   evidence about **salience** — what a community discusses and prioritizes — and never
   evidence about biology.
 - **Never sole support.** Every evidence block containing a community-tagged reference
-  must also carry at least one non-community reference. Enforced by
-  `test_community_sourced_evidence_is_not_sole_support` in `tests/test_data.py`.
+  must also carry at least one non-community reference. Enforced in CI by
+  `scripts/check_community_evidence.py`, which runs ungated and whole-KB — the
+  matching pytest (`test_community_sourced_evidence_is_not_sole_support`) carries the
+  `kb_data` marker and so is selected by path filters that a `kb/`-only curation PR
+  never matches, which is the #9473 shape. The rule is otherwise invisible: the URL
+  resolves and the snippet is a real quote from it, so LinkML, term and reference
+  validation all pass.
+- **The rule is opt-in by tagging.** An untagged advocacy URL is invisible to the gate,
+  exactly as it is to a query. No tool can infer the tag — no cache marker distinguishes
+  an advocacy page from any other fetched URL — so applying it is a curation step, and
+  a reviewer checking a community sweep should check that it was applied.
 - **Adjudicate, don't promote.** A community signal that literature corroborates becomes a
   normal curated entry; one it does not becomes a `discussions` entry recording an
   explicitly unvalidated lead. It does not become a phenotype on community assertion alone.
@@ -725,6 +738,7 @@ This section details decisions we have **not yet made or formalized**.
 | Area | Status | Tracking |
 |---|---|---|
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
+| Community sources as evidence (§6b) | **PROPOSED — awaiting a maintainer decision, not yet in force.** `ReferenceTagEnum` carries `PatientOrganization` and `PatientCommunity`, and `scripts/check_community_evidence.py` gates the corroboration rule ungated in CI, but **no entry in `kb/` carries either tag**, so the machinery is inert until the decision lands. Accepting it means deleting the status paragraph from §6b and tagging the references on the FSHD entry; rejecting it means deleting §6b and the two enum values, and the section should then be rewritten to record the refusal and its reasoning rather than removed silently. Two questions are deliberately left open by the draft: whether `evidence_source` also needs a community value (the current answer is no — it describes study type, and an advocacy symptom page is not a study), and whether `tags:` should be surfaced in the rendered disorder page, which today shows them nowhere. | [#7674](https://github.com/monarch-initiative/dismech/pull/7674) · [#9654](https://github.com/monarch-initiative/dismech/pull/9654) |
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `test_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |

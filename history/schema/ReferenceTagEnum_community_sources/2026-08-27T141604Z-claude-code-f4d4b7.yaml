@@ -14,6 +14,7 @@ links:
   issues: []
   prs:
   - https://github.com/monarch-initiative/dismech/pull/7674
+  - https://github.com/monarch-initiative/dismech/pull/9654
   urls: []
 events:
 - type: EDIT
@@ -22,6 +23,8 @@ events:
   - schema
   - docs
   - tests
+  - ci
+  - scripts
   summary: Add PatientOrganization/PatientCommunity to ReferenceTagEnum with a not-sole-support
     gate
   details: |
@@ -29,6 +32,10 @@ events:
 
     Drafted from the pattern worked out in PR #7674 (FSHD), which is approved on content and held open on this governance question. Section 6b is marked PROPOSED because the decision is a maintainer call, not a curator one; nothing in kb/ carries these tags yet, so the gate is a no-op on current content and the schema addition is purely additive.
 
-    Also corrects the section 6 accepted-reference-type list, which omitted url: despite 611 uses across kb/, and the tags slot description, which claimed the whole slot is populated by scripts/tag_references.py -- true only of GeneReviews; the community tags are curator-applied because no cache marker distinguishes an advocacy page from any other fetched URL.
+    Also corrects the section 6 accepted-reference-type list, which omitted url: (846 reference: url: lines across kb/) along with ICTRP:, PPR:, GEO:, file: and metabolights:, and mis-stated NCT as a prefix where the KB uses clinicaltrials:. The tags slot description claimed the whole slot is populated by scripts/tag_references.py -- true only of GeneReviews; the community tags are curator-applied because no cache marker distinguishes an advocacy page from any other fetched URL.
 
-    Validation: linkml-validate clean on kb/disorders/Asthma.yaml and on a synthetic entry carrying both new tags; SchemaView loads the enum with all three values; the new gate ships with two unit tests covering the community-only, corroborated, untagged and references-provenance cases. The generated datamodel under src/dismech/datamodel/ was deliberately NOT regenerated -- it already lags main's own schema by ~4.9k lines (dismech.py) and ~12.5k lines (dismech_pydantic.py), and CI regenerates it via gen-python rather than diffing the committed copy, so refreshing it here would bury a 3-file policy change in unrelated drift.
+    Review round 1 (ai4c-reviewer, CHANGES_REQUESTED) raised three findings, all confirmed and fixed. First, the pytest gate carried the kb_data marker, so it ran only under just test-kb, which the schema path filter gates -- a curation PR touching only kb/ matched no such filter, so the gate would have been skipped by exactly the PRs that introduce community sourcing (the #9473 shape). The rule now lives in src/dismech/community_evidence.py and runs ungated and whole-KB in CI via scripts/check_community_evidence.py, following the check_entity_refs.py precedent; the pytest sweep stays as a second lane. Second, making tags: curator-writable made scripts/tag_references.py:add_tag_to_existing_entry reachable on an entry that already has a tags: key, where it inserted a second one -- the #8623 duplicate-mapping-key defect, which silently drops the existing tags. It now appends to the existing list, preserving its indentation. Third, the provenance unit test built references[].evidence, a shape PublicationReference does not permit (evidence hangs off Finding); it now uses references[].findings[].evidence and the skip predicate matches the indexed prefix rather than any path starting with "references".
+
+    Also from that round: the gate is now parametrized over REFERENCE_BEARING_FILES (adding kb/groupings, since Grouping carries references), 6b records that the rule is opt-in by tagging and which lane enforces it, and a section 12 Gaps row records the PROPOSED status with both accept and reject paths.
+
+    Validation: linkml-validate clean on kb/disorders/Asthma.yaml and on a synthetic entry carrying both new tags; SchemaView loads the enum with all three values; check_community_evidence.py reports OK across 2,586 KB files and was verified to exit 1 on a synthetic violation; pytest -k community_sourced_evidence passes over the same 2,586 files; the add_tag_to_existing_entry fix verified against both the existing-tags and no-tags cases, parsing back to a single tags key. The generated datamodel under src/dismech/datamodel/ was deliberately NOT regenerated -- it already lags main's own schema by ~4.9k lines (dismech.py) and ~12.5k lines (dismech_pydantic.py), and CI regenerates it via gen-python rather than diffing the committed copy, so refreshing it here would bury a small policy change in unrelated drift.
