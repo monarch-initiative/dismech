@@ -454,7 +454,7 @@ def test_committed_baseline_carries_no_stale_entries(kb_findings):
     turn someone else's later branch red.
     """
     baseline = load_baseline()
-    live = Counter(_baseline_key(f) for f in kb_findings)
+    live = crt.count_by_key(kb_findings)
     stale = {key: n for key, n in baseline.items() if live[key] < n}
     if stale:
         pytest.skip(
