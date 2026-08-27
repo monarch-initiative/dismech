@@ -13,8 +13,8 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-from scripts import check_environmental_evidence as cee
 from dismech.yaml_io import safe_load
+from scripts import check_environmental_evidence as cee
 from scripts.check_environmental_evidence import (
     BASELINE_REF_ENV,
     WAIVER_SENTINEL,
