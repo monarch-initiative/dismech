@@ -15,6 +15,7 @@ year: '2017'
 doi: 10.1093/brain/awx009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Photosensitive epilepsy is associated with reduced inhibition of alpha rhythm generating networks
