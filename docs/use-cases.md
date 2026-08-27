@@ -3,6 +3,12 @@
 This document outlines use cases for the Disorder Mechanisms Knowledge Base (DisMech),
 organized by audience and application domain.
 
+> **See also:** the [Use Cases project](../projects/USE_CASES.md) aggregates these
+> applications with the ones described across `projects/` and the talk/slides, and
+> cross-links each to the concrete project, report, and (where it exists) the code
+> that implements it — including a view of which use cases already have running
+> tools. This doc is the narrative "why"; the project is the aggregated "where".
+
 ## Clinical & Research
 
 ### Differential Diagnosis Support
