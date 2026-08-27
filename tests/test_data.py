@@ -92,6 +92,12 @@ ALLOWED_REFERENCE_PREFIXES = (
 )
 
 
+# ReferenceTagEnum values marking a reference as community-sourced. Such a
+# reference may corroborate a curated claim but may never be its sole support
+# (design decision 6b).
+COMMUNITY_REFERENCE_TAGS = frozenset({"PatientOrganization", "PatientCommunity"})
+
+
 def _has_allowed_reference_prefix(reference):
     """True if `reference` starts with one of ALLOWED_REFERENCE_PREFIXES."""
     text = str(reference).lower()
@@ -300,6 +306,109 @@ def test_evidence_items_have_references(filepath):
         all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
+
+
+def _community_sole_support_errors(data):
+    """Return evidence blocks whose only references are community-sourced.
+
+    Design decision 6b: a patient-advocacy page or a public patient forum is
+    citable, but every evidence block that cites one must also cite something
+    non-community. The community source tells you where to look; a literature,
+    registry or structured-database reference has to be what the curated claim
+    stands on.
+
+    Tags live on the top-level ``references:`` entry, so this joins the two by
+    reference ID. Provenance records *about* the community sweep live under
+    ``references[].findings`` and are skipped -- a record whose whole purpose is
+    to document a community source is legitimately community-only.
+    """
+    community_ids = {
+        str(ref.get("reference"))
+        for ref in (data.get("references") or [])
+        if isinstance(ref, dict)
+        and ref.get("reference")
+        and COMMUNITY_REFERENCE_TAGS.intersection(ref.get("tags") or [])
+    }
+    if not community_ids:
+        return []
+
+    errors = []
+    for path, evidence_list in _iter_evidence_lists(data):
+        if path.startswith("references"):
+            continue
+        cited = [
+            str(item.get("reference"))
+            for item in evidence_list
+            if isinstance(item, dict) and item.get("reference")
+        ]
+        if cited and all(ref in community_ids for ref in cited):
+            errors.append(
+                f"{path}: only community-sourced evidence ({', '.join(sorted(set(cited)))})"
+            )
+    return errors
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_community_sourced_evidence_is_not_sole_support(filepath):
+    """Community-sourced references may corroborate a claim but never carry it."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = _community_sole_support_errors(data)
+
+    assert not errors, (
+        f"Community-sourced evidence is sole support in {Path(filepath).name}: {errors}. "
+        "Add a non-community reference to the block, or move the claim to `discussions` "
+        "as an unvalidated lead (design decision 6b)."
+    )
+
+
+def test_community_sole_support_check_catches_community_only_block():
+    """The 6b check fires on a community-only block and clears a corroborated one."""
+    community_ref = "url:https://example.org/patient-org/symptoms/"
+
+    def entry(phenotype_evidence):
+        return {
+            "references": [
+                {"reference": community_ref, "tags": ["PatientOrganization"]},
+                {"reference": "PMID:20301616"},
+            ],
+            "phenotypes": [{"name": "Fatigue", "evidence": phenotype_evidence}],
+        }
+
+    community_only = entry([{"reference": community_ref, "snippet": "tiredness"}])
+    errors = _community_sole_support_errors(community_only)
+    assert len(errors) == 1, errors
+    assert "phenotypes[0].evidence" in errors[0]
+
+    corroborated = entry(
+        [
+            {"reference": community_ref, "snippet": "tiredness"},
+            {"reference": "PMID:20301616", "snippet": "fatigue (93.8%)"},
+        ]
+    )
+    assert _community_sole_support_errors(corroborated) == []
+
+    # An untagged reference is not community-sourced, so the same shape passes.
+    untagged = community_only
+    untagged["references"][0].pop("tags")
+    assert _community_sole_support_errors(untagged) == []
+
+
+def test_community_sole_support_check_skips_reference_provenance_records():
+    """A `references[].findings` provenance record may be community-only."""
+    community_ref = "url:https://old.reddit.com/r/Example/"
+    data = {
+        "references": [
+            {
+                "reference": community_ref,
+                "tags": ["PatientCommunity"],
+                "evidence": [{"reference": community_ref, "snippet": "chronic pain"}],
+            }
+        ]
+    }
+    assert _community_sole_support_errors(data) == []
 
 
 def test_schema_validity(validator):

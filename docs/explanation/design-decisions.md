@@ -248,9 +248,13 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 **Decision.** Every evidence item must cite a real, resolvable reference and quote it
 exactly.
 
-- **Accepted reference types**: PMID, DOI, NCT (ClinicalTrials.gov), and structured-source
+- **Accepted reference types**: PMID, DOI, NCT (ClinicalTrials.gov), structured-source
   IDs `ORPHA:` (Orphanet), `CGGV:`/`CGDS:` (ClinGen), `CIVIC_ASSERTION:`/`CIVIC_EID:`
-  (CIViC).
+  (CIViC), `ICEES:`, `NCIT:`, `STRCHIVE:`, and `url:` for sources with no citable
+  identifier. `url:` is the widest of these and the least self-describing — it covers
+  agency and regulator pages (CDC, FDA, EMA), database endpoints (Orphadata,
+  Monarch), preprints, and, under §6b, community sources. The authoritative
+  machine-readable list is `ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`.
 - **Exact-snippet rule**: `snippet` values must be exact substring quotes from the cited
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by
@@ -305,6 +309,59 @@ myositis (`amyloid_beta_proteotoxicity` in `kb/disorders/Inclusion_Body_Myositis
 whose literature is itself the documented subject of a citation-distortion analysis
 (PMID:19622839) — the clearest available case of citation weight outrunning data. See
 [the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
+
+### 6b. Community sources may corroborate, never carry, a claim (PROPOSED)
+
+**Status: PROPOSED — awaiting a maintainer decision.** Drafted from the pattern worked out
+in [#7674](https://github.com/monarch-initiative/dismech/pull/7674) (FSHD), which is
+approved on content and held open on exactly this question. Nothing in `kb/` uses these
+tags yet, so this section describes what the rule *would* be; it is not yet in force.
+
+**Decision.** Patient-advocacy content and public patient-community content are citable
+`url:` references, in two distinct classes with different rules, and neither may be the
+sole support for a curated claim.
+
+- **`PatientOrganization`** — published disease-education content from an advocacy
+  organization or disease foundation. Institutionally authored, publicly distributed, no
+  personal data. It may corroborate a claim and may supply the experiential phrasing a
+  community actually uses, which is often what makes an under-reported manifestation
+  findable at all.
+- **`PatientCommunity`** — user-generated content from a public patient community. It is
+  evidence about **salience** — what a community discusses and prioritizes — and never
+  evidence about biology.
+- **Never sole support.** Every evidence block containing a community-tagged reference
+  must also carry at least one non-community reference. Enforced by
+  `test_community_sourced_evidence_is_not_sole_support` in `tests/test_data.py`.
+- **Adjudicate, don't promote.** A community signal that literature corroborates becomes a
+  normal curated entry; one it does not becomes a `discussions` entry recording an
+  explicitly unvalidated lead. It does not become a phenotype on community assertion alone.
+- **Aggregate only, for `PatientCommunity`.** Cite aggregate topics and listings. Do not
+  quote an individual's personal health narrative, and do not commit a raw HTML capture of
+  a user-generated page — those carry usernames and self-disclosed health status into git
+  permanently. Cache the extracted titles instead.
+- **Public and consented.** A closed group (a private Facebook family group) is out of
+  scope regardless of technical accessibility: members disclosing health information there
+  have not consented to public aggregation. Where a community signal needs quantifying, a
+  national patient registry is the consented substitute.
+- **Tag it.** Community references carry a `ReferenceTagEnum` tag on their top-level
+  `references:` entry, so the sourcing class is filterable and — if this policy is later
+  reversed — retractable by query rather than by re-reading every entry.
+
+**Rationale.** Patient communities describe manifestations the primary clinical literature
+under-represents: in FSHD, fatigue and pain rank at nearly the prevalence of the weakness
+that defines the disease, and the mechanism graph explains neither. Refusing the source
+class entirely means those manifestations stay invisible to the KB. Accepting it without
+constraint means unreviewed assertion enters a knowledge base whose credibility rests on
+the exact-quote pipeline. The corroboration rule takes the useful half — community sources
+are good at telling you *where to look* — while keeping every curated claim standing on
+something citable.
+
+The two classes are separated because they are not the same risk. An advocacy
+organization's symptom page is institutional publishing that happens not to be indexed in
+PubMed. A forum is individuals talking about their own health. In #7674 the organization
+produced seven of the eight community-sourced evidence items and the forum produced one,
+which is also the shape of the yield: organized advocacy content substantially
+out-performed the forum as a curation input.
 
 
 ## 7. Curation process & governance
