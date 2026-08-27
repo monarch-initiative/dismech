@@ -1721,111 +1721,47 @@ just validate-terms kb/disorders/MyDisease.yaml
 ```
 
 CI also runs these offline gates without changed-path filtering. Run them after
-a tranche of curation edits; only the duplicate-key check accepts a file path:
+a tranche of curation edits; only the duplicate-key and entity-ref checks accept
+a file path:
 
 ```bash
 just check-folded-hyphens
 just check-snippet-length
 just check-title-snippets
+just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
+just check-entity-refs kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
 They catch folded-scalar word corruption, non-propositional short snippets,
-paper titles used as findings, environmental claims without entry-level
-evidence, duplicate YAML keys, and prose claims about defective sources that
-the cache contradicts. The first four use baselines; do not update a baseline
-to admit a defect introduced by the current change.
+paper titles used as findings, one quoted sentence graded with two different
+`evidence_source` values in the same file, environmental claims without
+entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
+references, and prose claims about defective sources that the cache
+contradicts. The first five use baselines; do not update a baseline to admit a
+defect introduced by the current change.
 
-```yaml
-# Wrong: the title names the topic; the explanation even admits it
-- reference: PMID:22906614
-  snippet: "Risk factors for multiple sclerosis: decreased vitamin D level and
-    remote Epstein-Barr virus infection in the pre-clinical phase..."
-  explanation: The title directly states that decreased vitamin D levels are a
-    risk factor...
-```
+`check-snippet-grading` (#8184) is the one to know about when copying an
+evidence item into a second block: `evidence_source` classifies the cited
+*publication*, so it cannot change because the quote moved. Re-grading a copied
+quote is the defect. Note it is keyed on the **quoted sentence**, not the PMID —
+one paper legitimately carries several values across different sentences, which
+is what "If a paper mixes sources, split evidence items" above already asks for.
+`supports` is deliberately *not* gated: it is claim-relative, so the same
+sentence correctly reads `SUPPORT` for one claim and `PARTIAL` for another
+(`just list-snippet-grading --fields all` shows those as a triage view).
 
-**The rule:** quote the sentence from the abstract that states the finding. Use
-a title only when the title itself states a *result* rather than a topic — e.g.
-*"Chronic recurrent stress due to panic disorder does not precipitate Graves'
-disease"*, which reports its own negative finding — and say so in the
-`explanation`.
+**Why the entity-ref check is a CI step and not just a test.** The same rules
+run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
+and a curation PR touches only `kb/` — matching neither the `python` nor the
+`schema` filter. So the checks written to protect KB content were the ones a
+content-only PR skipped, which is how two alias prefixes reached `main`
+(#9473). `just check-entity-refs` is ungated and whole-KB for the same reason
+`check-duplicate-keys` is. A nightly sweep (`.github/workflows/nightly-kb-sweep.yaml`)
+runs both pytest lanes against `main` as a backstop.
 
-**When the cached record has no abstract at all** (editorials, comments and
-letters often cache as metadata alone), re-quoting cannot fix it. Fall back to
-§4 above: cite the underlying study instead, or drop the evidence block and keep
-the description. Do not cite a comment's title as though it were evidence.
-
-`just check-title-snippets` gates new occurrences; the existing backlog is
-grandfathered in `tests/title_snippet_baseline.txt`.
-
-**You do not need to regenerate that baseline when you fix a title snippet.**
-CI grandfathers live against the base branch and never reads the committed file,
-and the `Refresh Title-Snippet Baseline` workflow regenerates it on merge to
-main. Fixing an entry without regenerating is the normal, expected shape of a
-curation PR — it used to turn the suite red on someone else's later branch, which
-is issue #8434. Nothing gates on the backlog *shrinking* any more; the
-consistency test skips with an explanation instead.
-
-**If you hit the gate on a genuinely result-stating title**, note that CI
-grandfathers against the base branch and so cannot admit a *new* one —
-`--update-baseline` will pass locally and still fail CI, exactly as with the
-length guard. Do not fight it: quote the abstract's own statement of that
-result instead (a paper reporting a negative finding says so in its abstract
-too), or extend the quote past the title into the sentence that qualifies it.
-Both are better evidence than the title anyway. This is the same failure
-family as #8352 (snippet unrelated to its claim) and #8296 (no evidence at all):
-structurally valid, substantively empty.
-
-### 7. Frequency Qualifiers Need Their Own Evidence
-
-Phenotype `frequency:` values (FREQUENT, OCCASIONAL, etc.) make a *separate*
-quantitative claim from the disease–phenotype association itself. Most snippets
-support only the association, not the band. See
-[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
-for the curator SOP: acceptable evidence patterns (direct quantitative,
-derived counts, qualitative-term mapping, clinical estimate), the literature-term
-→ enum mapping table, and worked examples. **When in doubt, omit `frequency:`
-rather than fabricate justification.**
-
-### 8. Read the Title Off the Cache, Never From Memory
-
-`reference_title` (on an `EvidenceItem`) and `title` (on a top-level
-`references:` entry) are the title of the paper you cited. They were checked by
-nothing until issue #9138, and the failure mode that exposed is a specific one:
-**correct PMID, verified snippet, invented title.** Each gate looks at a
-different field — `linkml-validate` confirms the slot is a string,
-`count-verified-snippets` and `validate-references` check the *snippet*,
-`validate-terms` checks ontology terms, and `check_title_snippets` (despite the
-name) asks whether a snippet quotes a title. None of them reads the title.
-
-On PR #9111 three of twenty `(reference, reference_title)` pairs named papers
-that do not exist. Two were written by an agent that had just verified the
-adjacent snippets as exact substrings of the cached text and then wrote the
-titles beside them from memory. **Being rigorous about the quote and careless
-about the citation attached to it is a distinct failure mode**, and these values
-are not inert — they render on the disorder page and flow into the cx2 and SEPIO
-exports.
-
-The correct title is already on disk, in the reference's cache frontmatter:
-
-```bash
-head -5 references_cache/PMID_34081534.md
-# ---
-# reference_id: PMID:34081534
-# title: Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.
-```
-
-Copy it from there. `just check-reference-titles` gates new mismatches (offline,
-similarity-based so punctuation, dashes, diacritics and source-XML markup do not
-trip it), and prints the cached title in the failure message so the fix is a
-copy-paste. `just list-reference-title-mismatches` is the triage view.
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
-
-### 9. Running Full QC
 Before a PR, run the authoritative batched check once over every changed file:
 
 ```bash
@@ -2199,6 +2135,14 @@ This prevents committing generated files (HTML, schema docs, cache CSVs) that ca
 
 ### Commit and push as final step
 Every task should end with: validate → targeted git add → commit → push. Don't leave uncommitted work for someone else to discover.
+
+### Write GitHub comments in plain language
+
+Before posting any PR body, issue comment, or review, use the
+`github-communication` skill: lead with the finding in plain language, and
+calibrate the opening to the audience the thread is actually for. This governs
+GitHub prose only — YAML `description`/`explanation`/`notes` and `docs/` keep
+their denser, more technical register.
 
 ### Never write bare `#1`, `#2` for local list items
 In GitHub comments, PR/issue bodies, and reviews, never refer to your own numbered list items as `#1`, `#2`, `#3` — GitHub auto-links these as issue/PR references and expands them into unrelated titles. Write "item 1", "finding 2", or "proposal 3" instead, and reserve `#N` for genuine issue/PR references.

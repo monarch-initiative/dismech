@@ -98,6 +98,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import html
 import io
 import os
 import re
@@ -158,6 +159,12 @@ MIN_SIMILARITY = 0.85
 #: brackets are punctuation and fold to spaces, but the *tag names* would
 #: survive as words and cost a faithful transcription real similarity, so the
 #: tags are removed before folding rather than after.
+#:
+#: Some sources deliver those same runs HTML-escaped (``&lt;i&gt;TCF4&lt;/i&gt;``),
+#: where the tag names would survive :data:`_TAG_RE` entirely. Titles are
+#: unescaped first so both spellings fold identically -- one Crossref DOI
+#: accounted for 7 findings whose curated titles were perfect transcriptions
+#: scoring 0.802, and score 1.000 once unescaped.
 _TAG_RE = re.compile(r"<[^<>]{1,40}>")
 
 #: Reference prefixes whose cached ``title:`` is not a publication title.
@@ -183,6 +190,7 @@ def normalize(text: str) -> str:
     bring a faithful transcription and its source back into agreement; it can
     never make two genuinely different titles match.
     """
+    text = html.unescape(text)
     text = _TAG_RE.sub(" ", text)
     text = CachedReferenceIndex.fold_ligatures(text)
     decomposed = unicodedata.normalize("NFKD", text)

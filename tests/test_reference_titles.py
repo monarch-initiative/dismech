@@ -431,8 +431,37 @@ def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
 
 
 def test_committed_baseline_covers_the_committed_kb(kb_findings):
-    """The shipped baseline file grandfathers the shipped backlog exactly."""
-    assert not new_findings(kb_findings, load_baseline())
+    """No mismatch in kb/ escapes the grandfather baseline.
+
+    Uses :func:`resolve_baseline` rather than :func:`load_baseline` so the
+    ``REFERENCE_TITLE_BASELINE_REF`` env var the workflow sets is honoured here
+    too. Reading the committed file unconditionally made this red on any branch
+    where ``main`` had gained unbaselined mismatches since the file was written
+    -- which is exactly what happened while PR #9141 sat, and it would have
+    stayed red on ``main`` after merge.
+    """
+    assert not new_findings(kb_findings, resolve_baseline())
+
+
+def test_committed_baseline_carries_no_stale_entries(kb_findings):
+    """Advisory only: a shrinking backlog is progress, not a defect (#8434).
+
+    Mirrors ``test_committed_baseline_carries_no_fixed_entries`` in
+    ``tests/test_title_snippets.py``. An over-full baseline cannot hide a new
+    violation -- it can only over-grandfather entries that no longer exist --
+    and CI grandfathers against the base branch rather than reading this file,
+    so a curator who fixes a title without regenerating the baseline should not
+    turn someone else's later branch red.
+    """
+    baseline = load_baseline()
+    live = Counter(_baseline_key(f) for f in kb_findings)
+    stale = {key: n for key, n in baseline.items() if live[key] < n}
+    if stale:
+        pytest.skip(
+            f"{len(stale)} baseline entry/entries no longer occur in kb/; "
+            "regenerate with `just update-reference-title-baseline` "
+            "(the reference-title-baseline workflow does this on merge to main)"
+        )
 
 
 # --- ref-derived grandfather baseline --------------------------------------

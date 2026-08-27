@@ -736,8 +736,8 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
-@echo "All QC checks passed!"
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+    @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
 [group('QC')]
@@ -971,6 +971,16 @@ node-classes *args:
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
+# Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
+# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
+# skips it entirely. This lane is ungated in CI for the same reason
+# check-duplicate-keys is: the PRs that break the invariant are exactly the ones
+# no src/ or tests/ filter fires on. ~13-17s over 2,532 files, offline.
+[group('QC')]
+check-entity-refs *files:
+    uv run python scripts/check_entity_refs.py "$@"
+
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
 # abstract does not mention X". Every other gate here checks a SNIPPET against
@@ -1082,6 +1092,28 @@ list-title-snippets:
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
 
+# Guard against one quoted sentence carrying two different `evidence_source`
+# values in the same file -- `evidence_source` describes the cited publication,
+# not the block the quote was pasted into, so a file that says both is
+# self-contradicting (#8184). Grandfathered against origin/main like the length
+# and title checks.
+[group('QC')]
+check-snippet-grading:
+    uv run python scripts/check_snippet_grading.py --against-ref origin/main
+
+# List every snippet-grading divergence, baselined or not (triage view).
+# `--fields all` adds the `supports` divergences, which are NOT gated -- see the
+# script docstring for why (they are overwhelmingly correct curation).
+[group('QC')]
+list-snippet-grading *args="":
+    uv run python scripts/check_snippet_grading.py --all {{args}}
+
+# Regenerate the snippet-grading baseline after intentionally changing the set
+# (e.g. reconciling backlog divergences). Review the diff before committing.
+[group('QC')]
+update-snippet-grading-baseline:
+    uv run python scripts/check_snippet_grading.py --update-baseline
+
 # Guard against reference titles that name a paper other than the one cited --
 # a correct PMID with a verified snippet and an invented `reference_title`,
 # which every other gate is structurally blind to because each checks a
@@ -1102,7 +1134,6 @@ list-reference-title-mismatches:
 [group('QC')]
 update-reference-title-baseline:
     uv run python scripts/check_reference_titles.py --update-baseline
-
 # Guard against evidence items with an empty/whitespace-only `snippet`, which
 # pass `linkml-reference-validator`/`count-verified-snippets` vacuously
 # (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --
