@@ -154,14 +154,22 @@ block to distinguish them.
 
 ## What this review changed
 
-49 KB entries changed, all validated (schema, terms, snippets, duplicate keys, entity refs).
+37 KB entries changed, all validated (schema, terms, snippets, duplicate keys, entity refs).
 
-**Gene → pathograph links (47 gene links across 46 entries).** Attached the curated causal
-gene to the proximal molecular node that was already named for it. Two passes: 40 where
-the node name contains the HGNC symbol, then 6 where the node names the gene *product*
-instead (`Twinkle` → TWNK, `DNA Polymerase Gamma` → POLG, `mt-tRNA(Glu)` → MT-TE,
-`COX4-1` → COX4I1). No new biological claims — each gene was already curated with
-evidence in the same file, and each node was already named for its lesion.
+**Gene → pathograph links (35 gene links across 34 entries).** Attached the curated causal
+gene to the proximal molecular node that was already named for it. Two passes: the node
+name contains the HGNC symbol, then the node names the gene *product* instead
+(`Twinkle` → TWNK, `DNA Polymerase Gamma` → POLG, `mt-tRNA(Glu)` → MT-TE,
+`COX4-1` → COX4I1). This adds 37 `genetic` → mechanism edges (16 → 53 across the changed
+entries). No new biological claims — each gene was already curated with evidence in the
+same file, and each node was already named for its lesion.
+
+`Pathophysiology` carries **both** a singular `gene:` and a multivalued `genes:` slot,
+and `_gene_lookup_keys` reads either, so a node using `gene:` was already linked. An
+initial pass that indexed only `genes:` proposed 12 edits to nodes that were already
+correctly bound; those were withdrawn before merge and are not in this change. The
+duplicate slot is a curation-consistency wart worth a separate look — nothing in the
+schema or the checks says which to use, and the KB uses both.
 
 | Measure | Before | After |
 |---|---:|---:|
