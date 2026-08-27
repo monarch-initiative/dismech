@@ -370,6 +370,68 @@ See [`docs/dataset-curation.md`](docs/dataset-curation.md).
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
+### Phenotype Profiles (`kb/phenotype_distributions/`)
+
+EHR-derived phenotype profiles: what co-occurs in a disease cohort, exported
+from a model fitted to structured records. One LinkML schema
+(`src/dismech/schema/phenotype_distribution.yaml`), one tree root:
+`ProfileSet` → `Profile` → `CodeDistribution` → `WeightedCode`, plus a
+`profile_source` provenance block and a SEPIO evidence layer. Deliberately small.
+
+- **A disease page, not a model report.** An earlier draft grew component counts,
+  inference methods, per-domain reliability, and cohort arms. That is model
+  *evaluation* rather than page content and the fastest-moving part of the
+  pipeline, so it is gone. Anything model-specific goes in
+  `profile_source.profile_metadata` as open key/value pairs — never a new
+  first-class slot; a test enforces the deleted classes stay deleted.
+- **One set, one MONDO term.** `disease` sits on the `ProfileSet`, not on each
+  profile: every profile in a fit is about the same cohort. Nesting and overlap
+  between cohorts is MONDO's subclass tree, which dismech already renders, so
+  profiles ship no cohort/arm/grouping vocabulary of their own.
+- **Codes are opaque; the vocabulary is declared.** `code` is a bare identifier
+  (an OMOP concept id, an ICD-10-CM code) and `code_vocabulary` on the enclosing
+  distribution says which system it belongs to. Not a CURIE — source-vocabulary
+  CURIEs proved brittle. Not OMOP-shaped field names either, since data may
+  arrive coded in something else. A profile's codes are **clinical codes, not
+  ontology terms**; never read them as HPO.
+- **Multi-domain, kept factored.** One distribution per domain and no
+  cross-domain combination — how domains combine is an open modelling question
+  and a rendering choice.
+- **Truncation is stated.** Almost every export is top-N, so weights do not sum
+  to 1; `truncated: true` says so. The lint warns when weights fall short without
+  it and errors when they exceed 1.
+- **Weights are not prevalences.** The topic-model literature calls a component's
+  share of mass its "prevalence"; this schema never does, because `prevalence`
+  already means patients over a stated denominator of patients at risk (and
+  dismech has a `prevalence[]` block that means exactly that). The slots are
+  `profile_weight` and `code_weight`, and `code_weight` is a code's mass within
+  its own distribution — *not* the frequency of that finding among patients.
+  `profile_source.weight_basis` states the denominator, and the lint requires it
+  wherever a `profile_weight` appears.
+- **Evidence** follows SEPIO and reuses the vocabulary proposed in #7439
+  (`EvidenceLine` → `DataItem` → `Document`, with direction separate from
+  strength). `EvidenceDirectionEnum` copies `EvidenceItemSupportEnum`'s
+  permissible values verbatim; a test enforces they do not drift. A quoted
+  `DataItem` must be a verbatim substring of its cited reference's cache file —
+  dismech's snippet discipline applies here as everywhere.
+- **Citation goes one way only.** A profile set names no dismech entry.
+  `just phenodist-rebuild` renders each profile to
+  `references_cache/PHENODIST_<profile_id>.md` and the disease entry cites
+  `PHENODIST:<id>` and quotes a row — same mechanism and same direction as
+  `ORPHA:`/`ICEES:`/`CGGV:`. There is no reverse pointer, and a test keeps one
+  from coming back. As with every cache file, NEVER hand-write one.
+- Every file declares `provenance_tier` (`CURATED` / `TOOL_EXPORTED` /
+  `ILLUSTRATIVE`); the renderer refuses to write an `ILLUSTRATIVE` file into
+  `references_cache/`, so synthetic numbers cannot become citable.
+- `just validate-phenotype-distributions` (part of `just qc`) validates against
+  `ProfileSet`, runs an OAK term check, and lints what LinkML cannot express.
+
+The worked example is `examples/phenotype_distributions/charmpheno_population_eds.yaml`,
+`TOOL_EXPORTED` — every number is real, transcribed from an exported model, but
+the reading of a component as a named clinical pattern is unreviewed curator
+judgement, so it may not be cited from a kb entry (a test enforces it). See
+[`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)

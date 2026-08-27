@@ -4,6 +4,9 @@
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
 synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
+phenodist_schema_path := "src/dismech/schema/phenotype_distribution.yaml"
+phenodist_dir := "kb/phenotype_distributions"
+phenodist_examples_dir := "examples/phenotype_distributions"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -248,6 +251,43 @@ validate-synthesis-all:
     printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
+
+# Validate a single phenotype profile set
+[group('QC')]
+validate-phenotype-distribution file:
+    #!/usr/bin/env bash
+    set -e
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet {{file}}
+    uv run python -m dismech.phenotype_distribution --check-terms {{file}}
+
+# Validate all phenotype profile sets (kb + examples)
+[group('QC')]
+validate-phenotype-distributions:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{phenodist_dir}}/*.yaml {{phenodist_examples_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No phenotype profile sets found."
+        exit 0
+    fi
+    printf 'Validating %s phenotype profile set(s).\n' "${#files[@]}"
+    for f in "${files[@]}"; do
+        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet "$f"
+    done
+    uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
+
+# Regenerate references_cache/PHENODIST_*.md for curated (kb/) profile sets.
+# Examples are deliberately excluded: they are demonstrations and must not
+# become citable. NEVER hand-write these cache files.
+[group('Data')]
+phenodist-rebuild:
+    #!/usr/bin/env bash
+    set -e
+    # Pass the directory, not a file glob: a full rebuild must still prune when
+    # the directory is empty or absent, which is exactly the case where stale
+    # citable cache files would otherwise be left behind.
+    uv run python -m dismech.phenotype_distribution --write-cache {{phenodist_dir}}
 
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
@@ -736,7 +776,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-phenotype-distributions qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
