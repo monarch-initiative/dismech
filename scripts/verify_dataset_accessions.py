@@ -44,8 +44,24 @@ Usage
     # fail the process when anything is NOT_FOUND (for CI / batch gating)
     uv run python scripts/verify_dataset_accessions.py --all --strict
 
-Results are cached in ``cache/dataset_accessions.json`` so repeat runs and CI do
-not re-hit the public APIs. Use ``--refresh`` to bypass the cache.
+Where results are cached
+------------------------
+For a prefix that ``linkml-reference-validator`` can fetch (currently ``geo``),
+verification and caching are the *same* operation: this script asks the
+reference fetcher for the record, which writes ``references_cache/GEO_<ID>.md``
+-- one file per dataset, exactly as a PMID is cached. A cache file present means
+the accession resolved; commit it alongside the ``datasets:`` block. Every later
+run, and CI, then verify offline.
+
+Prefixes with no reference fetcher yet (EGA, MassIVE, dbGaP, ...) still resolve
+against the repository API on every run and are not persisted. Migrating one
+means giving it a fetcher and adding it to ``REFERENCE_CACHED_PREFIXES``.
+
+This deliberately replaces the old shared ``cache/dataset_accessions`` JSON
+blob, which every curation PR rewrote in full and which therefore collided
+between PRs. That file is frozen: nothing reads or writes it any more, and
+``test_no_automation_touches_the_frozen_dataset_cache`` keeps it that way. Do
+not edit it.
 """
 
 from __future__ import annotations
@@ -68,8 +84,20 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CACHE_PATH = REPO_ROOT / "cache" / "dataset_accessions.json"
+REFERENCE_CACHE_DIR = REPO_ROOT / "references_cache"
 KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml")
+
+# Prefixes whose per-record metadata linkml-reference-validator can fetch and
+# cache one-file-per-record under references_cache/. For these the cache file IS
+# the verification -- the fetcher writes one only after the repository API
+# returned a record -- so a second, separate existence check would be redundant.
+#
+# The value is the cache filename stem, which is the prefix upper-cased (lrv
+# normalizes `geo:` and `GEO:` to the same `GEO` source).
+#
+# Only GEO is migrated so far; it is 919 of the KB's 1,696 distinct accessions.
+# The rest keep the API resolvers below until they get a fetcher too.
+REFERENCE_CACHED_PREFIXES = {"geo": "GEO"}
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 USER_AGENT = "dismech-dataset-verifier (https://github.com/monarch-initiative/dismech)"
@@ -83,10 +111,6 @@ ERROR = "ERROR"
 # The record exists, but it is filed under the wrong repository prefix
 # (e.g. `sra:PRJNA290729`, which is really a BioProject accession).
 PREFIX_MISMATCH = "PREFIX_MISMATCH"
-
-# How long a NOT_FOUND result is trusted before being re-checked. Datasets are
-# often deposited under embargo and become visible only at publication.
-NEGATIVE_CACHE_DAYS = 30
 
 # Prefixes that are literature identifiers or lack a per-record public API.
 UNSUPPORTED_PREFIXES = {
@@ -468,6 +492,53 @@ def split_accession(accession: str) -> tuple[str, str]:
     return prefix, local.strip()
 
 
+def reference_cache_path(prefix: str, local_id: str) -> Path | None:
+    """Where linkml-reference-validator caches this accession, if it caches it."""
+    stem = REFERENCE_CACHED_PREFIXES.get(prefix)
+    if not stem:
+        return None
+    return REFERENCE_CACHE_DIR / f"{stem}_{local_id.upper()}.md"
+
+
+def read_cached_title(path: Path) -> str:
+    """Read the ``title:`` out of a reference cache file's YAML front matter."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return ""
+    if not text.startswith("---"):
+        return ""
+    _, _, rest = text.partition("---")
+    front, _, _ = rest.partition("\n---")
+    for line in front.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "title":
+            return value.strip()
+    return ""
+
+
+_FETCHER: Any = None
+
+
+def fetch_reference_record(prefix: str, local_id: str) -> bool:
+    """Fetch one record into references_cache/ via linkml-reference-validator.
+
+    Imported lazily: the offline pytest guard imports this module for ``SHAPE``
+    and ``UNSUPPORTED_PREFIXES`` alone and must not pay for the validator.
+    """
+    try:
+        import dismech.patch_reference_validator  # noqa: F401  (network resilience)
+        from linkml_reference_validator.cli.shared import load_validation_config
+        from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise RuntimeError(f"linkml-reference-validator unavailable: {exc}") from exc
+
+    global _FETCHER
+    if _FETCHER is None:
+        _FETCHER = ReferenceFetcher(load_validation_config(None))
+    return bool(_FETCHER.fetch(f"{prefix}:{local_id}"))
+
+
 def verify_one(
     accession: str, cache: dict, throttle: Throttle, api_key: str | None, refresh: bool
 ) -> Result:
@@ -512,20 +583,48 @@ def verify_one(
         mismatch_from, prefix = prefix, actual
 
     key = f"{prefix}:{local_id.upper()}"
-    cached = cache.get(key) if not refresh else None
-    # A NOT_FOUND is not necessarily permanent -- GEO accessions are routinely
-    # embargoed until publication -- so negative results expire and get retried.
-    if cached and cached.get("status") == NOT_FOUND:
-        checked = cached.get("checked", "")
-        try:
-            age = (
-                dt.datetime.now(dt.UTC).date() - dt.date.fromisoformat(checked[:10])
-            ).days
-        except (TypeError, ValueError):
-            age = 10**6
-        if age > NEGATIVE_CACHE_DAYS:
-            cached = None
 
+    # Prefixes with a reference fetcher verify against references_cache/: a
+    # cache file present means the record resolved, and fetching a missing one
+    # both verifies it and leaves the artifact the PR should commit. Nothing is
+    # written to a shared file, so two PRs adding datasets cannot collide.
+    ref_path = reference_cache_path(prefix, local_id)
+    if ref_path is not None:
+        if ref_path.exists() and not refresh:
+            res.prefix = prefix
+            res.status = PREFIX_MISMATCH if mismatch_from else OK
+            res.title = read_cached_title(ref_path)
+            res.detail = (
+                f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+                if mismatch_from
+                else f"cached at {ref_path.relative_to(REPO_ROOT)}"
+            )
+            return res
+        try:
+            fetched = fetch_reference_record(prefix, local_id)
+        except Exception as exc:
+            res.status = ERROR
+            res.detail = str(exc)[:200]
+            return res
+        res.checked = dt.datetime.now(dt.UTC).date().isoformat()
+        res.prefix = prefix
+        if fetched and ref_path.exists():
+            res.status = PREFIX_MISMATCH if mismatch_from else OK
+            res.title = read_cached_title(ref_path)
+            res.detail = (
+                f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+                if mismatch_from
+                else f"fetched to {ref_path.relative_to(REPO_ROOT)} -- commit this file"
+            )
+        else:
+            res.status = NOT_FOUND
+            res.detail = "no record returned by the repository"
+        return res
+
+    # Everything else: resolve against the repository API. `cache` is a
+    # per-run memo only -- results are deliberately not persisted (see the
+    # module docstring).
+    cached = cache.get(key) if not refresh else None
     if cached:
         status, title = cached["status"], cached.get("title", "")
         detail, extra = cached.get("detail", ""), cached.get("extra", {})
@@ -547,7 +646,7 @@ def verify_one(
                 "detail": detail,
                 "extra": extra,
                 "checked": res.checked,
-            }
+            }  # per-run memo; not persisted to disk
 
     if mismatch_from and status == OK:
         status = PREFIX_MISMATCH
@@ -603,7 +702,9 @@ def main() -> int:
         help="exit non-zero if any accession is NOT_FOUND/MALFORMED",
     )
     ap.add_argument(
-        "--refresh", action="store_true", help="ignore the cache and re-query the APIs"
+        "--refresh",
+        action="store_true",
+        help="ignore cached records and re-fetch/re-query every accession",
     )
     ap.add_argument("--json", type=Path, help="write full results to a JSON file")
     ap.add_argument(
@@ -631,12 +732,10 @@ def main() -> int:
     api_key = os.environ.get("NCBI_API_KEY")
     throttle = Throttle(9.0 if api_key else 2.5)
 
+    # Per-run memo for prefixes that still resolve against a repository API.
+    # Nothing is persisted: prefixes in REFERENCE_CACHED_PREFIXES cache
+    # per-record under references_cache/ instead.
     cache: dict[str, Any] = {}
-    if CACHE_PATH.exists():
-        try:
-            cache = json.loads(CACHE_PATH.read_text())
-        except json.JSONDecodeError:
-            cache = {}
 
     results: list[Result] = []
     total = len(sources)
@@ -646,9 +745,6 @@ def main() -> int:
         results.append(res)
         if not args.quiet or res.status not in (OK, UNSUPPORTED):
             print(f"[{idx}/{total}] {res.as_row()}", flush=True)
-
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True) + "\n")
 
     if args.json:
         args.json.write_text(

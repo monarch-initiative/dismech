@@ -90,9 +90,11 @@ uv run python scripts/build_dataset_records.py apply proposals/batch.json
 # 6. Confirm only `datasets:` moved
 git diff kb/disorders/Asthma.yaml
 
-# 7. Validate
+# 7. Validate. For geo: accessions this also fetches
+#    references_cache/GEO_<ID>.md -- stage those with the entry.
 just verify-datasets kb/disorders/Asthma.yaml
 just validate kb/disorders/Asthma.yaml
+git add kb/disorders/Asthma.yaml references_cache/GEO_*.md
 
 # 8. Record the change (CLAUDE.md requires a history record per KB edit)
 uv run python scripts/new_history.py --kind disorder --slug Asthma \
@@ -146,6 +148,78 @@ central warning. Bulk-generated dataset records therefore carry `publication:`
 and provenance `notes` instead, and evidence enrichment is left as a deliberate
 follow-up for a curator or a targeted, verified agent pass.
 
+What has changed is that the quote now *exists*: the GEO summary is cached at
+`references_cache/GEO_<ID>.md`, so a curator can quote it and cite `GEO:<ID>`
+(worked example: `Acne_Vulgaris`). That makes evidence enrichment possible
+per-record; it does not make it safe in bulk, and the rule above is unchanged.
+
+## Where verification results are stored
+
+`Dataset.accession` carries `implements: linkml:authoritative_reference` — it is
+a reference slot, and always was. `conf/reference_validator_config.yaml` merely
+lists the dataset prefixes under `skip_prefixes`.
+
+For `geo:`, **verification and caching are now one operation**.
+`just verify-datasets` asks the reference fetcher for the record; the fetcher
+writes `references_cache/GEO_<ID>.md` carrying GEO's title and summary, and
+writes it only if the repository returned something. So:
+
+- a cache file present *is* the proof the accession resolves;
+- commit it with the `datasets:` block, exactly like a `PMID_*.md`;
+- every later run, and CI, verifies offline.
+
+All 919 `geo:` accessions in `kb/` are backfilled, so a run over an untouched
+file makes no network calls.
+
+### Still to do: take `geo` out of `skip_prefixes`
+
+Removing `geo` / `GEO` from `skip_prefixes` would hand snippet **and title**
+checking of dataset records to `linkml-reference-validator`, which is the point
+of caching them. It is not done yet because it is a content change, not a
+tooling one. Measured against the complete backfilled cache, it would newly
+fail **32 records**:
+
+- **30 dataset titles that paraphrase GEO's own title** (of 951 checked; 921
+  match). `datasets[].title` sits next to a reference field, so the validator
+  compares it with the fetched record. Examples: `Bbs8-deficient mouse retinal
+  pigment epithelium transcriptomics` against GEO's `Transcriptome profile of
+  Bbs8/TTC8 Knockout mouse RPE Tissue`; `Single-nucleus RNA sequencing of
+  chromosomal-instability-linked immune states in esophageal adenocarcinoma`
+  against a GEO title sharing none of those words. One is the reverse case — a
+  curator silently *corrected* GEO's misspelled "Reed-Stenberg", which the
+  validator would flag just the same.
+- **2 snippets quoting a GEO field the fetcher does not cache** — the "overall
+  design" text rather than the summary (`GEO:GSE316127`, `GEO:GSE289185`).
+
+Both classes are worth fixing on their merits, and the title check is the more
+valuable of the two: a paraphrased title is exactly the kind of drift no
+existing check catches. They are a curation pass, so they are tracked separately
+rather than bundled into a storage change.
+
+Other prefixes (EGA, MassIVE, dbGaP, PRIDE, MetaboLights, …) still resolve
+against their repository API on every run and cache nothing. Migrating one means
+writing a reference fetcher for it and adding it to `REFERENCE_CACHED_PREFIXES`
+in `scripts/verify_dataset_accessions.py`.
+
+### `cache/dataset_accessions.json` is frozen — never touch it
+
+Verification results used to go into one shared JSON object. Every run rewrote
+that file **in full**, including a run over a single disorder file, so every
+curation PR touching a `datasets:` block churned the same 1.8 MB file — and with
+919 `geo:` keys sorted into one contiguous region, two PRs adding neighbouring
+accessions collided.
+
+Nothing reads or writes it now, and
+`test_no_automation_touches_the_frozen_dataset_cache` keeps it that way. It stays
+in git only until the open PRs carrying edits to it have drained. Do not stage
+it, and do not regenerate it.
+
+Why not a `datasets/` folder instead, one file per dataset shared across
+entries? Because de-duplication is not the problem: of 1,747 dataset records,
+1,696 accessions are distinct, and the 49 that repeat (2.9%, maximum fan-out 3)
+are all pairs of sibling entries. See
+[design decision 6b](explanation/design-decisions.md#6b-a-dataset-accession-is-a-reference-cached-one-file-per-record-2026-08-27).
+
 ## Verification statuses
 
 | Status | Meaning |
@@ -164,8 +238,14 @@ They are reported rather than failed because fixing them needs a human.
 
 NCBI GEO / SRA / BioProject / dbGaP, EBI BioStudies (ArrayExpress) / PRIDE /
 MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, and Metabolomics Workbench.
-Adding another means writing a resolver in
-`scripts/verify_dataset_accessions.py` and registering its accession shape.
+
+Adding another means writing a resolver in `scripts/verify_dataset_accessions.py`
+and registering its accession shape. Migrating an existing one to the reference
+cache (the `geo:` treatment) means instead giving it a `linkml-reference-validator`
+source and adding it to `REFERENCE_CACHED_PREFIXES`. Worth doing next by volume:
+`ega` (382 accessions), `massive` (120), `metabolomics_workbench` (81), `dbgap`
+(71). lrv already ships a `BIOPROJECT` source, and its generic `json_api` source
+may cover others with configuration rather than code.
 
 For discovery, the ArrayExpress and EGA study indexes resolve offline against
 committed retrieval metadata. Their bulk archives are gitignored and rebuilt with

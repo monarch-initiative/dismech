@@ -2119,3 +2119,56 @@ def test_dataset_accession_prefix_and_shape(filepath):
         f"{Path(filepath).name} has malformed dataset accessions:\n"
         + "\n".join(f"  - {e}" for e in errors)
     )
+
+
+# The frozen shared dataset-verification blob. Kept in git only because ~200 open
+# PRs still carry edits to it; deleting it now would conflict with all of them.
+# Nothing may read or write it: dataset verification moved to per-record files
+# under references_cache/, which two PRs can add to without colliding.
+FROZEN_DATASET_CACHE = "cache/dataset_accessions" + ".json"
+
+
+def test_no_automation_touches_the_frozen_dataset_cache():
+    """No script, module, test, workflow, or recipe may read or write the blob.
+
+    The old ``cache/dataset_accessions`` JSON was rewritten in full by every run
+    of the dataset verifier -- including a run over a single disorder file -- so
+    every curation PR that touched a ``datasets:`` block churned the same
+    1.8 MB file. With 919 ``geo:`` keys sorted into one contiguous block, two
+    PRs adding neighbouring accessions landed inside each other's diff context
+    and conflicted.
+
+    Verification now goes through ``references_cache/<PREFIX>_<ID>.md``: one
+    file per dataset, added not modified, which is the same shape the repo
+    already uses for PMIDs. This test keeps the old path from creeping back in.
+    Documentation may still name the file -- that is how curators learn not to
+    touch it -- so only code and automation are scanned.
+    """
+    scanned = [
+        *ROOT_DIR.glob("src/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.sh"),
+        *ROOT_DIR.glob("tests/**/*.py"),
+        *ROOT_DIR.glob(".github/workflows/*.yaml"),
+        *ROOT_DIR.glob(".github/workflows/*.yml"),
+        ROOT_DIR / "justfile",
+        ROOT_DIR / "project.justfile",
+        ROOT_DIR / "ai.just",
+    ]
+    offenders = []
+    for path in scanned:
+        if not path.is_file() or path.resolve() == Path(__file__).resolve():
+            continue
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if FROZEN_DATASET_CACHE in text:
+            offenders.append(str(path.relative_to(ROOT_DIR)))
+
+    assert not offenders, (
+        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        "Cache dataset records per-record under references_cache/ instead "
+        "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
+    )
