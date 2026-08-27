@@ -329,19 +329,26 @@ row.
 | `NOS 21-0110`/`0120`/`0130`/`0140`/`0150`/`0160` (the six Seckel rows) | `Seckel_Syndrome` |
 | `NOS 21-0190` MOPD, XRCC4-related (616541) | `Short_Stature_Microcephaly_and_Endocrine_Dysfunction` |
 | `NOS 21-0250`–`0350` Meier-Gorlin, eleven pre-RC genes | `Meier-Gorlin_Syndrome` |
+| `NOS 21-0010`/`0020`/`0030` 3-M syndrome, three genes | `3-M_Syndrome` |
+| `NOS 21-0040` Sanjad-Sakati (TBCE, 241410) | `Sanjad-Sakati_Syndrome` |
+| `NOS 21-0050` + `21-0060` dominant Kenny-Caffey and osteocraniostenosis (FAM111A) | `FAM111A-Related_Skeletal_Dysplasia` |
+| `NOS 21-0070` Hallermann-Streiff (234100) | `Hallermann-Streiff_Syndrome` |
+| `NOS 21-0200` DONSON spectrum (251230, 617604) | `DONSON-Related_Microcephalic_Primordial_Dwarfism` |
+| `NOS 21-0210` IMAGe (CDKN1C, 614732) | `IMAGe_Syndrome` |
+| `NOS 21-0220` IMAGe/FILS (POLE, 618336, 615139) | `FILS_Syndrome` |
+| `NOS 21-0230` Saul-Wilson (COG4, 618150) | `Saul-Wilson_Syndrome` |
+| `NOS 21-0240` SCUBE3 syndrome (619184) | `SCUBE3-Related_Short_Stature_Syndrome` |
 
-The remaining 12 rows have no dismech entry. They are a curation gap, not a
-classification gap, so each is tracked in `stubs/` with its `NOS` row recorded
-in the stub's `notes:` — `NOS 21-0010`/`0020`/`0030` 3-M syndrome, `21-0040`
-Sanjad-Sakati, `21-0050` dominant Kenny-Caffey, `21-0060` osteocraniostenosis,
-`21-0070` Hallermann-Streiff, `21-0200` the DONSON spectrum, `21-0210` IMAGe,
-`21-0220` IMAGe/FILS (POLE), `21-0230` Saul-Wilson, and `21-0240` the SCUBE3
-syndrome. Two of those (osteocraniostenosis, Saul-Wilson) and the SCUBE3 stub
-were already in the queue from the rare-disease-identification seeding.
+**34 of the group's 35 rows are now curated.** The nine entries below the
+Meier-Gorlin line were written in this pass; their stubs are deleted.
 
-One row is not stubbed: `NOS 21-0180`, MOPD CRIPT-related (OMIM 615789). MONDO
-has no term that resolves cleanly to it, and a stub's `mondo_id` is required, so
-it is recorded here rather than seeded with a guessed identifier.
+One row is not stubbed: `NOS 21-0180`, MOPD CRIPT-related (OMIM 615789). Its
+OMIM number *does* resolve in MONDO — to `MONDO:0014347`, labelled **Rothmund-
+Thomson syndrome type 3**, with "short stature with microcephaly and distinctive
+facies" carried as a synonym. That is a disagreement between two sources about
+what OMIM 615789 denotes, not a missing identifier, and seeding a stub against
+that term would import the disagreement silently. Recorded here instead, pending
+someone resolving it.
 
 **Lumping and splitting.** The nosology splits this group by gene, dismech does
 not, and the difference is deliberate on both sides. Three dismech entries are
