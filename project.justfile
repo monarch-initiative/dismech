@@ -1105,18 +1105,37 @@ list-modules filter="":
     #!/usr/bin/env -S uv run python
     import pathlib, textwrap, yaml
     filt = {{ quote(filter) }}.lower()
+    # A filter is a targeted lookup, so it prints description AND notes in full:
+    # since the module registry left CLAUDE.md, those two fields are the only
+    # place a module's scope, sibling complementarity, drug-target pattern, key
+    # conformance target and curation guardrails live, and truncating them
+    # defeats the convention `create-module` now imposes on module authors.
+    # The unfiltered census stays clipped so ~130 modules remain scannable.
+    def emit(label, text, clip):
+        if not text:
+            return
+        kw = dict(max_lines=4, placeholder=" …") if clip else {}
+        print(textwrap.fill(text, 96, initial_indent=label, subsequent_indent="  ", **kw))
+    matched = 0
     for path in sorted(pathlib.Path("kb/modules").glob("*.yaml")):
         doc = yaml.safe_load(path.read_text()) or {}
         nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
         desc = " ".join((doc.get("description") or "").split())
-        if filt and filt not in f"{path.stem} {desc} {' '.join(nodes)}".lower():
+        notes = " ".join((doc.get("notes") or "").split())
+        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
             continue
+        matched += 1
         print(f"\n{path.stem}")
-        if desc:
-            print(textwrap.fill(desc, 96, initial_indent="  ", subsequent_indent="  ",
-                                max_lines=4, placeholder=" …"))
+        emit("  ", desc, clip=not filt)
+        if filt:
+            emit("  notes: ", notes, clip=False)
         for node in nodes:
             print(f"    - {path.stem}#{node}")
+    if not filt:
+        print(f"\n{matched} modules (descriptions clipped; pass a filter for the "
+              f"full description and notes, e.g. `just list-modules inflamm`)")
+    elif not matched:
+        print(f"no module matches {filt!r}")
 
 # Count disorders
 [group('KB')]
